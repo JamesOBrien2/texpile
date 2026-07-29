@@ -16,7 +16,8 @@
 	import PreambleFrontmatter from './PreambleFrontmatter.svelte';
 	import EditorView from '$lib/editor/EditorView.svelte';
 	import type { EditSession } from '$lib/collab/editSession';
-	import type { ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
+	import type { ParsedLatexFile, ParsePhase } from '$lib/workspace/latexRoundtrip';
+	import VisualLoading from './VisualLoading.svelte';
 	import type { BibLaTeXReference } from '$lib/workspace/citations';
 	import type { Starter, ImportedFile } from '$lib/workspace/starters';
 	import { basename, dirname } from '$lib/workspace/fileSystem';
@@ -42,6 +43,10 @@
 		texSource: string;
 		rawContent: string;
 		visualDoc: PMNode | null;
+		/** stage of the in-flight parse, for the visual-mode loading bar; null = idle */
+		parseProgress?: ParsePhase | null;
+		/** escape hatch offered once the parse looks slow */
+		onUseSource?: () => void;
 		docMeta: Pick<ParsedLatexFile, 'preamble' | 'postamble' | 'hadDocumentEnv'> | null;
 		allReferences: BibLaTeXReference[];
 		sourceGotoLine: { line: number; token: number; selectText?: string } | undefined;
@@ -87,6 +92,8 @@
 		texSource,
 		rawContent,
 		visualDoc,
+		parseProgress = null,
+		onUseSource,
 		docMeta,
 		allReferences,
 		sourceGotoLine,
@@ -118,6 +125,28 @@
 
 	// remounts the source editor when the file or the session's view of it changes
 	const sourceKey = $derived(`${loadedPath}:${session.active}:${session.manifestRev}`);
+
+	// Building the visual editor's node views is one long synchronous block - seconds on a large
+	// paper - and it does NOT happen when <EditorView> mounts. That component's onMount awaits a
+	// dynamic import first, so the browser paints (the title appears, the editor area is still
+	// empty), and only then does ProseMirror construct and freeze the thread. So mounting is not the
+	// signal; EditorView reports the real one through onReady.
+	//
+	// Keeping the loading bar rendered until then puts it on screen during that import-await paint,
+	// and whatever was last painted stays up through the block that follows.
+	//
+	// Tracked per path rather than as a plain boolean so opening another file resets it for free.
+	let readyFor = $state<string | null>(null);
+	const editorReady = $derived(!!loadedPath && readyFor === loadedPath);
+
+	/** Rendered for the whole build, but it holds itself invisible for the first 300 ms through a CSS
+	 * animation delay (see VisualLoading), so a fast build never flashes a bar. Deliberately not a
+	 * size threshold: that would bake in an assumption about how fast the machine is, and suppress
+	 * the bar on a slow CPU exactly where the wait is worst. */
+	const showRenderBar = $derived(!editorReady);
+
+	/** the visual editor is wanted, whether or not it has been built yet */
+	const visualPending = $derived(loadedPath && kind === 'tex' && viewMode === 'visual');
 </script>
 
 <div class="flex min-h-0 min-w-0 flex-col" style="grid-column: 1; grid-row: 2">
@@ -205,10 +234,21 @@
 								onSelectionChange={onVisualSelection}
 								placeholder={m.wsview_editor_placeholder()}
 								{onHistoryBoundary}
+								onReady={() => (readyFor = loadedPath)}
 							/>
+							{#if showRenderBar}
+								<!-- EditorView keeps its own root hidden until ProseMirror exists, so this sits in the
+								     space the editor will occupy rather than over it. It is on screen for the paint
+								     that happens while EditorView awaits its dynamic import, and stays there through
+								     the synchronous build that follows. -->
+								<VisualLoading mounting sizeBytes={texSource.length} />
+							{/if}
 						</div>
 					</div>
 				{/key}
+			{:else if visualPending}
+				<!-- doc not here yet: the parse runs in a worker and fills this in when it lands -->
+				<VisualLoading phase={parseProgress} sizeBytes={texSource.length} {onUseSource} />
 			{:else if loadedPath && kind === 'bib' && (viewMode === 'source' || session.isGuest)}
 				<!-- guests always co-edit .bib through the Y-bound source editor; BibManager isn't
 				     CRDT-bound and would desync or clobber remote edits -->
@@ -249,7 +289,8 @@
 					{m.wsview_binary_file_note({ name: basename(loadedPath) })}
 				</div>
 			{:else if $activeFilePath}
-				<div class="text-surface-500 mt-12 flex items-center justify-center gap-2 text-sm">
+				<!-- shown while the visual parse runs; fades in late so a fast parse never strobes a spinner -->
+				<div class="text-surface-500 spinner-late mt-12 flex items-center justify-center gap-2 text-sm">
 					<Loader2 class="size-4 animate-spin" />
 					{m.wsview_opening()}
 				</div>
@@ -259,3 +300,15 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.spinner-late {
+		opacity: 0;
+		animation: spinner-late-in 0.2s ease 0.15s forwards;
+	}
+	@keyframes spinner-late-in {
+		to {
+			opacity: 1;
+		}
+	}
+</style>

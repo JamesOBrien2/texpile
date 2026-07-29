@@ -7,6 +7,28 @@ async function invokeFs(channel: string, ...args: unknown[]): Promise<unknown> {
 	throw new Error(r?.error ?? 'Unknown error');
 }
 
+// main pushes open-path/open-folder on did-finish-load, which can beat the renderer's
+// subscription (mount waits on the settings IPC; the route-split boot is fast enough to lose
+// that race). Buffer here — preload runs before any page code — and flush on subscribe.
+function bufferedChannel<T>(channel: string, map: (...args: unknown[]) => T) {
+	const queued: T[] = [];
+	let handler: ((v: T) => void) | null = null;
+	ipcRenderer.on(channel, (_e, ...args: unknown[]) => {
+		const v = map(...args);
+		if (handler) handler(v);
+		else queued.push(v);
+	});
+	return (cb: (v: T) => void) => {
+		handler = cb;
+		while (queued.length) cb(queued.shift()!);
+		return () => {
+			handler = null;
+		};
+	};
+}
+const onOpenPathBuffered = bufferedChannel('main:open-path', (p) => String(p));
+const onOpenFolderBuffered = bufferedChannel('main:open-folder', (r) => String(r));
+
 contextBridge.exposeInMainWorld('texpileNative', {
 	/** native folder picker; resolves to the chosen absolute path or null. */
 	openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
@@ -15,18 +37,10 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	setSettings: (partial: Record<string, unknown>) => ipcRenderer.invoke('settings:set', partial),
 	/** set the whole-window zoom factor (clamped 0.5..2.5); resolves to the applied factor. */
 	setZoomFactor: (factor: number) => ipcRenderer.invoke('window:setZoom', factor),
-	/** subscribe to "open this .tex" requests from the OS; returns an unsubscribe fn. */
-	onOpenPath: (cb: (filePath: string) => void) => {
-		const h = (_e: unknown, filePath: string) => cb(filePath);
-		ipcRenderer.on('main:open-path', h);
-		return () => ipcRenderer.removeListener('main:open-path', h);
-	},
+	/** subscribe to "open this .tex" requests from the OS; buffered, returns an unsubscribe fn. */
+	onOpenPath: (cb: (filePath: string) => void) => onOpenPathBuffered(cb),
 	/** subscribe to "open this folder" pushes (session restore, Open Folder in New Window). */
-	onOpenFolder: (cb: (root: string) => void) => {
-		const h = (_e: unknown, root: string) => cb(root);
-		ipcRenderer.on('main:open-folder', h);
-		return () => ipcRenderer.removeListener('main:open-folder', h);
-	},
+	onOpenFolder: (cb: (root: string) => void) => onOpenFolderBuffered(cb),
 	/** register this window as the folder's owner; { ok:false } means another window has it (and was focused). */
 	claimWorkspace: (root: string) => ipcRenderer.invoke('workspace:claim', root),
 	/** mark this window as back on the start screen. */
@@ -37,6 +51,14 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	openFolderNewWindow: () => ipcRenderer.invoke('window:openFolderNew'),
 	/** true exactly once per app session; the winner runs the update check / What's New. */
 	claimStartupTasks: () => ipcRenderer.invoke('session:claimStartupTasks'),
+	/** subscribe to "this window is about to close" (main holds the close until closeDecision). */
+	onBeforeClose: (cb: () => void) => {
+		const h = () => cb();
+		ipcRenderer.on('app:before-close', h);
+		return () => ipcRenderer.removeListener('app:before-close', h);
+	},
+	/** answer a held close: true proceeds (after flushing), false keeps the window open. */
+	closeDecision: (proceed: boolean) => ipcRenderer.send('window:close-decision', proceed),
 
 	/** recursively scan a folder for files of the given extensions (CSV, default 'tex'). */
 	fsScan: (root: string, exts?: string) => invokeFs('fs:scan', root, exts),
@@ -47,6 +69,8 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	fsWriteBinary: (path: string, data: ArrayBuffer) => invokeFs('fs:writeBinary', path, data),
 	/** nested file/folder tree -> { root, children }. */
 	fsTree: (root: string) => invokeFs('fs:tree', root),
+	/** tree + flat file scan (CSV exts, default 'tex') in ONE walk -> { root, children, files }. */
+	fsTreeScan: (root: string, exts?: string) => invokeFs('fs:treeScan', root, exts),
 	/** create / delete / rename -> { ok }. */
 	fsOp: (body: Record<string, unknown>) => invokeFs('fs:op', body),
 	/** find-in-files -> { results, truncated, total? }. */

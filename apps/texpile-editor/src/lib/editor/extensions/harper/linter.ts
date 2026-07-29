@@ -1,34 +1,42 @@
 // wrapper around the harper.js WorkerLinter singleton
-import { WorkerLinter, Dialect, binary } from 'harper.js';
-import type { Lint, LintConfig } from 'harper.js';
+import type { Lint, LintConfig, LintOptions, WorkerLinter } from 'harper.js';
 import { editorConfigStore } from '$lib/stores/editorStore';
 import { get } from 'svelte/store';
 
-let linterInstance: WorkerLinter | null = null;
+let linterPromise: Promise<WorkerLinter> | null = null;
 
 let lastLoadedDictionary: string[] = [];
 
+async function createLinter(): Promise<WorkerLinter> {
+	// harper's js glue is heavy, so it loads with the first lint instead of at boot (the wasm
+	// was already lazy)
+	const { WorkerLinter, Dialect, binary } = await import('harper.js');
+	const linter = new WorkerLinter({
+		binary,
+		dialect: Dialect.American
+	});
+
+	// setup up front so the first lint isn't slow
+	await linter.setup();
+
+	await linter.importWords(['Texpile', 'LaTeX', 'WYSIWYM', 'CTRL', 'CMD']);
+
+	const config = await linter.getLintConfig();
+	await linter.setLintConfig(config);
+
+	return linter;
+}
+
 export async function getHarperLinter(): Promise<WorkerLinter> {
-	if (!linterInstance) {
-		linterInstance = new WorkerLinter({
-			binary,
-			dialect: Dialect.American
-		});
-
-		// setup up front so the first lint isn't slow
-		await linterInstance.setup();
-
-		await linterInstance.importWords(['Texpile', 'LaTeX', 'WYSIWYM', 'CTRL', 'CMD']);
-
-		const config = await linterInstance.getLintConfig();
-		await linterInstance.setLintConfig(config);
-	}
-
-	return linterInstance;
+	linterPromise ??= createLinter();
+	return linterPromise;
 }
 
 /** lints text, returning matches in prosemirror-proofread format. */
-export async function lintText(text: string): Promise<{
+export async function lintText(
+	text: string,
+	options?: { language?: LintOptions['language']; isStale?: () => boolean }
+): Promise<{
 	matches: Array<{
 		offset: number;
 		length: number;
@@ -37,17 +45,22 @@ export async function lintText(text: string): Promise<{
 		type: { typeName: string };
 		replacements?: string[];
 	}>;
+	/** worker/wasm failure: callers must NOT cache the empty result as "no problems". */
+	failed?: true;
 }> {
 	try {
 		const linter = await getHarperLinter();
-		const lints: Lint[] = await linter.lint(text);
+		const lints: Lint[] = await linter.lint(text, options?.language ? { language: options.language } : undefined);
+		// mapping below hydrates wasm objects on the main thread; skip it when the caller already
+		// knows the result is superseded
+		if (options?.isStale?.()) return { matches: [] };
 
 		const matches = lints.map((lint) => {
 			const span = lint.span();
 			const suggestions: string[] = [];
 
-			for (let i = 0; i < lint.suggestion_count(); i++) {
-				const sug = lint.suggestions()[i];
+			// suggestions() re-materializes the wasm array on every call, so read it once
+			for (const sug of lint.suggestions()) {
 				const replacement = sug.get_replacement_text();
 				if (replacement) {
 					suggestions.push(replacement);
@@ -73,7 +86,7 @@ export async function lintText(text: string): Promise<{
 		return { matches };
 	} catch (error) {
 		console.error('[Harper] Linting error:', error);
-		return { matches: [] };
+		return { matches: [], failed: true };
 	}
 }
 

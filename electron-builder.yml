@@ -22,12 +22,23 @@ directories:
 
 # only the Electron shell goes into the asar; the renderer bundle ships as an extra resource,
 # served from the app:// protocol. The exclusions keep third-party sourcemaps/tests out.
+# node-pty runtime needs only its .node/.dll/.exe binaries (+ lib/ + bin/); the compiler
+# intermediates, sources and debug symbols below are ~20MB of dead weight per install.
 files:
   - electron/dist/**/*
   - electron/icon.png
   - package.json
   - '!**/*.map'
   - '!**/node_modules/**/{test,tests,__mocks__}/**'
+  - '!**/node_modules/node-pty/build/**/*.{iobj,ipdb,pdb,exp,lib,tlog}'
+  - '!**/node_modules/node-pty/build/{deps,obj}/**'
+  - '!**/node_modules/node-pty/build/Release/obj/**'
+  - '!**/node_modules/node-pty/build/Release/obj.target/**'
+  - '!**/node_modules/node-pty/build/*.{sln,gypi,mk}'
+  - '!**/node_modules/node-pty/build/Makefile'
+  - '!**/node_modules/node-pty/build/*.vcxproj*'
+  - '!**/node_modules/node-pty/{third_party,src,deps,scripts,typings}/**'
+  - '!**/node_modules/node-pty/prebuilds/**/*.pdb'
 
 # node-pty (its .node binary plus the Windows ConPTY runtime, conpty.dll / OpenConsole.exe) must
 # stay out of the asar so it can be dlopen'd at runtime
@@ -89,6 +100,9 @@ mac:
   category: public.app-category.productivity
   icon: electron/icon.png
 
+# NOTE: per-platform `files` blocks must NOT be used for the cross-platform prebuild pruning:
+# a file set containing only exclusions is implicitly '**/*' minus them, which once shipped the
+# entire repo inside the asar. The pruning lives in scripts/after-pack.cjs instead.
 win:
   target:
     - nsis

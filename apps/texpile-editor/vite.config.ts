@@ -79,12 +79,32 @@ export default defineConfig(({ mode }) => ({
 			// dynamically loaded by @codemirror/language-data's .load(); transitive, so resolve
 			// through it with Vite's `a > b` syntax
 			'@codemirror/language-data > @codemirror/legacy-modes/mode/stex', // LaTeX highlighting
-			'@codemirror/language-data > @codemirror/lang-json'
+			'@codemirror/language-data > @codemirror/lang-json',
+			// both belong to svelte-pdf-view, which stays EXCLUDED (pre-bundling it breaks its
+			// worker), so the prebundle list above misses them and pnpm won't resolve them from the
+			// app root: reach them through their owner. Vite used to discover them lazily when the
+			// preview first loaded, then force-reload the page mid-session, which white-screened the
+			// route-split views on the 504 their in-flight import got.
+			'svelte-pdf-view > esm-env',
+			'svelte-pdf-view > pdfjs-dist/legacy/build/pdf.mjs'
 		],
 		exclude: ['harper.js', 'svelte-pdf-view'],
+		// never discover a dep lazily. Discovery re-optimizes mid-session and force-reloads the
+		// page, which white-screens the route-split views when an in-flight chunk import 504s. The
+		// include list above is generated from package.json, so everything imported directly is
+		// covered; anything else (a language-data mode, say) is served unbundled instead, which is
+		// fine for ESM and fails loudly at first use rather than silently reloading the app.
+		noDiscovery: true,
 		esbuildOptions: {
 			target: 'esnext'
 		}
+	},
+
+	// pin the dev server to IPv4: binding plain `localhost` can land on ::1 only, and the
+	// Electron window (which loads ELECTRON_START_URL over IPv4) then sees ERR_CONNECTION_REFUSED
+	// while browsers happily connect over IPv6 - a white window with a "working" server
+	server: {
+		host: '127.0.0.1'
 	},
 
 	assetsInclude: ['**/*.wasm'],
@@ -98,7 +118,22 @@ export default defineConfig(({ mode }) => ({
 		// Electron ships a modern Chromium with native modulepreload, so drop Vite's polyfill: it is
 		// the only inline <script> Vite injects, and removing it lets the packaged app's CSP use a
 		// strict script-src 'self' with no inline allowance
-		modulePreload: { polyfill: false }
+		modulePreload: { polyfill: false },
+		rollupOptions: {
+			output: {
+				// the big editor deps go into their own chunks so the workspace payload streams as
+				// parallel, independently-cacheable pieces instead of one blob
+				manualChunks(id: string) {
+					if (!id.includes('node_modules')) return;
+					if (id.includes('mathlive')) return 'mathlive';
+					if (id.includes('prosemirror')) return 'prosemirror';
+					// core only: language-data/legacy-modes/lang-* stay lazy, grouping them here
+					// would load every language mode with the editor
+					if (/@codemirror[\\/](state|view|language|commands|search|autocomplete|lint)[\\/]/.test(id)) return 'codemirror';
+					if (id.includes('@xterm')) return 'xterm';
+				}
+			}
+		}
 	},
 
 	// minification strips our comments but must keep third-party legal comments (/*! */,

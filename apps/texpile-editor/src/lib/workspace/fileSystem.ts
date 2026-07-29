@@ -61,12 +61,15 @@ interface TexpileNative {
 	newWindow?: () => Promise<void>;
 	openFolderNewWindow?: () => Promise<string | null>;
 	claimStartupTasks?: () => Promise<boolean>;
+	onBeforeClose?: (cb: () => void) => () => void;
+	closeDecision?: (proceed: boolean) => void;
 	setZoomFactor?: (factor: number) => Promise<number>;
 	fsScan: (root: string, exts?: string) => Promise<{ root: string; files: TexFile[] }>;
 	fsRead: (path: string) => Promise<{ content: string }>;
 	fsWrite: (path: string, content: string) => Promise<{ ok: boolean }>;
 	fsWriteBinary: (path: string, data: ArrayBuffer) => Promise<{ ok: boolean }>;
 	fsTree: (root: string) => Promise<{ root: string; children: TreeEntry[] }>;
+	fsTreeScan: (root: string, exts?: string) => Promise<{ root: string; children: TreeEntry[]; files: TexFile[] }>;
 	fsOp: (body: Record<string, unknown>) => Promise<{ ok: boolean }>;
 	fsSearch: (
 		root: string,
@@ -165,6 +168,11 @@ export async function scanFiles(root: string, exts: string[]): Promise<{ root: s
 
 export async function scanTree(root: string): Promise<{ root: string; children: TreeEntry[] }> {
 	return ipc(requireNative().fsTree(root));
+}
+
+/** tree + flat .tex list from ONE native traversal (the refresh path used to walk twice). */
+export async function scanTreeAndFiles(root: string, exts?: string[]): Promise<{ root: string; children: TreeEntry[]; files: TexFile[] }> {
+	return ipc(requireNative().fsTreeScan(root, exts?.join(',')));
 }
 
 async function op(payload: Record<string, unknown>): Promise<void> {
