@@ -30,12 +30,23 @@ export function attachWindowListeners(deps: WindowWiringDeps): () => void {
 	const onCompile = () => deps.runCompile();
 	const onResize = () => deps.onWindowResize();
 
+	// Disk changed under the claimed root (main's chokidar watcher, debounced there). Unlike the
+	// `texpile:fs-changed` window event - which announces OUR OWN writes and so deliberately skips
+	// the conflict check - this one exists precisely because someone ELSE wrote, so the open file
+	// must be conflict-checked as well. Without it, the check waited for the next window focus,
+	// which with an agent or second editor writing mid-session was too late.
+	const detachNativeWatch = native()?.onWorkspaceFsChanged?.(() => {
+		onFsChanged();
+		if (deps.isHost()) deps.checkExternalChange();
+	});
+
 	window.addEventListener('focus', onFocus);
 	window.addEventListener('texpile:fs-changed', onFsChanged);
 	window.addEventListener('compile', onCompile);
 	window.addEventListener('resize', onResize);
 
 	return () => {
+		detachNativeWatch?.();
 		window.removeEventListener('focus', onFocus);
 		window.removeEventListener('texpile:fs-changed', onFsChanged);
 		window.removeEventListener('compile', onCompile);

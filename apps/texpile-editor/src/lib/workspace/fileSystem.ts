@@ -62,6 +62,7 @@ interface TexpileNative {
 	openFolderNewWindow?: () => Promise<string | null>;
 	claimStartupTasks?: () => Promise<boolean>;
 	onBeforeClose?: (cb: () => void) => () => void;
+	onWorkspaceFsChanged?: (cb: () => void) => () => void;
 	closeDecision?: (proceed: boolean) => void;
 	setZoomFactor?: (factor: number) => Promise<number>;
 	fsScan: (root: string, exts?: string) => Promise<{ root: string; files: TexFile[] }>;

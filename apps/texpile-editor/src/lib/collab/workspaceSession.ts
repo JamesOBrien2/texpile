@@ -56,6 +56,8 @@ export function visualCollabBridge(deps: VisualCollabBridgeDeps) {
 
 export interface SessionHandlerDeps {
 	runCompile(): void;
+	/** a run is already in flight; guest requests are dropped rather than queued */
+	isBusy(): boolean;
 	/** a guest changed files on the host's disk (upload / rename / delete) */
 	refreshTree(): void;
 	expectedPdfPath(): string | null;
@@ -65,6 +67,10 @@ export interface SessionHandlerDeps {
  * session - leaving the workspace must not leave it shared invisibly. */
 export function attachSessionHandlers(session: EditSession, deps: SessionHandlerDeps): () => void {
 	session.onCompileRequest = () => {
+		// Dropped, not queued. Any guest can send these as fast as they like, and overlapping runs
+		// fight over the same aux/output files. Returning before the toast too, so a guest holding
+		// the compile shortcut cannot bury the host in notifications.
+		if (deps.isBusy()) return;
 		toaster.info({ title: m.wsview_toast_compile_requested_title(), duration: 3000 });
 		deps.runCompile();
 	};

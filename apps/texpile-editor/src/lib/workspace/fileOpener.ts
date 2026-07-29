@@ -7,6 +7,7 @@
 import { get } from 'svelte/store';
 import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
 import { toLf, detectEol } from '$lib/workspace/fileSystem';
+import { recordDiskStamp } from '$lib/workspace/diskStamp';
 import { fileKind, type DocumentBuffer } from '$lib/workspace/documentBuffer.svelte';
 import type { VisualParser, ParseOutcome, ParseFailure } from '$lib/workspace/visualParse.svelte';
 import { toaster } from '$lib/modals/toaster-svelte';
@@ -84,6 +85,7 @@ export class FileOpener {
 				if (d.isVisualMode()) this.adoptBackgroundParse(d.parse(text), path, text, seq);
 
 				d.doc.openTex(path, text, detectEol(raw)); // detectEol so a CRLF file isn't rewritten to LF
+				void recordDiskStamp(path); // arm the external-write guard: disk is known as of this read
 				d.parser.lastParsedSource = null;
 				isDirty.set(false);
 				d.resetHistory(text); // the on-disk content is the floor of the cross-mode undo history
@@ -93,6 +95,7 @@ export class FileOpener {
 				const raw = await d.readText(path);
 				if (!this.current(path)) return;
 				d.doc.openRaw(path, toLf(raw), detectEol(raw));
+				void recordDiskStamp(path);
 				isDirty.set(false);
 				d.disableHistory(); // no cross-mode history for these kinds
 				d.clearPerFileViewState();

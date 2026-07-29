@@ -39,6 +39,13 @@
 	const refs: Record<number, TermRef> = {};
 	const activeRef = (): TermRef => (activeTermId != null ? refs[activeTermId] : undefined);
 
+	// Compile gets a shell of its own. It used to run on whichever tab happened to be selected,
+	// which is only safe if that tab is sitting at a prompt: with Claude Code, vim, less, an ssh
+	// session or a REPL in front, the compile command was typed into THAT program's stdin instead.
+	// There is no reliable way to ask a pty whether a foreground process is reading input, so the
+	// fix is to never borrow the user's shell in the first place.
+	let compileTermId = $state<number | null>(null);
+
 	function ensure() {
 		if (terminals.length === 0) {
 			const id = ++seq;
@@ -64,6 +71,7 @@
 	function kill(id: number) {
 		terminals = terminals.filter((t) => t.id !== id);
 		refs[id] = undefined;
+		if (compileTermId === id) compileTermId = null; // the next compile makes a fresh one
 		if (activeTermId === id) activeTermId = terminals.at(-1)?.id ?? null;
 		if (terminals.length === 0) onClose();
 		else setTimeout(() => activeRef()?.refit(), 0);
@@ -84,10 +92,31 @@
 	} else view = 'problems';
 
 	// ---- parent API (via bind:this) ----
-	/** show + run a command on the active shell, retrying until it has spawned. */
+	/** the compile shell, created on demand and reused; never one the user is working in */
+	function ensureCompileTerm(): number | null {
+		if (!terminalEnabled) return null;
+		if (compileTermId != null && terminals.some((t) => t.id === compileTermId)) return compileTermId;
+		const id = ++seq;
+		terminals = [...terminals, { id, title: m.wsview_terminal_compile() }];
+		compileTermId = id;
+		return id;
+	}
+
+	/** run a command on the dedicated compile shell, retrying until it has spawned. */
 	export function runCommand(cmd: string, onDone?: (output: string) => void, tries = 0): void {
-		if (terminalEnabled) ensure(); // self-heal: the last shell may have been killed, leaving none to run in
-		const ref = activeRef();
+		const id = ensureCompileTerm();
+		if (id == null) return; // guest dock: no shells at all
+		// Runs in the background: whatever tab the user is on stays selected. Compiling should not
+		// yank them out of a shell they are working in - errors surface in Problems either way, and
+		// the Compile tab is right there if they want the raw output.
+		//
+		// The exception is having nothing selected at all (first compile before any shell existed),
+		// where showing the compile shell steals nothing.
+		if (activeTermId == null) {
+			activeTermId = id;
+			setTimeout(() => refs[id]?.refit(), 0);
+		}
+		const ref = refs[id];
 		if (ref) {
 			ref.run(cmd, onDone);
 			return;
@@ -100,6 +129,7 @@
 		const id = ++seq;
 		terminals = [{ id, title: m.wsview_terminal_numbered({ id }) }];
 		activeTermId = id;
+		compileTermId = null; // the compile shell was in the old cwd too
 		setTimeout(() => activeRef()?.refit(), 0);
 	}
 	export function refit(): void {
@@ -111,9 +141,12 @@
 	export function addTerminal(): void {
 		add();
 	}
-	/** Ctrl-C the running command (compile stop). */
+	/** Ctrl-C the running command (compile stop). Targets the compile shell, not the selected tab:
+	 *  Stop must kill the compile even if the user has since switched to their own terminal, and
+	 *  must never Ctrl-C whatever they are running there. */
 	export function interrupt(): void {
-		activeRef()?.interrupt();
+		const ref = compileTermId != null ? refs[compileTermId] : undefined;
+		(ref ?? activeRef())?.interrupt();
 	}
 </script>
 

@@ -8,6 +8,10 @@ import * as gitService from './git-service';
 import * as draftService from './draft-service';
 import * as draftDaemon from './draft-daemon';
 import * as updates from './updates';
+import { startWorkspaceWatch, stopWorkspaceWatch } from './fs-watch';
+import * as mcp from './mcp/server';
+import { publishWindowState, forgetWindow, type WindowState } from './mcp/state';
+import { deliverResponse } from './mcp/bridge';
 
 const isDev = !app.isPackaged;
 
@@ -353,8 +357,10 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 	});
 	win.on('closed', () => {
 		windowRoots.delete(wcId);
+		stopWorkspaceWatch(String(wcId));
 		pendingOpens.delete(wcId);
 		pendingCloses.delete(wcId);
+		forgetWindow(wcId); // or a dead window keeps answering get_editor_state
 		// the closing window owned the warm engine: stop it so it doesn't hold memory orphaned
 		if (draftOwner?.wcId === wcId) {
 			draftDaemon.stopDaemon();
@@ -513,6 +519,13 @@ const DEFAULT_SETTINGS = {
 	uiLocale: 'en', // UI display language, not the LaTeX document language. Overridden per-read by
 	// the detected system language until the user picks one; see systemUiLocale + readSettings.
 	collabRelayUrl: 'wss://collab.texpile.com', // shared-session relay endpoint
+	// Let an MCP client (Claude Code, Claude Desktop) see what the editor is showing. Off by
+	// default: connecting also requires pasting a config snippet into the client, so defaulting this
+	// on would open a loopback port for everyone while buying nothing until they act anyway.
+	mcpEnabled: false,
+	// 0 = use the channel default (mcp.PORT_DEFAULT / PORT_DEFAULT_DEV). Fixed rather than
+	// ephemeral so a client config keeps working across restarts; overridable for a port clash.
+	mcpPort: 0,
 	openFolders: [] as string[] // folders open across windows; maintained here for session restore
 };
 
@@ -611,10 +624,15 @@ ipcMain.handle('workspace:claim', (e, root: string) => {
 	}
 	windowRoots.set(e.sender.id, { raw, norm });
 	persistOpenFolders();
+	// watch the claimed root so external writes (another editor, git, an AI agent) reach the
+	// renderer's conflict machinery now instead of on the next window focus
+	const wcId = e.sender.id;
+	startWorkspaceWatch(String(wcId), raw, () => windowFor(wcId)?.webContents.send('workspace:fs-changed'));
 	return { ok: true };
 });
 ipcMain.handle('workspace:release', (e) => {
 	windowRoots.set(e.sender.id, null);
+	stopWorkspaceWatch(String(e.sender.id));
 	persistOpenFolders();
 	return { ok: true };
 });
@@ -639,6 +657,50 @@ ipcMain.handle('window:openFolderNew', async (e) => {
 	else focusWindow(createWindow(startUrl(), { kind: 'folder', path: root }));
 	return root;
 });
+// ---- MCP ----
+// The server reports editor state and steers the view; it never writes documents. See
+// electron/src/mcp/server.ts for why it is hosted in-process rather than spawned.
+function mcpPort(): number {
+	const configured = Number(readSettings().mcpPort) || 0;
+	return configured > 0 ? configured : devChannel ? mcp.PORT_DEFAULT_DEV : mcp.PORT_DEFAULT;
+}
+
+function mcpHost(): mcp.McpHost {
+	return {
+		userDataDir: app.getPath('userData'),
+		port: mcpPort(),
+		windows: () => BrowserWindow.getAllWindows().map((w) => ({ webContentsId: w.webContents.id, focused: w.isFocused() })),
+		rootFor: (wcId) => windowRoots.get(wcId)?.raw ?? null,
+		windowObjects: () => BrowserWindow.getAllWindows(),
+		windowFor: (root) => {
+			// by root when given: focus follows the user's clicks, so a tool that always used the
+			// focused window would steer whichever project they happened to be looking at
+			const win = root ? windowWithRoot(root) : (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null);
+			if (!win) return null;
+			return { win, root: windowRoots.get(win.webContents.id)?.raw ?? null };
+		},
+		onConnectionChange: (client) => {
+			for (const w of BrowserWindow.getAllWindows()) w.webContents.send('mcp:connection', client);
+		}
+	};
+}
+
+ipcMain.handle('mcp:status', () => ({ ...mcp.status(), enabled: !!readSettings().mcpEnabled }));
+ipcMain.handle('mcp:setEnabled', async (_e, enabled: boolean) => {
+	writeSettings({ mcpEnabled: !!enabled });
+	if (enabled) await mcp.start(mcpHost());
+	else await mcp.stop();
+	return { ...mcp.status(), enabled: !!enabled };
+});
+// renderers push what they are showing; see mcp/state.ts for why this is a push and not a pull
+// a renderer answering an mcp:request (get_unsaved, get_diagnostics)
+ipcMain.on('mcp:response', (_e, payload: { id: number; data: unknown }) => {
+	if (payload && typeof payload.id === 'number') deliverResponse(payload.id, payload.data);
+});
+ipcMain.on('mcp:publishState', (e, state: Omit<WindowState, 'updatedAt'>) => {
+	publishWindowState(e.sender.id, state);
+});
+
 ipcMain.handle('session:claimStartupTasks', () => {
 	if (startupTasksClaimed) return false;
 	startupTasksClaimed = true;
@@ -820,6 +882,11 @@ app.whenReady().then(() => {
 	registerProtocolHandlers();
 	if (!initialOpenPath) initialOpenPath = fileFromArgv(process.argv);
 
+	// A client is configured once and expects us to be listening; making this a per-launch button
+	// would surface the failure as a connection error inside the client, not here. So once granted,
+	// it starts with the app. A failure to bind must not stop the editor from opening.
+	if (readSettings().mcpEnabled) mcp.start(mcpHost()).catch((e) => console.error('mcp: failed to start', e));
+
 	// The real menu bar lives in the renderer (WorkspaceMenuBar). On macOS the system bar can't
 	// be removed entirely without breaking Cmd+Q and copy/paste in native inputs, so keep ONLY
 	// the app menu (Quit/Hide/About) and Edit (undo/cut/copy/paste/selectAll). The old template
@@ -880,4 +947,6 @@ app.on('will-quit', () => {
 	}
 	ptys.clear();
 	draftDaemon.stopDaemon();
+	// takes the endpoint file with it, so a stale port/token is never left on disk for the bridge
+	void mcp.stop();
 });

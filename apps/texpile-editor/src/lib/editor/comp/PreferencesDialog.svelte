@@ -2,9 +2,10 @@
 	import { X, Languages } from '@lucide/svelte';
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
 	import { themeChoice, setTheme, type ThemeChoice } from '$lib/theme';
-	import { settings, updateSettings, applyUiLocale, type AppSettings } from '$lib/settings';
+	import { settings, updateSettings, applyUiLocale, setMcpEnabled, type AppSettings } from '$lib/settings';
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
+	import McpSetupModal from './McpSetupModal.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	// autosave is forced on (shown disabled) while live mode or a hosted session is active
@@ -13,6 +14,33 @@
 	import { toaster } from '$lib/modals/toaster-svelte';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
+
+	// ---- AI assistant access (MCP) ----
+	interface McpStatus {
+		running: boolean;
+		port: number | null;
+		error: string | null;
+	}
+	let mcp = $state<McpStatus | null>(null);
+
+	const nativeMcp = () => (window as unknown as { texpileNative?: { mcpStatus?: () => Promise<McpStatus> } }).texpileNative;
+
+	async function refreshMcp() {
+		mcp = (await nativeMcp()?.mcpStatus?.()) ?? null;
+	}
+	// the port only exists once main has actually bound, so read it back after the flip
+	async function onMcpToggle(v: boolean) {
+		await setMcpEnabled(v);
+		await refreshMcp();
+	}
+	// re-read whenever the dialog opens: another window may have toggled it, or the port may have
+	// been taken since the last look
+	$effect(() => {
+		if (open) void refreshMcp();
+	});
+
+	/** the instructions modal, stacked above this dialog */
+	let setupOpen = $state(false);
 
 	const themes: { value: ThemeChoice; label: string }[] = [
 		{ value: 'system', label: m.prefs_theme_system() },
@@ -78,7 +106,9 @@
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && (open = false)}
 	>
-		<div class="card bg-surface-50-950 border-surface-300-700 flex max-h-full w-full max-w-md flex-col border p-5 shadow-2xl">
+		<!-- wide enough for two columns: the settings list had grown tall enough to always scroll,
+		     and these rows are short, so height was being spent on nothing -->
+		<div class="card bg-surface-50-950 border-surface-300-700 flex max-h-full w-full max-w-2xl flex-col border p-5 shadow-2xl">
 			<div class="mb-4 flex items-center justify-between gap-4">
 				<h2 class="text-base font-semibold">{m.prefs_title()}</h2>
 				<button class="btn-icon btn-icon-sm hover:preset-tonal" aria-label={m.prefs_close_aria()} onclick={() => (open = false)}
@@ -86,7 +116,9 @@
 				>
 			</div>
 
-			<div class="min-h-0 space-y-5 overflow-y-auto">
+			<!-- one column on a narrow window, two when there is room. items-start so a row with a hint
+			     paragraph does not stretch its neighbour to match. -->
+			<div class="grid min-h-0 grid-cols-1 items-start gap-x-8 gap-y-5 overflow-y-auto sm:grid-cols-2">
 				<div>
 					<div class="text-surface-600-400 mb-1.5 text-sm font-medium">{m.prefs_appearance()}</div>
 					<div class="bg-surface-200-800 rounded-base flex gap-1 p-0.5">
@@ -142,6 +174,25 @@
 				{@render toggle(m.prefs_check_updates(), $settings.checkForUpdates, (v) => updateSettings({ checkForUpdates: v }))}
 				{@render toggle(m.prefs_spellcheck(), $settings.spellcheck, (v) => setSpellcheckEnabled(v))}
 				<div>
+					<!-- persisted through the main process, not updateSettings: flipping this also has to
+				     start or stop the loopback server, and main owns it -->
+					{@render toggle(m.prefs_mcp(), $settings.mcpEnabled === true, (v) => void onMcpToggle(v))}
+					<p class="text-surface-500 mt-1 text-xs">{m.prefs_mcp_note()}</p>
+
+					{#if $settings.mcpEnabled === true && mcp}
+						<!-- One row. The command lives in its own modal: it is long, it is read once, and it
+						     should not cost height in this list forever. -->
+						<div class="mt-1.5 flex items-center justify-between gap-3">
+							{#if mcp.running && mcp.port}
+								<span class="text-surface-500 text-xs">{m.prefs_mcp_status({ addr: `127.0.0.1:${mcp.port}` })}</span>
+								<button class="btn btn-sm preset-tonal shrink-0 text-xs" onclick={() => (setupOpen = true)}>{m.prefs_mcp_show()}</button>
+							{:else}
+								<span class="text-error-600 text-xs">{m.prefs_mcp_error({ error: mcp.error ?? '' })}</span>
+							{/if}
+						</div>
+					{/if}
+				</div>
+				<div>
 					{@render toggle(m.prefs_math_preview(), $settings.mathPreview !== false, (v) => updateSettings({ mathPreview: v }))}
 					<p class="text-surface-500 mt-1 text-xs">{m.prefs_math_preview_note()}</p>
 				</div>
@@ -168,4 +219,8 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- outside the settings scroller so it is not clipped by it, and only while Preferences is
+	     open, so closing Preferences takes the instructions with it -->
+	<McpSetupModal bind:open={setupOpen} port={mcp?.port ?? null} />
 {/if}

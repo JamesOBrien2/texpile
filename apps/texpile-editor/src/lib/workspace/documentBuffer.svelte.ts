@@ -32,8 +32,9 @@ export interface DocumentBufferDeps {
 	scheduleSave(path: string | null, content: string): void;
 	/** drop a queued write (the buffer already matches disk) */
 	discardQueuedSave(): void;
-	/** write immediately, notifying the user */
-	writeNow(path: string, content: string): void;
+	/** write immediately, notifying the user; force bypasses the external-write guard (conflict
+	 * modal's "keep mine", where the user has seen disk differs and chosen to overwrite) */
+	writeNow(path: string, content: string, force?: boolean): void;
 	/** re-parse into the visual doc after a wholesale source replacement */
 	rebuildVisual(): void;
 	isVisualMode(): boolean;
@@ -174,10 +175,10 @@ export class DocumentBuffer {
 
 	/** manual save (Ctrl/Cmd+S or the Save button); autosave handles the rest.
 	 * image / binary kinds have nothing to write. */
-	save(): void {
+	save(force = false): void {
 		this.deps.discardQueuedSave(); // drop the queued debounce; we're writing the current content now
 		if (!this.path) return;
-		if (this.kind === 'tex') this.deps.writeNow(this.path, this.texSource);
-		else if (this.kind === 'text' || this.kind === 'bib') this.deps.writeNow(this.path, this.rawContent);
+		if (this.kind === 'tex') this.deps.writeNow(this.path, this.texSource, force);
+		else if (this.kind === 'text' || this.kind === 'bib') this.deps.writeNow(this.path, this.rawContent, force);
 	}
 }

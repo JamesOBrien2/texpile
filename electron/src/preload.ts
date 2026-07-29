@@ -37,6 +37,13 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	setSettings: (partial: Record<string, unknown>) => ipcRenderer.invoke('settings:set', partial),
 	/** set the whole-window zoom factor (clamped 0.5..2.5); resolves to the applied factor. */
 	setZoomFactor: (factor: number) => ipcRenderer.invoke('window:setZoom', factor),
+	/** whether AI-assistant access is enabled, and the loopback port if it is listening. */
+	mcpStatus: () => ipcRenderer.invoke('mcp:status'),
+	/** turn AI-assistant access on or off; persists and starts/stops the server. */
+	mcpSetEnabled: (enabled: boolean) => ipcRenderer.invoke('mcp:setEnabled', enabled),
+	/** report what this window is showing, for the MCP get_editor_state tool. Fire and forget:
+	 *  it is a cache update, and a dropped one is corrected by the next push. */
+	mcpPublishState: (state: unknown) => ipcRenderer.send('mcp:publishState', state),
 	/** subscribe to "open this .tex" requests from the OS; buffered, returns an unsubscribe fn. */
 	onOpenPath: (cb: (filePath: string) => void) => onOpenPathBuffered(cb),
 	/** subscribe to "open this folder" pushes (session restore, Open Folder in New Window). */
@@ -59,6 +66,28 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	},
 	/** answer a held close: true proceeds (after flushing), false keeps the window open. */
 	closeDecision: (proceed: boolean) => ipcRenderer.send('window:close-decision', proceed),
+
+	/** subscribe to "something in the claimed workspace changed on disk" (debounced in main). */
+	onWorkspaceFsChanged: (cb: () => void) => {
+		const h = () => cb();
+		ipcRenderer.on('workspace:fs-changed', h);
+		return () => ipcRenderer.removeListener('workspace:fs-changed', h);
+	},
+
+	/** an MCP tool asking this window for something main cannot answer from its cache. */
+	onMcpRequest: (cb: (req: { id: number; kind: string }) => void) => {
+		const h = (_e: unknown, req: { id: number; kind: string }) => cb(req);
+		ipcRenderer.on('mcp:request', h);
+		return () => ipcRenderer.removeListener('mcp:request', h);
+	},
+	mcpRespond: (id: number, data: unknown) => ipcRenderer.send('mcp:response', { id, data }),
+
+	/** an MCP tool steering this window (open a file, show a diff, change view mode). */
+	onMcpCommand: (cb: (cmd: Record<string, unknown>) => void) => {
+		const h = (_e: unknown, cmd: Record<string, unknown>) => cb(cmd);
+		ipcRenderer.on('mcp:command', h);
+		return () => ipcRenderer.removeListener('mcp:command', h);
+	},
 
 	/** recursively scan a folder for files of the given extensions (CSV, default 'tex'). */
 	fsScan: (root: string, exts?: string) => invokeFs('fs:scan', root, exts),

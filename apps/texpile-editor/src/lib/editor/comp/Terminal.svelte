@@ -137,7 +137,12 @@
 			fit = new FitAddon();
 			term.loadAddon(fit);
 			term.open(el);
-			fit.fit();
+			// Same guard as refit(): a zero box fits to 1 row, and here that row count goes straight
+			// into spawn(), so every line of output would wrap at 1 row for the shell's whole life.
+			// This is reachable now that the compile shell runs in the background and can mount while
+			// its tab is display:none. Left unfitted, xterm keeps its 80x24 default - fine for a shell
+			// nobody is looking at - and the ResizeObserver refits it if the tab is ever shown.
+			if (el.offsetParent !== null) fit.fit();
 
 			const res = await b.spawn({ id, cwd, cols: term.cols, rows: term.rows });
 			if (disposed) return;

@@ -21,6 +21,12 @@ export interface SaveDeps {
 	getLiveContent(): string;
 	setDiskBaseline(content: string): void;
 	setDirty(dirty: boolean): void;
+	/** did someone else write this file since we last read/wrote it? (mtime+size stamp) */
+	diskChanged(path: string): Promise<boolean>;
+	/** stamp the path as freshly synchronized after our own successful write */
+	recordDiskStamp(path: string): Promise<void>;
+	/** an external write was detected where we were about to save: hand off to the conflict flow */
+	raiseConflict(path: string): void;
 }
 
 export class SavePipeline {
@@ -105,20 +111,32 @@ export class SavePipeline {
 	}
 
 	/** append a write to the serial chain. snapshots the line ending now so a queued write still
-	 * applies the right one if the user switches files first. */
-	enqueue(path: string, content: string, notify: boolean): Promise<void> {
-		return this.enqueueWithEol(path, content, notify, this.deps.getEol());
+	 * applies the right one if the user switches files first. `force` skips the external-write
+	 * guard: only the conflict modal's "keep mine" may use it, because by then the user has SEEN
+	 * that disk differs and chosen to overwrite. */
+	enqueue(path: string, content: string, notify: boolean, force = false): Promise<void> {
+		return this.enqueueWithEol(path, content, notify, this.deps.getEol(), force);
 	}
 
-	enqueueWithEol(path: string, content: string, notify: boolean, eol: Eol): Promise<void> {
-		this.chain = this.chain.then(() => this.write(path, content, notify, eol));
+	enqueueWithEol(path: string, content: string, notify: boolean, eol: Eol, force = false): Promise<void> {
+		this.chain = this.chain.then(() => this.write(path, content, notify, eol, force));
 		return this.chain;
 	}
 
-	private async write(path: string, content: string, notify: boolean, eol: Eol) {
+	private async write(path: string, content: string, notify: boolean, eol: Eol, force: boolean) {
 		this.saving = true;
 		try {
+			// The point of no return for someone else's edit: writeText below replaces the whole file,
+			// so if disk moved since we last read or wrote it (VS Code, a git checkout, an AI agent),
+			// overwriting now would silently destroy that change. Abort and surface the existing
+			// conflict modal instead; the user's edit is still in the buffer and still dirty, so
+			// nothing of THEIRS is lost either.
+			if (!force && (await this.deps.diskChanged(path))) {
+				this.deps.raiseConflict(path);
+				return;
+			}
 			await this.deps.writeText(path, fromLf(content, eol)); // re-apply the file's CRLF/LF on disk
+			await this.deps.recordDiskStamp(path); // our own write must not read as an external one
 			if (this.deps.getLoadedPath() === path) {
 				// what we just wrote is now the on-disk baseline, so our own save isn't seen as a conflict
 				this.deps.setDiskBaseline(content);

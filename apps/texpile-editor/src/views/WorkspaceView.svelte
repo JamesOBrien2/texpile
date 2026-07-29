@@ -50,6 +50,8 @@
 	import { DiffMode } from '$lib/workspace/diffMode.svelte';
 	import { attachWindowListeners, attachCloseGuard } from '$lib/workspace/workspaceMount';
 	import { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
+	import { publishWindowState } from '$lib/workspace/mcpPublish';
+	import { attachMcpCommands } from '$lib/workspace/mcpCommands';
 	import { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 	import { TerminalDockState } from '$lib/workspace/terminalDockState.svelte';
 	import { CompileSettings } from '$lib/workspace/compileSettings.svelte';
@@ -74,6 +76,7 @@
 	import { refreshTree as refreshTreeState } from '$lib/workspace/treeRefresh';
 	import { ScmActions } from '$lib/workspace/scmActions.svelte';
 	import { SavePipeline } from '$lib/workspace/savePipeline.svelte';
+	import { diskChangedSince, recordDiskStamp, retargetDiskStamp } from '$lib/workspace/diskStamp';
 	import { CompilePipeline, resolveCompileCommand, relFromRoot } from '$lib/workspace/compilePipeline.svelte';
 	import { TreeOps } from '$lib/workspace/treeOps';
 	import { settings, loadSettings, updateSettings } from '$lib/settings';
@@ -158,7 +161,7 @@
 	const doc = new DocumentBuffer({
 		scheduleSave: (path, content) => saver.schedule(path, content),
 		discardQueuedSave: () => saver.discard(),
-		writeNow: (path, content) => void saver.enqueue(path, content, true),
+		writeNow: (path, content, force) => void saver.enqueue(path, content, true, force),
 		rebuildVisual: () => rebuildVisualFromSource(),
 		isVisualMode: () => modes.mode === 'visual',
 		noteLocalEdit: () => visualCollab?.noteLocalEdit(),
@@ -339,6 +342,27 @@
 	// what was there at join time.
 	onMount(() => provider.watch?.(() => void refreshTree()));
 
+	// keep main's cache of what this window shows current, for the MCP get_editor_state tool.
+	// The reactive reads happen inside publishWindowState, so this re-runs whenever any of them
+	// changes; it de-dupes identical payloads itself.
+	$effect(() => publishWindowState(modes.mode));
+
+	// the MCP tools that need this window: get_unsaved / get_diagnostics answer here, and the steer
+	// commands (open_file, show_diff, set_view_mode) run through the same paths the UI uses
+	onMount(() =>
+		attachMcpCommands({
+			getLoadedPath: () => doc.path,
+			getBuffer: () => doc.buffer,
+			openFile: (abs) => activeFilePath.set(abs),
+			openFileAtLine: (abs, line) => openFileAtLine(abs, line),
+			showDiff: () => setViewMode('diff'),
+			setViewMode,
+			getViewMode: () => modes.mode,
+			syncToLine: (line) => syncForwardLine(line),
+			runCompile: () => compiler.runCompile()
+		})
+	);
+
 	function openEntry(entry: TreeEntry) {
 		if (entry.type !== 'file') return;
 		activeFilePath.set(entry.path);
@@ -395,7 +419,10 @@
 		wantsStarter: () => modes.lastEditMode !== 'source',
 		insertIncludeAtCursor: (path) => doInsertInclude(path),
 		afterRename: (oldPath, newPath) => void afterRename(oldPath, newPath),
-		retargetPendingSave: (from, to) => saver.retarget(from, to),
+		retargetPendingSave: (from, to) => {
+			saver.retarget(from, to);
+			retargetDiskStamp(from, to); // the guard's stamp must follow the rename too
+		},
 		discardPendingSave: () => saver.discard()
 	});
 
@@ -807,6 +834,7 @@
 	onMount(() =>
 		attachSessionHandlers(session, {
 			runCompile: () => void compiler.runCompile(),
+			isBusy: () => compiler.busy,
 			refreshTree: () => void refreshTree(),
 			expectedPdfPath: () => compiler.expectedPdfPath()
 		})
@@ -922,7 +950,7 @@
 		rebuildVisual: rebuildVisualFromSource,
 		discardQueuedSave: () => saver.discard(),
 		sessionEdit: (path, content) => session.edit(path, content),
-		saveNow: () => save()
+		saveNow: () => doc.save(true) // force: the user chose "keep mine" knowing disk differs
 	});
 	const checkExternalChange = () => external.check();
 	const resolveConflict = (choice: 'reload' | 'keep') => external.resolve(choice);
@@ -937,7 +965,12 @@
 		getLoadedPath: () => doc.path,
 		getLiveContent: () => (kind === 'tex' ? doc.texSource : doc.rawContent),
 		setDiskBaseline: (content) => (doc.diskBaseline = content),
-		setDirty: (dirty) => isDirty.set(dirty)
+		setDirty: (dirty) => isDirty.set(dirty),
+		diskChanged: diskChangedSince,
+		recordDiskStamp,
+		// the aborted save's content is still the live buffer, so check() sees dirty-and-different
+		// and raises its conflict modal; "keep mine" comes back through saveNow with force
+		raiseConflict: () => void checkExternalChange()
 	});
 
 	const onChange = (node: PMNode) => doc.onVisualChange(node);

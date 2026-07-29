@@ -7,6 +7,7 @@
 import { get } from 'svelte/store';
 import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
 import { toLf, detectEol, type Eol } from '$lib/workspace/fileSystem';
+import { recordDiskStamp } from '$lib/workspace/diskStamp';
 
 export interface ExternalChangeDeps {
 	getLoadedPath(): string | null;
@@ -29,7 +30,9 @@ export interface ExternalChangeDeps {
 	discardQueuedSave(): void;
 	/** fold adopted content into the shared doc so guests see it too */
 	sessionEdit(path: string, content: string): void;
-	/** "keep mine": overwrite disk now */
+	/** "keep mine": overwrite disk now. Must FORCE past the save pipeline's external-write guard -
+	 * the guard is what raised this conflict, and by choosing "keep" the user has seen that disk
+	 * differs and decided to overwrite it. An unforced save would just re-trip the guard forever. */
 	saveNow(): void;
 }
 
@@ -74,7 +77,12 @@ export class ExternalChangeWatcher {
 		d.discardQueuedSave();
 		// the host materializer's lastWritten update prevents an echo write back to disk
 		const path = d.getLoadedPath();
-		if (path) d.sessionEdit(path, disk);
+		if (path) {
+			d.sessionEdit(path, disk);
+			// re-stamp alongside the baseline, or the save guard would flag OUR next autosave as an
+			// external write and re-raise the conflict we just resolved
+			void recordDiskStamp(path);
+		}
 	}
 
 	resolve(choice: 'reload' | 'keep'): void {

@@ -66,6 +66,11 @@ export class CompilePipeline {
 	// true from Compile until the run visibly ends (PDF landed, log settled, or timeout);
 	// drives the Compile button's Stop toggle, and Stop sends Ctrl+C to the shell
 	compiling = $state(false);
+	// A run has been dispatched and is not yet known to have finished. Deliberately separate from
+	// `compiling`, which stays false when the completion marker is off so the button does not show a
+	// Stop that would linger until the pollers time out. This one is always set, because refusing an
+	// overlapping compile has to work whether or not the marker is on.
+	busy = $state(false);
 	pdfFilename = $state('output.pdf');
 	private pdfWatchTimer: ReturnType<typeof setTimeout> | null = null;
 	private logWatchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -78,14 +83,20 @@ export class CompilePipeline {
 
 	constructor(private deps: CompileDeps) {}
 
+	/** a run ended (or was stopped): clear both the button state and the overlap guard */
+	private endRun() {
+		this.compiling = false;
+		this.busy = false;
+	}
+
 	stopCompile = () => {
 		this.deps.getDock()?.interrupt();
-		this.compiling = false;
+		this.endRun();
 	};
 
 	// the folder changed: any pollers still watching the previous folder's paths stand down
 	resetForFolder = () => {
-		this.compiling = false;
+		this.endRun();
 		this.compileGen++;
 	};
 
@@ -120,6 +131,16 @@ export class CompilePipeline {
 	}
 
 	runCompile = async () => {
+		// One run at a time. The Compile button becomes Stop so a local user rarely gets here twice,
+		// but the shortcut and shared-session guests both reach this directly - and a guest can fire
+		// requests as fast as they like. Overlapping runs fight over the same aux/output files and
+		// queue up in the shell, so the second one is refused rather than deferred. Draft mode is
+		// exempt by construction: it never sets `busy`, because its service supersedes an in-flight
+		// run of the same root instead, which is what makes it usable as a live preview.
+		if (this.busy) {
+			toaster.info({ title: m.wsview_toast_compile_busy(), duration: 2500 });
+			return;
+		}
 		// first compile in a folder with no explicitly chosen main file: confirm it first
 		if (this.deps.mainConfirmed() !== true && get(texFiles).length > 1) {
 			this.deps.openMainConfirm(() => void this.runCompile());
@@ -167,6 +188,7 @@ export class CompilePipeline {
 		// Stop that would linger until the log/PDF pollers time out
 		const track = get(settings).compileSentinel;
 		this.compiling = track;
+		this.busy = true; // set even without the marker: the overlap guard must not depend on it
 		const gen = ++this.compileGen;
 		this.compileStdout = '';
 		this.runInTerminal(
@@ -252,7 +274,7 @@ export class CompilePipeline {
 			if (changedSinceCompile && stable && s.mtimeMs !== lastParsed) {
 				try {
 					await this.publishLogDiagnostics(logPath, s.mtimeMs);
-					this.compiling = false; // a settled log means the run (or its final pass) ended
+					this.endRun(); // a settled log means the run (or its final pass) ended
 					lastParsed = s.mtimeMs;
 				} catch {
 					/* transient read race with the engine; next poll retries */
@@ -262,7 +284,7 @@ export class CompilePipeline {
 				this.watchLog(gen, logPath, before, elapsed + 1200, { mtimeMs: s.mtimeMs, size: s.size }, lastParsed);
 			} else {
 				this.logWatchTimer = null;
-				this.compiling = false;
+				this.endRun();
 			}
 		}, 1200);
 	}
@@ -294,7 +316,7 @@ export class CompilePipeline {
 			} catch {
 				/* fs hiccup: the run still ended, the button must still reset */
 			}
-			this.compiling = false;
+			this.endRun();
 			this.deps.refreshTree();
 		}, 400);
 	}
@@ -355,7 +377,7 @@ export class CompilePipeline {
 					if (s.mtimeMs === stableAt) {
 						this.showCompiledPdf(pdfPath, s.mtimeMs); // unchanged since the last poll: it's done
 						this.pdfWatchTimer = null;
-						this.compiling = false;
+						this.endRun();
 					} else {
 						this.watchPdf(gen, pdfPath, before, elapsed + 600, s.mtimeMs); // still changing: re-check soon
 					}
@@ -363,7 +385,7 @@ export class CompilePipeline {
 					this.watchPdf(gen, pdfPath, before, elapsed + 1200); // keep polling up to 3 min
 				} else {
 					this.pdfWatchTimer = null;
-					this.compiling = false;
+					this.endRun();
 				}
 			},
 			stableAt ? 600 : 1200 // poll faster once the file has started changing, to catch it settling

@@ -34,6 +34,10 @@ export interface AppSettings {
 	draftMode: boolean;
 	/** check the update feed (updates.texpile.com) for a newer version on launch; downloads stay click-only. */
 	checkForUpdates: boolean;
+	/** let an MCP client (Claude Code, Claude Desktop) read what the editor is showing. Off by
+	 * default: connecting also needs a config snippet pasted into the client, so defaulting this on
+	 * would open a loopback port for everyone while buying nothing until they act anyway. */
+	mcpEnabled: boolean;
 	/** whole-window zoom factor (1 = 100%), applied via webContents.setZoomFactor. */
 	uiZoom: number;
 	/** newest changelog version the What's New modal was dismissed for. */
@@ -76,6 +80,7 @@ const DEFAULTS: AppSettings = {
 	pdfDarkPages: true,
 	draftMode: false,
 	checkForUpdates: true,
+	mcpEnabled: false,
 	uiZoom: 1,
 	whatsNewSeen: '',
 	mathPreview: true,
@@ -166,6 +171,25 @@ export function updateSettings(partial: Partial<AppSettings>): void {
 	const next = { ...get(settings), ...partial };
 	settings.set(next);
 	persist(partial);
+}
+
+/**
+ * Deliberately NOT routed through updateSettings: flipping this also has to start or stop the
+ * loopback MCP server, which only the main process can do, and main persists the setting itself as
+ * part of that. Writing it here too would just race main's own write.
+ *
+ * Applied optimistically so the switch responds, and rolled back if main could not bind the port.
+ */
+export async function setMcpEnabled(enabled: boolean): Promise<void> {
+	const api = (window as unknown as { texpileNative?: { mcpSetEnabled?: (v: boolean) => Promise<unknown> } }).texpileNative;
+	const before = get(settings).mcpEnabled;
+	settings.update((s) => ({ ...s, mcpEnabled: enabled }));
+	try {
+		await api?.mcpSetEnabled?.(enabled);
+	} catch (e) {
+		console.error('Failed to change AI assistant access:', e);
+		settings.update((s) => ({ ...s, mcpEnabled: before }));
+	}
 }
 
 // hydrate at module load so the store holds real values before any UI writes,

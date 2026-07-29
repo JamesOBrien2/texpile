@@ -16,7 +16,7 @@
 		"postinstall": "pnpm -r --if-present sync",
 		"app:build": "pnpm --filter=svelte-pdf-view run package && pnpm --filter=texpile-editor run build && pnpm electron:build:prod",
 		"electron": "pnpm electron:build && electron .",
-		"electron:build": "tsc -p electron",
+		"electron:build": "tsc -p electron --noEmit && node scripts/build-electron.mjs --dev",
 		"electron:dev": "concurrently -k -n vite,electron \"pnpm --filter=texpile-editor dev\" \"pnpm electron:build && wait-on tcp:127.0.0.1:5173 && cross-env ELECTRON_START_URL=http://127.0.0.1:5173 electron .\"",
 		"electron:rebuild": "electron-rebuild -f -w node-pty",
 		"dist": "pnpm app:build && electron-builder --publish never",
@@ -27,7 +27,9 @@
 	},
 	"devDependencies": {
 		"@electron/rebuild": "^3.7.0",
+		"@modelcontextprotocol/sdk": "^1.30.0",
 		"@types/node": "^22.10.0",
+		"chokidar": "^5.0.0",
 		"concurrently": "^9.1.0",
 		"cross-env": "^7.0.3",
 		"electron": "^33.2.0",
@@ -38,9 +40,10 @@
 		"prettier-plugin-svelte": "^4.0.0",
 		"prettier-plugin-tailwindcss": "^0.8.0",
 		"shelljs": "^0.8.5",
+		"simple-git": "^3.36.0",
 		"typescript": "^5.5.0",
 		"wait-on": "^8.0.1",
-		"simple-git": "^3.36.0"
+		"zod": "3.25.76"
 	},
 	"engines": {
 		"pnpm": ">=9.2.0"
