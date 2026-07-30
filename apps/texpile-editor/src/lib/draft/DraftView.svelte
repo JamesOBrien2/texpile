@@ -1528,6 +1528,20 @@
 				calCache.set(key, cal);
 			}
 			if ('bail' in cal) {
+				// A page-PERMANENT bail is not worth a compile per keystroke. Most bail reasons
+				// describe this edit against this layout, so recompiling produces a page the next
+				// keystroke can patch -- worth doing at once. `page-rtl` is a property of the PAGE:
+				// the recompile lands another right-to-left page, the next keystroke bails
+				// identically, and the one after that. Left on the immediate path it ran a full
+				// lualatex pass and an autosave on EVERY keystroke, which is what made typing in a
+				// Hebrew document thrash. Debounced, it behaves the way a document with no live
+				// preview does: recompile once, when the typing stops.
+				if (cal.bail === 'page-rtl') {
+					status = m.draft_status_recompiling({ reason: whyPhrase(cal.bail) });
+					ev('abandon-debounced', { stage: cal.bail, key });
+					scheduleReconcile(req.onRecompile, cal.bail);
+					return;
+				}
 				await recompile(cal.bail, { key });
 				return;
 			}
