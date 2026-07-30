@@ -34,11 +34,36 @@ export function caretDoctorEnabled(): boolean {
 	}
 }
 
+/**
+ * Report that the document was replaced from OUTSIDE the editor -- i.e. something handed the
+ * component a value the editor did not itself emit.
+ *
+ * This is the event worth watching. Typing never reaches it: the editor records what it emits
+ * and the reconcile guard rejects the echo, so anything logged here came from elsewhere (a file
+ * load, disk being adopted after an external write, the formatter, undo across a mode switch, a
+ * label rename). If one of these appears on a plain autosave, that alone is the finding -- it
+ * would mean a save round-trip exists that is not supposed to.
+ */
+export function logDocReplace(d: { oldLen: number; newLen: number; from: number; to: number; insertLen: number; caret: number }): void {
+	if (!caretDoctorEnabled()) return;
+	const inside = d.caret >= d.from && d.caret <= d.to;
+	console.warn(
+		'[caret-doctor] document replaced from outside the editor: %d -> %d chars, edit %d..%d (+%d), caret %d %s',
+		d.oldLen,
+		d.newLen,
+		d.from,
+		d.to,
+		d.insertLen,
+		d.caret,
+		inside ? 'IS INSIDE the edit and will move' : 'is outside the edit and should survive',
+		new Error().stack
+	);
+}
+
 export function caretDoctor(): Extension {
 	if (!caretDoctorEnabled()) return [];
 	const w = window as unknown as { __caretLog?: () => Entry[]; __caretClear?: () => void };
 	w.__caretLog = () => {
-		 
 		console.table(log.map(({ stack, ...rest }) => ({ ...rest, top: stack.split('\n')[2]?.trim() ?? '' })));
 		return log;
 	};
@@ -65,7 +90,7 @@ export function caretDoctor(): Extension {
 			stack: new Error().stack ?? ''
 		});
 		if (log.length > 200) log.shift();
-		 
+
 		console.warn('[caret-doctor] caret moved %d -> %d without a user event; changes: %s', before, after, parts.join(', ') || '(none)');
 	});
 }

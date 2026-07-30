@@ -27,7 +27,7 @@
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { docText } from '$lib/editor/docText';
 	import { minimalEdit } from '$lib/editor/minimalEdit';
-	import { caretDoctor } from '$lib/debug/caretDoctor';
+	import { caretDoctor, logDocReplace } from '$lib/debug/caretDoctor';
 	import { setSourceDocCount, setSourceSelectionCount } from '$lib/stores/countStore.svelte';
 	import { trailingDebounce } from '$lib/trailingDebounce';
 	import { m } from '$lib/paraglide/messages';
@@ -326,11 +326,18 @@
 	$effect(() => {
 		const v = value;
 		if (!collab && view && v !== lastEmitted && v !== docText(view.state.doc)) {
-			syncing = true;
-			view.dispatch({
-				changes: minimalEdit(docText(view.state.doc), v),
-				annotations: Transaction.addToHistory.of(false)
+			const old = docText(view.state.doc);
+			const edit = minimalEdit(old, v);
+			logDocReplace({
+				oldLen: old.length,
+				newLen: v.length,
+				from: edit.from,
+				to: edit.to,
+				insertLen: edit.insert.length,
+				caret: view.state.selection.main.head
 			});
+			syncing = true;
+			view.dispatch({ changes: edit, annotations: Transaction.addToHistory.of(false) });
 			syncing = false;
 		}
 		// mirror CM's doc after every reconciliation, whichever branch ran, so lastEmitted can
