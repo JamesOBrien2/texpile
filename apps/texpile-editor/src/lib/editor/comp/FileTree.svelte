@@ -12,7 +12,8 @@
 		Star,
 		FileSymlink
 	} from '@lucide/svelte';
-	import type { TreeEntry } from '$lib/workspace/fileSystem';
+	import { untrack } from 'svelte';
+	import { samePath, type TreeEntry } from '$lib/workspace/fileSystem';
 	import { gitKey } from '$lib/workspace/gitStore';
 	import type { GitBadge } from '$lib/workspace/git';
 	import { m } from '$lib/paraglide/messages';
@@ -66,6 +67,12 @@
 		file: globalThis.File;
 	}
 
+	// samePath, not ===: activePath is the only path here that the tree did not produce itself, so
+	// it is the only one that can arrive in a different FORM. A restored workspace builds it by
+	// joining a remembered relative path onto the root, and on Windows that used to come back
+	// mixed-separator, matching no entry and leaving the open file unhighlighted.
+	const isActive = (e: TreeEntry) => !!activePath && samePath(activePath, e.path);
+
 	const isTex = (e: TreeEntry) => e.type === 'file' && e.name.toLowerCase().endsWith('.tex');
 	const isMain = (e: TreeEntry) => !!mainPath && e.path.replace(/\\/g, '/').toLowerCase() === mainPath.replace(/\\/g, '/').toLowerCase();
 
@@ -97,6 +104,20 @@
 
 	// ---- selection (ctrl/cmd toggles, shift ranges over the visible order) ----
 	let selected = $state<string[]>([]);
+
+	// The tree's SELECTION is its own state, separate from which file is open: clicking a row
+	// leaves it selected (grey) so the context menu and multi-file drag have something to act on.
+	// But changing file from anywhere else -- the tab bar, Ctrl+K, a SyncTeX jump -- left that grey
+	// behind on the row you last clicked, which reads as a hover stuck under a cursor that moved
+	// away long ago. Drop it, unless the newly opened file is itself in the selection: a plain row
+	// click selects and opens in one gesture, and that selection has to survive its own open.
+	$effect(() => {
+		const a = activePath;
+		if (!a) return;
+		untrack(() => {
+			if (!selected.some((p) => samePath(p, a))) selected = [];
+		});
+	});
 	let anchorPath: string | null = null; // shift-range pivot; the last plain/ctrl-clicked row
 
 	/** the tree in on-screen order, honouring which folders are expanded (shift-range domain). */
@@ -485,7 +506,7 @@
 	<div>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="group flex items-center rounded text-sm transition-colors {activePath === entry.path
+			class="group flex items-center rounded text-sm transition-colors {isActive(entry)
 				? 'bg-primary-500/15 text-primary-700 dark:text-primary-300 font-medium'
 				: selected.includes(entry.path)
 					? 'bg-surface-300-700/60'
