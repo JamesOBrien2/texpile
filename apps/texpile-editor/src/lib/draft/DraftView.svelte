@@ -14,6 +14,7 @@
 	import { fade } from 'svelte/transition';
 	import { ZoomIn, ZoomOut, MoveHorizontal, ChevronUp, ChevronDown, Crosshair, Download } from '@lucide/svelte';
 	import { buildDrawList } from './renderCore';
+	import { parseRecords, pageIsRtl } from './pageRecords';
 	import { sfntFromTtc } from './ttc';
 	import { parseT1, type T1Font } from './type1/t1font';
 	import { getPdfJs } from 'svelte-pdf-view';
@@ -285,19 +286,15 @@
 	}
 	function pageRecords(n: number): any[] {
 		if (!parsedPages.has(n)) {
-			const p = pages[n - 1];
-			parsedPages.set(
-				n,
-				p
-					? p.records
-							.split('\n')
-							.filter(Boolean)
-							.map((l: string) => JSON.parse(l))
-					: []
-			);
+			const { records, dropped } = parseRecords(pages[n - 1]?.records ?? '');
+			if (dropped) ev('records-unparseable', { page: n, dropped });
+			parsedPages.set(n, records);
 		}
 		return parsedPages.get(n)!;
 	}
+	// a right-to-left page's records are in logical order while the PDF is in visual order, so
+	// nothing on it may be painted or spliced from records -- it waits for the exact-PDF raster
+	const rtlPage = (n: number) => pageIsRtl(pages[n - 1]?.unc);
 
 	// The body's bottom in record space: the shipout box baseline (ht) IS the footer line's
 	// baseline, \footskip above it is the last body line. Capacity checks measure against
@@ -465,11 +462,19 @@
 		// base when the patch clears on reconcile
 		const bkey = `${n}@${Math.round(basePxPt(dpr) * 100)}`;
 		const base = baseCache.get(bkey);
-		if (!patches.length && base && base !== 'loading' && base !== 'failed') {
-			ctx.drawImage(base, 0, 0, paper.w * S, paper.h * S);
+		const ready = !!base && base !== 'loading' && base !== 'failed';
+		// an RTL page has no correct record rendering at all, so it takes the raster even under a
+		// patch -- compositing patch ink onto it would put mirrored glyphs back on the page
+		const rtl = rtlPage(n);
+		if (ready && (!patches.length || rtl)) {
+			ctx.drawImage(base as ImageBitmap, 0, 0, paper.w * S, paper.h * S);
 			return;
 		}
 		if (!base) requestBase(n, bkey);
+		// hold the white page until the raster lands rather than flash mirrored text. If the
+		// raster can never land (a truncated PDF -- 'failed'), fall through: wrong-order ink still
+		// carries the words, and a permanently blank page carries nothing.
+		if (rtl && base !== 'failed') return;
 		if (!patches.length) {
 			drawRecs(ctx, records, S, 0, n);
 			return;
@@ -575,6 +580,9 @@
 			case 'spread':
 			case 'glue-gap':
 				return m.draft_reason_layout_mismatch();
+			// page-rtl: the page's records are in logical order, not visual, so there is nothing
+			// on it the instant path can splice against
+			case 'page-rtl':
 			case 'cal-uncertified':
 			case 'cal-typeset-failed':
 			case 'cal-empty':
@@ -739,6 +747,7 @@
 			return bail('spans-pages', { pages: pagesSeen });
 		}
 		const pageNo = lineBoxes[0].page;
+		if (rtlPage(pageNo)) return bail('page-rtl', { pageNo });
 		const recs = pageRecords(pageNo);
 		if (!recs.length) return bail('no-page-records', { pageNo });
 		// the engine's exact \columnwidth (from the page compile manifest); calibrating the
@@ -913,6 +922,7 @@
 			ev('locate-xpage-bail', { why, ...(typeof detail === 'object' ? detail : { detail }) });
 			return { bail: why };
 		};
+		if (rtlPage(pA) || rtlPage(pB)) return bail('page-rtl', { pA, pB });
 		const recsA = pageRecords(pA);
 		const recsB = pageRecords(pB);
 		if (!recsA.length || !recsB.length) return bail('no-page-records');
@@ -1038,6 +1048,7 @@
 		if (!boxes.length) boxes = await fwd(endLine + 1);
 		if (!boxes.length) return bail('no-synctex-page');
 		const pageNo = boxes[0].page;
+		if (rtlPage(pageNo)) return bail('page-rtl', { pageNo });
 		const recs = pageRecords(pageNo);
 		if (!recs.length) return bail('no-page-records');
 		const allG = recs.filter((x: any) => x.t === 'g');
@@ -1264,6 +1275,7 @@
 		const order = [...hintPages, ...pages.map((p) => p.n).filter((p) => !hintPages.includes(p))];
 		// tier 1: exact -- Nv contiguous rows, each glyph-identical to a calibration variant's row
 		for (const pageNo of order) {
+			if (rtlPage(pageNo)) continue; // record x-order is not the page's visual order here
 			const allG = pageRecords(pageNo).filter((x: any) => x.t === 'g');
 			if (!allG.length) continue;
 			for (const cl of colCandidates(allG, W, G)) {
@@ -1323,6 +1335,7 @@
 		type Fuzzy = { pageNo: number; b1: number; bk: number; left: number; colL: number; colR: number; diff: number; len: number };
 		const found: Fuzzy[] = [];
 		for (const pageNo of order.slice(0, Math.max(3, hintPages.length + 1))) {
+			if (rtlPage(pageNo)) continue;
 			const allG = pageRecords(pageNo).filter((x: any) => x.t === 'g');
 			if (!allG.length) continue;
 			for (const cl of colCandidates(allG, W, G)) {

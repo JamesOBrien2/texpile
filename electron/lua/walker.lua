@@ -44,6 +44,17 @@ end
 
 local pt = 65536.0
 local RUNNING = -1073741824 -- max_dimen sentinel; a fixed TeX constant, not an enum
+
+-- JSON string escaping. Font names and paths are the ONLY engine-supplied strings that
+-- reach a record, and both can carry characters JSON forbids raw: luaotfload sets f.name
+-- to the fontspec request and QUOTES it whenever the family has a space
+-- (\setmainfont{Times New Roman} -> `"name:Times New Roman:mode=harf;..."`). Interpolating
+-- that with %s produced an unparseable line, and the renderer parses a page's records with
+-- one JSON.parse per line -- so a single font record blanked the entire page.
+local JESC = { ['"'] = '\\"', ['\\'] = '\\\\', ['\b'] = '\\b', ['\f'] = '\\f', ['\n'] = '\\n', ['\r'] = '\\r', ['\t'] = '\\t' }
+local function jstr(s)
+	return (tostring(s or ""):gsub('[%c"\\]', function(c) return JESC[c] or string.format('\\u%04x', c:byte()) end))
+end
 local FONTKERN = subtypeByName("kern", "fontkern", 0)
 local RULE_IMAGE = subtypeByName("rule", "image", 2)
 local HL_LINE = subtypeByName("hlist", "line", 1)
@@ -77,6 +88,25 @@ local W_LATE_LUA = whatsitByName("late_lua", 8)
 -- M.lines resets it each call and folds it into stats. Reassignment (not mutation
 -- of a captured table) so the upvalue in walk/walk_vlist tracks the new table.
 local flags = {}
+
+-- Direction lives on the BOX, not in the node list. LuaTeX gives every hlist/vlist a `dir`
+-- field ("TLT" is ordinary left-to-right text) and reverses TRT material in the BACKEND, at
+-- shipout, after this hook has already run. So an RTL page reaches the walker in LOGICAL
+-- order while the PDF shows it visually reversed, and walk()'s left-to-right x accumulation
+-- paints the line mirrored.
+--
+-- There is a dir NODE type as well, and the DIR branches below used to be the whole of this
+-- check -- but probing a bidi=default Hebrew page finds not one dir node on it, only TRT box
+-- fields, so that check never once fired and RTL has been silently uncertifiable since.
+--
+-- Everything but TLT is refused: TRT is right-to-left, LTL/RTT are vertical writing modes,
+-- and none of the three survives a left-to-right walk. Guarded on the string type because
+-- pre-1.10 LuaTeX reported dir as a number, and a number is never equal to "TLT" -- that
+-- would flag every box on every page.
+local function checkDir(n)
+	local d = n.dir
+	if type(d) == "string" and d ~= "TLT" then flags.dir = true end
+end
 
 -- Parse a raw PDF color-setting operator string ("1 0 0 rg 1 0 0 RG", CMYK "k/K",
 -- gray "g/G") into a "#rrggbb" string. Returns nil if unparseable (caller should
@@ -134,10 +164,33 @@ end
 -- specifically for this range; every other glyph keeps the proven cmap path
 -- unchanged (no regression risk on the 26 already-passing constructs).
 local PUA_START = 0xF0000
+
+-- HarfBuzz-shaped fonts need the SAME treatment for their ordinary text. luaotfload picks
+-- the harf renderer automatically for complex scripts (Hebrew, Arabic, Indic), and a shaped
+-- run's glyphs no longer stand for the codepoints that produced them: Arabic comes out as
+-- presentation forms (U+FEDF for a medial lam), Indic conjuncts as glyphs with no Unicode at
+-- all. A cmap lookup then finds the wrong glyph or none. The font's own characters table
+-- still holds the true OpenType index for every one of them (probed: harf-shaped Arial gives
+-- index 1020/971/941 for exactly those chars), so emit it and let the renderer look up by GID.
+--
+-- Deliberately scoped to harf fonts + the PUA range rather than every glyph: node-mode text
+-- (all Latin, Greek, Cyrillic, CJK) resolves correctly through the cmap today, and its records
+-- stay byte-identical -- 9 bytes per glyph on every page is not worth spending to re-prove a
+-- path that already works.
+local fontInfo = {} -- per font id; ids are unique per definition, so this never goes stale
+local function infoFor(id)
+	local i = fontInfo[id]
+	if i == nil then
+		local f = font.getfont(id)
+		i = { chars = f and f.characters, harf = f ~= nil and f.hb ~= nil }
+		fontInfo[id] = i
+	end
+	return i
+end
 local function glyphIndexSuffix(n)
-	if n.char < PUA_START then return "" end
-	local f = font.getfont(n.font)
-	local ch = f and f.characters and f.characters[n.char]
+	local i = infoFor(n.font)
+	if not i.harf and n.char < PUA_START then return "" end
+	local ch = i.chars and i.chars[n.char]
 	if ch and ch.index then return ',"gi":' .. ch.index end
 	return ""
 end
@@ -240,6 +293,7 @@ local function walk(head, parent, x, y, emit, fonts, last_ef, colorStack)
 				x = x + n.width
 			end
 		elseif id == HLIST then
+			checkDir(n)
 			local yy = y + (n.shift or 0)
 			-- area guard: a 0x0 picture box (tikz overlay/remember) draws outside its own
 			-- bounds -- a crop of it is empty. Fall through to the normal walk (loose flag).
@@ -268,6 +322,7 @@ local function walk(head, parent, x, y, emit, fonts, last_ef, colorStack)
 			end
 			x = x + n.width
 		elseif id == VLIST then
+			checkDir(n)
 			-- baseline-aligned in a line: contents start at y - height; shift is vertical here
 			walk_vlist(n.head, n, x, y - n.height + (n.shift or 0), emit, fonts, colorStack)
 			x = x + n.width
@@ -302,6 +357,7 @@ walk_vlist = function(head, parent, x, y, emit, fonts, colorStack)
 	for n in node.traverse(head) do
 		local id = n.id
 		if id == HLIST then
+			checkDir(n)
 			cy = cy + n.height
 			-- drawing box sitting directly in vertical material (\vbox{\hbox{tikz}}).
 			-- Paragraph LINES are exempt: walk() captures just the inner drawing box,
@@ -315,6 +371,7 @@ walk_vlist = function(head, parent, x, y, emit, fonts, colorStack)
 			end
 			cy = cy + n.depth
 		elseif id == VLIST then
+			checkDir(n)
 			walk_vlist(n.head, n, x + (n.shift or 0), cy, emit, fonts, colorStack)
 			cy = cy + n.height + n.depth
 		elseif id == GLUE then
@@ -366,6 +423,7 @@ function M.lines(head, y0)
 	local lineno, y, maxdev = 0, y0 or 0, 0
 	for line in node.traverse(head) do
 		if line.id == HLIST then
+			checkDir(line)
 			lineno = lineno + 1
 			y = y + line.height
 			-- a degenerate/empty top-level line (e.g. article.cls's \@maketitle,
@@ -390,6 +448,7 @@ function M.lines(head, y0)
 				lineno, (endx - x0) / pt, line.width / pt, dev, tostring(line.glue_sign ~= 0)))
 			y = y + line.depth
 		elseif line.id == VLIST then
+			checkDir(line)
 			-- e.g. an [H]-forced float's own \vbox sitting directly in the
 			-- block's top-level list (not nested inside a paragraph line).
 			walk_vlist(line.head, line, line.shift or 0, y, emit, fonts, colorStack)
@@ -417,14 +476,17 @@ function M.lines(head, y0)
 		-- Without this their glyph records had no font record and silently drew nothing.
 		local f = font.getfont(id) or (font.getcopy and font.getcopy(id))
 		if f then
-			local file = tostring(f.filename or ""):gsub("\\", "/")
+			-- "harfloaded:" prefixes filename whenever luaotfload shaped through HarfBuzz. It is a
+			-- loader tag, not part of the path: passing it through made the renderer fetch a file
+			-- that cannot exist, so every glyph of a Hebrew/Arabic/Indic page silently drew nothing.
+			local file = tostring(f.filename or ""):gsub("\\", "/"):gsub("^harfloaded:", "")
 			-- subfont: which face of a TrueType Collection (.ttc) this is; the renderer
 			-- must extract that face before parsing (opentype.js can't read collections)
 			local coll = file:lower():match("%.ttc$") or file:lower():match("%.otc$")
 			local sub = (coll and type(f.subfont) == "number" and f.subfont >= 1)
 				and string.format(',"sub":%d', f.subfont) or ""
 			records[#records + 1] = string.format('{"t":"font","id":%d,"size":%.4f,"name":"%s","file":"%s"%s}',
-				id, (f.size or 0) / pt, tostring(f.name or f.fullname or ""), file, sub)
+				id, (f.size or 0) / pt, jstr(f.name or f.fullname or ""), jstr(file), sub)
 		end
 	end
 	-- certification: a block is live-renderable only if it contains no feature we
