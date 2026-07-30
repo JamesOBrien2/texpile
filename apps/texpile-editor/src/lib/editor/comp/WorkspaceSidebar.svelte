@@ -82,6 +82,20 @@
 	}: Props = $props();
 </script>
 
+<!-- Escape leaves the Source Control / Find-in-files views and returns to the file tree, the same way
+     it dismisses the tree's own context menu. Skipped while a text field has focus, so Escape in the
+     commit message or the search box is not a trapdoor out of the panel you are typing into. -->
+<svelte:window
+	onkeydown={(e) => {
+		if (e.key !== 'Escape' || view === 'explorer') return;
+		const el = document.activeElement;
+		if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el as HTMLElement | null)?.isContentEditable) return;
+		e.preventDefault();
+		if (view === 'search') onCloseGlobalSearch();
+		view = 'explorer';
+	}}
+/>
+
 <aside class="border-surface-200-800 bg-surface-50-950 flex shrink-0 flex-col border-r" style="width: {width}px">
 	<div class="border-surface-200-800 flex h-12 items-center justify-between gap-2 border-b px-3">
 		<span class="truncate text-sm font-semibold" title={$workspaceRoot ?? ''}>

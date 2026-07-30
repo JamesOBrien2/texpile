@@ -1,5 +1,5 @@
-import { EditorView as CodeMirrorView, keymap as cmKeymap, drawSelection } from '@codemirror/view';
-import { Compartment as CodeMirrorCompartment } from '@codemirror/state';
+import { EditorView as CodeMirrorView, keymap as cmKeymap, drawSelection, rectangularSelection, crosshairCursor } from '@codemirror/view';
+import { Compartment as CodeMirrorCompartment, EditorState as CodeMirrorState } from '@codemirror/state';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
 import { exitCode } from 'prosemirror-commands';
@@ -105,6 +105,12 @@ class CodeBlockView {
 				cmKeymap.of([...this.codeMirrorKeymap(), ...defaultKeymap]),
 				cmKeymap.of([indentWithTab]),
 				drawSelection(),
+				// Multiple cursors, same as the source editor. forwardUpdate only mirrors the MAIN range
+				// back to ProseMirror - a PM selection cannot hold more than one range - but the edits
+				// themselves all arrive through iterChanges, so typing at several carets is applied in full.
+				CodeMirrorState.allowMultipleSelections.of(true),
+				rectangularSelection(),
+				crosshairCursor(),
 				this.languageConf.of(markdown()),
 				cmSyntaxHighlight(),
 				CodeMirrorView.updateListener.of((update) => this.forwardUpdate(update as never)),

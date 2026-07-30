@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, Menu, protocol } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, protocol } from 'electron';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { Readable } from 'node:stream';
@@ -12,6 +12,7 @@ import { startWorkspaceWatch, stopWorkspaceWatch } from './fs-watch';
 import * as mcp from './mcp/server';
 import { publishWindowState, forgetWindow, type WindowState } from './mcp/state';
 import { deliverResponse } from './mcp/bridge';
+import { registerWindowChrome, forgetWindowChrome, watchWindowState } from './window-chrome';
 
 const isDev = !app.isPackaged;
 
@@ -273,6 +274,16 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 		title: 'Texpile',
 		icon: path.join(__dirname, '..', 'icon.png'),
 		backgroundColor: '#ffffff',
+		// Custom title bar (TitleBar.svelte). Frameless on Windows/Linux so the menus, the app icon
+		// and the window buttons share one row instead of costing two - VS Code's layout, and the
+		// reason its chrome is a third the height of ours was.
+		//
+		// macOS keeps a real frame: `hiddenInset` hides the title bar but leaves the traffic lights,
+		// the double-click-to-zoom behaviour and the system menu bar, none of which a frameless
+		// window can reproduce. There the menus live in the native bar instead (window-chrome.ts).
+		...(process.platform === 'darwin'
+			? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 12, y: 10 } }
+			: { frame: false }),
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.js'),
 			contextIsolation: true,
@@ -284,6 +295,7 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 	});
 	// capture now: webContents is gone by the time 'closed' fires
 	const wcId = win.webContents.id;
+	watchWindowState(win); // feeds the title bar's maximise / restore state
 	windowRoots.set(wcId, null);
 	if (pending) pendingOpens.set(wcId, pending);
 	win.loadURL(url);
@@ -361,6 +373,7 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 		pendingOpens.delete(wcId);
 		pendingCloses.delete(wcId);
 		forgetWindow(wcId); // or a dead window keeps answering get_editor_state
+		forgetWindowChrome(wcId); // and hand the macOS menu bar to whichever window is left
 		// the closing window owned the warm engine: stop it so it doesn't hold memory orphaned
 		if (draftOwner?.wcId === wcId) {
 			draftDaemon.stopDaemon();
@@ -516,6 +529,7 @@ const DEFAULT_SETTINGS = {
 	checkForUpdates: true,
 	uiZoom: 1, // whole-window zoom factor (webContents.setZoomFactor); the View menu adjusts it
 	mathPreview: true, // live math preview tooltip in source mode
+	editorKeymap: 'default', // modal keybindings for the source editor: 'default' | 'vim' | 'emacs'
 	uiLocale: 'en', // UI display language, not the LaTeX document language. Overridden per-read by
 	// the detected system language until the user picks one; see systemUiLocale + readSettings.
 	collabRelayUrl: 'wss://collab.texpile.com', // shared-session relay endpoint
@@ -887,16 +901,10 @@ app.whenReady().then(() => {
 	// it starts with the app. A failure to bind must not stop the editor from opening.
 	if (readSettings().mcpEnabled) mcp.start(mcpHost()).catch((e) => console.error('mcp: failed to start', e));
 
-	// The real menu bar lives in the renderer (WorkspaceMenuBar). On macOS the system bar can't
-	// be removed entirely without breaking Cmd+Q and copy/paste in native inputs, so keep ONLY
-	// the app menu (Quit/Hide/About) and Edit (undo/cut/copy/paste/selectAll). The old template
-	// also carried View and Window, whose items duplicated and drifted out of sync with the
-	// in-app menus; those are dropped. Everywhere else the native menu is removed outright.
-	if (process.platform === 'darwin') {
-		Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]));
-	} else {
-		Menu.setApplicationMenu(null);
-	}
+	// Window controls for the custom title bar, plus - on macOS - the native menu bar, built from
+	// what the renderer reports about its own menus. Everywhere else the native menu is removed
+	// and the renderer draws it. See window-chrome.ts.
+	registerWindowChrome();
 
 	if (initialOpenPath) {
 		// launched via a .tex file: that request wins over session restore

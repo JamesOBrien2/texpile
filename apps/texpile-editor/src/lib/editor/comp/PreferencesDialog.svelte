@@ -48,6 +48,13 @@
 		{ value: 'dark', label: m.prefs_theme_dark() }
 	];
 
+	// source-editor keybindings; Vim and Emacs are names, so they are not translated
+	const keymaps: { value: AppSettings['editorKeymap']; label: string }[] = [
+		{ value: 'default', label: m.prefs_keybindings_default() },
+		{ value: 'vim', label: 'Vim' },
+		{ value: 'emacs', label: 'Emacs' }
+	];
+
 	// image resize snaps to multiples of this fraction of \textwidth
 	const resizeSteps: { value: number; label: string }[] = [
 		{ value: 0.1, label: '10%' },
@@ -195,6 +202,22 @@
 				<div>
 					{@render toggle(m.prefs_math_preview(), $settings.mathPreview !== false, (v) => updateSettings({ mathPreview: v }))}
 					<p class="text-surface-500 mt-1 text-xs">{m.prefs_math_preview_note()}</p>
+				</div>
+				<div>
+					<div class="flex items-center justify-between gap-4">
+						<span class="text-sm">{m.prefs_keybindings()}</span>
+						<select
+							class="select w-32 text-sm"
+							value={$settings.editorKeymap ?? 'default'}
+							onchange={(e) =>
+								updateSettings({ editorKeymap: (e.currentTarget as HTMLSelectElement).value as AppSettings['editorKeymap'] })}
+						>
+							{#each keymaps as k (k.value)}
+								<option value={k.value}>{k.label}</option>
+							{/each}
+						</select>
+					</div>
+					<p class="text-surface-500 mt-1 text-xs">{m.prefs_keybindings_note()}</p>
 				</div>
 				<div>
 					{@render toggle(m.prefs_dark_pdf_pages(), $settings.pdfDarkPages, (v) => updateSettings({ pdfDarkPages: v }))}

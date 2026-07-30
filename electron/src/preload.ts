@@ -54,6 +54,31 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	releaseWorkspace: () => ipcRenderer.invoke('workspace:release'),
 	/** open an empty new window. */
 	newWindow: () => ipcRenderer.invoke('window:new'),
+
+	// ---- custom title bar. The window is frameless off macOS, so these are the only way to
+	// minimise, maximise or close it. `close` goes through the normal close path, unsaved-changes
+	// hold included. ----
+	windowMinimize: () => ipcRenderer.invoke('window:minimize'),
+	/** maximize or restore; resolves to the resulting maximized state. */
+	windowToggleMaximize: () => ipcRenderer.invoke('window:toggleMaximize'),
+	windowClose: () => ipcRenderer.invoke('window:close'),
+	windowIsMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+	/** subscribe to maximize / full-screen changes, so the title bar can swap its restore icon. */
+	onWindowState: (cb: (s: { maximized: boolean; fullScreen: boolean }) => void) => {
+		const h = (_e: unknown, s: { maximized: boolean; fullScreen: boolean }) => cb(s);
+		ipcRenderer.on('main:window-state', h);
+		return () => ipcRenderer.removeListener('main:window-state', h);
+	},
+	/** describe this window's menus for the native macOS menu bar. Fire and forget: the next push
+	 *  corrects a dropped one, and off macOS main just records it. */
+	publishMenuState: (state: unknown) => ipcRenderer.send('window:menu-state', state),
+	/** subscribe to a native menu selection; the payload is the same `menu:value` string the
+	 *  in-app menu bar produces. */
+	onMenuAction: (cb: (action: string) => void) => {
+		const h = (_e: unknown, action: string) => cb(String(action));
+		ipcRenderer.on('main:menu-action', h);
+		return () => ipcRenderer.removeListener('main:menu-action', h);
+	},
 	/** folder picker + new window in one step (deduped against already-open folders). */
 	openFolderNewWindow: () => ipcRenderer.invoke('window:openFolderNew'),
 	/** true exactly once per app session; the winner runs the update check / What's New. */

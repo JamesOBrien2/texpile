@@ -219,6 +219,51 @@
 			{errorMsg || m.terminal_error_desktop_only()}
 		</div>
 	{:else}
-		<div bind:this={host} class="h-full w-full px-2 py-1"></div>
+		<!-- NO padding here: it must go on .xterm instead, see the note in the style block below -->
+		<div bind:this={host} class="terminal-host h-full w-full"></div>
 	{/if}
 </div>
+
+<style>
+	/*
+	 * The inset has to live on .xterm, not on the host, or the terminal ends up wider than the space
+	 * it has and the scrollbar covers the end of the command line.
+	 *
+	 * FitAddon sizes the grid from `getComputedStyle(host).width` minus `.xterm`'s OWN padding. The
+	 * host is border-box (Tailwind preflight), and for a border-box element that computed width is the
+	 * BORDER box - so a px-2 py-1 on the host is counted as usable space and never subtracted by
+	 * anyone. Measured here with a 760px pane: FitAddon saw 760 and asked for 104 columns where only
+	 * 102 fit, leaving the last two under the scrollbar, and one row too many so the bottom line was
+	 * clipped as well. Padding on .xterm is subtracted, which is what makes the arithmetic close.
+	 *
+	 * .xterm-viewport is absolutely positioned with inset 0, and an absolute box resolves against its
+	 * containing block's PADDING box - so the scrollbar still sits flush against the right edge of the
+	 * pane while the text is inset. That is what we want anyway (it is where VS Code puts it).
+	 */
+	.terminal-host :global(.xterm) {
+		padding: 4px 8px;
+	}
+
+	/* Pin the scrollbar width for both themes. The app's global dark-mode rule (app.css:
+	   [data-mode='dark'] ::-webkit-scrollbar { width: 10px }) is a universal selector, so it matches
+	   this viewport too - and xterm measures the bar ONCE in its Viewport constructor and never
+	   re-reads it, so a theme toggle after mount would leave the reservation disagreeing with the real
+	   width. Not what caused the overlap above, but it is one fewer way for the arithmetic to drift.
+	   The thumb colours are here because the terminal has its own dark background regardless of the
+	   app's theme, so the app's scrollbar would look wrong on it. */
+	.terminal-host :global(.xterm-viewport::-webkit-scrollbar) {
+		width: 10px;
+	}
+	.terminal-host :global(.xterm-viewport::-webkit-scrollbar-track) {
+		background: transparent;
+	}
+	.terminal-host :global(.xterm-viewport::-webkit-scrollbar-thumb) {
+		background-color: #4a4a52;
+		border: 2px solid transparent;
+		background-clip: padding-box;
+		border-radius: 5px;
+	}
+	.terminal-host :global(.xterm-viewport::-webkit-scrollbar-thumb:hover) {
+		background-color: #5e5e68;
+	}
+</style>

@@ -44,6 +44,8 @@ export interface AppSettings {
 	whatsNewSeen: string;
 	/** live math preview tooltip in source mode. */
 	mathPreview: boolean;
+	/** modal keybindings for the source editor and code blocks. */
+	editorKeymap: 'default' | 'vim' | 'emacs';
 	/** UI display language. Not the LaTeX document language (see DocumentLanguage). */
 	uiLocale: 'en' | 'zh-Hans' | 'zh-Hant' | 'de';
 	/** shared-session relay endpoint (ws:// or wss://). */
@@ -84,6 +86,7 @@ const DEFAULTS: AppSettings = {
 	uiZoom: 1,
 	whatsNewSeen: '',
 	mathPreview: true,
+	editorKeymap: 'default',
 	uiLocale: 'en',
 	collabRelayUrl: DEFAULT_COLLAB_RELAY_URL,
 	openFolders: []

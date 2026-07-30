@@ -7,6 +7,7 @@
 	import ConflictModal from '$lib/editor/comp/ConflictModal.svelte';
 	import SaveBeforeSwitchModal from '$lib/editor/comp/SaveBeforeSwitchModal.svelte';
 	import RefUpdateModal, { type RefUpdate } from '$lib/editor/comp/RefUpdateModal.svelte';
+	import CommandPalette from '$lib/editor/comp/palette/CommandPalette.svelte';
 	import type { MainFilePrompt } from '$lib/workspace/mainFilePrompt.svelte';
 	import type { UnsavedGuard } from '$lib/workspace/unsavedGuard.svelte';
 	import type { ExternalChangeWatcher } from '$lib/workspace/externalChange.svelte';
@@ -81,3 +82,6 @@
 {#if pendingRefUpdate}
 	<RefUpdateModal update={pendingRefUpdate} onKeep={onKeepRefs} onApply={onApplyRefs} />
 {/if}
+
+<!-- takes no props: it reads the action registry WorkspaceView fills in, and owns its own Ctrl+K -->
+<CommandPalette />

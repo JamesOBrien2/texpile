@@ -105,6 +105,12 @@ importers:
       '@lucide/svelte':
         specifier: ^0.522.0
         version: 0.522.0(svelte@5.56.4(@typescript-eslint/types@8.62.0))
+      '@replit/codemirror-emacs':
+        specifier: ^6.1.0
+        version: 6.1.0(@codemirror/autocomplete@6.20.3)(@codemirror/commands@6.10.4)(@codemirror/search@6.7.1)(@codemirror/state@6.7.0)(@codemirror/view@6.43.2)
+      '@replit/codemirror-vim':
+        specifier: ^6.4.0
+        version: 6.4.0(@codemirror/commands@6.10.4)(@codemirror/language@6.12.3)(@codemirror/search@6.7.1)(@codemirror/state@6.7.0)(@codemirror/view@6.43.2)
       '@tailwindcss/vite':
         specifier: ^4.1.10
         version: 4.3.1(vite@5.4.21(@types/node@20.19.43)(lightningcss@1.32.0))
@@ -1380,6 +1386,27 @@ packages:
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
+
+  '@replit/codemirror-emacs@6.1.0':
+    resolution: {integrity: sha512-74DITnht6Cs6sHg02PQ169IKb1XgtyhI9sLD0JeOFco6Ds18PT+dkD8+DgXBDokne9UIFKsBbKPnpFRAz60/Lw==}
+    peerDependencies:
+      '@codemirror/autocomplete': ^6.0.2
+      '@codemirror/commands': ^6.0.0
+      '@codemirror/search': ^6.0.0
+      '@codemirror/state': ^6.0.1
+      '@codemirror/view': ^6.3.0
+
+  '@replit/codemirror-vim-core@0.1.0':
+    resolution: {integrity: sha512-1i6EBKpcNfDKvTmTh6N6g9lL6udD5t+uFNh4JCqozRnVlvUGOps7h/QzS2ne4zcvPUjvApKpmcP7Grc3fNbZiQ==}
+
+  '@replit/codemirror-vim@6.4.0':
+    resolution: {integrity: sha512-t9UMDNhkmeAkl0uRbiJVotv97bGD6mf4GyJJoEbrjUqa/Pov0s9eL+4AaI0Xto3OGri17i9qwIpT0JbVlVXt8A==}
+    peerDependencies:
+      '@codemirror/commands': 6.x.x
+      '@codemirror/language': 6.x.x
+      '@codemirror/search': 6.x.x
+      '@codemirror/state': 6.x.x
+      '@codemirror/view': 6.x.x
 
   '@rollup/rollup-android-arm-eabi@4.62.2':
     resolution: {integrity: sha512-6o7ZLZK+BeenkZCFNDXqpbjw9bD6nuWonvS/lwQJp7NoVVxm6p3qE7qQ5jGuBjiFsgvqjD8mZAU5oWxTmbOeOg==}
@@ -5998,6 +6025,25 @@ snapshots:
       playwright: 1.61.1
 
   '@polka/url@1.0.0-next.29': {}
+
+  '@replit/codemirror-emacs@6.1.0(@codemirror/autocomplete@6.20.3)(@codemirror/commands@6.10.4)(@codemirror/search@6.7.1)(@codemirror/state@6.7.0)(@codemirror/view@6.43.2)':
+    dependencies:
+      '@codemirror/autocomplete': 6.20.3
+      '@codemirror/commands': 6.10.4
+      '@codemirror/search': 6.7.1
+      '@codemirror/state': 6.7.0
+      '@codemirror/view': 6.43.2
+
+  '@replit/codemirror-vim-core@0.1.0': {}
+
+  '@replit/codemirror-vim@6.4.0(@codemirror/commands@6.10.4)(@codemirror/language@6.12.3)(@codemirror/search@6.7.1)(@codemirror/state@6.7.0)(@codemirror/view@6.43.2)':
+    dependencies:
+      '@codemirror/commands': 6.10.4
+      '@codemirror/language': 6.12.3
+      '@codemirror/search': 6.7.1
+      '@codemirror/state': 6.7.0
+      '@codemirror/view': 6.43.2
+      '@replit/codemirror-vim-core': 0.1.0
 
   '@rollup/rollup-android-arm-eabi@4.62.2':
     optional: true

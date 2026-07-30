@@ -1,6 +1,14 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { EditorView, keymap, drawSelection, lineNumbers, highlightActiveLine } from '@codemirror/view';
+	import {
+		EditorView,
+		keymap,
+		drawSelection,
+		lineNumbers,
+		highlightActiveLine,
+		rectangularSelection,
+		crosshairCursor
+	} from '@codemirror/view';
 	import { EditorState, Compartment, Transaction } from '@codemirror/state';
 	import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 	import { bracketMatching, indentOnInput, LanguageDescription } from '@codemirror/language';
@@ -14,6 +22,7 @@
 	import { mathPreview } from '$lib/editor/extensions/math-preview/mathPreview';
 	import { starterGhost } from '$lib/editor/extensions/starter-ghost/starterGhost';
 	import { synctexFlash, flashLineEffect } from '$lib/editor/extensions/synctex-flash/synctexFlash';
+	import { bindModalKeymap, modalKeymapCompartment } from '$lib/editor/extensions/keybindings/modalKeymap';
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { docText } from '$lib/editor/docText';
@@ -171,6 +180,9 @@
 	});
 	const langConf = new Compartment();
 	const roConf = new Compartment();
+	// vim / emacs bindings, filled in after mount because the packages are dynamically imported
+	const keymapConf = modalKeymapCompartment();
+	let unbindKeymap: (() => void) | null = null;
 	// true while pushing an external value into CM, so the update listener doesn't echo it back as a user edit
 	let syncing = false;
 	// last text handed to onInput: the value-sync effect compares against this first, so our own
@@ -203,7 +215,16 @@
 					highlightActiveLine(),
 					...(collab ? [yCollab(collab.ytext, collab.awareness, { undoManager: undoManager! }), yRemoteLayoutFix] : [history()]),
 					roConf.of(collab?.readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
+					keymapConf.of([]),
 					drawSelection(),
+					// Multiple cursors. The commands already ship in the keymaps we load - defaultKeymap
+					// binds Mod-Alt-Arrow to addCursorAbove/Below and searchKeymap binds Mod-d to
+					// selectNextOccurrence - but every transaction is normalized down to one range until
+					// the state is told extra ranges are allowed. rectangularSelection/crosshairCursor add
+					// Alt+drag column selection on top.
+					EditorState.allowMultipleSelections.of(true),
+					rectangularSelection(),
+					crosshairCursor(),
 					bracketMatching(),
 					indentOnInput(),
 					langConf.of([]),
@@ -250,6 +271,7 @@
 			})
 		});
 		view.focus();
+		unbindKeymap = bindModalKeymap(view, keymapConf);
 		// collab mount: the Y.Text may be ahead of the caller's value (guest edits landed while
 		// the file was closed) — hand the truth back so the save pipeline starts aligned
 		if (collab && onInput && collab.ytext.toString() !== value) onInput(collab.ytext.toString());
@@ -408,6 +430,8 @@
 
 	onDestroy(() => {
 		sourceCmView.set(null);
+		unbindKeymap?.();
+		unbindKeymap = null;
 		// collab teardown: drop our cursor from awareness so peers don't see a ghost, and reap the
 		// undo manager's doc observer before the view goes
 		if (collab) collab.awareness.setLocalStateField('cursor', null);
@@ -518,5 +542,20 @@
 	}
 	.source-editor :global(.cm-focused) {
 		outline: none;
+	}
+	/* vim / emacs mode line. Unlike the search widget above this is a BOTTOM panel, so it keeps
+	   CodeMirror's normal in-flow layout (the scroller shrinks for it) and only needs skinning. */
+	.source-editor :global(.cm-panels.cm-panels-bottom) {
+		border-top: 1px solid var(--color-surface-200);
+		background: var(--color-surface-100);
+	}
+	:global([data-mode='dark'] .source-editor .cm-panels.cm-panels-bottom) {
+		border-top-color: var(--color-surface-800);
+		background: var(--color-surface-900);
+	}
+	.source-editor :global(.cm-vim-panel) {
+		font-size: 0.75rem;
+		align-items: center;
+		min-height: 1.6em;
 	}
 </style>

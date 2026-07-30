@@ -2,6 +2,8 @@
 	// The workspace's chrome: the menu bar (or the guest banner in its place) and the left sidebar
 	// with its drag handle. Like WorkspaceMain, this reads from the shared state objects rather
 	// than a long prop list.
+	import TitleBar from '$lib/editor/comp/chrome/TitleBar.svelte';
+	import AppIconMenu from '$lib/editor/comp/chrome/AppIconMenu.svelte';
 	import WorkspaceMenuBar from '$lib/editor/comp/WorkspaceMenuBar.svelte';
 	import WorkspaceSidebar from '$lib/editor/comp/WorkspaceSidebar.svelte';
 	import GuestBar from '$lib/collab/GuestBar.svelte';
@@ -51,29 +53,42 @@
 </script>
 
 {#if guest}
+	<!-- a guest has no menus, but a frameless window still needs somewhere to drag it by and a
+	     close button -->
+	<TitleBar />
 	<GuestBar />
 {:else}
-	<WorkspaceMenuBar
-		disabled={menu.disabled}
-		imageDir={menu.imageDir}
-		onNewFile={actions.newFileOfType}
-		onOpenFolder={actions.openFolder}
-		onCloseWorkspace={actions.closeWorkspace}
-		onSave={actions.save}
-		onShareSession={menu.shareable ? actions.openShare : undefined}
-		terminalAvailable={termDock.available}
-		terminalVisible={termDock.visible}
-		onCompile={compiler.runCompile}
-		onConfigureCompile={actions.openCompileModal}
-		onNewTerminal={actions.newTerminal}
-		onToggleTerminal={actions.toggleTerminal}
-		onFormatDocument={actions.openFormatModal}
-		onOpenTutorial={actions.openTutorial}
-		uiZoomPercent={menu.uiZoomPercent}
-		onZoomIn={actions.uiZoomIn}
-		onZoomOut={actions.uiZoomOut}
-		onZoomReset={actions.uiZoomReset}
-	/>
+	<!-- the menus live inside the custom title bar, on one row with the app icon and the window
+	     buttons. On macOS TitleBar renders the row but WorkspaceMenuBar draws no triggers - the
+	     system menu bar has them - while still mounting to own its dialogs. -->
+	<TitleBar>
+		{#snippet appMenu()}
+			<AppIconMenu onShareSession={menu.shareable ? actions.openShare : undefined} />
+		{/snippet}
+		{#snippet menus()}
+			<WorkspaceMenuBar
+				disabled={menu.disabled}
+				imageDir={menu.imageDir}
+				onNewFile={actions.newFileOfType}
+				onOpenFolder={actions.openFolder}
+				onCloseWorkspace={actions.closeWorkspace}
+				onSave={actions.save}
+				onShareSession={menu.shareable ? actions.openShare : undefined}
+				terminalAvailable={termDock.available}
+				terminalVisible={termDock.visible}
+				onCompile={compiler.runCompile}
+				onConfigureCompile={actions.openCompileModal}
+				onNewTerminal={actions.newTerminal}
+				onToggleTerminal={actions.toggleTerminal}
+				onFormatDocument={actions.openFormatModal}
+				onOpenTutorial={actions.openTutorial}
+				uiZoomPercent={menu.uiZoomPercent}
+				onZoomIn={actions.uiZoomIn}
+				onZoomOut={actions.uiZoomOut}
+				onZoomReset={actions.uiZoomReset}
+			/>
+		{/snippet}
+	</TitleBar>
 {/if}
 
 <div class="flex min-h-0 flex-1 overflow-hidden">

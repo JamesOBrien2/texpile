@@ -52,6 +52,8 @@
 	import { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
 	import { publishWindowState } from '$lib/workspace/mcpPublish';
 	import { attachMcpCommands } from '$lib/workspace/mcpCommands';
+	import { setPaletteActions } from '$lib/workspace/commandPalette.svelte';
+	import { preferencesOpen } from '$lib/stores/dialogStore';
 	import { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 	import { TerminalDockState } from '$lib/workspace/terminalDockState.svelte';
 	import { CompileSettings } from '$lib/workspace/compileSettings.svelte';
@@ -1101,6 +1103,40 @@
 		setMain: (entry: TreeEntry) => void applyMainFile(entry.path),
 		refreshGit: () => refreshGitStatus(get(workspaceRoot))
 	};
+
+	// the Ctrl+K palette. Registered rather than passed down: it reaches roughly a dozen of these
+	// actions, and threading that through WorkspaceChrome and WorkspaceMain to a dialog would touch
+	// four files per command. Cleared on destroy so a keystroke after the workspace closed is inert.
+	onMount(() => {
+		setPaletteActions({
+			save: () => save(),
+			runCompile: () => compiler.runCompile(),
+			stopCompile: () => compiler.stopCompile(),
+			isCompiling: () => compiler.compiling,
+			// a guest cannot compile: the host owns the toolchain
+			compileAvailable: () => termDock.available && !guest,
+			setViewMode,
+			getViewMode: () => modes.mode,
+			hasFile: () => !!doc.path,
+			openFile: (abs) => activeFilePath.set(abs),
+			toggleSidebar: () => layout.toggleSidebar(),
+			sidebarOpen: () => layout.sidebarOpen,
+			toggleTerminal,
+			terminalVisible: () => termDock.visible,
+			terminalAvailable: () => termDock.available,
+			newTerminal: newTerminalFromMenu,
+			openCompileModal: () => openCompileModal(),
+			openFormatModal,
+			openGlobalSearch: () => void openGlobalSearch(),
+			openPreferences: () => preferencesOpen.set(true),
+			// same condition the app-icon menu uses: desktop only, and never for a guest
+			openShareSession: isDesktop() && !guest ? () => (shareModalOpen = true) : undefined,
+			newFile: (ext) => newFileOfType(ext),
+			openFolder: () => void openFolderFromMenu(),
+			refreshTree: () => void refreshTree()
+		});
+		return () => setPaletteActions(null);
+	});
 
 	const uiZoomPercent = $derived(Math.round(($settings.uiZoom ?? 1) * 100));
 	// shortcut table + UI zoom live in lib/workspace/shortcuts.ts

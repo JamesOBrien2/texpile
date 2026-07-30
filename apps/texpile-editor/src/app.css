@@ -232,6 +232,42 @@ html[data-mode='dark'] {
 	background-color: var(--color-surface-600);
 }
 
+/* Custom title bar drag regions. Global rather than scoped per component, for two reasons: there is
+   no Tailwind utility for -webkit-app-region, and the class often has to land on a CHILD COMPONENT's
+   root (Menu.Trigger, the menu bar's nav) where a scoped rule would neither apply nor even survive -
+   Svelte prunes it as an unused selector. One definition, used by TitleBar / WindowControls /
+   AppIconMenu / WorkspaceMenuBar.
+   Anything clickable inside a drag region needs app-no-drag, or the region swallows the click. */
+.app-drag {
+	-webkit-app-region: drag;
+}
+.app-no-drag {
+	-webkit-app-region: no-drag;
+}
+
+/* Aligning the app mark with the menu labels beside it, and ONLY in our own title bar - hence the
+   ancestor selector rather than a loose utility. Anywhere else the mark stands alone and should sit
+   exactly where its box puts it.
+
+   The mark is a square with two arms extending past its top-left corner. Typographically the SQUARE
+   is the letterform: in the wordmark its top edge sits on the cap line of "Texpile" and the arms rise
+   above it the way an ascender does. So next to text it is the square, not the icon's bounding box,
+   that has to line up with the cap height - centring the bounding box hangs the square a touch low
+   and pushes the arms up into the ascender space, which is what reads as "off".
+
+   The square's top edge is a STROKE, not a line: in the artwork it spans y=128.41 (outer, where the
+   arms rise from) to y=199.93 (inner, where the counter begins) of a 493.03 viewBox. The cap line
+   goes through the MIDDLE of that stroke, so the label's caps read as sitting on the square's top
+   border rather than above or below it.
+
+   Measured in a replica of the real row (32px tall, 16px mark, 14px labels): at -2px the stroke's
+   centre lands at 11.48px from the row top against a cap top of 11.50px. The neighbouring whole
+   pixels are both visibly wrong - -1px leaves the border a pixel low, -3px puts the cap line on the
+   stroke's inner edge instead of its middle. */
+.app-titlebar-icon {
+	transform: translateY(-2px);
+}
+
 /* thin always-present scrollbar on the toolbar: the macOS overlay scrollbar hides until you
    scroll, which made off-screen toolbar icons look simply missing */
 .toolbar-hscroll {
