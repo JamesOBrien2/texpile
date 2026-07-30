@@ -27,9 +27,15 @@ const CASES: Case[] = fs
 		return { name, records, dropped, page, fonts: records.filter((r) => r.t === 'font') };
 	});
 
-// which cases SHOULD be right-to-left, stated here rather than read back off the fixture, so a
-// capture that quietly stopped flagging them fails instead of agreeing with itself
-const RTL = new Set(['hebrew-rtl', 'arabic-rtl']);
+// which cases contain a right-to-left run, and the Unicode block it is written in. Stated here
+// rather than read back off the fixture, so a capture that quietly stopped producing the run
+// fails instead of agreeing with itself.
+const RTL: Record<string, [number, number]> = {
+	'hebrew-rtl': [0x590, 0x5ff],
+	'arabic-rtl': [0x600, 0x6ff] // shaped forms land in the Presentation Forms blocks, see below
+};
+const isRtlScript = (c: number, [lo, hi]: [number, number]) =>
+	(c >= lo && c <= hi) || (c >= 0xfb1d && c <= 0xfdff) || (c >= 0xfe70 && c <= 0xfeff);
 
 it('the fixture set was captured', () => {
 	expect(CASES.map((c) => c.name).sort()).toEqual(['arabic-rtl', 'cjk-ttc', 'cm-baseline', 'fontspec-space', 'greek', 'hebrew-rtl']);
@@ -66,8 +72,39 @@ describe.each(CASES)('$name', ({ name, records, dropped, page, fonts }) => {
 		for (const g of records.filter((r) => r.t === 'g' && harf.has(r.f))) expect(g.gi).toBeGreaterThan(0);
 	});
 
-	it('flags right-to-left pages and only those', () => {
-		expect(pageIsRtl(page.unc)).toBe(RTL.has(name));
+	it('is not refused for direction', () => {
+		// Right-to-left runs are LAID OUT now rather than handed to the PDF raster, so no ordinary
+		// page should come back uncertified for direction -- including the Hebrew and Arabic ones,
+		// which is the whole point. `dir` survives only for what still cannot be drawn: the LTL and
+		// RTT vertical writing modes, and a direction run with no closing marker.
+		expect(pageIsRtl(page.unc)).toBe(false);
+	});
+
+	const block = RTL[name];
+	it.skipIf(!block)('places the right-to-left run in visual order', () => {
+		// The walker emits in LOGICAL order (the order the node list is in), so a correctly laid
+		// out run has each successive letter to the LEFT of the one before it. If the reversal
+		// were missing these would ascend instead, which is exactly what the bug looked like.
+		const run = records.filter((r) => r.t === 'g' && isRtlScript(r.c, block));
+		expect(run.length).toBeGreaterThan(2);
+		for (let i = 1; i < run.length; i++) expect(run[i].x).toBeLessThan(run[i - 1].x);
+
+		// and the letters tile the run exactly: each one's left edge meets the previous one's,
+		// so no gap opens up and nothing overlaps
+		for (let i = 1; i < run.length; i++) expect(run[i].x + run[i].w).toBeCloseTo(run[i - 1].x, 3);
+	});
+
+	it.skipIf(!block)('keeps the surrounding left-to-right text clear of the run', () => {
+		// Reversing the run must not disturb what brackets it. The invariant is containment: the
+		// run occupies one span, and no left-to-right glyph may land inside that span. Not
+		// adjacency -- Hebrew here is followed immediately by a period, Arabic by an interword
+		// space, and both are correct.
+		const run = records.filter((r) => r.t === 'g' && isRtlScript(r.c, block));
+		const left = Math.min(...run.map((r) => r.x));
+		const right = Math.max(...run.map((r) => r.x + r.w));
+		const sameLine = records.filter((r) => r.t === 'g' && !isRtlScript(r.c, block) && Math.abs(r.y - run[0].y) < 0.001);
+		expect(sameLine.length).toBeGreaterThan(0);
+		for (const g of sameLine) expect(g.x + g.w <= left + 0.001 || g.x >= right - 0.001).toBe(true);
 	});
 });
 
