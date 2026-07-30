@@ -27,6 +27,7 @@
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { docText } from '$lib/editor/docText';
 	import { minimalEdit } from '$lib/editor/minimalEdit';
+	import { caretDoctor } from '$lib/debug/caretDoctor';
 	import { setSourceDocCount, setSourceSelectionCount } from '$lib/stores/countStore.svelte';
 	import { trailingDebounce } from '$lib/trailingDebounce';
 	import { m } from '$lib/paraglide/messages';
@@ -256,6 +257,8 @@
 								]
 					),
 					EditorView.lineWrapping,
+					// opt-in diagnostic for "the caret moved and I didn't move it"; see caretDoctor
+					caretDoctor(),
 					EditorView.contentAttributes.of({ spellcheck: 'false', 'data-gramm': 'false', 'data-enable-grammarly': 'false' }),
 					EditorView.updateListener.of((u) => {
 						if (u.docChanged) {
