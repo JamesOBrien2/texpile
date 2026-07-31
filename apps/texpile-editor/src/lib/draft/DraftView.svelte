@@ -17,7 +17,7 @@
 	import { parseRecords, pageIsRtl } from './pageRecords';
 	import { sfntFromTtc } from './ttc';
 	import { parseT1, type T1Font } from './type1/t1font';
-	import { getPdfJs } from 'svelte-pdf-view';
+	import { getPdfDocument } from 'svelte-pdf-view';
 	import { native, fileUrl } from '$lib/workspace/fileSystem';
 	import type { DraftPage } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';
@@ -150,9 +150,11 @@
 			try {
 				let bmp: ImageBitmap;
 				if (/\.pdf$/i.test(file)) {
-					const pdfjs = await getPdfJs();
-					if (!pdfjs) throw new Error('no pdfjs');
-					const doc = await pdfjs.getDocument({ url: fileUrl(file) }).promise;
+					// getPdfDocument, not getDocument: doc.destroy() below would otherwise take the shared
+					// worker down with it, out from under the PDF viewer
+					const task = await getPdfDocument({ url: fileUrl(file) });
+					if (!task) throw new Error('no pdfjs');
+					const doc = await task.promise;
 					const pg = await doc.getPage(1);
 					const base = pg.getViewport({ scale: 1 });
 					// rasterize at ~2x the display size so zooming stays crisp, capped for huge figures
@@ -202,11 +204,11 @@
 			try {
 				if (!pixDoc)
 					pixDoc = (async () => {
-						const pdfjs = await getPdfJs();
-						if (!pdfjs) throw new Error('no pdfjs');
 						// fetch bytes up front: range requests against a PDF latexmk may be rewriting would tear
 						const buf = await (await fetch(fileUrl(root + '/_draft/draft.pdf'), { cache: 'no-store' })).arrayBuffer();
-						return pdfjs.getDocument({ data: buf }).promise;
+						const task = await getPdfDocument({ data: buf });
+						if (!task) throw new Error('no pdfjs');
+						return task.promise;
 					})();
 				const pg = await (await pixDoc).getPage(pageNo);
 				// crop rect: records are pt from the (mx,my) text origin, PDF space is bp
@@ -260,10 +262,10 @@
 			try {
 				if (!pixDoc)
 					pixDoc = (async () => {
-						const pdfjs = await getPdfJs();
-						if (!pdfjs) throw new Error('no pdfjs');
 						const buf = await (await fetch(fileUrl(root + '/_draft/draft.pdf'), { cache: 'no-store' })).arrayBuffer();
-						return pdfjs.getDocument({ data: buf }).promise;
+						const task = await getPdfDocument({ data: buf });
+						if (!task) throw new Error('no pdfjs');
+						return task.promise;
 					})();
 				const pg = await (await pixDoc).getPage(n);
 				// pdf space is bp; we want basePxPt pixels per TeX pt

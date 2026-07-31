@@ -2,7 +2,7 @@
 	import { BROWSER } from 'esm-env';
 	import { onDestroy, onMount } from 'svelte';
 	import { getPdfViewerContext, type PdfViewerActions, type PdfSource } from './pdf-viewer/context.js';
-	import { getPdfJs } from './pdf-viewer/pdfjs-singleton.js';
+	import { getPdfJs, getPdfDocument } from './pdf-viewer/pdfjs-singleton.js';
 	import { PdfPresentationMode } from './pdf-viewer/PdfPresentationMode.js';
 	import { rendererStyles } from './pdf-viewer/renderer-styles.js';
 
@@ -116,8 +116,8 @@
 		let toDestroy: { destroy(): Promise<void> } | null = null;
 
 		try {
-			const pdfjs = await getPdfJs();
-			if (!pdfjs) return;
+			// availability check only (null off the browser); the load goes through getPdfDocument
+			if (!(await getPdfJs())) return;
 
 			if (!viewer) {
 				const { PDFViewerCore } = await import('./pdf-viewer/PDFViewerCore.js');
@@ -180,7 +180,10 @@
 				throw new Error('Invalid PDF source type');
 			}
 
-			const loadingTask = pdfjs.getDocument(documentSource);
+			// getPdfDocument, not pdfjs.getDocument: the task must not adopt the shared worker, or the
+			// destroy below (and every other document's) would tear it down for the whole app
+			const loadingTask = await getPdfDocument(documentSource);
+			if (!loadingTask) return;
 			toDestroy = loadingTask; // if the parse rejects, the task itself still needs freeing
 			const loadedPdfDocument = await loadingTask.promise;
 			toDestroy = loadedPdfDocument; // destroying the doc frees the task too
