@@ -141,7 +141,12 @@
 				</div>
 			{/if}
 
-			{#if menus && !isMac}
+			<!-- Rendered on macOS too, where it deliberately draws nothing. The menu bar component
+			     owns the native bridge: it publishes this window's menu state to main and receives
+			     the system menu's selections. Main builds the macOS menu FROM that state, so
+			     withholding the snippet here meant it never mounted, never published, and the
+			     system bar stayed on its no-state fallback of the app menu plus Edit. -->
+			{#if menus}
 				{@render menus()}
 			{/if}
 		</div>
