@@ -8,6 +8,11 @@ src/lib/editor/extensions/intellisense/data/packages/*.json
 # only reads the root one, so it has to be repeated here
 src/lib/paraglide/
 
+# captured lualatex output (see the dir's README.md). Regenerated verbatim by
+# scripts/capture-lang-fixtures.mjs, so formatting them only creates a diff to undo next capture.
+tests/fixtures/lang/*.jsonl
+tests/fixtures/lang/*.pages.json
+
 # inlang regenerates everything here except settings.json (see project.inlang/.gitignore), in its
 # own formatting, so prettier must not police it
 project.inlang/*
