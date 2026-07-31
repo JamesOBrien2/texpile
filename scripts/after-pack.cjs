@@ -39,8 +39,20 @@ exports.default = async function afterPack(context) {
 	// a file set with only exclusions is implicitly '**/*' minus them, which once shipped the
 	// whole repo in the asar. darwin keeps both arches (the universal merge needs them); linux
 	// keeps none (it loads from build/Release).
+	//
+	// NOT on a universal build's per-arch staging dirs. asarUnpack records node-pty in the asar
+	// INDEX while the bytes live in app.asar.unpacked, so deleting the bytes here leaves the index
+	// pointing at files that are gone. Nothing reads those entries on a single-arch build, but
+	// mergeASARs walks every entry of both asars and extracts it, so the universal merge died on
+	// the first pruned file (ENOENT on win32-arm64/conpty.node).
+	//
+	// macPackager stages the two arches in `${appOutDir}-${arch}-temp`, merges them, and then runs
+	// this hook AGAIN on the merged app -- so skipping the temps still prunes, just once, after the
+	// only step that needed the files to be there.
 	const prebuilds = path.join(unpacked, 'node_modules', 'node-pty', 'prebuilds');
-	if (fs.existsSync(prebuilds)) {
+	if (appOutDir.endsWith('-temp')) {
+		console.log('after-pack: staging dir for a universal merge, leaving prebuilds for mergeASARs');
+	} else if (fs.existsSync(prebuilds)) {
 		const keep = electronPlatformName === 'darwin' ? /^darwin-/ : electronPlatformName === 'win32' ? /^win32-/ : /$^/;
 		for (const dir of fs.readdirSync(prebuilds)) {
 			if (!keep.test(dir)) {
