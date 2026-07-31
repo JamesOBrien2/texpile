@@ -1142,8 +1142,9 @@
 			runCompile: () => compiler.runCompile(),
 			stopCompile: () => compiler.stopCompile(),
 			isCompiling: () => compiler.compiling,
-			// a guest cannot compile: the host owns the toolchain
-			compileAvailable: () => termDock.available && !guest,
+			// caps.compile, not !guest: being a guest is why the toolchain is absent today, not what
+			// is absent. The other four gates below read the capability, so this one does too.
+			compileAvailable: () => termDock.available && provider.caps.compile,
 			setViewMode,
 			getViewMode: () => modes.mode,
 			hasFile: () => !!doc.path,
