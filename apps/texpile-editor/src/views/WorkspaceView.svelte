@@ -1080,7 +1080,13 @@
 		// polls the .log of the user's compile command, which does not run in live mode. quiet: a
 		// draft compile fires whenever typing pauses, so it may fill the Problems list but must
 		// never yank the dock open mid-sentence. The topbar's error badge is the signal.
-		onPreviewDiagnostics: (logPath: string) => void compiler.publishLogDiagnostics(logPath, Date.now(), true, null),
+		onPreviewDiagnostics: async (logPath: string) => {
+			// A compile that never reached the engine (lualatex not on PATH) leaves no log to read,
+			// and publishLogDiagnostics would throw on the missing file. That case is exactly the one
+			// the preview's own banner exists for, so there is nothing to add here.
+			if (!(await statFile(logPath)).exists) return;
+			await compiler.publishLogDiagnostics(logPath, Date.now(), true, null);
+		},
 		toggleTerminalShrink,
 		toggleTerminal
 	};

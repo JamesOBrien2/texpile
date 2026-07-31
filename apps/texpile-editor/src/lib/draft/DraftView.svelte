@@ -2105,7 +2105,13 @@
 					busyElsewhere = true;
 					status = '';
 				} else {
-					error = fail.error + (fail.log ? '\n' + fail.log : '');
+					// The message only, never fail.log. This banner's job is "the preview could not be
+					// produced" -- lualatex missing, an unreadable manifest -- which is not a LaTeX
+					// diagnostic and has no file or line to hang off, so nothing else can report it.
+					// The log tail it used to carry is a dozen lines of exactly the diagnostics the
+					// Problems panel now parses out of the same file, and rendering them here made the
+					// banner tall enough to squeeze the pages out of the pane.
+					error = fail.error;
 					status = '';
 				}
 			}
@@ -2493,13 +2499,17 @@
 		{/if}
 	</div>
 	{#if busyElsewhere}
-		<div class="border-surface-300-700 bg-surface-50-950 m-3 flex items-center justify-between gap-3 rounded border p-3 text-sm">
+		<div class="border-surface-300-700 bg-surface-50-950 m-3 flex shrink-0 items-center justify-between gap-3 rounded border p-3 text-sm">
 			<span class="text-surface-600-300">{m.draft_busy_other_window()}</span>
 			<button class="btn btn-sm preset-filled-primary-500 shrink-0" onclick={takeoverEngine}>{m.draft_busy_takeover()}</button>
 		</div>
 	{/if}
 	{#if error}
-		<pre class="text-error-500 m-3 overflow-auto rounded bg-surface-50-950 p-3 text-xs whitespace-pre-wrap">{error}</pre>
+		<!-- Now a single line in the normal case (the log tail moved to Problems), but the cap stays
+		     as a backstop: `error` can also be a thrown exception's message, and overflow-auto cannot
+		     scroll a box that is free to grow. Without a height constraint this took its full content
+		     height and the flex-1 scroller below it got whatever was left. -->
+		<pre class="text-error-500 bg-surface-50-950 m-3 max-h-40 shrink-0 overflow-auto rounded p-3 text-xs whitespace-pre-wrap">{error}</pre>
 	{/if}
 	<div
 		bind:this={scroller}
