@@ -79,18 +79,18 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 		{
 			label: app.name,
 			submenu: [
-				{ role: 'about' },
+				{ role: 'about', label: label(s, 'about', `About ${app.name}`) },
 				{ type: 'separator' },
 				{ label: label(s, 'preferences', 'Preferences…'), accelerator: 'CmdOrCtrl+,', click: () => fire(win, 'file:preferences') },
 				...(s.canShare ? [{ label: label(s, 'share', 'Share session…'), click: () => fire(win, 'file:share-session') }] : []),
 				{ type: 'separator' },
-				{ role: 'services' },
+				{ role: 'services', label: label(s, 'services', 'Services') },
 				{ type: 'separator' },
-				{ role: 'hide' },
-				{ role: 'hideOthers' },
-				{ role: 'unhide' },
+				{ role: 'hide', label: label(s, 'hide', `Hide ${app.name}`) },
+				{ role: 'hideOthers', label: label(s, 'hideOthers', 'Hide Others') },
+				{ role: 'unhide', label: label(s, 'unhide', 'Show All') },
 				{ type: 'separator' },
-				{ role: 'quit' }
+				{ role: 'quit', label: label(s, 'quit', `Quit ${app.name}`) }
 			]
 		},
 		{
@@ -128,10 +128,10 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 				{ ...doc, label: label(s, 'undo', 'Undo'), accelerator: 'CmdOrCtrl+Z', click: () => fire(win, 'edit:undo') },
 				{ ...doc, label: label(s, 'redo', 'Redo'), accelerator: 'Shift+CmdOrCtrl+Z', click: () => fire(win, 'edit:redo') },
 				{ type: 'separator' },
-				{ role: 'cut' },
-				{ role: 'copy' },
-				{ role: 'paste' },
-				{ role: 'selectAll' },
+				{ role: 'cut', label: label(s, 'cut', 'Cut') },
+				{ role: 'copy', label: label(s, 'copy', 'Copy') },
+				{ role: 'paste', label: label(s, 'paste', 'Paste') },
+				{ role: 'selectAll', label: label(s, 'selectAll', 'Select All') },
 				{ type: 'separator' },
 				{ ...doc, label: label(s, 'find', 'Find'), accelerator: 'CmdOrCtrl+F', click: () => fire(win, 'edit:find') },
 				{ label: label(s, 'findInFiles', 'Find in files'), accelerator: 'Shift+CmdOrCtrl+F', click: () => fire(win, 'view:find-in-files') }
@@ -146,7 +146,12 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 				{ type: 'separator' },
 				{ label: label(s, 'toggleSidebar', 'Toggle sidebar'), click: () => fire(win, 'view:sidebar') },
 				{ type: 'separator' },
-				{ role: 'togglefullscreen' }
+				// Electron's role is a static "Toggle Full Screen"; mac apps say Enter / Exit and flip.
+				// Main can read the state directly, and watchWindowState rebuilds on the transition.
+				{
+					role: 'togglefullscreen',
+					label: win.isFullScreen() ? label(s, 'exitFullScreen', 'Exit Full Screen') : label(s, 'enterFullScreen', 'Enter Full Screen')
+				}
 			]
 		},
 		{
@@ -237,9 +242,22 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 					}
 				]
 			: []),
-		{ role: 'windowMenu' },
+		// The role stays: it is what calls [NSApp setWindowsMenu:], which is how AppKit knows to append
+		// the live window list and the tab items. But a label on the parent renames only the title -
+		// the stock submenu is nested roles carrying Electron's own English - so it is spelt out here.
+		{
+			role: 'windowMenu',
+			label: label(s, 'window', 'Window'),
+			submenu: [
+				{ role: 'minimize', label: label(s, 'minimize', 'Minimize') },
+				{ role: 'zoom', label: label(s, 'zoom', 'Zoom') },
+				{ type: 'separator' },
+				{ role: 'front', label: label(s, 'front', 'Bring All to Front') }
+			]
+		},
 		{
 			role: 'help',
+			label: label(s, 'help', 'Help'),
 			submenu: [
 				{ label: label(s, 'shortcuts', 'Keyboard shortcuts'), click: () => fire(win, 'help:shortcuts') },
 				...(s.canTutorial ? [{ label: label(s, 'tutorial', 'Open tutorial'), click: () => fire(win, 'help:tutorial') }] : []),
@@ -314,10 +332,15 @@ export function watchWindowState(win: BrowserWindow): void {
 		if (win.isDestroyed()) return;
 		win.webContents.send('main:window-state', { maximized: win.isMaximized(), fullScreen: win.isFullScreen() });
 	};
+	// the View item reads Enter or Exit off the current state, so the bar has to follow the transition
+	const pushAndRebuild = () => {
+		push();
+		rebuild();
+	};
 	win.on('maximize', push);
 	win.on('unmaximize', push);
-	win.on('enter-full-screen', push);
-	win.on('leave-full-screen', push);
+	win.on('enter-full-screen', pushAndRebuild);
+	win.on('leave-full-screen', pushAndRebuild);
 	// the renderer mounts after the window exists, so seed it once it has loaded
 	win.webContents.on('did-finish-load', push);
 }

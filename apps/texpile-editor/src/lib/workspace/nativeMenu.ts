@@ -56,6 +56,10 @@ export interface MenuStateInput {
 	recentFolders: string[];
 }
 
+// main knows this as app.name, but the strings that embed it are ours to translate, so the
+// substitution happens here. menubar_version_footer already hardcodes it the same way.
+const APP = 'Texpile';
+
 /** every label the native template can ask for, keyed the way window-chrome.ts looks them up */
 function labels(): Record<string, string> {
 	return {
@@ -122,7 +126,28 @@ function labels(): Record<string, string> {
 		whatsNew: m.whatsnew_menu_label(),
 		discord: m.menubar_join_discord(),
 		support: m.menubar_contact_support(),
-		updates: m.menubar_check_for_updates()
+		updates: m.menubar_check_for_updates(),
+		// Roles carry a label of Electron's own, hardcoded English in a table inside Electron, and
+		// macOS never gets asked for its translation - a role only registers the menu, it does not
+		// retitle it. So every role that shows a string needs one of ours. The items AppKit appends
+		// itself (the window list, the tab items, the Help search field) are already localized.
+		help: m.menubar_menu_help(),
+		window: m.menubar_mac_menu_window(),
+		about: m.menubar_mac_about({ app: APP }),
+		services: m.menubar_mac_services(),
+		hide: m.menubar_mac_hide({ app: APP }),
+		hideOthers: m.menubar_mac_hide_others(),
+		unhide: m.menubar_mac_unhide(),
+		quit: m.menubar_mac_quit({ app: APP }),
+		cut: m.menubar_mac_cut(),
+		copy: m.menubar_mac_copy(),
+		paste: m.menubar_mac_paste(),
+		selectAll: m.menubar_mac_select_all(),
+		enterFullScreen: m.menubar_mac_enter_full_screen(),
+		exitFullScreen: m.menubar_mac_exit_full_screen(),
+		minimize: m.menubar_mac_minimize(),
+		zoom: m.menubar_mac_zoom(),
+		front: m.menubar_mac_front()
 	};
 }
 
