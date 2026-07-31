@@ -17,6 +17,8 @@ export interface DockHandle {
 	focusActive(): void;
 	reset(): void;
 	addTerminal(): void;
+	/** create the first shell if there is none; only for opens the USER asked for */
+	ensureTerminal(): void;
 	interrupt(): void;
 }
 
@@ -38,12 +40,17 @@ export class TerminalDockState {
 		if (settings.terminalHeight !== undefined && settings.terminalHeight >= MIN_HEIGHT && settings.terminalHeight <= MAX_HEIGHT)
 			this.height = settings.terminalHeight;
 		if (this.available && settings.terminalVisible) {
-			this.mounted = true; // the dock creates its first shell on mount
+			this.mounted = true;
 			this.visible = true;
+			// the dock was open with a shell when the window closed, so put one back. Deferred a tick
+			// because `dock` is only bound once BottomDock has mounted.
+			setTimeout(() => this.dock?.ensureTerminal(), 0);
 		}
 		if (browser && localStorage.getItem(SHRINK_KEY) === '1') this.shrink = true;
 	}
 
+	/** reveal the dock WITHOUT creating a shell: a compile opens it for its output, and jumping to
+	 *  Problems opens it for the problem list. Neither is a request for a terminal. */
 	show() {
 		this.mounted = true;
 		this.visible = true;
@@ -51,13 +58,17 @@ export class TerminalDockState {
 		setTimeout(() => this.dock?.refit(), 0);
 	}
 
+	/** the Terminal toggle: this one IS a request for a terminal, so it makes sure one exists */
 	toggle() {
 		if (this.visible) {
 			this.visible = false;
 			if (!this.isGuest()) updateSettings({ terminalVisible: false });
 		} else {
 			this.show();
-			setTimeout(() => this.dock?.focusActive(), 40);
+			setTimeout(() => {
+				this.dock?.ensureTerminal();
+				this.dock?.focusActive();
+			}, 40);
 		}
 	}
 
@@ -71,13 +82,18 @@ export class TerminalDockState {
 		this.dock?.reset();
 	}
 
-	/** menu "New Terminal": open the dock (its first shell is auto-created) or add another */
+	/** menu "New Terminal": always ends with a shell the user can type in. Already mounted means add
+	 *  another; a first open means create the one it has been holding off on. */
 	newTerminal() {
 		const wasMounted = this.mounted;
 		this.mounted = true;
 		this.visible = true;
 		updateSettings({ terminalVisible: true });
-		setTimeout(() => (wasMounted ? this.dock?.addTerminal() : this.dock?.focusActive()), 0);
+		setTimeout(() => {
+			if (wasMounted) this.dock?.addTerminal();
+			else this.dock?.ensureTerminal();
+			this.dock?.focusActive();
+		}, 0);
 	}
 
 	// the xterm canvas has to re-measure on every step, not just at the end of the gesture

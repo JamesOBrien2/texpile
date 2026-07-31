@@ -14,9 +14,10 @@
 	import { fade } from 'svelte/transition';
 	import { ZoomIn, ZoomOut, MoveHorizontal, ChevronUp, ChevronDown, Crosshair, Download } from '@lucide/svelte';
 	import { buildDrawList } from './renderCore';
+	import { parseRecords, pageIsRtl } from './pageRecords';
 	import { sfntFromTtc } from './ttc';
 	import { parseT1, type T1Font } from './type1/t1font';
-	import { getPdfJs } from 'svelte-pdf-view';
+	import { getPdfDocument } from 'svelte-pdf-view';
 	import { native, fileUrl } from '$lib/workspace/fileSystem';
 	import type { DraftPage } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';
@@ -30,8 +31,10 @@
 		onInverseSync?: (file: string, line: number, selectText?: string) => void;
 		/** a compile landed: the editor re-evaluates any edits typed while it ran. */
 		onSettled?: () => void;
+		/** a compile landed: its log is at this path, for the Problems panel to parse. */
+		onDiagnostics?: (logPath: string) => void;
 	}
-	let { root, mainFile, trigger, onInverseSync, onSettled }: Props = $props();
+	let { root, mainFile, trigger, onInverseSync, onSettled, onDiagnostics }: Props = $props();
 
 	let pages = $state<DraftPage[]>([]);
 	let paper = $state({ w: 595, h: 842, colW: 0, fs: 0, mx: 72.27, my: 72.27 });
@@ -147,9 +150,11 @@
 			try {
 				let bmp: ImageBitmap;
 				if (/\.pdf$/i.test(file)) {
-					const pdfjs = await getPdfJs();
-					if (!pdfjs) throw new Error('no pdfjs');
-					const doc = await pdfjs.getDocument({ url: fileUrl(file) }).promise;
+					// getPdfDocument, not getDocument: doc.destroy() below would otherwise take the shared
+					// worker down with it, out from under the PDF viewer
+					const task = await getPdfDocument({ url: fileUrl(file) });
+					if (!task) throw new Error('no pdfjs');
+					const doc = await task.promise;
 					const pg = await doc.getPage(1);
 					const base = pg.getViewport({ scale: 1 });
 					// rasterize at ~2x the display size so zooming stays crisp, capped for huge figures
@@ -199,11 +204,11 @@
 			try {
 				if (!pixDoc)
 					pixDoc = (async () => {
-						const pdfjs = await getPdfJs();
-						if (!pdfjs) throw new Error('no pdfjs');
 						// fetch bytes up front: range requests against a PDF latexmk may be rewriting would tear
 						const buf = await (await fetch(fileUrl(root + '/_draft/draft.pdf'), { cache: 'no-store' })).arrayBuffer();
-						return pdfjs.getDocument({ data: buf }).promise;
+						const task = await getPdfDocument({ data: buf });
+						if (!task) throw new Error('no pdfjs');
+						return task.promise;
 					})();
 				const pg = await (await pixDoc).getPage(pageNo);
 				// crop rect: records are pt from the (mx,my) text origin, PDF space is bp
@@ -257,10 +262,10 @@
 			try {
 				if (!pixDoc)
 					pixDoc = (async () => {
-						const pdfjs = await getPdfJs();
-						if (!pdfjs) throw new Error('no pdfjs');
 						const buf = await (await fetch(fileUrl(root + '/_draft/draft.pdf'), { cache: 'no-store' })).arrayBuffer();
-						return pdfjs.getDocument({ data: buf }).promise;
+						const task = await getPdfDocument({ data: buf });
+						if (!task) throw new Error('no pdfjs');
+						return task.promise;
 					})();
 				const pg = await (await pixDoc).getPage(n);
 				// pdf space is bp; we want basePxPt pixels per TeX pt
@@ -285,19 +290,15 @@
 	}
 	function pageRecords(n: number): any[] {
 		if (!parsedPages.has(n)) {
-			const p = pages[n - 1];
-			parsedPages.set(
-				n,
-				p
-					? p.records
-							.split('\n')
-							.filter(Boolean)
-							.map((l: string) => JSON.parse(l))
-					: []
-			);
+			const { records, dropped } = parseRecords(pages[n - 1]?.records ?? '');
+			if (dropped) ev('records-unparseable', { page: n, dropped });
+			parsedPages.set(n, records);
 		}
 		return parsedPages.get(n)!;
 	}
+	// a right-to-left page's records are in logical order while the PDF is in visual order, so
+	// nothing on it may be painted or spliced from records -- it waits for the exact-PDF raster
+	const rtlPage = (n: number) => pageIsRtl(pages[n - 1]?.unc);
 
 	// The body's bottom in record space: the shipout box baseline (ht) IS the footer line's
 	// baseline, \footskip above it is the last body line. Capacity checks measure against
@@ -465,11 +466,19 @@
 		// base when the patch clears on reconcile
 		const bkey = `${n}@${Math.round(basePxPt(dpr) * 100)}`;
 		const base = baseCache.get(bkey);
-		if (!patches.length && base && base !== 'loading' && base !== 'failed') {
-			ctx.drawImage(base, 0, 0, paper.w * S, paper.h * S);
+		const ready = !!base && base !== 'loading' && base !== 'failed';
+		// an RTL page has no correct record rendering at all, so it takes the raster even under a
+		// patch -- compositing patch ink onto it would put mirrored glyphs back on the page
+		const rtl = rtlPage(n);
+		if (ready && (!patches.length || rtl)) {
+			ctx.drawImage(base as ImageBitmap, 0, 0, paper.w * S, paper.h * S);
 			return;
 		}
 		if (!base) requestBase(n, bkey);
+		// hold the white page until the raster lands rather than flash mirrored text. If the
+		// raster can never land (a truncated PDF -- 'failed'), fall through: wrong-order ink still
+		// carries the words, and a permanently blank page carries nothing.
+		if (rtl && base !== 'failed') return;
 		if (!patches.length) {
 			drawRecs(ctx, records, S, 0, n);
 			return;
@@ -575,6 +584,9 @@
 			case 'spread':
 			case 'glue-gap':
 				return m.draft_reason_layout_mismatch();
+			// page-rtl: the page's records are in logical order, not visual, so there is nothing
+			// on it the instant path can splice against
+			case 'page-rtl':
 			case 'cal-uncertified':
 			case 'cal-typeset-failed':
 			case 'cal-empty':
@@ -739,6 +751,7 @@
 			return bail('spans-pages', { pages: pagesSeen });
 		}
 		const pageNo = lineBoxes[0].page;
+		if (rtlPage(pageNo)) return bail('page-rtl', { pageNo });
 		const recs = pageRecords(pageNo);
 		if (!recs.length) return bail('no-page-records', { pageNo });
 		// the engine's exact \columnwidth (from the page compile manifest); calibrating the
@@ -913,6 +926,7 @@
 			ev('locate-xpage-bail', { why, ...(typeof detail === 'object' ? detail : { detail }) });
 			return { bail: why };
 		};
+		if (rtlPage(pA) || rtlPage(pB)) return bail('page-rtl', { pA, pB });
 		const recsA = pageRecords(pA);
 		const recsB = pageRecords(pB);
 		if (!recsA.length || !recsB.length) return bail('no-page-records');
@@ -1038,6 +1052,7 @@
 		if (!boxes.length) boxes = await fwd(endLine + 1);
 		if (!boxes.length) return bail('no-synctex-page');
 		const pageNo = boxes[0].page;
+		if (rtlPage(pageNo)) return bail('page-rtl', { pageNo });
 		const recs = pageRecords(pageNo);
 		if (!recs.length) return bail('no-page-records');
 		const allG = recs.filter((x: any) => x.t === 'g');
@@ -1264,6 +1279,7 @@
 		const order = [...hintPages, ...pages.map((p) => p.n).filter((p) => !hintPages.includes(p))];
 		// tier 1: exact -- Nv contiguous rows, each glyph-identical to a calibration variant's row
 		for (const pageNo of order) {
+			if (rtlPage(pageNo)) continue; // record x-order is not the page's visual order here
 			const allG = pageRecords(pageNo).filter((x: any) => x.t === 'g');
 			if (!allG.length) continue;
 			for (const cl of colCandidates(allG, W, G)) {
@@ -1323,6 +1339,7 @@
 		type Fuzzy = { pageNo: number; b1: number; bk: number; left: number; colL: number; colR: number; diff: number; len: number };
 		const found: Fuzzy[] = [];
 		for (const pageNo of order.slice(0, Math.max(3, hintPages.length + 1))) {
+			if (rtlPage(pageNo)) continue;
 			const allG = pageRecords(pageNo).filter((x: any) => x.t === 'g');
 			if (!allG.length) continue;
 			for (const cl of colCandidates(allG, W, G)) {
@@ -1515,6 +1532,20 @@
 				calCache.set(key, cal);
 			}
 			if ('bail' in cal) {
+				// A page-PERMANENT bail is not worth a compile per keystroke. Most bail reasons
+				// describe this edit against this layout, so recompiling produces a page the next
+				// keystroke can patch -- worth doing at once. `page-rtl` is a property of the PAGE:
+				// the recompile lands another right-to-left page, the next keystroke bails
+				// identically, and the one after that. Left on the immediate path it ran a full
+				// lualatex pass and an autosave on EVERY keystroke, which is what made typing in a
+				// Hebrew document thrash. Debounced, it behaves the way a document with no live
+				// preview does: recompile once, when the typing stops.
+				if (cal.bail === 'page-rtl') {
+					status = m.draft_status_recompiling({ reason: whyPhrase(cal.bail) });
+					ev('abandon-debounced', { stage: cal.bail, key });
+					scheduleReconcile(req.onRecompile, cal.bail);
+					return;
+				}
 				await recompile(cal.bail, { key });
 				return;
 			}
@@ -2076,7 +2107,13 @@
 					busyElsewhere = true;
 					status = '';
 				} else {
-					error = fail.error + (fail.log ? '\n' + fail.log : '');
+					// The message only, never fail.log. This banner's job is "the preview could not be
+					// produced" -- lualatex missing, an unreadable manifest -- which is not a LaTeX
+					// diagnostic and has no file or line to hang off, so nothing else can report it.
+					// The log tail it used to carry is a dozen lines of exactly the diagnostics the
+					// Problems panel now parses out of the same file, and rendering them here made the
+					// banner tall enough to squeeze the pages out of the pane.
+					error = fail.error;
 					status = '';
 				}
 			}
@@ -2100,6 +2137,13 @@
 		// re-evaluate the buffer against the fresh baseline now instead of waiting for the
 		// next keystroke (the "typed during a reconcile, nothing showed" hole)
 		onSettled?.();
+		// The draft compile writes its OWN log, and nothing was reading it. The normal pipeline
+		// polls the expected .log of the user's compile command; in live mode that command never
+		// runs, so a document with real LaTeX errors reported nothing at all as long as the engine
+		// still shipped pages -- which it does for most errors. The report that surfaced this had
+		// babel refusing outright and every Hebrew glyph logged as missing, and the Problems panel
+		// stayed empty through all of it.
+		onDiagnostics?.(root + '/_draft/draft.log');
 	}
 
 	// recompile whenever `trigger` changes (and once on mount). untrack the compile call:
@@ -2457,13 +2501,17 @@
 		{/if}
 	</div>
 	{#if busyElsewhere}
-		<div class="border-surface-300-700 bg-surface-50-950 m-3 flex items-center justify-between gap-3 rounded border p-3 text-sm">
+		<div class="border-surface-300-700 bg-surface-50-950 m-3 flex shrink-0 items-center justify-between gap-3 rounded border p-3 text-sm">
 			<span class="text-surface-600-300">{m.draft_busy_other_window()}</span>
 			<button class="btn btn-sm preset-filled-primary-500 shrink-0" onclick={takeoverEngine}>{m.draft_busy_takeover()}</button>
 		</div>
 	{/if}
 	{#if error}
-		<pre class="text-error-500 m-3 overflow-auto rounded bg-surface-50-950 p-3 text-xs whitespace-pre-wrap">{error}</pre>
+		<!-- Now a single line in the normal case (the log tail moved to Problems), but the cap stays
+		     as a backstop: `error` can also be a thrown exception's message, and overflow-auto cannot
+		     scroll a box that is free to grow. Without a height constraint this took its full content
+		     height and the flex-1 scroller below it got whatever was left. -->
+		<pre class="text-error-500 bg-surface-50-950 m-3 max-h-40 shrink-0 overflow-auto rounded p-3 text-xs whitespace-pre-wrap">{error}</pre>
 	{/if}
 	<div
 		bind:this={scroller}

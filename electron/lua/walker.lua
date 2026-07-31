@@ -44,6 +44,17 @@ end
 
 local pt = 65536.0
 local RUNNING = -1073741824 -- max_dimen sentinel; a fixed TeX constant, not an enum
+
+-- JSON string escaping. Font names and paths are the ONLY engine-supplied strings that
+-- reach a record, and both can carry characters JSON forbids raw: luaotfload sets f.name
+-- to the fontspec request and QUOTES it whenever the family has a space
+-- (\setmainfont{Times New Roman} -> `"name:Times New Roman:mode=harf;..."`). Interpolating
+-- that with %s produced an unparseable line, and the renderer parses a page's records with
+-- one JSON.parse per line -- so a single font record blanked the entire page.
+local JESC = { ['"'] = '\\"', ['\\'] = '\\\\', ['\b'] = '\\b', ['\f'] = '\\f', ['\n'] = '\\n', ['\r'] = '\\r', ['\t'] = '\\t' }
+local function jstr(s)
+	return (tostring(s or ""):gsub('[%c"\\]', function(c) return JESC[c] or string.format('\\u%04x', c:byte()) end))
+end
 local FONTKERN = subtypeByName("kern", "fontkern", 0)
 local RULE_IMAGE = subtypeByName("rule", "image", 2)
 local HL_LINE = subtypeByName("hlist", "line", 1)
@@ -77,6 +88,43 @@ local W_LATE_LUA = whatsitByName("late_lua", 8)
 -- M.lines resets it each call and folds it into stats. Reassignment (not mutation
 -- of a captured table) so the upvalue in walk/walk_vlist tracks the new table.
 local flags = {}
+
+-- Direction lives on the BOX, not in the node list. LuaTeX gives every hlist/vlist a `dir`
+-- field ("TLT" is ordinary left-to-right text) and reverses TRT material in the BACKEND, at
+-- shipout, after this hook has already run. So an RTL page reaches the walker in LOGICAL
+-- order while the PDF shows it visually reversed, and walk()'s left-to-right x accumulation
+-- paints the line mirrored.
+--
+-- There is a dir NODE type as well, and the DIR branches below used to be the whole of this
+-- check -- but probing a bidi=default Hebrew page finds not one dir node on it, only TRT box
+-- fields, so that check never once fired and RTL has been silently uncertifiable since.
+--
+-- Everything but TLT is refused: TRT is right-to-left, LTL/RTT are vertical writing modes,
+-- and none of the three survives a left-to-right walk. Guarded on the string type because
+-- pre-1.10 LuaTeX reported dir as a number, and a number is never equal to "TLT" -- that
+-- would flag every box on every page.
+-- Is this box right-to-left? Also flags the modes we still cannot draw.
+--
+-- LuaTeX has four: TLT (ordinary), TRT (right-to-left text), and LTL/RTT, which are vertical
+-- writing modes and have no meaning for a walk that only tracks a horizontal pen. Those two
+-- keep uncertifying the block; TRT is drawn properly below.
+--
+-- Guarded on the string type because pre-1.10 LuaTeX reported dir as a number, and a number
+-- equals none of these -- treating it as vertical would uncertify every box on every page.
+local function dirOf(n)
+	local d = n.dir
+	if type(d) ~= "string" or d == "TLT" then return false end
+	if d == "TRT" then return true end
+	flags.dir = true
+	return false
+end
+
+-- Where the pen starts inside a box, given the box's left edge. A TRT box holds its children
+-- in LOGICAL order and the engine draws them from the box's RIGHT edge leftward, so the pen
+-- starts at the right and runs backwards.
+local function penIn(n, left, rtl)
+	return rtl and (left + n.width) or left
+end
 
 -- Parse a raw PDF color-setting operator string ("1 0 0 rg 1 0 0 RG", CMYK "k/K",
 -- gray "g/G") into a "#rrggbb" string. Returns nil if unparseable (caller should
@@ -134,10 +182,33 @@ end
 -- specifically for this range; every other glyph keeps the proven cmap path
 -- unchanged (no regression risk on the 26 already-passing constructs).
 local PUA_START = 0xF0000
+
+-- HarfBuzz-shaped fonts need the SAME treatment for their ordinary text. luaotfload picks
+-- the harf renderer automatically for complex scripts (Hebrew, Arabic, Indic), and a shaped
+-- run's glyphs no longer stand for the codepoints that produced them: Arabic comes out as
+-- presentation forms (U+FEDF for a medial lam), Indic conjuncts as glyphs with no Unicode at
+-- all. A cmap lookup then finds the wrong glyph or none. The font's own characters table
+-- still holds the true OpenType index for every one of them (probed: harf-shaped Arial gives
+-- index 1020/971/941 for exactly those chars), so emit it and let the renderer look up by GID.
+--
+-- Deliberately scoped to harf fonts + the PUA range rather than every glyph: node-mode text
+-- (all Latin, Greek, Cyrillic, CJK) resolves correctly through the cmap today, and its records
+-- stay byte-identical -- 9 bytes per glyph on every page is not worth spending to re-prove a
+-- path that already works.
+local fontInfo = {} -- per font id; ids are unique per definition, so this never goes stale
+local function infoFor(id)
+	local i = fontInfo[id]
+	if i == nil then
+		local f = font.getfont(id)
+		i = { chars = f and f.characters, harf = f ~= nil and f.hb ~= nil }
+		fontInfo[id] = i
+	end
+	return i
+end
 local function glyphIndexSuffix(n)
-	if n.char < PUA_START then return "" end
-	local f = font.getfont(n.font)
-	local ch = f and f.characters and f.characters[n.char]
+	local i = infoFor(n.font)
+	if not i.harf and n.char < PUA_START then return "" end
+	local ch = i.chars and i.chars[n.char]
 	if ch and ch.index then return ',"gi":' .. ch.index end
 	return ""
 end
@@ -198,27 +269,68 @@ local function resolveRuleHD(n, parent)
 	return h, d
 end
 
--- walk one horizontal list; parent supplies glue_set/sign/order via effective_glue
-local function walk(head, parent, x, y, emit, fonts, last_ef, colorStack)
+-- Find the dir node closing the run that starts at `start`, honouring nesting. nil if the list
+-- ends first, which is malformed and the caller treats as undrawable rather than guessing.
+local function dirClose(start)
+	local depth, n = 1, start
+	while n do
+		if n.id == DIR then
+			if tostring(n.dir or ""):sub(1, 1) == "+" then
+				depth = depth + 1
+			else
+				depth = depth - 1
+				if depth == 0 then return n end
+			end
+		end
+		n = n.next
+	end
+	return nil
+end
+
+-- Walk one horizontal list; parent supplies glue_set/sign/order via effective_glue.
+--
+-- `x` is the PEN, not the left edge: running right-to-left it starts at the right end of the
+-- material and counts down. Every branch therefore moves the pen BEFORE emitting when rtl and
+-- after when not, so `x` always names the item's left edge at the moment its record is written.
+-- Records stay in one left-edge coordinate space whichever direction produced them, and the
+-- renderer needs to know nothing about any of this.
+--
+-- `stopAt` ends the walk just before that node, which is how a direction run is delimited.
+--
+-- LuaTeX marks direction TWO ways and a document can use either:
+--
+--   dir NODES -- `+TRT` ... `-TRT` bracketing material inline in an otherwise left-to-right
+--   line. This is what a Hebrew phrase inside an English sentence compiles to, and it is the
+--   reported case. The bracketed material sits in logical order and the engine draws it from
+--   the right end of the span it occupies, so the span has to be measured before it can be
+--   placed -- hence dirClose + rangedimensions below.
+--
+--   box dir FIELDS -- a whole hlist marked TRT, which is what a Hebrew-MAIN document produces
+--   (babel sets \bodydir and no dir node appears anywhere on the page). Handled by dirOf at
+--   each box the walk enters.
+local function walk(head, parent, x, y, emit, fonts, last_ef, colorStack, rtl, stopAt)
 	last_ef = last_ef or 0
-	for n in node.traverse(head) do
+	local n = head
+	while n and n ~= stopAt do
 		local id = n.id
 		if id == GLYPH then
 			local ef = n.expansion_factor or 0
 			last_ef = ef
 			local w = n.width * (1 + ef / 1000000.0)
 			fonts[n.font] = true
+			if rtl then x = x - w end
 			emit(string.format(
 				'{"t":"g","c":%d,"f":%d,"x":%.4f,"y":%.4f,"w":%.4f,"ef":%d,"xo":%.4f,"yo":%.4f%s%s}',
 				n.char, n.font, x / pt, y / pt, w / pt, ef, (n.xoffset or 0) / pt, (n.yoffset or 0) / pt,
 				colSuffix(colorStack), glyphIndexSuffix(n)))
-			x = x + w
+			if not rtl then x = x + w end
 		elseif id == KERN then
 			local k = n.kern
 			if n.subtype == FONTKERN then k = k * (1 + last_ef / 1000000.0) end
-			x = x + k
+			x = rtl and (x - k) or (x + k)
 		elseif id == GLUE then
 			local eff = node.effective_glue(n, parent) or n.width
+			if rtl then x = x - eff end
 			if n.leader and n.leader.id == RULE and n.subtype >= LEADERS_MIN and n.subtype <= LEADERS_MAX then
 				-- leaders glue (booktabs \cmidrule, colortbl \cellcolor, \hrulefill,
 				-- ToC dot leaders, ...): the leader rule fills the glue's OWN
@@ -227,19 +339,21 @@ local function walk(head, parent, x, y, emit, fonts, last_ef, colorStack)
 				emit(string.format('{"t":"rule","x":%.4f,"y":%.4f,"w":%.4f,"h":%.4f,"d":%.4f%s}',
 					x / pt, y / pt, eff / pt, h / pt, d / pt, colSuffix(colorStack)))
 			end
-			x = x + eff
+			if not rtl then x = x + eff end
 		elseif id == DISC then
-			x, last_ef = walk(n.replace, parent, x, y, emit, fonts, last_ef, colorStack)
+			x, last_ef = walk(n.replace, parent, x, y, emit, fonts, last_ef, colorStack, rtl)
 		elseif id == MKERN then
-			x = x + n.width
+			x = rtl and (x - n.width) or (x + n.width)
 		elseif id == RULE then
 			if n.width ~= RUNNING then
 				local h, d = resolveRuleHD(n, parent)
+				if rtl then x = x - n.width end
 				emit(string.format('{"t":"rule","x":%.4f,"y":%.4f,"w":%.4f,"h":%.4f,"d":%.4f%s}',
 					x / pt, y / pt, n.width / pt, h / pt, d / pt, colSuffix(colorStack)))
-				x = x + n.width
+				if not rtl then x = x + n.width end
 			end
 		elseif id == HLIST then
+			if rtl then x = x - n.width end
 			local yy = y + (n.shift or 0)
 			-- area guard: a 0x0 picture box (tikz overlay/remember) draws outside its own
 			-- bounds -- a crop of it is empty. Fall through to the normal walk (loose flag).
@@ -264,13 +378,16 @@ local function walk(head, parent, x, y, emit, fonts, last_ef, colorStack)
 				emit(string.format('{"t":"image","x":%.4f,"y":%.4f,"w":%.4f,"h":%.4f,"d":%.4f}',
 					x / pt, yy / pt, n.width / pt, n.height / pt, n.depth / pt))
 			else
-				walk(n.head, n, x, yy, emit, fonts, 0, colorStack)
+				local r = dirOf(n)
+				walk(n.head, n, penIn(n, x, r), yy, emit, fonts, 0, colorStack, r)
 			end
-			x = x + n.width
+			if not rtl then x = x + n.width end
 		elseif id == VLIST then
+			if rtl then x = x - n.width end
+			dirOf(n) -- vertical writing modes still uncertify; a vlist has no pen to reverse
 			-- baseline-aligned in a line: contents start at y - height; shift is vertical here
 			walk_vlist(n.head, n, x, y - n.height + (n.shift or 0), emit, fonts, colorStack)
-			x = x + n.width
+			if not rtl then x = x + n.width end
 		elseif id == MATH then
 			-- inline-math boundary: advance by \mathsurround, or (mathskip active) by
 			-- the node's own glue against the parent. Zero at the default
@@ -280,9 +397,32 @@ local function walk(head, parent, x, y, emit, fonts, last_ef, colorStack)
 				local ok, eff = pcall(node.effective_glue, n, parent)
 				if ok and eff then w = eff end
 			end
-			x = x + w
+			x = rtl and (x - w) or (x + w)
 		elseif id == DIR then
-			flags.dir = true
+			local d = tostring(n.dir or "")
+			local mode = d:sub(2)
+			-- only an OPENING marker starts a run; the matching close is consumed below, so a
+			-- '-' reaching here is unpaired and simply advances nothing
+			if d:sub(1, 1) == "+" and (mode == "TRT" or mode == "TLT") then
+				local close = dirClose(n.next)
+				-- rangedimensions measures [first, last) with the PARENT's glue set, i.e. the same
+				-- arithmetic the engine used to break this line -- so the span is the engine's own
+				-- number rather than a re-derived sum of the pieces
+				local W = close and node.rangedimensions(parent, n.next, close) or nil
+				if W then
+					local inner = mode == "TRT"
+					-- the run occupies [left, left+W] no matter which way it reads inside
+					if rtl then x = x - W end
+					local _, ef2 = walk(n.next, parent, inner and (x + W) or x, y, emit, fonts, last_ef, colorStack, inner, close)
+					last_ef = ef2
+					if not rtl then x = x + W end
+					n = close -- resume after the close: the loop's own advance steps past it
+				else
+					flags.dir = true -- unterminated run: no span to place it in
+				end
+			elseif d:sub(1, 1) == "+" then
+				flags.dir = true -- LTL/RTT: vertical writing, no horizontal pen to reverse
+			end
 		elseif id == WHATSIT then
 			local st = n.subtype
 			if st == COLORSTACK_SUBTYPE then applyColorstack(n, colorStack)
@@ -291,6 +431,7 @@ local function walk(head, parent, x, y, emit, fonts, last_ef, colorStack)
 			elseif st == W_SPECIAL or st == W_LATE_SPECIAL or st == W_LATE_LUA then flags.escape = true
 			end
 		end
+		n = n.next
 	end
 	return x, last_ef
 end
@@ -311,10 +452,13 @@ walk_vlist = function(head, parent, x, y, emit, fonts, colorStack)
 				emit(string.format('{"t":"lit","x":%.4f,"y":%.4f,"w":%.4f,"h":%.4f,"d":%.4f}',
 					(x + (n.shift or 0)) / pt, cy / pt, n.width / pt, n.height / pt, n.depth / pt))
 			else
-				walk(n.head, n, x + (n.shift or 0), cy, emit, fonts, 0, colorStack)
+				local left = x + (n.shift or 0)
+				local r = dirOf(n)
+				walk(n.head, n, penIn(n, left, r), cy, emit, fonts, 0, colorStack, r)
 			end
 			cy = cy + n.depth
 		elseif id == VLIST then
+			dirOf(n)
 			walk_vlist(n.head, n, x + (n.shift or 0), cy, emit, fonts, colorStack)
 			cy = cy + n.height + n.depth
 		elseif id == GLUE then
@@ -379,17 +523,25 @@ function M.lines(head, y0)
 				line.glue_set, line.glue_sign, line.glue_order, rdw / pt))
 			-- display math lines arrive centered via shift
 			local x0 = line.shift or 0
-			local endx = line.head and walk(line.head, line, x0, y, emit, fonts, 0, colorStack) or x0
-			local dev = math.abs(endx - x0 - line.width) / pt
+			-- a WHOLLY right-to-left line (a Hebrew-main document, not just a run inside an
+			-- English one): the pen starts at the line's right edge and should finish at its
+			-- left, so the target the deviation is measured against flips with it
+			local lineRtl = dirOf(line)
+			local pen0 = penIn(line, x0, lineRtl)
+			local endx = line.head and walk(line.head, line, pen0, y, emit, fonts, 0, colorStack, lineRtl) or pen0
+			local dev = math.abs(endx - (lineRtl and x0 or (x0 + line.width))) / pt
 			-- gsign==0 (no stretch/shrink applied) means TeX never tried to fill
 			-- this line to the box width -- headings, ragged text, a short final
 			-- line. "Falls short of target" is then EXPECTED, not a walker bug;
 			-- only count dev toward maxdev when TeX itself attempted justification.
 			if line.glue_sign ~= 0 and dev > maxdev then maxdev = dev end
+			-- how much width the walk accounted for; the pen runs backwards in an RTL line, so
+			-- take the distance travelled rather than the signed difference
 			emit(string.format('{"t":"endx","n":%d,"x":%.4f,"target":%.4f,"dev":%.4f,"justified":%s}',
-				lineno, (endx - x0) / pt, line.width / pt, dev, tostring(line.glue_sign ~= 0)))
+				lineno, math.abs(endx - pen0) / pt, line.width / pt, dev, tostring(line.glue_sign ~= 0)))
 			y = y + line.depth
 		elseif line.id == VLIST then
+			dirOf(line)
 			-- e.g. an [H]-forced float's own \vbox sitting directly in the
 			-- block's top-level list (not nested inside a paragraph line).
 			walk_vlist(line.head, line, line.shift or 0, y, emit, fonts, colorStack)
@@ -417,14 +569,17 @@ function M.lines(head, y0)
 		-- Without this their glyph records had no font record and silently drew nothing.
 		local f = font.getfont(id) or (font.getcopy and font.getcopy(id))
 		if f then
-			local file = tostring(f.filename or ""):gsub("\\", "/")
+			-- "harfloaded:" prefixes filename whenever luaotfload shaped through HarfBuzz. It is a
+			-- loader tag, not part of the path: passing it through made the renderer fetch a file
+			-- that cannot exist, so every glyph of a Hebrew/Arabic/Indic page silently drew nothing.
+			local file = tostring(f.filename or ""):gsub("\\", "/"):gsub("^harfloaded:", "")
 			-- subfont: which face of a TrueType Collection (.ttc) this is; the renderer
 			-- must extract that face before parsing (opentype.js can't read collections)
 			local coll = file:lower():match("%.ttc$") or file:lower():match("%.otc$")
 			local sub = (coll and type(f.subfont) == "number" and f.subfont >= 1)
 				and string.format(',"sub":%d', f.subfont) or ""
 			records[#records + 1] = string.format('{"t":"font","id":%d,"size":%.4f,"name":"%s","file":"%s"%s}',
-				id, (f.size or 0) / pt, tostring(f.name or f.fullname or ""), file, sub)
+				id, (f.size or 0) / pt, jstr(f.name or f.fullname or ""), jstr(file), sub)
 		end
 	end
 	-- certification: a block is live-renderable only if it contains no feature we

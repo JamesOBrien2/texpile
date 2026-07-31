@@ -332,12 +332,30 @@
 	}
 
 	// tree rescan + manifest sync + git refresh live in lib/workspace/treeRefresh.ts
-	const refreshTree = () =>
-		refreshTreeState({
+	// treeRoot is the root the tree on screen currently reflects; plain, not $state, so recording it
+	// cannot retrigger the effect below.
+	let treeRoot: string | null = null;
+	const refreshTree = async () => {
+		treeRoot = get(workspaceRoot);
+		await refreshTreeState({
 			provider,
 			session,
 			isEditingTree: () => !!fileTreeRef?.isEditing?.()
 		});
+	};
+
+	// The tree FOLLOWS the root. It used to be rescanned only where a folder was opened through
+	// FolderLifecycle, but the root is also set straight from main's IPC handlers in App.svelte --
+	// session restore, Open Folder in New Window, and an OS "open with" on a .tex file. Those set
+	// texFiles and the active file but never the tree, so the explorer went on showing the folder
+	// before it. Reacting to the root covers every route in and any route added later.
+	// No double scan on the FolderLifecycle path: it awaits refreshTree itself, which records
+	// treeRoot, so by the time this runs the root already matches and it stands down.
+	$effect(() => {
+		const root = $workspaceRoot;
+		if (!root || root === treeRoot) return;
+		void refreshTree();
+	});
 
 	// the shared file set changes under a guest whenever the host adds, renames or deletes a file.
 	// The provider exposes a watch hook for exactly this; without it the tree only ever reflected
@@ -1076,6 +1094,17 @@
 		onPdfDoubleClick,
 		onInverseSync: (file: string, line: number, selectText?: string) => openFileAtLine(normSyncPath(file), line, selectText),
 		onPreviewSettled: runDraftDecision,
+		// Live mode's compile has its own log, and the normal pipeline never sees it -- that one
+		// polls the .log of the user's compile command, which does not run in live mode. quiet: a
+		// draft compile fires whenever typing pauses, so it may fill the Problems list but must
+		// never yank the dock open mid-sentence. The topbar's error badge is the signal.
+		onPreviewDiagnostics: async (logPath: string) => {
+			// A compile that never reached the engine (lualatex not on PATH) leaves no log to read,
+			// and publishLogDiagnostics would throw on the missing file. That case is exactly the one
+			// the preview's own banner exists for, so there is nothing to add here.
+			if (!(await statFile(logPath)).exists) return;
+			await compiler.publishLogDiagnostics(logPath, Date.now(), true, null);
+		},
 		toggleTerminalShrink,
 		toggleTerminal
 	};
@@ -1113,11 +1142,16 @@
 			runCompile: () => compiler.runCompile(),
 			stopCompile: () => compiler.stopCompile(),
 			isCompiling: () => compiler.compiling,
-			// a guest cannot compile: the host owns the toolchain
-			compileAvailable: () => termDock.available && !guest,
+			// caps.compile, not !guest: being a guest is why the toolchain is absent today, not what
+			// is absent. The other four gates below read the capability, so this one does too.
+			compileAvailable: () => termDock.available && provider.caps.compile,
 			setViewMode,
 			getViewMode: () => modes.mode,
 			hasFile: () => !!doc.path,
+			canManageTree: () => provider.caps.manageTree,
+			canSearch: () => provider.caps.search,
+			canFormat: () => provider.caps.format,
+			canGit: () => provider.caps.git,
 			openFile: (abs) => activeFilePath.set(abs),
 			toggleSidebar: () => layout.toggleSidebar(),
 			sidebarOpen: () => layout.sidebarOpen,
@@ -1173,8 +1207,13 @@
 		{showToc}
 		menu={{
 			disabled: !doc.path,
-			imageDir: doc.path && kind === 'tex' ? dirname(doc.path) : undefined,
-			shareable: isDesktop(),
+			// an image is written next to the document, so a workspace that takes no tree writes has
+			// nowhere to put one however good the path looks
+			imageDir: hostMode && doc.path && kind === 'tex' ? dirname(doc.path) : undefined,
+			// never a guest: a guest is IN someone's session, not in a position to open one
+			shareable: isDesktop() && !guest,
+			hostMode,
+			canFormat: provider.caps.format,
 			uiZoomPercent
 		}}
 		actions={chromeActions}

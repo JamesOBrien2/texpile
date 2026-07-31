@@ -29,6 +29,9 @@ export interface DraftPage {
 	// shipout box height = box top to the box BASELINE, i.e. the footer line's baseline;
 	// the renderer treats rows at/below it as bottom-anchored (never shifted by patches)
 	ht?: number;
+	// the walker's certification reasons for this page (comma-joined: literal, transform,
+	// escape, dir); absent when every record on it is safe to paint
+	unc?: string;
 	records: string; // newline-delimited JSON records for this page
 }
 export type DraftResult =

@@ -9,6 +9,7 @@
 	// No props: the commands come from the palette action registry, which WorkspaceView fills in.
 	import { Combobox, useListCollection } from '@skeletonlabs/skeleton-svelte';
 	import { Search } from '@lucide/svelte';
+	import Kbd from '$lib/components/Kbd.svelte';
 	import { isMac } from '$lib/platform';
 	import { commandPalette } from '$lib/workspace/commandPalette.svelte';
 	import { buildCommands, buildFileItems, MAX_FILE_RESULTS, type PaletteItem } from './paletteCommands';
@@ -123,7 +124,6 @@
 		return i === 0 || results[i - 1]?.item.group !== g ? (g ?? null) : null;
 	}
 
-	const keyClass = 'border-surface-300-700 bg-surface-100-900 rounded border px-1 font-mono';
 	const rowClass =
 		'grid w-full grid-cols-[auto_1fr_auto] items-center gap-3 rounded-base px-2.5 py-1.5 text-sm data-[highlighted]:preset-tonal';
 </script>
@@ -132,7 +132,7 @@
 
 {#if commandPalette.open}
 	<div
-		class="fixed inset-0 z-1300 flex items-start justify-center bg-black/40 p-4 pt-[8vh]"
+		class="fixed inset-0 z-1300 flex items-start justify-center app-scrim bg-black/40 p-4 pt-[8vh]"
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && commandPalette.hide()}
 	>
@@ -186,12 +186,12 @@
 					</Combobox.Content>
 				{/if}
 
-				<!-- Skeleton has no .kbd class, so these are keyed the same way the shortcut sheet in
-				     WorkspaceMenuBar styles its keys -->
+				<!-- Skeleton has no .kbd class; Kbd is ours, and using it here means these caps and the
+				     ones in the Help shortcut sheet cannot drift apart again -->
 				<div class="border-surface-200-800 text-surface-500 flex gap-3 border-t px-3 py-1.5 text-xs">
-					<span><kbd class={keyClass}>↑</kbd> <kbd class={keyClass}>↓</kbd> {m.palette_hint_navigate()}</span>
-					<span><kbd class={keyClass}>⏎</kbd> {m.palette_hint_select()}</span>
-					<span><kbd class={keyClass}>Esc</kbd> {m.palette_hint_close()}</span>
+					<span><Kbd cap keys="up" /> <Kbd cap keys="down" /> {m.palette_hint_navigate()}</span>
+					<span><Kbd cap keys="enter" /> {m.palette_hint_select()}</span>
+					<span><Kbd cap keys="esc" /> {m.palette_hint_close()}</span>
 				</div>
 			</Combobox>
 		</div>

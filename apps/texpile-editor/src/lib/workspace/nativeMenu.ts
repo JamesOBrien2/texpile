@@ -15,7 +15,6 @@ import { get } from 'svelte/store';
 import { browser } from '$lib/runtime';
 import { isMac } from '$lib/platform';
 import { recentFolders } from './workspaceStore';
-import { commandPalette } from './commandPalette.svelte';
 import { m } from '$lib/paraglide/messages';
 
 interface NativeMenuApi {
@@ -52,9 +51,17 @@ export interface MenuStateInput {
 	canShare: boolean;
 	canCloseWorkspace: boolean;
 	canFormat: boolean;
+	/** the three a guest lacks: no tree writes, nowhere to put an image, no workspace to swap */
+	canNewFile: boolean;
+	canInsertImage: boolean;
+	canOpenFolder: boolean;
 	canTutorial: boolean;
 	recentFolders: string[];
 }
+
+// main knows this as app.name, but the strings that embed it are ours to translate, so the
+// substitution happens here. menubar_version_footer already hardcodes it the same way.
+const APP = 'Texpile';
 
 /** every label the native template can ask for, keyed the way window-chrome.ts looks them up */
 function labels(): Record<string, string> {
@@ -83,11 +90,9 @@ function labels(): Record<string, string> {
 		undo: m.menubar_undo(),
 		redo: m.menubar_redo(),
 		find: m.menubar_find(),
-		findInFiles: m.wsview_find_in_files(),
 		zoomIn: m.menubar_zoom_in(),
 		zoomOut: m.menubar_zoom_out(),
 		zoomReset: m.menubar_zoom_reset(),
-		toggleSidebar: m.palette_show_sidebar(),
 		math: m.menubar_insert_math_menu(),
 		mathInline: m.menubar_inline_equation(),
 		mathDisplay: m.menubar_display_equation(),
@@ -122,7 +127,28 @@ function labels(): Record<string, string> {
 		whatsNew: m.whatsnew_menu_label(),
 		discord: m.menubar_join_discord(),
 		support: m.menubar_contact_support(),
-		updates: m.menubar_check_for_updates()
+		updates: m.menubar_check_for_updates(),
+		// Roles carry a label of Electron's own, hardcoded English in a table inside Electron, and
+		// macOS never gets asked for its translation - a role only registers the menu, it does not
+		// retitle it. So every role that shows a string needs one of ours. The items AppKit appends
+		// itself (the window list, the tab items, the Help search field) are already localized.
+		help: m.menubar_menu_help(),
+		window: m.menubar_mac_menu_window(),
+		about: m.menubar_mac_about({ app: APP }),
+		services: m.menubar_mac_services(),
+		hide: m.menubar_mac_hide({ app: APP }),
+		hideOthers: m.menubar_mac_hide_others(),
+		unhide: m.menubar_mac_unhide(),
+		quit: m.menubar_mac_quit({ app: APP }),
+		cut: m.menubar_mac_cut(),
+		copy: m.menubar_mac_copy(),
+		paste: m.menubar_mac_paste(),
+		selectAll: m.menubar_mac_select_all(),
+		enterFullScreen: m.menubar_mac_enter_full_screen(),
+		exitFullScreen: m.menubar_mac_exit_full_screen(),
+		minimize: m.menubar_mac_minimize(),
+		zoom: m.menubar_mac_zoom(),
+		front: m.menubar_mac_front()
 	};
 }
 
@@ -151,10 +177,6 @@ export function attachNativeMenu(handlers: NativeMenuHandlers): () => void {
 			case 'edit':
 				return handlers.edit(value);
 			case 'view':
-				// these two have no in-app menu item to route to; they are workspace actions the
-				// palette already registers by name, so borrow them rather than invent a second path
-				if (value === 'find-in-files') return commandPalette.actions?.openGlobalSearch();
-				if (value === 'sidebar') return commandPalette.actions?.toggleSidebar();
 				return handlers.view(value);
 			case 'insert':
 				return handlers.insert(value);

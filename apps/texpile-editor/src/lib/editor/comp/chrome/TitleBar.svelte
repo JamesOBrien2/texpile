@@ -18,21 +18,22 @@
 	import { isMac } from '$lib/platform';
 	import { isDesktop } from '$lib/workspace/fileSystem';
 	import { commandPalette } from '$lib/workspace/commandPalette.svelte';
-	import WindowControls from './WindowControls.svelte';
+	import { syncWindowOverlay } from './windowOverlay';
+	import Kbd from '$lib/components/Kbd.svelte';
 	import { titleBarLayout } from './titleBarLayout.svelte';
 	import iconUrl from '$lib/assets/logo/Logo-icon.svg';
 	import { m } from '$lib/paraglide/messages';
 
 	let {
 		menus,
-		appMenu,
+		status,
 		/** hide the icon when the caller already shows branding (the start screen) */
 		showIcon = true
 	}: {
 		/** the in-app menu bar, rendered inline. Omitted on macOS, where the menus are native. */
 		menus?: Snippet;
-		/** the app icon as a dropdown (Preferences, Share session). Without it the icon is inert. */
-		appMenu?: Snippet;
+		/** trailing status, before the window buttons. Session presence today. */
+		status?: Snippet;
 		showIcon?: boolean;
 	} = $props();
 
@@ -109,6 +110,11 @@
 	// Mirror the document title rather than take it as a prop: it is already computed (in
 	// WorkspaceView's <svelte:head>) and threading the same string down two more components to
 	// display it in a third would be plumbing for nothing.
+	// the bar itself, reported to Chromium so the overlay it paints the window buttons into matches
+	// this row's height and colours. See windowOverlay.ts; a no-op on macOS.
+	let barEl = $state<HTMLElement | null>(null);
+	$effect(() => (barEl ? syncWindowOverlay(barEl) : undefined));
+
 	let title = $state('Texpile');
 	onMount(() => {
 		const el = document.querySelector('title');
@@ -124,24 +130,28 @@
 
 <!-- in a browser (dev, or the hosted build) there is no frame to replace, so render nothing -->
 {#if desktop}
-	<div class="border-surface-200-800 bg-surface-100-900 relative flex h-8 shrink-0 items-stretch border-b text-sm">
+	<div bind:this={barEl} class="border-surface-200-800 bg-surface-100-900 relative flex h-8 shrink-0 items-stretch border-b text-sm">
 		<!-- measured as one block: everything to the left of the centre. On macOS that is the gap the
 		     OS draws the traffic lights into; trafficLightPosition in main.ts matches the inset. -->
 		<div class="flex shrink-0 items-stretch" bind:clientWidth={leftW}>
 			{#if isMac}
 				<div class="app-drag w-[76px] shrink-0"></div>
-			{:else if appMenu}
-				<!-- before File, per Windows convention -->
-				{@render appMenu()}
 			{:else if showIcon}
-				<!-- the same box as the interactive one in AppIconMenu, so the mark does not shift between
-				     the start screen and a workspace. No hover: here it is decoration, not a trigger. -->
+				<!-- decoration, not a trigger. It briefly carried a Preferences / Share session dropdown so
+				     both platforms would agree on where those live; they are back in File, which is where
+				     Windows puts them and where the OS has not already claimed the click - the title-bar
+				     icon is the system menu (Alt+Space). -->
 				<div class="app-drag ml-1 flex size-6 shrink-0 items-center justify-center self-center">
 					<img src={iconUrl} alt="" class="app-titlebar-icon size-4" draggable="false" />
 				</div>
 			{/if}
 
-			{#if menus && !isMac}
+			<!-- Rendered on macOS too, where it deliberately draws nothing. The menu bar component
+			     owns the native bridge: it publishes this window's menu state to main and receives
+			     the system menu's selections. Main builds the macOS menu FROM that state, so
+			     withholding the snippet here meant it never mounted, never published, and the
+			     system bar stayed on its no-state fallback of the app menu plus Edit. -->
+			{#if menus}
 				{@render menus()}
 			{/if}
 		</div>
@@ -149,9 +159,25 @@
 		<!-- the draggable stretch; also where a double-click maximises, as on a native bar -->
 		<div class="app-drag min-w-0 flex-1"></div>
 
+		<!-- measured with the window buttons, so the command center clears this side too: a session
+		     opening mid-edit shrinks the field rather than sliding under the avatars. -->
 		<div class="flex shrink-0 items-stretch" bind:clientWidth={rightW}>
+			{#if status}
+				{@render status()}
+			{/if}
+			<!--
+				Off macOS this is EMPTY, and that is the point: Chromium draws minimise / maximise /
+				close on top of it (main.ts's titleBarOverlay), so all the page owes it is the right
+				amount of room. The width is CSS - a constant on Windows, where the button set is
+				fixed, and the WCO environment variables on Linux, where the desktop decides how many
+				buttons there are and how wide they run.
+
+				bind:clientWidth above still measures it, so the command center's centring is unchanged:
+				it only ever asked how wide the right-hand block was, and reserved space answers that
+				as well as three buttons did.
+			-->
 			{#if !isMac}
-				<WindowControls />
+				<div class="app-window-controls"></div>
 			{/if}
 		</div>
 
@@ -163,9 +189,9 @@
 		<div class="pointer-events-none absolute inset-0 flex items-center justify-center">
 			{#if palettable && centerW > 0}
 				<!--
-					h-[22px] in a 32px row, so there is 5px of air above and below rather than the 3px a
-					26px box left - at that height the border sat almost on the bar's own edges and the
-					control read as a line across the chrome instead of a field inside it.
+					h-[22px] in a 32px row, so there is 5px of air above and below rather than the 3px a 26px
+					box left - at that height the border sat almost on the bar's own edges and the control
+					read as a line across the chrome instead of a field inside it.
 
 					It is a filled field, not an outline: surface-50-950 is lighter than the bar in light
 					mode and darker in dark mode, so it reads as recessed either way and the border becomes
@@ -187,13 +213,16 @@
 					     shortcut lives in Help and the tooltip; the field itself is still clickable. -->
 					{#if centerW >= BADGE_FROM}
 						<!--
-							Plain text, not a bordered chip. As a chip it was a box inside a box: ~16px tall in
-							20px of inner height, so 2px of air above and below against 10px to the right edge -
-							tight one way, loose the other, and no room in a 22px field to even it up. Without
-							the border there is no second box to be uneven against, and it simply sits 10px from
-							the edge, mirroring the search icon on the left.
+							No key cap here, unlike the shortcut sheet: a box inside this box never sat right. The
+							field leaves a couple of pixels above and below a cap against ten to the right edge,
+							tight one way and loose the other, and plain text has no second box to be uneven
+							against.
+							It still goes through Kbd, for the FONT. This was mono with tracking-tight, and
+							forcing a wide glyph into a letter's advance width and then pulling it tighter still
+							is what made the command symbol look mangled rather than merely small. Kbd draws it
+							in the UI font, the one the OS uses in its own menus.
 						-->
-						<span class="shrink-0 font-mono text-[10px] tracking-tight opacity-50">{isMac ? '⌘K' : 'Ctrl+K'}</span>
+						<Kbd keys="Mod+K" class="shrink-0" />
 					{/if}
 				</button>
 			{:else if !palettable}

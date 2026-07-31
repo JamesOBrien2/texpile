@@ -15,7 +15,9 @@ import { readImageUses, attachImageFiles } from './draft-images';
 // ht = the shipout box HEIGHT = distance from box top to the box baseline, which is the
 // FOOTER line's baseline -- the renderer uses it to keep bottom-anchored footers out of
 // patch shifts (h additionally includes the box depth below that baseline)
-export type DraftPage = { n: number; w: number; h: number; ht?: number; records: string };
+// unc = the walker's certification reasons for this page (comma-joined: literal, transform,
+// escape, dir), absent when it is fully record-renderable
+export type DraftPage = { n: number; w: number; h: number; ht?: number; unc?: string; records: string };
 export type DraftResult =
 	| {
 			ok: true;
@@ -166,7 +168,13 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 		return { ok: false, error: 'Draft compile produced no pages (is lualatex on PATH? see _draft/draft.log)', ms, log };
 	}
 
-	let manifest: { count: number; paperW?: number; paperH?: number; colW?: number; pages: { n: number; w: number; h: number }[] };
+	let manifest: {
+		count: number;
+		paperW?: number;
+		paperH?: number;
+		colW?: number;
+		pages: { n: number; w: number; h: number; ht?: number; unc?: string }[];
+	};
 	try {
 		manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 	} catch (e) {
@@ -177,7 +185,7 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 	const pages: DraftPage[] = [];
 	for (let n = 1; n <= manifest.count; n++) {
 		const p = path.join(outAbs, `page-${String(n).padStart(3, '0')}.jsonl`);
-		const meta = manifest.pages[n - 1] || { w: 0, h: 0 };
+		const meta = manifest.pages[n - 1] || { n, w: 0, h: 0 };
 		let records = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
 		if ((imageUses.length && records.includes('"t":"image"')) || records.includes('"t":"font"')) {
 			const lines = records.split('\n');
@@ -190,7 +198,7 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 			);
 			records = lines.join('\n');
 		}
-		pages.push({ n, w: meta.w, h: meta.h, ht: (meta as { ht?: number }).ht, records });
+		pages.push({ n, w: meta.w, h: meta.h, ht: meta.ht, unc: meta.unc, records });
 	}
 
 	// some classes never set the engine's page-dimension registers, leaving paperW/H = 0 in the

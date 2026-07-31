@@ -46,17 +46,24 @@
 	// fix is to never borrow the user's shell in the first place.
 	let compileTermId = $state<number | null>(null);
 
+	// The tab NUMBER is counted separately from the shell id. Ids are unique across every shell,
+	// the compile one included, so titling by id meant that once compile had taken id 1 the user's
+	// first terminal came out called "Terminal 2". This counter only ever advances for shells the
+	// user can see as numbered tabs.
+	let termNo = 0;
+	const userTerm = (id: number) => ({ id, title: m.wsview_terminal_numbered({ id: ++termNo }) });
+
 	function ensure() {
 		if (terminals.length === 0) {
-			const id = ++seq;
-			terminals = [{ id, title: m.wsview_terminal_numbered({ id }) }];
-			activeTermId = id;
+			const t = userTerm(++seq);
+			terminals = [t];
+			activeTermId = t.id;
 		}
 	}
 	function add() {
-		const id = ++seq;
-		terminals = [...terminals, { id, title: m.wsview_terminal_numbered({ id }) }];
-		activeTermId = id;
+		const t = userTerm(++seq);
+		terminals = [...terminals, t];
+		activeTermId = t.id;
 		menuOpen = false;
 		setTimeout(() => activeRef()?.focus(), 50);
 	}
@@ -80,11 +87,14 @@
 	// Terminal drags in @xterm/* + css, so it loads when the dock first mounts, not at boot
 	let TerminalComp = $state<typeof import('./Terminal.svelte').default | null>(null);
 
-	// a fresh terminal appears the moment the dock mounts, so opening it never shows an empty
-	// pane. Mount-time read on purpose: a dock is host (shells) or guest (problems-only) for life.
+	// No shell is created here. The dock mounts for several reasons that are not "the user wants a
+	// terminal": a compile opens it to show output, and so does jumping to Problems. Creating one on
+	// mount meant a plain Compile put a shell named Terminal 1 next to the Compile tab, which the
+	// user never asked for and then has to close. Whoever opens the dock ON PURPOSE calls
+	// ensureTerminal() instead.
+	// Mount-time read on purpose: a dock is host (shells) or guest (problems-only) for life.
 	// svelte-ignore state_referenced_locally
 	if (terminalEnabled) {
-		ensure();
 		import('./Terminal.svelte').then(
 			(mod) => (TerminalComp = mod.default),
 			(e) => console.error('Failed to load terminal chunk:', e)
@@ -123,13 +133,23 @@
 		}
 		if (tries < 40) setTimeout(() => runCommand(cmd, onDone, tries + 1), 25); // ~1s for first mount
 	}
-	/** replace every shell with one fresh shell (folder changed: new cwd). */
+	/** drop every shell (folder changed: they are all in the old cwd) and respawn one, but only if
+	 *  the user actually had one. A dock holding nothing but the compile shell goes back to empty
+	 *  rather than gaining a terminal off the back of a folder switch. Numbering restarts with the
+	 *  new folder. */
 	export function reset(): void {
 		if (terminals.length === 0) return;
-		const id = ++seq;
-		terminals = [{ id, title: m.wsview_terminal_numbered({ id }) }];
-		activeTermId = id;
-		compileTermId = null; // the compile shell was in the old cwd too
+		const hadUserShell = terminals.some((t) => t.id !== compileTermId);
+		compileTermId = null;
+		termNo = 0;
+		if (!hadUserShell) {
+			terminals = [];
+			activeTermId = null;
+			return;
+		}
+		const t = userTerm(++seq);
+		terminals = [t];
+		activeTermId = t.id;
 		setTimeout(() => activeRef()?.refit(), 0);
 	}
 	export function refit(): void {
@@ -140,6 +160,10 @@
 	}
 	export function addTerminal(): void {
 		add();
+	}
+	/** the user opened the terminal on purpose: give them a shell if they have none yet */
+	export function ensureTerminal(): void {
+		if (terminalEnabled) ensure();
 	}
 	/** Ctrl-C the running command (compile stop). Targets the compile shell, not the selected tab:
 	 *  Stop must kill the compile even if the user has since switched to their own terminal, and

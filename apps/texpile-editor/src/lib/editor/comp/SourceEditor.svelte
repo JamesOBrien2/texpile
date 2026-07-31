@@ -26,6 +26,8 @@
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { docText } from '$lib/editor/docText';
+	import { minimalEdit } from '$lib/editor/minimalEdit';
+	import { caretDoctor, logDocReplace } from '$lib/debug/caretDoctor';
 	import { setSourceDocCount, setSourceSelectionCount } from '$lib/stores/countStore.svelte';
 	import { trailingDebounce } from '$lib/trailingDebounce';
 	import { m } from '$lib/paraglide/messages';
@@ -255,6 +257,8 @@
 								]
 					),
 					EditorView.lineWrapping,
+					// opt-in diagnostic for "the caret moved and I didn't move it"; see caretDoctor
+					caretDoctor(),
 					EditorView.contentAttributes.of({ spellcheck: 'false', 'data-gramm': 'false', 'data-enable-grammarly': 'false' }),
 					EditorView.updateListener.of((u) => {
 						if (u.docChanged) {
@@ -309,17 +313,31 @@
 		}
 	});
 
-	// replace the document on external value changes without echoing. addToHistory(false) keeps the
-	// replacement out of CM's undo stack, otherwise the next Ctrl+Z would "undo the undo" and bounce back.
-	// collab mode: the Y.Text is the document, external value pushes would fight the CRDT.
+	// Reconcile an external value change into the document without echoing. addToHistory(false)
+	// keeps it out of CM's undo stack, otherwise the next Ctrl+Z would "undo the undo" and bounce
+	// back. collab mode: the Y.Text is the document, external value pushes would fight the CRDT.
+	//
+	// Only the part that actually DIFFERS is replaced. This used to swap the whole buffer
+	// (from: 0, to: doc.length), which is a change spanning every position in it -- so CodeMirror
+	// had nothing to map the caret onto and collapsed it to the edge of the change. Any external
+	// push while the user was typing therefore threw away their place. Trimming the common prefix
+	// and suffix leaves the caret's own offsets outside the changed range, where mapping is the
+	// identity and the selection survives untouched.
 	$effect(() => {
 		const v = value;
 		if (!collab && view && v !== lastEmitted && v !== docText(view.state.doc)) {
-			syncing = true;
-			view.dispatch({
-				changes: { from: 0, to: view.state.doc.length, insert: v },
-				annotations: Transaction.addToHistory.of(false)
+			const old = docText(view.state.doc);
+			const edit = minimalEdit(old, v);
+			logDocReplace({
+				oldLen: old.length,
+				newLen: v.length,
+				from: edit.from,
+				to: edit.to,
+				insertLen: edit.insert.length,
+				caret: view.state.selection.main.head
 			});
+			syncing = true;
+			view.dispatch({ changes: edit, annotations: Transaction.addToHistory.of(false) });
 			syncing = false;
 		}
 		// mirror CM's doc after every reconciliation, whichever branch ran, so lastEmitted can

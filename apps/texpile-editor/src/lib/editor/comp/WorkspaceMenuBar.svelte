@@ -2,16 +2,13 @@
 	import { onMount, untrack } from 'svelte';
 	import { Menu, Portal } from '@skeletonlabs/skeleton-svelte';
 	// Menu is Skeleton's here, so lucide's hamburger comes in aliased
-	import { Check, ChevronRight, X, Users, Menu as MenuIcon, MoreHorizontal } from '@lucide/svelte';
-	import { collabHost } from '$lib/collab/hostStore.svelte';
+	import { Check, ChevronRight, X, Menu as MenuIcon, MoreHorizontal } from '@lucide/svelte';
 	import { get } from 'svelte/store';
 	import { editorViewStore, referenceStore, editorConfigStore, cursorInCm } from '$lib/stores/editorStore';
 	import { recentFolders } from '$lib/workspace/workspaceStore';
 	import { basename, isDesktop, openNewWindow, openFolderInNewWindow } from '$lib/workspace/fileSystem';
 	import { isMac } from '$lib/platform';
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
-	import SpellcheckDictionary from './SpellcheckDictionary.svelte';
-	import PreferencesDialog from './PreferencesDialog.svelte';
 	const appVersion = __APP_VERSION__; // injected by Vite from package.json
 	import { toggleMark } from 'prosemirror-commands';
 	import { schema } from '$lib/schema/schema';
@@ -24,7 +21,8 @@
 	import { run, insertNode, activeCm, cmReplace, editSelect, formatSelect } from './menuBarCommands';
 	import { checkForUpdate, updateModalOpen, updateState } from '$lib/updates';
 	import { whatsNewOpen, hasUnseenWhatsNew } from '$lib/whatsNew';
-	import { preferencesOpen } from '$lib/stores/dialogStore';
+	import { preferencesOpen, dictionaryOpen, shortcutsOpen } from '$lib/stores/dialogStore';
+	import { combo } from './shortcutText';
 	import { commandPalette } from '$lib/workspace/commandPalette.svelte';
 	import { attachNativeMenu, publishMenuState } from '$lib/workspace/nativeMenu';
 	import { titleBarLayout } from '$lib/editor/comp/chrome/titleBarLayout.svelte';
@@ -35,7 +33,14 @@
 	interface Props {
 		disabled?: boolean;
 		imageDir?: string;
-		/** Create a new file. `ext` (tex/bib/cls/sty) seeds the name + content; omitted = a plain new file. */
+		/**
+		 * Create a new file. `ext` (tex/bib/cls/sty) seeds the name + content; omitted = a plain new file.
+		 *
+		 * Undefined when the workspace cannot take tree writes - a guest edits through the shared CRDT
+		 * and owns none of the host's folder. Presence of the callback IS the gate, the way
+		 * onShareSession and onCloseWorkspace already work, so there is one thing to get right rather
+		 * than a callback plus a flag that can disagree.
+		 */
 		onNewFile?: (ext?: string) => void;
 		onOpenFolder?: (path?: string) => void;
 		/** Close the current folder and return to the Start screen. */
@@ -145,11 +150,10 @@
 	}
 
 	const SUPPORT_EMAIL = 'support@texpile.com';
-	let shortcutsOpen = $state(false);
 	let supportOpen = $state(false);
 	let copied = $state(false);
 	function helpSelect(value: string) {
-		if (value === 'shortcuts') shortcutsOpen = true;
+		if (value === 'shortcuts') shortcutsOpen.set(true);
 		else if (value === 'whatsnew') whatsNewOpen.set(true);
 		else if (value === 'discord') window.open('https://discord.gg/7wanVzCBWf', '_blank', 'noopener,noreferrer');
 		else if (value === 'support') {
@@ -185,76 +189,6 @@
 			/* clipboard unavailable */
 		}
 	}
-
-	// platform-aware shortcut labels: Ctrl/Shift/Alt on win/linux, ⌘/⇧/⌥ on mac
-	function combo(mods: { shift?: boolean; alt?: boolean }, key: string): string {
-		if (isMac) return `${mods.alt ? '⌥' : ''}${mods.shift ? '⇧' : ''}⌘${key}`;
-		const parts = ['Ctrl'];
-		if (mods.shift) parts.push('Shift');
-		if (mods.alt) parts.push('Alt');
-		parts.push(key);
-		return parts.join('+');
-	}
-	const SHORTCUTS: { group: string; items: { keys: string; label: string }[] }[] = [
-		{
-			group: m.menubar_shortcut_group_general(),
-			items: [
-				{ keys: combo({}, 'K'), label: m.palette_open() },
-				{ keys: combo({ shift: true }, 'N'), label: m.menubar_new_window() },
-				{ keys: combo({}, 'S'), label: m.menubar_save() },
-				{ keys: combo({}, 'F'), label: m.menubar_shortcut_find_in_document() },
-				{ keys: combo({ shift: true }, 'F'), label: m.menubar_shortcut_find_in_files() },
-				{ keys: combo({}, 'Z'), label: m.menubar_undo() },
-				{ keys: combo({ shift: true }, 'Z'), label: m.menubar_redo() }
-			]
-		},
-		{
-			group: m.menubar_shortcut_group_view(),
-			items: [
-				{ keys: isMac ? '⌘ +' : 'Ctrl +', label: m.menubar_shortcut_zoom_in_interface() },
-				{ keys: isMac ? '⌘ −' : 'Ctrl −', label: m.menubar_shortcut_zoom_out_interface() },
-				{ keys: isMac ? '⌘ 0' : 'Ctrl 0', label: m.menubar_shortcut_reset_interface_zoom() }
-			]
-		},
-		{
-			group: m.menubar_shortcut_group_compile(),
-			items: [{ keys: combo({ alt: true }, 'Enter'), label: m.menubar_shortcut_compile_toggle() }]
-		},
-		{
-			group: m.menubar_shortcut_group_source_editor(),
-			items: [
-				{ keys: isMac ? 'F12 / ⌘ Click' : 'F12 / Ctrl+Click', label: m.menubar_shortcut_go_to_definition() },
-				{ keys: isMac ? '⌃Space' : 'Ctrl+Space', label: m.menubar_shortcut_open_suggestions() },
-				{ keys: 'Esc', label: m.menubar_shortcut_hide_math_preview() }
-			]
-		},
-		{
-			group: m.menubar_shortcut_group_formatting(),
-			items: [
-				{ keys: combo({}, 'B'), label: m.menubar_format_bold() },
-				{ keys: combo({}, 'I'), label: m.menubar_format_italic() },
-				{ keys: combo({}, 'U'), label: m.menubar_format_underline() },
-				{ keys: combo({}, '`'), label: m.menubar_format_inline_code() },
-				{ keys: combo({}, '.'), label: m.menubar_shortcut_superscript() },
-				{ keys: combo({}, ','), label: m.menubar_shortcut_subscript() },
-				{ keys: combo({ shift: true }, 'B'), label: m.menubar_format_blockquote() },
-				{ keys: combo({ shift: true }, '`'), label: m.menubar_insert_code_block() },
-				{
-					keys: isMac
-						? `${combo({ alt: true }, '1')} … ${combo({ alt: true }, '3')}`
-						: `${combo({ shift: true }, '1')} … ${combo({ shift: true }, '3')}`,
-					label: m.menubar_shortcut_heading_range()
-				}
-			]
-		},
-		{
-			group: m.menubar_shortcut_group_math(),
-			items: [
-				{ keys: combo({}, 'M'), label: m.menubar_shortcut_inline_math() },
-				{ keys: combo({ shift: true }, 'M'), label: m.menubar_shortcut_display_math() }
-			]
-		}
-	];
 
 	function fileSelect(value: string) {
 		if (value === 'save') onSave?.();
@@ -379,10 +313,9 @@
 	}
 
 	const spellcheckOn = $derived($editorConfigStore?.spellcheck ?? false);
-	let dictionaryOpen = $state(false);
 	function spellcheckSelect(value: string) {
 		if (value === 'toggle') setSpellcheckEnabled(!spellcheckOn);
-		else if (value === 'dictionary') dictionaryOpen = true;
+		else if (value === 'dictionary') dictionaryOpen.set(true);
 	}
 
 	function terminalSelect(value: string) {
@@ -431,6 +364,9 @@
 			canShare: !!onShareSession,
 			canCloseWorkspace: !!onCloseWorkspace,
 			canFormat: !!onFormatDocument,
+			canNewFile: !!onNewFile,
+			canInsertImage: !!imageDir,
+			canOpenFolder: !!onOpenFolder,
 			canTutorial: !!onOpenTutorial,
 			recentFolders: $recentFolders
 		})
@@ -448,7 +384,7 @@
      component still mounts: it owns Preferences, the dictionary, the shortcut sheet and the image
      picker, none of which have anything to do with where the menus are drawn.
      preventDefault on mousedown so opening a menu doesn't blur the editor; inserts land at the cursor -->
-{#if !nativeMenus || collabHost.active}
+{#if !nativeMenus}
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<!-- no left padding: the app icon before it already provides the gap, and doubling up pushed File
 	     away from the mark. The triggers carry their own px-2.5 for their hover targets. -->
@@ -471,34 +407,6 @@
 					</Portal>
 				</Menu>
 			{/if}
-		{/if}
-
-		{#if collabHost.active}
-			<!-- shared-session presence: click to open the share dialog -->
-			<button
-				class="hover:bg-surface-200-800 ml-auto flex items-center gap-1.5 rounded px-2 py-0.5 text-sm"
-				onclick={() => onShareSession?.()}
-				title={m.menubar_share_session()}
-			>
-				<span class="bg-success-500 size-2 shrink-0 rounded-full"></span>
-				<Users class="text-surface-500 size-4" />
-				<div class="flex items-center -space-x-1.5">
-					{#each collabHost.peers.slice(0, 5) as peer, i (i)}
-						<span
-							class="border-surface-100-900 flex size-5 items-center justify-center rounded-full border text-[10px] font-bold text-white"
-							style="background-color: {peer.color}"
-							title={peer.name}>{(peer.name || '?').slice(0, 1).toUpperCase()}</span
-						>
-					{/each}
-				</div>
-				<span class="text-surface-600-400">
-					{collabHost.guestCount() === 1
-						? m.share_guests_one()
-						: collabHost.guestCount() === 0
-							? m.menubar_sharing_waiting()
-							: m.share_guests_other({ count: collabHost.guestCount() })}
-				</span>
-			</button>
 		{/if}
 	</nav>
 {/if}
@@ -535,48 +443,56 @@
 			<Portal>
 				<Menu.Positioner>
 					<Menu.Content class={contentClass}>
-						<Menu onSelect={(d) => newFileSelect(d.value)}>
-							<Menu.TriggerItem value="new" class={itemClass}>
-								<Menu.ItemText>{m.menubar_new_file_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
-							</Menu.TriggerItem>
-							<Portal>
-								<Menu.Positioner>
-									<Menu.Content class={contentClass}>
-										<Menu.Item value="tex" class={itemClass}><Menu.ItemText>{m.menubar_new_tex()}</Menu.ItemText></Menu.Item>
-										<Menu.Item value="bib" class={itemClass}><Menu.ItemText>{m.menubar_new_bib()}</Menu.ItemText></Menu.Item>
-										<Menu.Item value="cls" class={itemClass}><Menu.ItemText>{m.menubar_new_cls()}</Menu.ItemText></Menu.Item>
-										<Menu.Item value="sty" class={itemClass}><Menu.ItemText>{m.menubar_new_sty()}</Menu.ItemText></Menu.Item>
-									</Menu.Content>
-								</Menu.Positioner>
-							</Portal>
-						</Menu>
-						<Menu onSelect={(d) => openFolderSelect(d.value)}>
-							<Menu.TriggerItem value="openfolder" class={itemClass}>
-								<Menu.ItemText>{m.menubar_open_folder_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
-							</Menu.TriggerItem>
-							<Portal>
-								<Menu.Positioner>
-									<Menu.Content class={contentClass}>
-										<Menu.Item value="newfolder" class={itemClass}><Menu.ItemText>{m.menubar_open_new_folder()}</Menu.ItemText></Menu.Item>
-										{#if $recentFolders.length > 0}
-											<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-											<div class="text-surface-500 px-2.5 py-0.5 text-xs font-semibold tracking-wider uppercase">
-												{m.menubar_recent_heading()}
-											</div>
-											{#each $recentFolders as folder (folder)}
-												<Menu.Item value={folder} class={itemClass}>
-													<Menu.ItemText class="block max-w-64 truncate" title={folder}>{basename(folder)}</Menu.ItemText>
-												</Menu.Item>
-											{/each}
-										{/if}
-									</Menu.Content>
-								</Menu.Positioner>
-							</Portal>
-						</Menu>
+						{#if onNewFile}
+							<Menu onSelect={(d) => newFileSelect(d.value)}>
+								<Menu.TriggerItem value="new" class={itemClass}>
+									<Menu.ItemText>{m.menubar_new_file_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
+								</Menu.TriggerItem>
+								<Portal>
+									<Menu.Positioner>
+										<Menu.Content class={contentClass}>
+											<Menu.Item value="tex" class={itemClass}><Menu.ItemText>{m.menubar_new_tex()}</Menu.ItemText></Menu.Item>
+											<Menu.Item value="bib" class={itemClass}><Menu.ItemText>{m.menubar_new_bib()}</Menu.ItemText></Menu.Item>
+											<Menu.Item value="cls" class={itemClass}><Menu.ItemText>{m.menubar_new_cls()}</Menu.ItemText></Menu.Item>
+											<Menu.Item value="sty" class={itemClass}><Menu.ItemText>{m.menubar_new_sty()}</Menu.ItemText></Menu.Item>
+										</Menu.Content>
+									</Menu.Positioner>
+								</Portal>
+							</Menu>
+						{/if}
+						<!-- withheld from a guest: swapping the workspace out would abandon the session
+						     without leaving it, and nothing tears one down on a workspace change - the
+						     Leave button is the only path that calls collabGuest.leave() -->
+						{#if onOpenFolder}
+							<Menu onSelect={(d) => openFolderSelect(d.value)}>
+								<Menu.TriggerItem value="openfolder" class={itemClass}>
+									<Menu.ItemText>{m.menubar_open_folder_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
+								</Menu.TriggerItem>
+								<Portal>
+									<Menu.Positioner>
+										<Menu.Content class={contentClass}>
+											<Menu.Item value="newfolder" class={itemClass}><Menu.ItemText>{m.menubar_open_new_folder()}</Menu.ItemText></Menu.Item
+											>
+											{#if $recentFolders.length > 0}
+												<Menu.Separator class="border-surface-200-800 my-1 border-t" />
+												<div class="text-surface-500 px-2.5 py-0.5 text-xs font-semibold tracking-wider uppercase">
+													{m.menubar_recent_heading()}
+												</div>
+												{#each $recentFolders as folder (folder)}
+													<Menu.Item value={folder} class={itemClass}>
+														<Menu.ItemText class="block max-w-64 truncate" title={folder}>{basename(folder)}</Menu.ItemText>
+													</Menu.Item>
+												{/each}
+											{/if}
+										</Menu.Content>
+									</Menu.Positioner>
+								</Portal>
+							</Menu>
+						{/if}
 						{#if isDesktop()}
 							<Menu.Separator class="border-surface-200-800 my-1 border-t" />
 							<Menu.Item value="new-window" class={itemClass}>
-								<Menu.ItemText>{m.menubar_new_window()}</Menu.ItemText><span class="opacity-50">{combo({ shift: true }, 'N')}</span>
+								<Menu.ItemText>{m.menubar_new_window()}</Menu.ItemText><span class="opacity-50">{combo('N', { shift: true })}</span>
 							</Menu.Item>
 							<Menu.Item value="open-folder-new-window" class={itemClass}>
 								<Menu.ItemText>{m.menubar_open_folder_new_window()}</Menu.ItemText>
@@ -584,14 +500,25 @@
 						{/if}
 						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
 						<Menu.Item value="save" class={itemClass}>
-							<Menu.ItemText>{m.menubar_save()}</Menu.ItemText><span class="opacity-50">{combo({}, 'S')}</span>
+							<Menu.ItemText>{m.menubar_save()}</Menu.ItemText><span class="opacity-50">{combo('S')}</span>
 						</Menu.Item>
 						{#if onCloseWorkspace}
 							<Menu.Item value="close-workspace" class={itemClass}><Menu.ItemText>{m.menubar_close_workspace()}</Menu.ItemText></Menu.Item>
 						{/if}
-						<!-- Preferences and Share session moved to the app-icon menu (AppIconMenu.svelte),
-							     which is where macOS puts them and where Windows now matches. The values are
-							     still handled in fileSelect: the native macOS app menu fires them. -->
+						<!-- Windows and Linux only: this whole bar is `{#if !nativeMenus}`, and on macOS these
+						     two live in the application menu, which is where a mac user reaches for them.
+						     They sat in the app-icon dropdown for a while so both platforms would agree on
+						     placement, which was the wrong kind of agreement - macOS puts Preferences in the
+						     app menu because it HAS one, and Windows puts it in File. The title-bar icon is
+						     also where Windows draws the system menu, so it was a spot already spoken for.
+						     Last in the menu, after a rule, the way Word and VS Code order it. -->
+						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
+						{#if onShareSession}
+							<Menu.Item value="share-session" class={itemClass}><Menu.ItemText>{m.menubar_share_session()}</Menu.ItemText></Menu.Item>
+						{/if}
+						<Menu.Item value="preferences" class={itemClass}>
+							<Menu.ItemText>{m.menubar_preferences()}</Menu.ItemText><span class="opacity-50">{combo(',')}</span>
+						</Menu.Item>
 					</Menu.Content>
 				</Menu.Positioner>
 			</Portal>
@@ -605,18 +532,18 @@
 				<Menu.Positioner>
 					<Menu.Content class={contentClass}>
 						<Menu.Item value="palette" class={itemClass}>
-							<Menu.ItemText>{m.palette_open()}</Menu.ItemText><span class="opacity-50">{combo({}, 'K')}</span>
+							<Menu.ItemText>{m.palette_open()}</Menu.ItemText><span class="opacity-50">{combo('K')}</span>
 						</Menu.Item>
 						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
 						<Menu.Item value="undo" class={itemClass}
-							><Menu.ItemText>{m.menubar_undo()}</Menu.ItemText><span class="opacity-50">{combo({}, 'Z')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_undo()}</Menu.ItemText><span class="opacity-50">{combo('Z')}</span></Menu.Item
 						>
 						<Menu.Item value="redo" class={itemClass}
-							><Menu.ItemText>{m.menubar_redo()}</Menu.ItemText><span class="opacity-50">{combo({ shift: true }, 'Z')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_redo()}</Menu.ItemText><span class="opacity-50">{combo('Z', { shift: true })}</span></Menu.Item
 						>
 						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
 						<Menu.Item value="find" class={itemClass}
-							><Menu.ItemText>{m.menubar_find()}</Menu.ItemText><span class="opacity-50">{combo({}, 'F')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_find()}</Menu.ItemText><span class="opacity-50">{combo('F')}</span></Menu.Item
 						>
 					</Menu.Content>
 				</Menu.Positioner>
@@ -679,7 +606,12 @@
 								</Menu.Positioner>
 							</Portal>
 						</Menu>
-						<Menu.Item value="image" class={itemClass}><Menu.ItemText>{m.menubar_insert_image()}</Menu.ItemText></Menu.Item>
+						<!-- an image has to be written next to the document, so no imageDir means nowhere to
+						     put it: a guest's folder is the host's, and a .bib has no figure directory.
+						     pickImage() already no-ops without it; better not to offer the row at all. -->
+						{#if imageDir}
+							<Menu.Item value="image" class={itemClass}><Menu.ItemText>{m.menubar_insert_image()}</Menu.ItemText></Menu.Item>
+						{/if}
 						<Menu.Item value="table" class={itemClass}><Menu.ItemText>{m.menubar_insert_table()}</Menu.ItemText></Menu.Item>
 						<Menu.Item value="citation" class={itemClass}><Menu.ItemText>{m.menubar_insert_citation()}</Menu.ItemText></Menu.Item>
 						<Menu.Item value="link" class={itemClass}><Menu.ItemText>{m.menubar_insert_link()}</Menu.ItemText></Menu.Item>
@@ -705,13 +637,13 @@
 				<Menu.Positioner>
 					<Menu.Content class={contentClass}>
 						<Menu.Item value="bold" class={itemClass}
-							><Menu.ItemText>{m.menubar_format_bold()}</Menu.ItemText><span class="opacity-50">{combo({}, 'B')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_format_bold()}</Menu.ItemText><span class="opacity-50">{combo('B')}</span></Menu.Item
 						>
 						<Menu.Item value="italic" class={itemClass}
-							><Menu.ItemText>{m.menubar_format_italic()}</Menu.ItemText><span class="opacity-50">{combo({}, 'I')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_format_italic()}</Menu.ItemText><span class="opacity-50">{combo('I')}</span></Menu.Item
 						>
 						<Menu.Item value="underline" class={itemClass}
-							><Menu.ItemText>{m.menubar_format_underline()}</Menu.ItemText><span class="opacity-50">{combo({}, 'U')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_format_underline()}</Menu.ItemText><span class="opacity-50">{combo('U')}</span></Menu.Item
 						>
 						<Menu.Item value="code" class={itemClass}><Menu.ItemText>{m.menubar_format_inline_code()}</Menu.ItemText></Menu.Item>
 						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
@@ -812,15 +744,14 @@
 <!-- outside the nav so it survives on macOS, where the nav is not rendered at all -->
 <input bind:this={imageInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" onchange={onImagePicked} />
 
-<SpellcheckDictionary bind:open={dictionaryOpen} />
-<!-- bound to a store, not local state: the command palette opens Preferences too, and it has no
-     handle on this component -->
-<PreferencesDialog bind:open={$preferencesOpen} />
+<!-- Preferences, the dictionary and the shortcut sheet are mounted by WorkspaceDialogs, not here:
+     a guest session renders no menu bar, and they are window features rather than menu features.
+     This file still OPENS them, through dialogStore. -->
 
 <!-- text prompt dialog, Electron has no window.prompt() -->
 {#if promptOpen}
 	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center bg-black/40 p-4"
+		class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && closePrompt(false)}
 	>
@@ -844,46 +775,12 @@
 	</div>
 {/if}
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && ((shortcutsOpen = false), (supportOpen = false))} />
-
-{#if shortcutsOpen}
-	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center bg-black/40 p-4"
-		role="presentation"
-		onmousedown={(e) => e.target === e.currentTarget && (shortcutsOpen = false)}
-	>
-		<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-md border p-5 shadow-2xl">
-			<div class="mb-3 flex items-center justify-between gap-4">
-				<h2 class="text-base font-semibold">{m.menubar_keyboard_shortcuts()}</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" aria-label={m.menubar_close_aria()} onclick={() => (shortcutsOpen = false)}
-					><X class="size-4" /></button
-				>
-			</div>
-			<div class="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
-				{#each SHORTCUTS as grp (grp.group)}
-					<div>
-						<div class="text-surface-500 mb-1.5 text-xs font-semibold tracking-wider uppercase">{grp.group}</div>
-						<ul class="space-y-1">
-							{#each grp.items as s (s.label)}
-								<li class="flex items-center justify-between gap-4 text-sm">
-									<span>{s.label}</span>
-									<kbd class="border-surface-300-700 bg-surface-100-900 rounded border px-1.5 py-0.5 font-mono text-xs whitespace-nowrap"
-										>{s.keys}</kbd
-									>
-								</li>
-							{/each}
-						</ul>
-					</div>
-				{/each}
-			</div>
-		</div>
-	</div>
-{/if}
+<svelte:window onkeydown={(e) => e.key === 'Escape' && (supportOpen = false)} />
 
 <!-- shows the email with a copy button, no mail client assumed -->
 {#if supportOpen}
 	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center bg-black/40 p-4"
+		class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && (supportOpen = false)}
 	>

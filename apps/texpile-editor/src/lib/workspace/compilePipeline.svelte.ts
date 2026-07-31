@@ -174,6 +174,17 @@ export class CompilePipeline {
 			toaster.error({ title: m.wsview_toast_shell_escape_blocked(), duration: 5000 });
 			return;
 		}
+		// Claim the slot BEFORE the first await, not down with `compiling`.
+		//
+		// The overlap guard above (and the collab handler's isBusy()) used to read this flag four
+		// awaits before anything set it - flushSaves, two stats and the mkdir all ran while it was
+		// still false. Two compiles starting inside that window both passed, and two latexmk runs
+		// then shared one directory's .aux / .pdf / .synctex. A double-click did it; no malice or
+		// shared session required.
+		//
+		// Every early return above is synchronous, and the draft path returns before here and never
+		// sets busy by design, so claiming it at this point needs no unwinding.
+		this.busy = true;
 		// write the buffer to disk BEFORE compiling so SyncTeX indexes exactly what the editor
 		// holds; otherwise reverse search maps PDF clicks into a stale, differently formatted .tex
 		await this.deps.flushSaves();
@@ -226,10 +237,13 @@ export class CompilePipeline {
 
 	// read the .log plus the sibling .blg (it reflects the LAST bib run, which stays valid
 	// even on compiles where latexmk skips bibtex) and publish the parsed problems
-	publishLogDiagnostics = async (logPath: string, mtimeMs: number, quiet = false) => {
+	// stdout defaults to the last run's, which is right for the compile that produced it. The live
+	// preview's own compile has none, and inheriting a stale one would attribute a previous run's
+	// stdout-only errors to this log -- so that caller passes null explicitly.
+	publishLogDiagnostics = async (logPath: string, mtimeMs: number, quiet = false, stdout: string | null = this.compileStdout || null) => {
 		const blgPath = logPath.replace(/\.log$/i, '.blg');
 		const blgText = (await this.deps.stat(blgPath)).exists ? await this.deps.readText(blgPath) : null;
-		const parsed = await parseCompileDiagnosticsInWorker(await this.deps.readText(logPath), blgText, this.compileStdout || null);
+		const parsed = await parseCompileDiagnosticsInWorker(await this.deps.readText(logPath), blgText, stdout);
 		// bib warnings name a key ("empty journal in Smith2020"); projectIntel knows every
 		// entry's exact line, so point the row at it (LW resolves these via its citation cache)
 		const bibEntries = get(projectIntelStore).bibEntries;

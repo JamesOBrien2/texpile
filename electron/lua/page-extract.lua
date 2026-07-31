@@ -33,7 +33,14 @@ local function write_manifest()
 	-- baseline, ht): body bottom in record space is ht - footskip
 	local fsk = (tex.dimen and tex.dimen["footskip"] or 0) / 65536.0
 	local t = {}
-	for i = 1, pageno do t[i] = string.format('{"n":%d,"w":%.4f,"h":%.4f,"ht":%.4f}', i, pages[i].w, pages[i].h, pages[i].ht) end
+	for i = 1, pageno do
+		local p = pages[i]
+		-- the walker's certification reasons for THIS page (nil when it is fully renderable).
+		-- The instant path has always had this per block; without it on the page the renderer
+		-- had no way to know a page's records were unsafe to paint (RTL, in practice).
+		local unc = p.unc and string.format(',"unc":"%s"', p.unc) or ""
+		t[i] = string.format('{"n":%d,"w":%.4f,"h":%.4f,"ht":%.4f%s}', i, p.w, p.h, p.ht, unc)
+	end
 	f:write(string.format('{"count":%d,"paperW":%.4f,"paperH":%.4f,"colW":%.4f,"footSkip":%.4f,"pages":[%s]}', pageno, pw, ph, cw, fsk, table.concat(t, ",")))
 	f:close()
 end
@@ -42,13 +49,22 @@ function page_extract(boxnum)
 	local b = tex.box[boxnum]
 	if not b then return end
 	pageno = pageno + 1
-	local ok, records = pcall(walker.lines, b.head)
+	-- The page's DIMENSIONS come from the box and are known whether or not the walk succeeds,
+	-- so record them unconditionally. Registering them only on success left a hole in `pages`
+	-- at the failed index, and the next page's write_manifest then indexed that nil and threw
+	-- out of the shipout hook -- one bad page destroyed the manifest for the whole document.
+	local ok, records, stats = pcall(walker.lines, b.head)
+	pages[pageno] = {
+		w = (b.width or 0) / 65536,
+		h = ((b.height or 0) + (b.depth or 0)) / 65536,
+		ht = (b.height or 0) / 65536,
+		unc = ok and stats and stats.uncertified or nil
+	}
 	if ok then
 		local f = io.open(string.format("%spage-%03d.jsonl", OUT, pageno), "w")
 		if f then f:write(table.concat(records, "\n")); f:close() end
-		pages[pageno] = { w = (b.width or 0) / 65536, h = ((b.height or 0) + (b.depth or 0)) / 65536, ht = (b.height or 0) / 65536 }
-		write_manifest()
 	end
+	write_manifest()
 end
 
 -- kept for compatibility with existing wrappers; the real work happens per shipout

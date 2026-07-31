@@ -1,6 +1,10 @@
 import { BROWSER } from 'esm-env';
 
-let pdfjsLib: typeof import('pdfjs-dist/legacy/build/pdf.mjs') | null = null;
+type PdfLib = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
+type DocumentSource = Parameters<PdfLib['getDocument']>[0];
+type LoadingTask = ReturnType<PdfLib['getDocument']>;
+
+let pdfjsLib: PdfLib | null = null;
 let pdfWorker: import('pdfjs-dist/legacy/build/pdf.mjs').PDFWorker | null = null;
 let rawWorker: Worker | null = null;
 let initPromise: Promise<typeof import('pdfjs-dist/legacy/build/pdf.mjs') | null> | null = null;
@@ -31,8 +35,50 @@ export async function getPdfJs(): Promise<typeof import('pdfjs-dist/legacy/build
 	return initPromise;
 }
 
+/**
+ * Open a document on the SHARED worker, without letting it be adopted.
+ *
+ * Use this rather than pdfjs.getDocument() directly. getDocument() with no `worker` in its source
+ * does this (pdf.mjs, getDocument):
+ *
+ *     if (!worker) {
+ *       worker = PDFWorker.create({ port: GlobalWorkerOptions.workerPort });
+ *       task._worker = worker;
+ *     }
+ *
+ * which hands our one process-wide worker to the loading task as if the task owned it. Destroying
+ * any single document then destroys the worker for every other document: PDFDocumentLoadingTask
+ * .destroy() flags the port `_pendingDestroy`, awaits the transport, then terminates the worker and
+ * drops it from PDFWorker's port map.
+ *
+ * Two ways that broke. A load starting inside that await window throws "PDFWorker.create - the
+ * worker is being destroyed"; a load starting after it completes gets a worker that has already
+ * been terminated and simply never resolves. Guests hit both, because a guest's PDF arrives as a
+ * new blob on every host compile - a real document switch each time, so destroy-then-load runs on
+ * every compile, and PDFViewerCore.cleanup() does not await the destroy.
+ *
+ * Passing `worker` takes the branch above out of play: `src.worker instanceof PDFWorker` leaves
+ * task._worker null, so no document destroy can reach the worker. It lives until destroyPdfJs().
+ */
+export async function getPdfDocument(src: DocumentSource): Promise<LoadingTask | null> {
+	const pdfjs = await getPdfJs();
+	if (!pdfjs || !pdfWorker) return null;
+	// getDocument also accepts a bare url or bare bytes; normalise so there is somewhere to put the
+	// worker. ArrayBuffer.isView covers every TypedArray pdf.js takes.
+	const params =
+		typeof src === 'string' || src instanceof URL
+			? { url: src }
+			: src instanceof ArrayBuffer || ArrayBuffer.isView(src)
+				? { data: src }
+				: src;
+	return pdfjs.getDocument({ ...params, worker: pdfWorker });
+}
+
 /** destroys the PDF.js worker; the next getPdfJs() call creates a new one. */
 export function destroyPdfJs(): void {
+	// before pdfjsLib goes: otherwise the reference is lost and workerPort keeps pointing at a
+	// terminated port, which the next getDocument() would look up in PDFWorker's port map
+	if (pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerPort = null;
 	if (pdfWorker) {
 		pdfWorker.destroy();
 		pdfWorker = null;

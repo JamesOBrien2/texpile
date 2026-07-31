@@ -12,7 +12,7 @@
 	} = $props();
 </script>
 
-<div class="fixed inset-0 z-1300 flex items-center justify-center bg-black/40 p-4">
+<div class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4">
 	<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-md border p-5 shadow-2xl">
 		<h2 class="text-lg font-semibold">{m.wsview_conflict_title()}</h2>
 		<p class="text-surface-600-300 mt-2 text-sm">

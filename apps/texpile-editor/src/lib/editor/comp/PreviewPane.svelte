@@ -36,6 +36,8 @@
 		onPageClick: (page: number, x: number, y: number, selectText?: string) => void;
 		onInverseSync: (file: string, line: number, selectText?: string) => void;
 		onSettled: () => void;
+		/** the finished compile's log path, for the Problems panel */
+		onDiagnostics: (logPath: string) => void;
 	}
 	let {
 		width,
@@ -53,7 +55,8 @@
 		onClose,
 		onPageClick,
 		onInverseSync,
-		onSettled
+		onSettled,
+		onDiagnostics
 	}: Props = $props();
 </script>
 
@@ -99,7 +102,15 @@
 			{/if}
 		{:else if $settings.draftMode}
 			{#if DraftViewComp}
-				<DraftViewComp bind:this={draftRef} root={draftRoot} mainFile={draftMainRel} trigger={draftTrigger} {onInverseSync} {onSettled} />
+				<DraftViewComp
+					bind:this={draftRef}
+					root={draftRoot}
+					mainFile={draftMainRel}
+					trigger={draftTrigger}
+					{onInverseSync}
+					{onSettled}
+					{onDiagnostics}
+				/>
 			{/if}
 		{:else}
 			<PDFViewer bind:this={pdfPaneRef} filename={pdfFilename} {onPageClick} />

@@ -27,6 +27,12 @@ export interface MenuState {
 	canShare: boolean;
 	canCloseWorkspace: boolean;
 	canFormat: boolean;
+	/** the workspace takes tree writes: false for a guest, whose folder belongs to the host */
+	canNewFile: boolean;
+	/** there is a directory to write an image next to (a .tex on a host) */
+	canInsertImage: boolean;
+	/** the workspace may be swapped out. False for a guest: it would abandon the session unleft */
+	canOpenFolder: boolean;
 	canTutorial: boolean;
 	recentFolders: string[];
 	/** already-localized labels, so this module never has to know about locales */
@@ -79,34 +85,39 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 		{
 			label: app.name,
 			submenu: [
-				{ role: 'about' },
+				{ role: 'about', label: label(s, 'about', `About ${app.name}`) },
 				{ type: 'separator' },
 				{ label: label(s, 'preferences', 'Preferences…'), accelerator: 'CmdOrCtrl+,', click: () => fire(win, 'file:preferences') },
 				...(s.canShare ? [{ label: label(s, 'share', 'Share session…'), click: () => fire(win, 'file:share-session') }] : []),
 				{ type: 'separator' },
-				{ role: 'services' },
+				{ role: 'services', label: label(s, 'services', 'Services') },
 				{ type: 'separator' },
-				{ role: 'hide' },
-				{ role: 'hideOthers' },
-				{ role: 'unhide' },
+				{ role: 'hide', label: label(s, 'hide', `Hide ${app.name}`) },
+				{ role: 'hideOthers', label: label(s, 'hideOthers', 'Hide Others') },
+				{ role: 'unhide', label: label(s, 'unhide', 'Show All') },
 				{ type: 'separator' },
-				{ role: 'quit' }
+				{ role: 'quit', label: label(s, 'quit', `Quit ${app.name}`) }
 			]
 		},
 		{
 			label: label(s, 'file', 'File'),
 			submenu: [
-				{
-					label: label(s, 'new', 'New'),
-					submenu: [
-						{ label: label(s, 'newTex', 'LaTeX document'), click: () => fire(win, 'new:tex') },
-						{ label: label(s, 'newBib', 'BibTeX bibliography'), click: () => fire(win, 'new:bib') },
-						{ label: label(s, 'newCls', 'Class file'), click: () => fire(win, 'new:cls') },
-						{ label: label(s, 'newSty', 'Package file'), click: () => fire(win, 'new:sty') }
-					]
-				},
-				{ label: label(s, 'openFolder', 'Open folder…'), click: () => fire(win, 'openfolder:newfolder') },
-				...recentItems(win, s),
+				...(s.canNewFile
+					? [
+							{
+								label: label(s, 'new', 'New'),
+								submenu: [
+									{ label: label(s, 'newTex', 'LaTeX document'), click: () => fire(win, 'new:tex') },
+									{ label: label(s, 'newBib', 'BibTeX bibliography'), click: () => fire(win, 'new:bib') },
+									{ label: label(s, 'newCls', 'Class file'), click: () => fire(win, 'new:cls') },
+									{ label: label(s, 'newSty', 'Package file'), click: () => fire(win, 'new:sty') }
+								]
+							}
+						]
+					: []),
+				...(s.canOpenFolder
+					? [{ label: label(s, 'openFolder', 'Open folder…'), click: () => fire(win, 'openfolder:newfolder') }, ...recentItems(win, s)]
+					: []),
 				{ type: 'separator' },
 				{ label: label(s, 'newWindow', 'New window'), accelerator: 'Shift+CmdOrCtrl+N', click: () => fire(win, 'file:new-window') },
 				{ label: label(s, 'openFolderNewWindow', 'Open folder in new window'), click: () => fire(win, 'file:open-folder-new-window') },
@@ -128,13 +139,12 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 				{ ...doc, label: label(s, 'undo', 'Undo'), accelerator: 'CmdOrCtrl+Z', click: () => fire(win, 'edit:undo') },
 				{ ...doc, label: label(s, 'redo', 'Redo'), accelerator: 'Shift+CmdOrCtrl+Z', click: () => fire(win, 'edit:redo') },
 				{ type: 'separator' },
-				{ role: 'cut' },
-				{ role: 'copy' },
-				{ role: 'paste' },
-				{ role: 'selectAll' },
+				{ role: 'cut', label: label(s, 'cut', 'Cut') },
+				{ role: 'copy', label: label(s, 'copy', 'Copy') },
+				{ role: 'paste', label: label(s, 'paste', 'Paste') },
+				{ role: 'selectAll', label: label(s, 'selectAll', 'Select All') },
 				{ type: 'separator' },
-				{ ...doc, label: label(s, 'find', 'Find'), accelerator: 'CmdOrCtrl+F', click: () => fire(win, 'edit:find') },
-				{ label: label(s, 'findInFiles', 'Find in files'), accelerator: 'Shift+CmdOrCtrl+F', click: () => fire(win, 'view:find-in-files') }
+				{ ...doc, label: label(s, 'find', 'Find'), accelerator: 'CmdOrCtrl+F', click: () => fire(win, 'edit:find') }
 			]
 		},
 		{
@@ -144,9 +154,12 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 				{ label: label(s, 'zoomOut', 'Zoom out'), accelerator: 'CmdOrCtrl+-', click: () => fire(win, 'view:zoom-out') },
 				{ label: label(s, 'zoomReset', 'Reset zoom'), accelerator: 'CmdOrCtrl+0', click: () => fire(win, 'view:zoom-reset') },
 				{ type: 'separator' },
-				{ label: label(s, 'toggleSidebar', 'Toggle sidebar'), click: () => fire(win, 'view:sidebar') },
-				{ type: 'separator' },
-				{ role: 'togglefullscreen' }
+				// Electron's role is a static "Toggle Full Screen"; mac apps say Enter / Exit and flip.
+				// Main can read the state directly, and watchWindowState rebuilds on the transition.
+				{
+					role: 'togglefullscreen',
+					label: win.isFullScreen() ? label(s, 'exitFullScreen', 'Exit Full Screen') : label(s, 'enterFullScreen', 'Enter Full Screen')
+				}
 			]
 		},
 		{
@@ -172,7 +185,7 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 						{ label: label(s, 'matrixParen', 'Matrix (parentheses)'), click: () => fire(win, 'math:pmatrix') }
 					]
 				},
-				{ ...pm, label: label(s, 'image', 'Image…'), click: () => fire(win, 'insert:image') },
+				...(s.canInsertImage ? [{ ...pm, label: label(s, 'image', 'Image…'), click: () => fire(win, 'insert:image') }] : []),
 				{ ...pm, label: label(s, 'table', 'Table'), click: () => fire(win, 'insert:table') },
 				{ ...pm, label: label(s, 'citation', 'Citation'), click: () => fire(win, 'insert:citation') },
 				{ ...pm, label: label(s, 'link', 'Link…'), click: () => fire(win, 'insert:link') },
@@ -237,9 +250,22 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 					}
 				]
 			: []),
-		{ role: 'windowMenu' },
+		// The role stays: it is what calls [NSApp setWindowsMenu:], which is how AppKit knows to append
+		// the live window list and the tab items. But a label on the parent renames only the title -
+		// the stock submenu is nested roles carrying Electron's own English - so it is spelt out here.
+		{
+			role: 'windowMenu',
+			label: label(s, 'window', 'Window'),
+			submenu: [
+				{ role: 'minimize', label: label(s, 'minimize', 'Minimize') },
+				{ role: 'zoom', label: label(s, 'zoom', 'Zoom') },
+				{ type: 'separator' },
+				{ role: 'front', label: label(s, 'front', 'Bring All to Front') }
+			]
+		},
 		{
 			role: 'help',
+			label: label(s, 'help', 'Help'),
 			submenu: [
 				{ label: label(s, 'shortcuts', 'Keyboard shortcuts'), click: () => fire(win, 'help:shortcuts') },
 				...(s.canTutorial ? [{ label: label(s, 'tutorial', 'Open tutorial'), click: () => fire(win, 'help:tutorial') }] : []),
@@ -268,7 +294,20 @@ function rebuild(): void {
 	Menu.setApplicationMenu(Menu.buildFromTemplate(template(win, s)));
 }
 
-export function registerWindowChrome(): void {
+/** what the renderer last reported about its chrome, for seeding the next window's first paint. */
+export interface ChromeColors {
+	height?: number;
+	color?: string;
+	symbolColor?: string;
+	background?: string;
+}
+
+/**
+ * @param onChrome called whenever the renderer reports its title bar colours, so main can persist
+ *   them. Kept as a callback rather than importing the settings helpers, because those live in
+ *   main.ts and main.ts already imports this module.
+ */
+export function registerWindowChrome(onChrome?: (c: ChromeColors) => void): void {
 	// ---- window controls, for the renderer's own title bar (Windows / Linux) ----
 	ipcMain.handle('window:minimize', (e) => {
 		BrowserWindow.fromWebContents(e.sender)?.minimize();
@@ -285,6 +324,39 @@ export function registerWindowChrome(): void {
 		BrowserWindow.fromWebContents(e.sender)?.close();
 	});
 	ipcMain.handle('window:isMaximized', (e) => BrowserWindow.fromWebContents(e.sender)?.isMaximized() ?? false);
+
+	/**
+	 * Repaint the window-controls overlay, and the window behind it, to match the renderer.
+	 *
+	 * Chromium draws those buttons, so it has to be told our colours; main cannot work them out
+	 * because the theme is in localStorage. `height` arrives already multiplied by the zoom factor:
+	 * the overlay is sized in device pixels and does not scale with setZoomFactor, so a zoomed-in
+	 * window needs a taller strip to stay level with a title bar that grew.
+	 *
+	 * `background` is the WINDOW's fill, not the bar's, and it is what stops the white flash when a
+	 * dark-themed window is maximised or restored: Chromium paints newly exposed area with it before
+	 * the renderer gets there.
+	 *
+	 * Both are persisted, because the first paint of the NEXT launch happens before any renderer
+	 * exists - that is why the buttons appear in a pale strip on a blank window at startup. Seeding
+	 * createWindow from the last known values closes that gap for everyone but a genuine first run.
+	 *
+	 * The overlay half is a no-op on macOS, where the window has a real frame and setTitleBarOverlay
+	 * throws rather than being ignored.
+	 */
+	ipcMain.on('window:overlay', (e, o: { height?: number; color?: string; symbolColor?: string; background?: string }) => {
+		const win = BrowserWindow.fromWebContents(e.sender);
+		if (!win) return;
+		if (o.background) win.setBackgroundColor(o.background);
+		if (!isMac) {
+			try {
+				win.setTitleBarOverlay({ height: o.height, color: o.color, symbolColor: o.symbolColor });
+			} catch {
+				/* a window built without titleBarOverlay has nothing to update */
+			}
+		}
+		onChrome?.(o);
+	});
 
 	// ---- menu state, for the native macOS bar ----
 	ipcMain.on('window:menu-state', (e, state: MenuState) => {
@@ -314,10 +386,15 @@ export function watchWindowState(win: BrowserWindow): void {
 		if (win.isDestroyed()) return;
 		win.webContents.send('main:window-state', { maximized: win.isMaximized(), fullScreen: win.isFullScreen() });
 	};
+	// the View item reads Enter or Exit off the current state, so the bar has to follow the transition
+	const pushAndRebuild = () => {
+		push();
+		rebuild();
+	};
 	win.on('maximize', push);
 	win.on('unmaximize', push);
-	win.on('enter-full-screen', push);
-	win.on('leave-full-screen', push);
+	win.on('enter-full-screen', pushAndRebuild);
+	win.on('leave-full-screen', pushAndRebuild);
 	// the renderer mounts after the window exists, so seed it once it has loaded
 	win.webContents.on('did-finish-load', push);
 }

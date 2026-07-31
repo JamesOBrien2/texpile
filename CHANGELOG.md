@@ -5,6 +5,24 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+- feat: a command palette on Ctrl+K (Cmd+K on macOS) to open a file, compile, and run editor actions without leaving the keyboard
+- feat: Vim and Emacs keybindings for the source editor, chosen in Preferences
+- feat: multiple cursors in the source editor: Ctrl+Alt+Up and Ctrl+Alt+Down add a cursor, Ctrl+D selects the next occurrence
+- feat: the window title bar is now part of the app, putting the menus, the file name, and the window buttons on one row; the menus fold into a single button as the window narrows. macOS keeps its native menu bar and traffic lights
+- feat: the file name in the middle of the title bar is a button that opens the command palette
+- feat: connect Claude and other AI assistants to the editor over MCP, set up from Preferences
+- feat: large documents open, scroll, and type faster
+- fix: live mode no longer showed a blank grey page for any document that picks its font with fontspec. A family name containing a space, such as Times New Roman, made the page unreadable to the preview; this affected every language, English included
+- fix: Hebrew and Arabic render in live mode, reading right to left, with Arabic letters joined
+- fix: Greek, Cyrillic, and Japanese, Chinese, and Korean text render in live mode, including fonts taken from a TrueType collection
+- fix: live mode reports compile errors in the Problems panel. A document that still produced pages could fail silently, with nothing anywhere to say why
+- fix: an error in live mode no longer pushes the preview pages down the pane
+- fix: typing in a right-to-left document no longer recompiles on every keystroke
+- fix: the file explorer highlights the open file when a workspace reopens on the file it was last closed with
+- fix: the file explorer no longer leaves a row shaded after you switch to another tab
+- fix: the cursor stays put when a file changes outside the editor, such as an edit by another program or a run of the formatter
+- fix: the terminal's scrollbar no longer covers the end of the line you are typing
+
 ## [0.15.0] - 2026-07-22
 
 - feat: experimental shared sessions for real time collaboration. Share a folder with a code from the home screen, no account needed, end to end encrypted so the relay server only forwards data it cannot read. Guests co-edit in both the visual and source editors, see where others are editing, and watch the host's compiled PDF and compile problems live

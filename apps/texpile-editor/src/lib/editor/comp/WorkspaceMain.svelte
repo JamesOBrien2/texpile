@@ -163,6 +163,7 @@
 				onPageClick={actions.onPdfDoubleClick}
 				onInverseSync={actions.onInverseSync}
 				onSettled={actions.onPreviewSettled}
+				onDiagnostics={actions.onPreviewDiagnostics}
 			/>
 		{/if}
 	</div>

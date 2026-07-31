@@ -58,7 +58,11 @@ function relInRoot(root: string, abs: string): string {
 /** joins a folder + a stored relative path back into an absolute path (native-ish separators). */
 function absInRoot(root: string, rel: string): string {
 	const sep = root.includes('\\') ? '\\' : '/';
-	return norm(root) + sep + rel.split('/').join(sep);
+	// join the WHOLE path in the root's own separator. norm() forward-slashes the root, so
+	// appending a backslash-joined tail to it produced "C:/dir\sub\file.tex" -- fine for the fs,
+	// which accepts either, but it matches nothing when compared against the tree's own
+	// all-backslash paths, so a restored file never highlighted as the open one.
+	return norm(root).split('/').join(sep) + sep + rel.split('/').join(sep);
 }
 
 function loadMainMap(): Record<string, string> {

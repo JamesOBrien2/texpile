@@ -37,9 +37,10 @@
 		error = null;
 
 		try {
-			const { getPdfJs } = await import('./pdf-viewer/pdfjs-singleton.js');
-			const pdfjs = await getPdfJs();
-			if (!pdfjs) return;
+			const { getPdfJs, getPdfDocument } = await import('./pdf-viewer/pdfjs-singleton.js');
+			// still the availability check (it is null off the browser); the load itself goes through
+			// getPdfDocument so the shared worker is passed rather than adopted
+			if (!(await getPdfJs())) return;
 
 			const { PDFViewerCore } = await import('./pdf-viewer/PDFViewerCore.js');
 			const { FindController } = await import('./pdf-viewer/FindController.js');
@@ -83,7 +84,9 @@
 				searchTotal = matchesCount.total;
 			});
 
-			const loadingTask = pdfjs.getDocument(url);
+			// see getPdfDocument: a task that adopts the shared worker destroys it for everyone
+			const loadingTask = await getPdfDocument(url);
+			if (!loadingTask) return;
 			const pdfDocument = await loadingTask.promise;
 
 			await newViewer.setDocument(pdfDocument);
