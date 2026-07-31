@@ -332,12 +332,30 @@
 	}
 
 	// tree rescan + manifest sync + git refresh live in lib/workspace/treeRefresh.ts
-	const refreshTree = () =>
-		refreshTreeState({
+	// treeRoot is the root the tree on screen currently reflects; plain, not $state, so recording it
+	// cannot retrigger the effect below.
+	let treeRoot: string | null = null;
+	const refreshTree = async () => {
+		treeRoot = get(workspaceRoot);
+		await refreshTreeState({
 			provider,
 			session,
 			isEditingTree: () => !!fileTreeRef?.isEditing?.()
 		});
+	};
+
+	// The tree FOLLOWS the root. It used to be rescanned only where a folder was opened through
+	// FolderLifecycle, but the root is also set straight from main's IPC handlers in App.svelte --
+	// session restore, Open Folder in New Window, and an OS "open with" on a .tex file. Those set
+	// texFiles and the active file but never the tree, so the explorer went on showing the folder
+	// before it. Reacting to the root covers every route in and any route added later.
+	// No double scan on the FolderLifecycle path: it awaits refreshTree itself, which records
+	// treeRoot, so by the time this runs the root already matches and it stands down.
+	$effect(() => {
+		const root = $workspaceRoot;
+		if (!root || root === treeRoot) return;
+		void refreshTree();
+	});
 
 	// the shared file set changes under a guest whenever the host adds, renames or deletes a file.
 	// The provider exposes a watch hook for exactly this; without it the tree only ever reflected
