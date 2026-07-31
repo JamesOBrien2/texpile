@@ -133,8 +133,7 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 				{ role: 'paste', label: label(s, 'paste', 'Paste') },
 				{ role: 'selectAll', label: label(s, 'selectAll', 'Select All') },
 				{ type: 'separator' },
-				{ ...doc, label: label(s, 'find', 'Find'), accelerator: 'CmdOrCtrl+F', click: () => fire(win, 'edit:find') },
-				{ label: label(s, 'findInFiles', 'Find in files'), accelerator: 'Shift+CmdOrCtrl+F', click: () => fire(win, 'view:find-in-files') }
+				{ ...doc, label: label(s, 'find', 'Find'), accelerator: 'CmdOrCtrl+F', click: () => fire(win, 'edit:find') }
 			]
 		},
 		{
@@ -143,8 +142,6 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 				{ label: label(s, 'zoomIn', 'Zoom in'), accelerator: 'CmdOrCtrl+Plus', click: () => fire(win, 'view:zoom-in') },
 				{ label: label(s, 'zoomOut', 'Zoom out'), accelerator: 'CmdOrCtrl+-', click: () => fire(win, 'view:zoom-out') },
 				{ label: label(s, 'zoomReset', 'Reset zoom'), accelerator: 'CmdOrCtrl+0', click: () => fire(win, 'view:zoom-reset') },
-				{ type: 'separator' },
-				{ label: label(s, 'toggleSidebar', 'Toggle sidebar'), click: () => fire(win, 'view:sidebar') },
 				{ type: 'separator' },
 				// Electron's role is a static "Toggle Full Screen"; mac apps say Enter / Exit and flip.
 				// Main can read the state directly, and watchWindowState rebuilds on the transition.
