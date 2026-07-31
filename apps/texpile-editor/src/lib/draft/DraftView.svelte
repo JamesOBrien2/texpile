@@ -31,8 +31,10 @@
 		onInverseSync?: (file: string, line: number, selectText?: string) => void;
 		/** a compile landed: the editor re-evaluates any edits typed while it ran. */
 		onSettled?: () => void;
+		/** a compile landed: its log is at this path, for the Problems panel to parse. */
+		onDiagnostics?: (logPath: string) => void;
 	}
-	let { root, mainFile, trigger, onInverseSync, onSettled }: Props = $props();
+	let { root, mainFile, trigger, onInverseSync, onSettled, onDiagnostics }: Props = $props();
 
 	let pages = $state<DraftPage[]>([]);
 	let paper = $state({ w: 595, h: 842, colW: 0, fs: 0, mx: 72.27, my: 72.27 });
@@ -2127,6 +2129,13 @@
 		// re-evaluate the buffer against the fresh baseline now instead of waiting for the
 		// next keystroke (the "typed during a reconcile, nothing showed" hole)
 		onSettled?.();
+		// The draft compile writes its OWN log, and nothing was reading it. The normal pipeline
+		// polls the expected .log of the user's compile command; in live mode that command never
+		// runs, so a document with real LaTeX errors reported nothing at all as long as the engine
+		// still shipped pages -- which it does for most errors. The report that surfaced this had
+		// babel refusing outright and every Hebrew glyph logged as missing, and the Problems panel
+		// stayed empty through all of it.
+		onDiagnostics?.(root + '/_draft/draft.log');
 	}
 
 	// recompile whenever `trigger` changes (and once on mount). untrack the compile call:

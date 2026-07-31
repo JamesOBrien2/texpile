@@ -1076,6 +1076,11 @@
 		onPdfDoubleClick,
 		onInverseSync: (file: string, line: number, selectText?: string) => openFileAtLine(normSyncPath(file), line, selectText),
 		onPreviewSettled: runDraftDecision,
+		// Live mode's compile has its own log, and the normal pipeline never sees it -- that one
+		// polls the .log of the user's compile command, which does not run in live mode. quiet: a
+		// draft compile fires whenever typing pauses, so it may fill the Problems list but must
+		// never yank the dock open mid-sentence. The topbar's error badge is the signal.
+		onPreviewDiagnostics: (logPath: string) => void compiler.publishLogDiagnostics(logPath, Date.now(), true, null),
 		toggleTerminalShrink,
 		toggleTerminal
 	};

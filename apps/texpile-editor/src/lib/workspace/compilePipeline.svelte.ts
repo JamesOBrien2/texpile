@@ -226,10 +226,13 @@ export class CompilePipeline {
 
 	// read the .log plus the sibling .blg (it reflects the LAST bib run, which stays valid
 	// even on compiles where latexmk skips bibtex) and publish the parsed problems
-	publishLogDiagnostics = async (logPath: string, mtimeMs: number, quiet = false) => {
+	// stdout defaults to the last run's, which is right for the compile that produced it. The live
+	// preview's own compile has none, and inheriting a stale one would attribute a previous run's
+	// stdout-only errors to this log -- so that caller passes null explicitly.
+	publishLogDiagnostics = async (logPath: string, mtimeMs: number, quiet = false, stdout: string | null = this.compileStdout || null) => {
 		const blgPath = logPath.replace(/\.log$/i, '.blg');
 		const blgText = (await this.deps.stat(blgPath)).exists ? await this.deps.readText(blgPath) : null;
-		const parsed = await parseCompileDiagnosticsInWorker(await this.deps.readText(logPath), blgText, this.compileStdout || null);
+		const parsed = await parseCompileDiagnosticsInWorker(await this.deps.readText(logPath), blgText, stdout);
 		// bib warnings name a key ("empty journal in Smith2020"); projectIntel knows every
 		// entry's exact line, so point the row at it (LW resolves these via its citation cache)
 		const bibEntries = get(projectIntelStore).bibEntries;
