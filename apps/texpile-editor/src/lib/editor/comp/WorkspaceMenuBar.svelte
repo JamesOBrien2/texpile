@@ -2,8 +2,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { Menu, Portal } from '@skeletonlabs/skeleton-svelte';
 	// Menu is Skeleton's here, so lucide's hamburger comes in aliased
-	import { Check, ChevronRight, X, Users, Menu as MenuIcon, MoreHorizontal } from '@lucide/svelte';
-	import { collabHost } from '$lib/collab/hostStore.svelte';
+	import { Check, ChevronRight, X, Menu as MenuIcon, MoreHorizontal } from '@lucide/svelte';
 	import { get } from 'svelte/store';
 	import { editorViewStore, referenceStore, editorConfigStore, cursorInCm } from '$lib/stores/editorStore';
 	import { recentFolders } from '$lib/workspace/workspaceStore';
@@ -449,7 +448,7 @@
      component still mounts: it owns Preferences, the dictionary, the shortcut sheet and the image
      picker, none of which have anything to do with where the menus are drawn.
      preventDefault on mousedown so opening a menu doesn't blur the editor; inserts land at the cursor -->
-{#if !nativeMenus || collabHost.active}
+{#if !nativeMenus}
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<!-- no left padding: the app icon before it already provides the gap, and doubling up pushed File
 	     away from the mark. The triggers carry their own px-2.5 for their hover targets. -->
@@ -472,34 +471,6 @@
 					</Portal>
 				</Menu>
 			{/if}
-		{/if}
-
-		{#if collabHost.active}
-			<!-- shared-session presence: click to open the share dialog -->
-			<button
-				class="hover:bg-surface-200-800 ml-auto flex items-center gap-1.5 rounded px-2 py-0.5 text-sm"
-				onclick={() => onShareSession?.()}
-				title={m.menubar_share_session()}
-			>
-				<span class="bg-success-500 size-2 shrink-0 rounded-full"></span>
-				<Users class="text-surface-500 size-4" />
-				<div class="flex items-center -space-x-1.5">
-					{#each collabHost.peers.slice(0, 5) as peer, i (i)}
-						<span
-							class="border-surface-100-900 flex size-5 items-center justify-center rounded-full border text-[10px] font-bold text-white"
-							style="background-color: {peer.color}"
-							title={peer.name}>{(peer.name || '?').slice(0, 1).toUpperCase()}</span
-						>
-					{/each}
-				</div>
-				<span class="text-surface-600-400">
-					{collabHost.guestCount() === 1
-						? m.share_guests_one()
-						: collabHost.guestCount() === 0
-							? m.menubar_sharing_waiting()
-							: m.share_guests_other({ count: collabHost.guestCount() })}
-				</span>
-			</button>
 		{/if}
 	</nav>
 {/if}

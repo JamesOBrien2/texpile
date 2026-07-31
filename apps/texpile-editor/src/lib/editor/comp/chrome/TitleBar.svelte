@@ -27,6 +27,7 @@
 	let {
 		menus,
 		appMenu,
+		status,
 		/** hide the icon when the caller already shows branding (the start screen) */
 		showIcon = true
 	}: {
@@ -34,6 +35,8 @@
 		menus?: Snippet;
 		/** the app icon as a dropdown (Preferences, Share session). Without it the icon is inert. */
 		appMenu?: Snippet;
+		/** trailing status, before the window buttons. Session presence today. */
+		status?: Snippet;
 		showIcon?: boolean;
 	} = $props();
 
@@ -155,7 +158,12 @@
 		<!-- the draggable stretch; also where a double-click maximises, as on a native bar -->
 		<div class="app-drag min-w-0 flex-1"></div>
 
+		<!-- measured with the window buttons, so the command center clears this side too: a session
+		     opening mid-edit shrinks the field rather than sliding under the avatars. -->
 		<div class="flex shrink-0 items-stretch" bind:clientWidth={rightW}>
+			{#if status}
+				{@render status()}
+			{/if}
 			{#if !isMac}
 				<WindowControls />
 			{/if}

@@ -20,6 +20,16 @@ export interface PaletteActions {
 	getViewMode(): 'visual' | 'source' | 'diff';
 	/** true when a file is open; most commands are meaningless without one */
 	hasFile(): boolean;
+	/**
+	 * The provider's host-only capabilities. A guest edits through the shared CRDT and owns none of
+	 * the folder: no tree writes, no latexindent, no grep across the project, no git. Those commands
+	 * are left out entirely rather than shown disabled - the palette is a search box, and a row you
+	 * can find but not run is worse than one that was never there.
+	 */
+	canManageTree(): boolean;
+	canSearch(): boolean;
+	canFormat(): boolean;
+	canGit(): boolean;
 	openFile(abs: string): void;
 	toggleSidebar(): void;
 	sidebarOpen(): boolean;

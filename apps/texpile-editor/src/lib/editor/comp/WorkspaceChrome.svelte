@@ -5,6 +5,7 @@
 	import TitleBar from '$lib/editor/comp/chrome/TitleBar.svelte';
 	import AppIconMenu from '$lib/editor/comp/chrome/AppIconMenu.svelte';
 	import WorkspaceMenuBar from '$lib/editor/comp/WorkspaceMenuBar.svelte';
+	import SessionPresence from '$lib/editor/comp/chrome/SessionPresence.svelte';
 	import WorkspaceSidebar from '$lib/editor/comp/WorkspaceSidebar.svelte';
 	import GuestBar from '$lib/collab/GuestBar.svelte';
 	import type GlobalSearch from '$lib/editor/comp/GlobalSearch.svelte';
@@ -64,6 +65,9 @@
 	<TitleBar>
 		{#snippet appMenu()}
 			<AppIconMenu onShareSession={menu.shareable ? actions.openShare : undefined} />
+		{/snippet}
+		{#snippet status()}
+			<SessionPresence onShareSession={menu.shareable ? actions.openShare : undefined} />
 		{/snippet}
 		{#snippet menus()}
 			<WorkspaceMenuBar

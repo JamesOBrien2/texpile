@@ -144,7 +144,7 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 				icon: Columns2,
 				run: () => a.setViewMode('source')
 			});
-		if (mode !== 'diff')
+		if (mode !== 'diff' && a.canGit())
 			push({
 				id: 'view.diff',
 				label: m.palette_show_diff(),
@@ -162,18 +162,19 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 		icon: PanelLeft,
 		run: () => a.toggleSidebar()
 	});
-	push({
-		id: 'view.findInFiles',
-		label: m.wsview_find_in_files(),
-		group: g.view,
-		keywords: 'grep search project',
-		hint: combo('F', { shift: true }),
-		icon: Search,
-		run: () => a.openGlobalSearch()
-	});
+	if (a.canSearch())
+		push({
+			id: 'view.findInFiles',
+			label: m.wsview_find_in_files(),
+			group: g.view,
+			keywords: 'grep search project',
+			hint: combo('F', { shift: true }),
+			icon: Search,
+			run: () => a.openGlobalSearch()
+		});
 
 	// ---- editor ----
-	if (a.hasFile())
+	if (a.hasFile() && a.canFormat())
 		push({
 			id: 'editor.format',
 			label: m.menubar_format_document(),
@@ -213,22 +214,24 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 			icon: Save,
 			run: () => a.save()
 		});
-	push({
-		id: 'file.newTex',
-		label: m.menubar_new_tex(),
-		group: g.file,
-		keywords: 'create add document',
-		icon: FilePlus2,
-		run: () => a.newFile('tex')
-	});
-	push({
-		id: 'file.newBib',
-		label: m.menubar_new_bib(),
-		group: g.file,
-		keywords: 'create add bibliography references',
-		icon: FilePlus2,
-		run: () => a.newFile('bib')
-	});
+	if (a.canManageTree()) {
+		push({
+			id: 'file.newTex',
+			label: m.menubar_new_tex(),
+			group: g.file,
+			keywords: 'create add document',
+			icon: FilePlus2,
+			run: () => a.newFile('tex')
+		});
+		push({
+			id: 'file.newBib',
+			label: m.menubar_new_bib(),
+			group: g.file,
+			keywords: 'create add bibliography references',
+			icon: FilePlus2,
+			run: () => a.newFile('bib')
+		});
+	}
 	push({
 		id: 'file.openFolder',
 		label: m.menubar_open_new_folder(),
