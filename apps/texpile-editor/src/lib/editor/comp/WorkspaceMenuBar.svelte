@@ -29,6 +29,7 @@
 	import { attachNativeMenu, publishMenuState } from '$lib/workspace/nativeMenu';
 	import { titleBarLayout } from '$lib/editor/comp/chrome/titleBarLayout.svelte';
 	import { toaster } from '$lib/modals/toaster-svelte';
+	import Kbd from '$lib/components/Kbd.svelte';
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { m } from '$lib/paraglide/messages';
 
@@ -867,9 +868,9 @@
 							{#each grp.items as s (s.label)}
 								<li class="flex items-center justify-between gap-4 text-sm">
 									<span>{s.label}</span>
-									<kbd class="border-surface-300-700 bg-surface-100-900 rounded border px-1.5 py-0.5 font-mono text-xs whitespace-nowrap"
-										>{s.keys}</kbd
-									>
+									<!-- raw, not keys: combo() has already resolved the per-OS symbols, and several
+									     entries here are composites the parser cannot express ("F12 / ⌘ Click") -->
+									<Kbd cap raw={s.keys} />
 								</li>
 							{/each}
 						</ul>

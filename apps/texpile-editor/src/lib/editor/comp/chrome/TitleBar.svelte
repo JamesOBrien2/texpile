@@ -19,6 +19,7 @@
 	import { isDesktop } from '$lib/workspace/fileSystem';
 	import { commandPalette } from '$lib/workspace/commandPalette.svelte';
 	import WindowControls from './WindowControls.svelte';
+	import Kbd from '$lib/components/Kbd.svelte';
 	import { titleBarLayout } from './titleBarLayout.svelte';
 	import iconUrl from '$lib/assets/logo/Logo-icon.svg';
 	import { m } from '$lib/paraglide/messages';
@@ -168,16 +169,17 @@
 		<div class="pointer-events-none absolute inset-0 flex items-center justify-center">
 			{#if palettable && centerW > 0}
 				<!--
-					h-[22px] in a 32px row, so there is 5px of air above and below rather than the 3px a
-					26px box left - at that height the border sat almost on the bar's own edges and the
-					control read as a line across the chrome instead of a field inside it.
+					h-6 in a 32px row, so there is 4px of air above and below rather than the 3px a 26px box
+					left - at that height the border sat almost on the bar's own edges and the control read
+					as a line across the chrome instead of a field inside it. 24 rather than the 22 it was:
+					the shortcut cap inside needs 18px and 22 did not leave enough round it.
 
 					It is a filled field, not an outline: surface-50-950 is lighter than the bar in light
 					mode and darker in dark mode, so it reads as recessed either way and the border becomes
 					an edge rather than the whole design. hover lifts it a step instead of tinting it.
 				-->
 				<button
-					class="app-no-drag border-surface-300-700 bg-surface-50-950 hover:bg-surface-200-800 text-surface-600-400 pointer-events-auto flex h-[22px] items-center gap-2 rounded-md border px-2.5 text-xs"
+					class="app-no-drag border-surface-300-700 bg-surface-50-950 hover:bg-surface-200-800 text-surface-600-400 pointer-events-auto flex h-6 items-center gap-2 rounded-md border px-2.5 text-xs"
 					style="width: {centerW}px"
 					onclick={() => commandPalette.show()}
 					title={m.palette_open()}
@@ -192,13 +194,16 @@
 					     shortcut lives in Help and the tooltip; the field itself is still clickable. -->
 					{#if centerW >= BADGE_FROM}
 						<!--
-							Plain text, not a bordered chip. As a chip it was a box inside a box: ~16px tall in
-							20px of inner height, so 2px of air above and below against 10px to the right edge -
-							tight one way, loose the other, and no room in a 22px field to even it up. Without
-							the border there is no second box to be uneven against, and it simply sits 10px from
-							the edge, mirroring the search icon on the left.
+							The same key cap the shortcut sheet in Help draws, from the same component, so a
+							shortcut looks like one shortcut everywhere. It was bare text at 10px with
+							tracking-tight in a MONO face, and negative letter spacing pulls ⌘ into the K next
+							to it: the symbol came out mangled rather than merely small.
+							compact drops the cap's vertical padding. At 12px line height the full cap is 22px
+							and this field is 24; without it the cap is 18px, leaving 2px of air top and bottom
+							against 6px each side - wider than tall, as a key cap should be, and nothing like
+							the 2-against-10 that made the bordered chip look lopsided the first time.
 						-->
-						<span class="shrink-0 font-mono text-[10px] tracking-tight opacity-50">{isMac ? '⌘K' : 'Ctrl+K'}</span>
+						<Kbd cap compact keys="Mod+K" class="shrink-0" />
 					{/if}
 				</button>
 			{:else if !palettable}
