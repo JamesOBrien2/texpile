@@ -77,7 +77,7 @@
 
 {#if $shortcutsOpen}
 	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center bg-black/40 p-4"
+		class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && shortcutsOpen.set(false)}
 	>

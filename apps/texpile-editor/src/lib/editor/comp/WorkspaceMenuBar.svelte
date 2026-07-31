@@ -751,7 +751,7 @@
 <!-- text prompt dialog, Electron has no window.prompt() -->
 {#if promptOpen}
 	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center bg-black/40 p-4"
+		class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && closePrompt(false)}
 	>
@@ -780,7 +780,7 @@
 <!-- shows the email with a copy button, no mail client assumed -->
 {#if supportOpen}
 	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center bg-black/40 p-4"
+		class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && (supportOpen = false)}
 	>

@@ -31,17 +31,41 @@ let probe: CanvasRenderingContext2D | null = null;
  * Painting a pixel and reading it back is the conversion, rather than a parser of our own: the
  * browser already knows every colour syntax it accepts, and the canvas gives plain sRGB bytes.
  */
-function toHex(css: string): string | undefined {
+function toHex(...layers: string[]): string | undefined {
 	probe ??= document.createElement('canvas').getContext('2d', { willReadFrequently: true });
 	if (!probe) return undefined;
 	probe.clearRect(0, 0, 1, 1);
-	probe.fillStyle = css;
-	probe.fillRect(0, 0, 1, 1);
+	// Painted in order, WITHOUT clearing between: canvas composites source-over by default, so a
+	// translucent layer here blends exactly the way the same colour blends over the same backdrop in
+	// the page. That is how a modal scrim gets matched - the arithmetic is the browser's, and the
+	// scrim's opacity stays defined in exactly one place, its own stylesheet.
+	for (const css of layers) {
+		probe.fillStyle = css;
+		probe.fillRect(0, 0, 1, 1);
+	}
 	const [r, g, b, a] = probe.getImageData(0, 0, 1, 1).data;
 	// a transparent title bar has no colour to hand over; leaving it unset keeps the system default,
 	// which beats painting the strip black
 	if (a === 0) return undefined;
 	return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * The class every modal backdrop carries, so this file can find one without knowing which dialog
+ * raised it. It has to be on the backdrop's OWN element - the observer below checks added nodes
+ * only, not their descendants, which is what keeps it off CodeMirror's hot path.
+ */
+const SCRIM = 'app-scrim';
+
+/**
+ * The backdrop colours currently stacked over the page, outermost first.
+ *
+ * Read from the live elements rather than named, for the same reason the theme colours are: the
+ * opacity belongs to the stylesheet. Every scrim is returned, not just the first - Preferences can
+ * raise the MCP setup dialog on top of itself, and two backdrops darken twice.
+ */
+function scrimLayers(): string[] {
+	return [...document.querySelectorAll<HTMLElement>(`.${SCRIM}`)].map((e) => getComputedStyle(e).backgroundColor);
 }
 
 /**
@@ -68,7 +92,15 @@ export function syncWindowOverlay(el: HTMLElement): () => void {
 		// not read as a 1px error, it reads as the bar being thicker at one end than the other.
 		const border = parseFloat(cs.borderBottomWidth) || 0;
 		const height = Math.round((el.getBoundingClientRect().height - border) * zoom);
-		const color = toHex(cs.backgroundColor);
+		// A modal's backdrop is a DOM element and the overlay is not in the DOM, so no z-index reaches
+		// it: with a dialog up, the buttons stay bright while the whole page behind them dims. The
+		// only way to match is to repaint the strip with the same blend the scrim performs.
+		//
+		// BACKGROUND ONLY. VS Code dims the symbols too, and that is wrong here: minimise, maximise
+		// and close keep WORKING while a modal is up, unlike everything else the scrim covers, so
+		// fading the glyphs would advertise them as disabled. Dimming the strip alone puts the
+		// buttons behind the same veil as the rest of the window while leaving them plainly legible.
+		const color = toHex(cs.backgroundColor, ...scrimLayers());
 		const symbolColor = toHex(cs.color);
 		// The WINDOW's background, which is a different thing from the bar's. Chromium fills newly
 		// exposed area with it during a resize, before the renderer has painted - so on maximise or
@@ -95,10 +127,25 @@ export function syncWindowOverlay(el: HTMLElement): () => void {
 	// maximise / restore / full screen all change the overlay's geometry, and full screen removes it
 	// entirely; re-reporting keeps the strip and the window fill correct across each of those
 	const offState = api.onWindowState?.(push);
+	// A scrim appearing or leaving is a plain DOM insertion that nothing announces. Watching the
+	// whole body sounds expensive next to CodeMirror's per-keystroke churn, and would be if this
+	// queried on every record - so it only tests whether an added or removed node itself carries
+	// the class, which for a text node or a highlight span is one instanceof and no work at all.
+	const hasScrim = (nodes: NodeList): boolean => {
+		for (const n of nodes) if (n instanceof Element && n.classList.contains(SCRIM)) return true;
+		return false;
+	};
+	const scrimMo = new MutationObserver((records) => {
+		for (const r of records) {
+			if (hasScrim(r.addedNodes) || hasScrim(r.removedNodes)) return push();
+		}
+	});
+	scrimMo.observe(document.body, { childList: true, subtree: true });
 
 	return () => {
 		ro.disconnect();
 		mo.disconnect();
+		scrimMo.disconnect();
 		unsub();
 		offState?.();
 	};
