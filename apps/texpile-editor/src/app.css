@@ -236,7 +236,7 @@ html[data-mode='dark'] {
    no Tailwind utility for -webkit-app-region, and the class often has to land on a CHILD COMPONENT's
    root (Menu.Trigger, the menu bar's nav) where a scoped rule would neither apply nor even survive -
    Svelte prunes it as an unused selector. One definition, used by TitleBar / WindowControls /
-   AppIconMenu / WorkspaceMenuBar.
+   WorkspaceMenuBar / SessionPresence / GuestPresence.
    Anything clickable inside a drag region needs app-no-drag, or the region swallows the click. */
 .app-drag {
 	-webkit-app-region: drag;

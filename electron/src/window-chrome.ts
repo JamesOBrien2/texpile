@@ -27,6 +27,12 @@ export interface MenuState {
 	canShare: boolean;
 	canCloseWorkspace: boolean;
 	canFormat: boolean;
+	/** the workspace takes tree writes: false for a guest, whose folder belongs to the host */
+	canNewFile: boolean;
+	/** there is a directory to write an image next to (a .tex on a host) */
+	canInsertImage: boolean;
+	/** the workspace may be swapped out. False for a guest: it would abandon the session unleft */
+	canOpenFolder: boolean;
 	canTutorial: boolean;
 	recentFolders: string[];
 	/** already-localized labels, so this module never has to know about locales */
@@ -96,17 +102,22 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 		{
 			label: label(s, 'file', 'File'),
 			submenu: [
-				{
-					label: label(s, 'new', 'New'),
-					submenu: [
-						{ label: label(s, 'newTex', 'LaTeX document'), click: () => fire(win, 'new:tex') },
-						{ label: label(s, 'newBib', 'BibTeX bibliography'), click: () => fire(win, 'new:bib') },
-						{ label: label(s, 'newCls', 'Class file'), click: () => fire(win, 'new:cls') },
-						{ label: label(s, 'newSty', 'Package file'), click: () => fire(win, 'new:sty') }
-					]
-				},
-				{ label: label(s, 'openFolder', 'Open folder…'), click: () => fire(win, 'openfolder:newfolder') },
-				...recentItems(win, s),
+				...(s.canNewFile
+					? [
+							{
+								label: label(s, 'new', 'New'),
+								submenu: [
+									{ label: label(s, 'newTex', 'LaTeX document'), click: () => fire(win, 'new:tex') },
+									{ label: label(s, 'newBib', 'BibTeX bibliography'), click: () => fire(win, 'new:bib') },
+									{ label: label(s, 'newCls', 'Class file'), click: () => fire(win, 'new:cls') },
+									{ label: label(s, 'newSty', 'Package file'), click: () => fire(win, 'new:sty') }
+								]
+							}
+						]
+					: []),
+				...(s.canOpenFolder
+					? [{ label: label(s, 'openFolder', 'Open folder…'), click: () => fire(win, 'openfolder:newfolder') }, ...recentItems(win, s)]
+					: []),
 				{ type: 'separator' },
 				{ label: label(s, 'newWindow', 'New window'), accelerator: 'Shift+CmdOrCtrl+N', click: () => fire(win, 'file:new-window') },
 				{ label: label(s, 'openFolderNewWindow', 'Open folder in new window'), click: () => fire(win, 'file:open-folder-new-window') },
@@ -174,7 +185,7 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 						{ label: label(s, 'matrixParen', 'Matrix (parentheses)'), click: () => fire(win, 'math:pmatrix') }
 					]
 				},
-				{ ...pm, label: label(s, 'image', 'Image…'), click: () => fire(win, 'insert:image') },
+				...(s.canInsertImage ? [{ ...pm, label: label(s, 'image', 'Image…'), click: () => fire(win, 'insert:image') }] : []),
 				{ ...pm, label: label(s, 'table', 'Table'), click: () => fire(win, 'insert:table') },
 				{ ...pm, label: label(s, 'citation', 'Citation'), click: () => fire(win, 'insert:citation') },
 				{ ...pm, label: label(s, 'link', 'Link…'), click: () => fire(win, 'insert:link') },

@@ -1207,8 +1207,13 @@
 		{showToc}
 		menu={{
 			disabled: !doc.path,
-			imageDir: doc.path && kind === 'tex' ? dirname(doc.path) : undefined,
-			shareable: isDesktop(),
+			// an image is written next to the document, so a workspace that takes no tree writes has
+			// nowhere to put one however good the path looks
+			imageDir: hostMode && doc.path && kind === 'tex' ? dirname(doc.path) : undefined,
+			// never a guest: a guest is IN someone's session, not in a position to open one
+			shareable: isDesktop() && !guest,
+			hostMode,
+			canFormat: provider.caps.format,
 			uiZoomPercent
 		}}
 		actions={chromeActions}

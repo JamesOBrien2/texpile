@@ -51,6 +51,10 @@ export interface MenuStateInput {
 	canShare: boolean;
 	canCloseWorkspace: boolean;
 	canFormat: boolean;
+	/** the three a guest lacks: no tree writes, nowhere to put an image, no workspace to swap */
+	canNewFile: boolean;
+	canInsertImage: boolean;
+	canOpenFolder: boolean;
 	canTutorial: boolean;
 	recentFolders: string[];
 }

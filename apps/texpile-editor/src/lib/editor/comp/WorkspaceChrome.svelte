@@ -3,7 +3,6 @@
 	// with its drag handle. Like WorkspaceMain, this reads from the shared state objects rather
 	// than a long prop list.
 	import TitleBar from '$lib/editor/comp/chrome/TitleBar.svelte';
-	import AppIconMenu from '$lib/editor/comp/chrome/AppIconMenu.svelte';
 	import WorkspaceMenuBar from '$lib/editor/comp/WorkspaceMenuBar.svelte';
 	import SessionPresence from '$lib/editor/comp/chrome/SessionPresence.svelte';
 	import WorkspaceSidebar from '$lib/editor/comp/WorkspaceSidebar.svelte';
@@ -47,58 +46,60 @@
 		modLabel: string;
 		showToc: boolean;
 		/** menu-bar inputs that are not workspace state */
-		menu: { disabled: boolean; imageDir: string | undefined; shareable: boolean; uiZoomPercent: number };
+		menu: {
+			disabled: boolean;
+			imageDir: string | undefined;
+			shareable: boolean;
+			/** provider.caps.manageTree: the workspace takes tree writes */
+			hostMode: boolean;
+			canFormat: boolean;
+			uiZoomPercent: number;
+		};
 		actions: Any;
 		fileTreeRef: Any;
 		globalSearchRef: GlobalSearch | null;
 	} = $props();
 </script>
 
-{#if guest}
-	<!-- a guest has no menus, but a frameless window still needs somewhere to drag it by and a
-	     close button. Session state rides in the same trailing slot the host's presence uses,
-	     rather than in a full-width row of its own below. -->
-	<TitleBar>
-		{#snippet status()}
+<!-- One title bar for both roles. A guest used to get a bare one, which meant no menus on Windows
+     and - worse - the stock Electron app menu plus Edit on macOS, since WorkspaceMenuBar is what
+     publishes menu state to main and it was never mounted. Most of the bar is legitimately a
+     guest's: it edits the document, so Edit, Insert, Format, Spelling, View and Help all apply.
+     What a guest cannot do is withheld by not passing the callback, the way Share session already
+     worked, so the in-app bar and the native one drop the same items from one decision.
+     On macOS the component mounts and draws no triggers; the system menu bar has them. -->
+<TitleBar>
+	{#snippet status()}
+		{#if guest}
 			<GuestPresence />
-		{/snippet}
-	</TitleBar>
-{:else}
-	<!-- the menus live inside the custom title bar, on one row with the app icon and the window
-	     buttons. On macOS TitleBar renders the row but WorkspaceMenuBar draws no triggers - the
-	     system menu bar has them - while still mounting to own its dialogs. -->
-	<TitleBar>
-		{#snippet appMenu()}
-			<AppIconMenu onShareSession={menu.shareable ? actions.openShare : undefined} />
-		{/snippet}
-		{#snippet status()}
+		{:else}
 			<SessionPresence onShareSession={menu.shareable ? actions.openShare : undefined} />
-		{/snippet}
-		{#snippet menus()}
-			<WorkspaceMenuBar
-				disabled={menu.disabled}
-				imageDir={menu.imageDir}
-				onNewFile={actions.newFileOfType}
-				onOpenFolder={actions.openFolder}
-				onCloseWorkspace={actions.closeWorkspace}
-				onSave={actions.save}
-				onShareSession={menu.shareable ? actions.openShare : undefined}
-				terminalAvailable={termDock.available}
-				terminalVisible={termDock.visible}
-				onCompile={compiler.runCompile}
-				onConfigureCompile={actions.openCompileModal}
-				onNewTerminal={actions.newTerminal}
-				onToggleTerminal={actions.toggleTerminal}
-				onFormatDocument={actions.openFormatModal}
-				onOpenTutorial={actions.openTutorial}
-				uiZoomPercent={menu.uiZoomPercent}
-				onZoomIn={actions.uiZoomIn}
-				onZoomOut={actions.uiZoomOut}
-				onZoomReset={actions.uiZoomReset}
-			/>
-		{/snippet}
-	</TitleBar>
-{/if}
+		{/if}
+	{/snippet}
+	{#snippet menus()}
+		<WorkspaceMenuBar
+			disabled={menu.disabled}
+			imageDir={menu.imageDir}
+			onNewFile={menu.hostMode ? actions.newFileOfType : undefined}
+			onOpenFolder={menu.hostMode ? actions.openFolder : undefined}
+			onCloseWorkspace={menu.hostMode ? actions.closeWorkspace : undefined}
+			onSave={actions.save}
+			onShareSession={menu.shareable ? actions.openShare : undefined}
+			terminalAvailable={termDock.available}
+			terminalVisible={termDock.visible}
+			onCompile={compiler.runCompile}
+			onConfigureCompile={actions.openCompileModal}
+			onNewTerminal={actions.newTerminal}
+			onToggleTerminal={actions.toggleTerminal}
+			onFormatDocument={menu.canFormat ? actions.openFormatModal : undefined}
+			onOpenTutorial={actions.openTutorial}
+			uiZoomPercent={menu.uiZoomPercent}
+			onZoomIn={actions.uiZoomIn}
+			onZoomOut={actions.uiZoomOut}
+			onZoomReset={actions.uiZoomReset}
+		/>
+	{/snippet}
+</TitleBar>
 
 <!-- outside the branch on purpose: a guest reaches Preferences through the palette and has no menu
      bar to have mounted these -->

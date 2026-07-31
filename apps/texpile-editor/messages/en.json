@@ -51,7 +51,6 @@
 	"palette_hide_sidebar": "Hide sidebar",
 	"palette_use_keymap": "Use {name} keybindings",
 	"menubar_all_menus": "Menu",
-	"titlebar_app_menu": "Texpile menu",
 	"titlebar_minimize": "Minimize",
 	"titlebar_maximize": "Maximize",
 	"titlebar_restore": "Restore",

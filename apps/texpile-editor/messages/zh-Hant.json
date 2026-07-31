@@ -51,7 +51,6 @@
 	"palette_hide_sidebar": "隱藏側邊欄",
 	"palette_use_keymap": "使用 {name} 按鍵綁定",
 	"menubar_all_menus": "選單",
-	"titlebar_app_menu": "Texpile 選單",
 	"titlebar_minimize": "最小化",
 	"titlebar_maximize": "最大化",
 	"titlebar_restore": "還原",

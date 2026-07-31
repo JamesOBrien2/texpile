@@ -33,7 +33,14 @@
 	interface Props {
 		disabled?: boolean;
 		imageDir?: string;
-		/** Create a new file. `ext` (tex/bib/cls/sty) seeds the name + content; omitted = a plain new file. */
+		/**
+		 * Create a new file. `ext` (tex/bib/cls/sty) seeds the name + content; omitted = a plain new file.
+		 *
+		 * Undefined when the workspace cannot take tree writes - a guest edits through the shared CRDT
+		 * and owns none of the host's folder. Presence of the callback IS the gate, the way
+		 * onShareSession and onCloseWorkspace already work, so there is one thing to get right rather
+		 * than a callback plus a flag that can disagree.
+		 */
 		onNewFile?: (ext?: string) => void;
 		onOpenFolder?: (path?: string) => void;
 		/** Close the current folder and return to the Start screen. */
@@ -357,6 +364,9 @@
 			canShare: !!onShareSession,
 			canCloseWorkspace: !!onCloseWorkspace,
 			canFormat: !!onFormatDocument,
+			canNewFile: !!onNewFile,
+			canInsertImage: !!imageDir,
+			canOpenFolder: !!onOpenFolder,
 			canTutorial: !!onOpenTutorial,
 			recentFolders: $recentFolders
 		})
@@ -433,44 +443,52 @@
 			<Portal>
 				<Menu.Positioner>
 					<Menu.Content class={contentClass}>
-						<Menu onSelect={(d) => newFileSelect(d.value)}>
-							<Menu.TriggerItem value="new" class={itemClass}>
-								<Menu.ItemText>{m.menubar_new_file_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
-							</Menu.TriggerItem>
-							<Portal>
-								<Menu.Positioner>
-									<Menu.Content class={contentClass}>
-										<Menu.Item value="tex" class={itemClass}><Menu.ItemText>{m.menubar_new_tex()}</Menu.ItemText></Menu.Item>
-										<Menu.Item value="bib" class={itemClass}><Menu.ItemText>{m.menubar_new_bib()}</Menu.ItemText></Menu.Item>
-										<Menu.Item value="cls" class={itemClass}><Menu.ItemText>{m.menubar_new_cls()}</Menu.ItemText></Menu.Item>
-										<Menu.Item value="sty" class={itemClass}><Menu.ItemText>{m.menubar_new_sty()}</Menu.ItemText></Menu.Item>
-									</Menu.Content>
-								</Menu.Positioner>
-							</Portal>
-						</Menu>
-						<Menu onSelect={(d) => openFolderSelect(d.value)}>
-							<Menu.TriggerItem value="openfolder" class={itemClass}>
-								<Menu.ItemText>{m.menubar_open_folder_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
-							</Menu.TriggerItem>
-							<Portal>
-								<Menu.Positioner>
-									<Menu.Content class={contentClass}>
-										<Menu.Item value="newfolder" class={itemClass}><Menu.ItemText>{m.menubar_open_new_folder()}</Menu.ItemText></Menu.Item>
-										{#if $recentFolders.length > 0}
-											<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-											<div class="text-surface-500 px-2.5 py-0.5 text-xs font-semibold tracking-wider uppercase">
-												{m.menubar_recent_heading()}
-											</div>
-											{#each $recentFolders as folder (folder)}
-												<Menu.Item value={folder} class={itemClass}>
-													<Menu.ItemText class="block max-w-64 truncate" title={folder}>{basename(folder)}</Menu.ItemText>
-												</Menu.Item>
-											{/each}
-										{/if}
-									</Menu.Content>
-								</Menu.Positioner>
-							</Portal>
-						</Menu>
+						{#if onNewFile}
+							<Menu onSelect={(d) => newFileSelect(d.value)}>
+								<Menu.TriggerItem value="new" class={itemClass}>
+									<Menu.ItemText>{m.menubar_new_file_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
+								</Menu.TriggerItem>
+								<Portal>
+									<Menu.Positioner>
+										<Menu.Content class={contentClass}>
+											<Menu.Item value="tex" class={itemClass}><Menu.ItemText>{m.menubar_new_tex()}</Menu.ItemText></Menu.Item>
+											<Menu.Item value="bib" class={itemClass}><Menu.ItemText>{m.menubar_new_bib()}</Menu.ItemText></Menu.Item>
+											<Menu.Item value="cls" class={itemClass}><Menu.ItemText>{m.menubar_new_cls()}</Menu.ItemText></Menu.Item>
+											<Menu.Item value="sty" class={itemClass}><Menu.ItemText>{m.menubar_new_sty()}</Menu.ItemText></Menu.Item>
+										</Menu.Content>
+									</Menu.Positioner>
+								</Portal>
+							</Menu>
+						{/if}
+						<!-- withheld from a guest: swapping the workspace out would abandon the session
+						     without leaving it, and nothing tears one down on a workspace change - the
+						     Leave button is the only path that calls collabGuest.leave() -->
+						{#if onOpenFolder}
+							<Menu onSelect={(d) => openFolderSelect(d.value)}>
+								<Menu.TriggerItem value="openfolder" class={itemClass}>
+									<Menu.ItemText>{m.menubar_open_folder_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
+								</Menu.TriggerItem>
+								<Portal>
+									<Menu.Positioner>
+										<Menu.Content class={contentClass}>
+											<Menu.Item value="newfolder" class={itemClass}><Menu.ItemText>{m.menubar_open_new_folder()}</Menu.ItemText></Menu.Item
+											>
+											{#if $recentFolders.length > 0}
+												<Menu.Separator class="border-surface-200-800 my-1 border-t" />
+												<div class="text-surface-500 px-2.5 py-0.5 text-xs font-semibold tracking-wider uppercase">
+													{m.menubar_recent_heading()}
+												</div>
+												{#each $recentFolders as folder (folder)}
+													<Menu.Item value={folder} class={itemClass}>
+														<Menu.ItemText class="block max-w-64 truncate" title={folder}>{basename(folder)}</Menu.ItemText>
+													</Menu.Item>
+												{/each}
+											{/if}
+										</Menu.Content>
+									</Menu.Positioner>
+								</Portal>
+							</Menu>
+						{/if}
 						{#if isDesktop()}
 							<Menu.Separator class="border-surface-200-800 my-1 border-t" />
 							<Menu.Item value="new-window" class={itemClass}>
@@ -487,9 +505,20 @@
 						{#if onCloseWorkspace}
 							<Menu.Item value="close-workspace" class={itemClass}><Menu.ItemText>{m.menubar_close_workspace()}</Menu.ItemText></Menu.Item>
 						{/if}
-						<!-- Preferences and Share session moved to the app-icon menu (AppIconMenu.svelte),
-							     which is where macOS puts them and where Windows now matches. The values are
-							     still handled in fileSelect: the native macOS app menu fires them. -->
+						<!-- Windows and Linux only: this whole bar is `{#if !nativeMenus}`, and on macOS these
+						     two live in the application menu, which is where a mac user reaches for them.
+						     They sat in the app-icon dropdown for a while so both platforms would agree on
+						     placement, which was the wrong kind of agreement - macOS puts Preferences in the
+						     app menu because it HAS one, and Windows puts it in File. The title-bar icon is
+						     also where Windows draws the system menu, so it was a spot already spoken for.
+						     Last in the menu, after a rule, the way Word and VS Code order it. -->
+						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
+						{#if onShareSession}
+							<Menu.Item value="share-session" class={itemClass}><Menu.ItemText>{m.menubar_share_session()}</Menu.ItemText></Menu.Item>
+						{/if}
+						<Menu.Item value="preferences" class={itemClass}>
+							<Menu.ItemText>{m.menubar_preferences()}</Menu.ItemText><span class="opacity-50">{combo(',')}</span>
+						</Menu.Item>
 					</Menu.Content>
 				</Menu.Positioner>
 			</Portal>
@@ -577,7 +606,12 @@
 								</Menu.Positioner>
 							</Portal>
 						</Menu>
-						<Menu.Item value="image" class={itemClass}><Menu.ItemText>{m.menubar_insert_image()}</Menu.ItemText></Menu.Item>
+						<!-- an image has to be written next to the document, so no imageDir means nowhere to
+						     put it: a guest's folder is the host's, and a .bib has no figure directory.
+						     pickImage() already no-ops without it; better not to offer the row at all. -->
+						{#if imageDir}
+							<Menu.Item value="image" class={itemClass}><Menu.ItemText>{m.menubar_insert_image()}</Menu.ItemText></Menu.Item>
+						{/if}
 						<Menu.Item value="table" class={itemClass}><Menu.ItemText>{m.menubar_insert_table()}</Menu.ItemText></Menu.Item>
 						<Menu.Item value="citation" class={itemClass}><Menu.ItemText>{m.menubar_insert_citation()}</Menu.ItemText></Menu.Item>
 						<Menu.Item value="link" class={itemClass}><Menu.ItemText>{m.menubar_insert_link()}</Menu.ItemText></Menu.Item>

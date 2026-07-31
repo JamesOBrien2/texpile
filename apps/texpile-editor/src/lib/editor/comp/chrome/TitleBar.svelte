@@ -26,15 +26,12 @@
 
 	let {
 		menus,
-		appMenu,
 		status,
 		/** hide the icon when the caller already shows branding (the start screen) */
 		showIcon = true
 	}: {
 		/** the in-app menu bar, rendered inline. Omitted on macOS, where the menus are native. */
 		menus?: Snippet;
-		/** the app icon as a dropdown (Preferences, Share session). Without it the icon is inert. */
-		appMenu?: Snippet;
 		/** trailing status, before the window buttons. Session presence today. */
 		status?: Snippet;
 		showIcon?: boolean;
@@ -134,12 +131,11 @@
 		<div class="flex shrink-0 items-stretch" bind:clientWidth={leftW}>
 			{#if isMac}
 				<div class="app-drag w-[76px] shrink-0"></div>
-			{:else if appMenu}
-				<!-- before File, per Windows convention -->
-				{@render appMenu()}
 			{:else if showIcon}
-				<!-- the same box as the interactive one in AppIconMenu, so the mark does not shift between
-				     the start screen and a workspace. No hover: here it is decoration, not a trigger. -->
+				<!-- decoration, not a trigger. It briefly carried a Preferences / Share session dropdown so
+				     both platforms would agree on where those live; they are back in File, which is where
+				     Windows puts them and where the OS has not already claimed the click - the title-bar
+				     icon is the system menu (Alt+Space). -->
 				<div class="app-drag ml-1 flex size-6 shrink-0 items-center justify-center self-center">
 					<img src={iconUrl} alt="" class="app-titlebar-icon size-4" draggable="false" />
 				</div>
