@@ -174,6 +174,17 @@ export class CompilePipeline {
 			toaster.error({ title: m.wsview_toast_shell_escape_blocked(), duration: 5000 });
 			return;
 		}
+		// Claim the slot BEFORE the first await, not down with `compiling`.
+		//
+		// The overlap guard above (and the collab handler's isBusy()) used to read this flag four
+		// awaits before anything set it - flushSaves, two stats and the mkdir all ran while it was
+		// still false. Two compiles starting inside that window both passed, and two latexmk runs
+		// then shared one directory's .aux / .pdf / .synctex. A double-click did it; no malice or
+		// shared session required.
+		//
+		// Every early return above is synchronous, and the draft path returns before here and never
+		// sets busy by design, so claiming it at this point needs no unwinding.
+		this.busy = true;
 		// write the buffer to disk BEFORE compiling so SyncTeX indexes exactly what the editor
 		// holds; otherwise reverse search maps PDF clicks into a stale, differently formatted .tex
 		await this.deps.flushSaves();
