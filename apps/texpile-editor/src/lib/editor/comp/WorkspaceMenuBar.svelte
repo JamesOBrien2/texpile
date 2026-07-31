@@ -9,8 +9,6 @@
 	import { basename, isDesktop, openNewWindow, openFolderInNewWindow } from '$lib/workspace/fileSystem';
 	import { isMac } from '$lib/platform';
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
-	import SpellcheckDictionary from './SpellcheckDictionary.svelte';
-	import PreferencesDialog from './PreferencesDialog.svelte';
 	const appVersion = __APP_VERSION__; // injected by Vite from package.json
 	import { toggleMark } from 'prosemirror-commands';
 	import { schema } from '$lib/schema/schema';
@@ -23,12 +21,12 @@
 	import { run, insertNode, activeCm, cmReplace, editSelect, formatSelect } from './menuBarCommands';
 	import { checkForUpdate, updateModalOpen, updateState } from '$lib/updates';
 	import { whatsNewOpen, hasUnseenWhatsNew } from '$lib/whatsNew';
-	import { preferencesOpen } from '$lib/stores/dialogStore';
+	import { preferencesOpen, dictionaryOpen, shortcutsOpen } from '$lib/stores/dialogStore';
+	import { combo } from './shortcutText';
 	import { commandPalette } from '$lib/workspace/commandPalette.svelte';
 	import { attachNativeMenu, publishMenuState } from '$lib/workspace/nativeMenu';
 	import { titleBarLayout } from '$lib/editor/comp/chrome/titleBarLayout.svelte';
 	import { toaster } from '$lib/modals/toaster-svelte';
-	import Kbd from '$lib/components/Kbd.svelte';
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { m } from '$lib/paraglide/messages';
 
@@ -145,11 +143,10 @@
 	}
 
 	const SUPPORT_EMAIL = 'support@texpile.com';
-	let shortcutsOpen = $state(false);
 	let supportOpen = $state(false);
 	let copied = $state(false);
 	function helpSelect(value: string) {
-		if (value === 'shortcuts') shortcutsOpen = true;
+		if (value === 'shortcuts') shortcutsOpen.set(true);
 		else if (value === 'whatsnew') whatsNewOpen.set(true);
 		else if (value === 'discord') window.open('https://discord.gg/7wanVzCBWf', '_blank', 'noopener,noreferrer');
 		else if (value === 'support') {
@@ -185,76 +182,6 @@
 			/* clipboard unavailable */
 		}
 	}
-
-	// platform-aware shortcut labels: Ctrl/Shift/Alt on win/linux, ⌘/⇧/⌥ on mac
-	function combo(mods: { shift?: boolean; alt?: boolean }, key: string): string {
-		if (isMac) return `${mods.alt ? '⌥' : ''}${mods.shift ? '⇧' : ''}⌘${key}`;
-		const parts = ['Ctrl'];
-		if (mods.shift) parts.push('Shift');
-		if (mods.alt) parts.push('Alt');
-		parts.push(key);
-		return parts.join('+');
-	}
-	const SHORTCUTS: { group: string; items: { keys: string; label: string }[] }[] = [
-		{
-			group: m.menubar_shortcut_group_general(),
-			items: [
-				{ keys: combo({}, 'K'), label: m.palette_open() },
-				{ keys: combo({ shift: true }, 'N'), label: m.menubar_new_window() },
-				{ keys: combo({}, 'S'), label: m.menubar_save() },
-				{ keys: combo({}, 'F'), label: m.menubar_shortcut_find_in_document() },
-				{ keys: combo({ shift: true }, 'F'), label: m.menubar_shortcut_find_in_files() },
-				{ keys: combo({}, 'Z'), label: m.menubar_undo() },
-				{ keys: combo({ shift: true }, 'Z'), label: m.menubar_redo() }
-			]
-		},
-		{
-			group: m.menubar_shortcut_group_view(),
-			items: [
-				{ keys: isMac ? '⌘ +' : 'Ctrl +', label: m.menubar_shortcut_zoom_in_interface() },
-				{ keys: isMac ? '⌘ −' : 'Ctrl −', label: m.menubar_shortcut_zoom_out_interface() },
-				{ keys: isMac ? '⌘ 0' : 'Ctrl 0', label: m.menubar_shortcut_reset_interface_zoom() }
-			]
-		},
-		{
-			group: m.menubar_shortcut_group_compile(),
-			items: [{ keys: combo({ alt: true }, 'Enter'), label: m.menubar_shortcut_compile_toggle() }]
-		},
-		{
-			group: m.menubar_shortcut_group_source_editor(),
-			items: [
-				{ keys: isMac ? 'F12 / ⌘ Click' : 'F12 / Ctrl+Click', label: m.menubar_shortcut_go_to_definition() },
-				{ keys: isMac ? '⌃Space' : 'Ctrl+Space', label: m.menubar_shortcut_open_suggestions() },
-				{ keys: 'Esc', label: m.menubar_shortcut_hide_math_preview() }
-			]
-		},
-		{
-			group: m.menubar_shortcut_group_formatting(),
-			items: [
-				{ keys: combo({}, 'B'), label: m.menubar_format_bold() },
-				{ keys: combo({}, 'I'), label: m.menubar_format_italic() },
-				{ keys: combo({}, 'U'), label: m.menubar_format_underline() },
-				{ keys: combo({}, '`'), label: m.menubar_format_inline_code() },
-				{ keys: combo({}, '.'), label: m.menubar_shortcut_superscript() },
-				{ keys: combo({}, ','), label: m.menubar_shortcut_subscript() },
-				{ keys: combo({ shift: true }, 'B'), label: m.menubar_format_blockquote() },
-				{ keys: combo({ shift: true }, '`'), label: m.menubar_insert_code_block() },
-				{
-					keys: isMac
-						? `${combo({ alt: true }, '1')} … ${combo({ alt: true }, '3')}`
-						: `${combo({ shift: true }, '1')} … ${combo({ shift: true }, '3')}`,
-					label: m.menubar_shortcut_heading_range()
-				}
-			]
-		},
-		{
-			group: m.menubar_shortcut_group_math(),
-			items: [
-				{ keys: combo({}, 'M'), label: m.menubar_shortcut_inline_math() },
-				{ keys: combo({ shift: true }, 'M'), label: m.menubar_shortcut_display_math() }
-			]
-		}
-	];
 
 	function fileSelect(value: string) {
 		if (value === 'save') onSave?.();
@@ -379,10 +306,9 @@
 	}
 
 	const spellcheckOn = $derived($editorConfigStore?.spellcheck ?? false);
-	let dictionaryOpen = $state(false);
 	function spellcheckSelect(value: string) {
 		if (value === 'toggle') setSpellcheckEnabled(!spellcheckOn);
-		else if (value === 'dictionary') dictionaryOpen = true;
+		else if (value === 'dictionary') dictionaryOpen.set(true);
 	}
 
 	function terminalSelect(value: string) {
@@ -548,7 +474,7 @@
 						{#if isDesktop()}
 							<Menu.Separator class="border-surface-200-800 my-1 border-t" />
 							<Menu.Item value="new-window" class={itemClass}>
-								<Menu.ItemText>{m.menubar_new_window()}</Menu.ItemText><span class="opacity-50">{combo({ shift: true }, 'N')}</span>
+								<Menu.ItemText>{m.menubar_new_window()}</Menu.ItemText><span class="opacity-50">{combo('N', { shift: true })}</span>
 							</Menu.Item>
 							<Menu.Item value="open-folder-new-window" class={itemClass}>
 								<Menu.ItemText>{m.menubar_open_folder_new_window()}</Menu.ItemText>
@@ -556,7 +482,7 @@
 						{/if}
 						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
 						<Menu.Item value="save" class={itemClass}>
-							<Menu.ItemText>{m.menubar_save()}</Menu.ItemText><span class="opacity-50">{combo({}, 'S')}</span>
+							<Menu.ItemText>{m.menubar_save()}</Menu.ItemText><span class="opacity-50">{combo('S')}</span>
 						</Menu.Item>
 						{#if onCloseWorkspace}
 							<Menu.Item value="close-workspace" class={itemClass}><Menu.ItemText>{m.menubar_close_workspace()}</Menu.ItemText></Menu.Item>
@@ -577,18 +503,18 @@
 				<Menu.Positioner>
 					<Menu.Content class={contentClass}>
 						<Menu.Item value="palette" class={itemClass}>
-							<Menu.ItemText>{m.palette_open()}</Menu.ItemText><span class="opacity-50">{combo({}, 'K')}</span>
+							<Menu.ItemText>{m.palette_open()}</Menu.ItemText><span class="opacity-50">{combo('K')}</span>
 						</Menu.Item>
 						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
 						<Menu.Item value="undo" class={itemClass}
-							><Menu.ItemText>{m.menubar_undo()}</Menu.ItemText><span class="opacity-50">{combo({}, 'Z')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_undo()}</Menu.ItemText><span class="opacity-50">{combo('Z')}</span></Menu.Item
 						>
 						<Menu.Item value="redo" class={itemClass}
-							><Menu.ItemText>{m.menubar_redo()}</Menu.ItemText><span class="opacity-50">{combo({ shift: true }, 'Z')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_redo()}</Menu.ItemText><span class="opacity-50">{combo('Z', { shift: true })}</span></Menu.Item
 						>
 						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
 						<Menu.Item value="find" class={itemClass}
-							><Menu.ItemText>{m.menubar_find()}</Menu.ItemText><span class="opacity-50">{combo({}, 'F')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_find()}</Menu.ItemText><span class="opacity-50">{combo('F')}</span></Menu.Item
 						>
 					</Menu.Content>
 				</Menu.Positioner>
@@ -677,13 +603,13 @@
 				<Menu.Positioner>
 					<Menu.Content class={contentClass}>
 						<Menu.Item value="bold" class={itemClass}
-							><Menu.ItemText>{m.menubar_format_bold()}</Menu.ItemText><span class="opacity-50">{combo({}, 'B')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_format_bold()}</Menu.ItemText><span class="opacity-50">{combo('B')}</span></Menu.Item
 						>
 						<Menu.Item value="italic" class={itemClass}
-							><Menu.ItemText>{m.menubar_format_italic()}</Menu.ItemText><span class="opacity-50">{combo({}, 'I')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_format_italic()}</Menu.ItemText><span class="opacity-50">{combo('I')}</span></Menu.Item
 						>
 						<Menu.Item value="underline" class={itemClass}
-							><Menu.ItemText>{m.menubar_format_underline()}</Menu.ItemText><span class="opacity-50">{combo({}, 'U')}</span></Menu.Item
+							><Menu.ItemText>{m.menubar_format_underline()}</Menu.ItemText><span class="opacity-50">{combo('U')}</span></Menu.Item
 						>
 						<Menu.Item value="code" class={itemClass}><Menu.ItemText>{m.menubar_format_inline_code()}</Menu.ItemText></Menu.Item>
 						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
@@ -784,10 +710,9 @@
 <!-- outside the nav so it survives on macOS, where the nav is not rendered at all -->
 <input bind:this={imageInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" onchange={onImagePicked} />
 
-<SpellcheckDictionary bind:open={dictionaryOpen} />
-<!-- bound to a store, not local state: the command palette opens Preferences too, and it has no
-     handle on this component -->
-<PreferencesDialog bind:open={$preferencesOpen} />
+<!-- Preferences, the dictionary and the shortcut sheet are mounted by WorkspaceDialogs, not here:
+     a guest session renders no menu bar, and they are window features rather than menu features.
+     This file still OPENS them, through dialogStore. -->
 
 <!-- text prompt dialog, Electron has no window.prompt() -->
 {#if promptOpen}
@@ -816,41 +741,7 @@
 	</div>
 {/if}
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && ((shortcutsOpen = false), (supportOpen = false))} />
-
-{#if shortcutsOpen}
-	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center bg-black/40 p-4"
-		role="presentation"
-		onmousedown={(e) => e.target === e.currentTarget && (shortcutsOpen = false)}
-	>
-		<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-md border p-5 shadow-2xl">
-			<div class="mb-3 flex items-center justify-between gap-4">
-				<h2 class="text-base font-semibold">{m.menubar_keyboard_shortcuts()}</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" aria-label={m.menubar_close_aria()} onclick={() => (shortcutsOpen = false)}
-					><X class="size-4" /></button
-				>
-			</div>
-			<div class="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
-				{#each SHORTCUTS as grp (grp.group)}
-					<div>
-						<div class="text-surface-500 mb-1.5 text-xs font-semibold tracking-wider uppercase">{grp.group}</div>
-						<ul class="space-y-1">
-							{#each grp.items as s (s.label)}
-								<li class="flex items-center justify-between gap-4 text-sm">
-									<span>{s.label}</span>
-									<!-- raw, not keys: combo() has already resolved the per-OS symbols, and several
-									     entries here are composites the parser cannot express ("F12 / ⌘ Click") -->
-									<Kbd cap raw={s.keys} />
-								</li>
-							{/each}
-						</ul>
-					</div>
-				{/each}
-			</div>
-		</div>
-	</div>
-{/if}
+<svelte:window onkeydown={(e) => e.key === 'Escape' && (supportOpen = false)} />
 
 <!-- shows the email with a copy button, no mail client assumed -->
 {#if supportOpen}

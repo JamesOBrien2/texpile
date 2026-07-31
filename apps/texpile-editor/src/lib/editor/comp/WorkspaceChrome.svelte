@@ -7,7 +7,8 @@
 	import WorkspaceMenuBar from '$lib/editor/comp/WorkspaceMenuBar.svelte';
 	import SessionPresence from '$lib/editor/comp/chrome/SessionPresence.svelte';
 	import WorkspaceSidebar from '$lib/editor/comp/WorkspaceSidebar.svelte';
-	import GuestBar from '$lib/collab/GuestBar.svelte';
+	import GuestPresence from '$lib/collab/GuestPresence.svelte';
+	import WorkspaceDialogs from '$lib/editor/comp/WorkspaceDialogs.svelte';
 	import type GlobalSearch from '$lib/editor/comp/GlobalSearch.svelte';
 	import type { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 	import type { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
@@ -55,9 +56,13 @@
 
 {#if guest}
 	<!-- a guest has no menus, but a frameless window still needs somewhere to drag it by and a
-	     close button -->
-	<TitleBar />
-	<GuestBar />
+	     close button. Session state rides in the same trailing slot the host's presence uses,
+	     rather than in a full-width row of its own below. -->
+	<TitleBar>
+		{#snippet status()}
+			<GuestPresence />
+		{/snippet}
+	</TitleBar>
 {:else}
 	<!-- the menus live inside the custom title bar, on one row with the app icon and the window
 	     buttons. On macOS TitleBar renders the row but WorkspaceMenuBar draws no triggers - the
@@ -94,6 +99,10 @@
 		{/snippet}
 	</TitleBar>
 {/if}
+
+<!-- outside the branch on purpose: a guest reaches Preferences through the palette and has no menu
+     bar to have mounted these -->
+<WorkspaceDialogs />
 
 <div class="flex min-h-0 flex-1 overflow-hidden">
 	{#if layout.sidebarOpen}

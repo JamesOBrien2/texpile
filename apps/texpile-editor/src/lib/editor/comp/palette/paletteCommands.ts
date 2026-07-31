@@ -31,7 +31,7 @@ import { get } from 'svelte/store';
 import { fileTree, workspaceRoot } from '$lib/workspace/workspaceStore';
 import { relativeTo, type TreeEntry } from '$lib/workspace/fileSystem';
 import { settings, updateSettings, type AppSettings } from '$lib/settings';
-import { isMac } from '$lib/platform';
+import { combo } from '$lib/editor/comp/shortcutText';
 import type { PaletteActions } from '$lib/workspace/commandPalette.svelte';
 import { m } from '$lib/paraglide/messages';
 
@@ -49,15 +49,6 @@ export interface PaletteItem {
 
 /** files are capped so a big project cannot push every command off the list */
 export const MAX_FILE_RESULTS = 40;
-
-function combo(key: string, mods: { shift?: boolean; alt?: boolean } = {}): string {
-	if (isMac) return `${mods.alt ? '⌥' : ''}${mods.shift ? '⇧' : ''}⌘${key}`;
-	const parts = ['Ctrl'];
-	if (mods.shift) parts.push('Shift');
-	if (mods.alt) parts.push('Alt');
-	parts.push(key);
-	return parts.join('+');
-}
 
 /** the action commands, in the order they appear when nothing has been typed */
 export function buildCommands(a: PaletteActions): PaletteItem[] {
