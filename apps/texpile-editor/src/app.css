@@ -235,8 +235,8 @@ html[data-mode='dark'] {
 /* Custom title bar drag regions. Global rather than scoped per component, for two reasons: there is
    no Tailwind utility for -webkit-app-region, and the class often has to land on a CHILD COMPONENT's
    root (Menu.Trigger, the menu bar's nav) where a scoped rule would neither apply nor even survive -
-   Svelte prunes it as an unused selector. One definition, used by TitleBar / WindowControls /
-   WorkspaceMenuBar / SessionPresence / GuestPresence.
+   Svelte prunes it as an unused selector. One definition, used by TitleBar / WorkspaceMenuBar /
+   SessionPresence / GuestPresence.
    Anything clickable inside a drag region needs app-no-drag, or the region swallows the click. */
 .app-drag {
 	-webkit-app-region: drag;
@@ -268,6 +268,29 @@ html[data-mode='dark'] {
 	transform: translateY(-2px);
 }
 
+/* Room at the end of the title bar for the window buttons Chromium draws (main.ts's
+   titleBarOverlay). The element is empty: this rule is the whole component.
+
+   Ask the overlay how wide it is rather than assuming, on BOTH platforms. env(titlebar-area-width)
+   is the DRAGGABLE span of the bar, so whatever the viewport has left over is precisely what the
+   buttons took.
+
+   Linux needs this because the button set is a user setting - GNOME ships close alone, other
+   desktops show three, and some put them on the left. Windows turned out to need it too: three
+   buttons are 138px only at 100% scaling, because Chromium rounds each one to whole PHYSICAL
+   pixels, so at 157.5% they measure 150 CSS px rather than 138. A constant cannot follow that, and
+   under-reserving slides the bar's own content under the buttons.
+
+   No --zoom-factor correction, and its absence is the point: env() reports CSS pixels and already
+   tracks both the display scale and setZoomFactor. A device-pixel constant would have needed the
+   division; a measurement does not.
+
+   The fallbacks are the disabled case. With no overlay, titlebar-area-width falls back to 100vw
+   and titlebar-area-x to 0, the calc is 0, and we reserve nothing - correct, because then nothing
+   is being drawn over us. */
+.app-window-controls {
+	width: calc(100vw - env(titlebar-area-width, 100vw) - env(titlebar-area-x, 0px));
+}
 /* thin always-present scrollbar on the toolbar: the macOS overlay scrollbar hides until you
    scroll, which made off-screen toolbar icons look simply missing */
 .toolbar-hscroll {

@@ -264,6 +264,25 @@ function registerProtocolHandlers(): void {
 	});
 }
 
+/**
+ * Title-bar colours as the renderer last reported them, for the first paint of a new window.
+ *
+ * Defaults are light, and are only ever seen on a genuine first run: the window is painted before
+ * any renderer exists to ask, so a dark-theme user would otherwise get a white flash and pale
+ * window buttons every launch.
+ */
+function chromeColors(): { height: number; color: string; symbolColor: string; background: string } {
+	const s = readSettings();
+	const hex = (v: unknown, fallback: string) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : fallback);
+	const h = Number(s.chromeHeight);
+	return {
+		height: Number.isFinite(h) && h > 0 ? h : 32,
+		color: hex(s.chromeColor, '#ffffff'),
+		symbolColor: hex(s.chromeSymbolColor, '#000000'),
+		background: hex(s.chromeBackground, '#ffffff')
+	};
+}
+
 function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 	const win = new BrowserWindow({
 		width: 1280,
@@ -273,7 +292,7 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 		minHeight: 600,
 		title: 'Texpile',
 		icon: path.join(__dirname, '..', 'icon.png'),
-		backgroundColor: '#ffffff',
+		backgroundColor: chromeColors().background,
 		// Custom title bar (TitleBar.svelte). Frameless on Windows/Linux so the menus, the app icon
 		// and the window buttons share one row instead of costing two - VS Code's layout, and the
 		// reason its chrome is a third the height of ours was.
@@ -281,9 +300,36 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 		// macOS keeps a real frame: `hiddenInset` hides the title bar but leaves the traffic lights,
 		// the double-click-to-zoom behaviour and the system menu bar, none of which a frameless
 		// window can reproduce. There the menus live in the native bar instead (window-chrome.ts).
+		//
+		// Off macOS the buttons themselves are Chromium's, not ours: titleBarOverlay reserves a strip
+		// at the end of our own title bar and draws minimise / maximise / close into it. Two reasons,
+		// one per platform. On Linux the button set is a user setting (GNOME's button-layout,
+		// gtk-decoration-layout) - which buttons exist and which side they sit on - and nothing in
+		// Electron exposes it, so a hand-drawn set is wrong for anyone who changed it, and wrong by
+		// default on stock GNOME, which shows close alone. On Windows 11 a real maximise button pops
+		// the Snap Layouts picker on hover; buttons we draw ourselves do not, and that is a feature
+		// silently missing today. The overlay restores it.
+		//
+		// The colours come from whatever the renderer last reported (windowOverlay.ts persists them
+		// through registerWindowChrome). They cannot be derived here - the theme lives in
+		// localStorage, which only the renderer can read - and Chromium paints the overlay before any
+		// HTML exists, so without a remembered value the buttons spend the load in a pale strip on a
+		// blank window. The light defaults are the genuine first run only.
 		...(process.platform === 'darwin'
 			? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 12, y: 10 } }
-			: { frame: false }),
+			: {
+					// BOTH, and the pair is load-bearing. `frame: false` alone removes the standard
+					// window controls outright, and titleBarOverlay has nothing left to draw - no
+					// error, just no buttons. `titleBarStyle: 'hidden'` is what keeps them alive to
+					// be overlaid.
+					titleBarStyle: 'hidden' as const,
+					frame: false,
+					titleBarOverlay: {
+						height: chromeColors().height,
+						color: chromeColors().color,
+						symbolColor: chromeColors().symbolColor
+					}
+				}),
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.js'),
 			contextIsolation: true,
@@ -904,7 +950,16 @@ app.whenReady().then(() => {
 	// Window controls for the custom title bar, plus - on macOS - the native menu bar, built from
 	// what the renderer reports about its own menus. Everywhere else the native menu is removed
 	// and the renderer draws it. See window-chrome.ts.
-	registerWindowChrome();
+	// persisted so the NEXT launch can paint its window buttons in the right colours before a
+	// renderer exists to report them; see chromeColors()
+	registerWindowChrome((c) =>
+		writeSettings({
+			chromeHeight: c.height,
+			chromeColor: c.color,
+			chromeSymbolColor: c.symbolColor,
+			chromeBackground: c.background
+		})
+	);
 
 	if (initialOpenPath) {
 		// launched via a .tex file: that request wins over session restore

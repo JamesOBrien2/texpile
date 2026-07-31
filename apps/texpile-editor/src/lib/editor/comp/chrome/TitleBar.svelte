@@ -18,7 +18,7 @@
 	import { isMac } from '$lib/platform';
 	import { isDesktop } from '$lib/workspace/fileSystem';
 	import { commandPalette } from '$lib/workspace/commandPalette.svelte';
-	import WindowControls from './WindowControls.svelte';
+	import { syncWindowOverlay } from './windowOverlay';
 	import Kbd from '$lib/components/Kbd.svelte';
 	import { titleBarLayout } from './titleBarLayout.svelte';
 	import iconUrl from '$lib/assets/logo/Logo-icon.svg';
@@ -110,6 +110,11 @@
 	// Mirror the document title rather than take it as a prop: it is already computed (in
 	// WorkspaceView's <svelte:head>) and threading the same string down two more components to
 	// display it in a third would be plumbing for nothing.
+	// the bar itself, reported to Chromium so the overlay it paints the window buttons into matches
+	// this row's height and colours. See windowOverlay.ts; a no-op on macOS.
+	let barEl = $state<HTMLElement | null>(null);
+	$effect(() => (barEl ? syncWindowOverlay(barEl) : undefined));
+
 	let title = $state('Texpile');
 	onMount(() => {
 		const el = document.querySelector('title');
@@ -125,7 +130,7 @@
 
 <!-- in a browser (dev, or the hosted build) there is no frame to replace, so render nothing -->
 {#if desktop}
-	<div class="border-surface-200-800 bg-surface-100-900 relative flex h-8 shrink-0 items-stretch border-b text-sm">
+	<div bind:this={barEl} class="border-surface-200-800 bg-surface-100-900 relative flex h-8 shrink-0 items-stretch border-b text-sm">
 		<!-- measured as one block: everything to the left of the centre. On macOS that is the gap the
 		     OS draws the traffic lights into; trafficLightPosition in main.ts matches the inset. -->
 		<div class="flex shrink-0 items-stretch" bind:clientWidth={leftW}>
@@ -160,8 +165,19 @@
 			{#if status}
 				{@render status()}
 			{/if}
+			<!--
+				Off macOS this is EMPTY, and that is the point: Chromium draws minimise / maximise /
+				close on top of it (main.ts's titleBarOverlay), so all the page owes it is the right
+				amount of room. The width is CSS - a constant on Windows, where the button set is
+				fixed, and the WCO environment variables on Linux, where the desktop decides how many
+				buttons there are and how wide they run.
+
+				bind:clientWidth above still measures it, so the command center's centring is unchanged:
+				it only ever asked how wide the right-hand block was, and reserved space answers that
+				as well as three buttons did.
+			-->
 			{#if !isMac}
-				<WindowControls />
+				<div class="app-window-controls"></div>
 			{/if}
 		</div>
 

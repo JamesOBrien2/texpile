@@ -294,7 +294,20 @@ function rebuild(): void {
 	Menu.setApplicationMenu(Menu.buildFromTemplate(template(win, s)));
 }
 
-export function registerWindowChrome(): void {
+/** what the renderer last reported about its chrome, for seeding the next window's first paint. */
+export interface ChromeColors {
+	height?: number;
+	color?: string;
+	symbolColor?: string;
+	background?: string;
+}
+
+/**
+ * @param onChrome called whenever the renderer reports its title bar colours, so main can persist
+ *   them. Kept as a callback rather than importing the settings helpers, because those live in
+ *   main.ts and main.ts already imports this module.
+ */
+export function registerWindowChrome(onChrome?: (c: ChromeColors) => void): void {
 	// ---- window controls, for the renderer's own title bar (Windows / Linux) ----
 	ipcMain.handle('window:minimize', (e) => {
 		BrowserWindow.fromWebContents(e.sender)?.minimize();
@@ -311,6 +324,39 @@ export function registerWindowChrome(): void {
 		BrowserWindow.fromWebContents(e.sender)?.close();
 	});
 	ipcMain.handle('window:isMaximized', (e) => BrowserWindow.fromWebContents(e.sender)?.isMaximized() ?? false);
+
+	/**
+	 * Repaint the window-controls overlay, and the window behind it, to match the renderer.
+	 *
+	 * Chromium draws those buttons, so it has to be told our colours; main cannot work them out
+	 * because the theme is in localStorage. `height` arrives already multiplied by the zoom factor:
+	 * the overlay is sized in device pixels and does not scale with setZoomFactor, so a zoomed-in
+	 * window needs a taller strip to stay level with a title bar that grew.
+	 *
+	 * `background` is the WINDOW's fill, not the bar's, and it is what stops the white flash when a
+	 * dark-themed window is maximised or restored: Chromium paints newly exposed area with it before
+	 * the renderer gets there.
+	 *
+	 * Both are persisted, because the first paint of the NEXT launch happens before any renderer
+	 * exists - that is why the buttons appear in a pale strip on a blank window at startup. Seeding
+	 * createWindow from the last known values closes that gap for everyone but a genuine first run.
+	 *
+	 * The overlay half is a no-op on macOS, where the window has a real frame and setTitleBarOverlay
+	 * throws rather than being ignored.
+	 */
+	ipcMain.on('window:overlay', (e, o: { height?: number; color?: string; symbolColor?: string; background?: string }) => {
+		const win = BrowserWindow.fromWebContents(e.sender);
+		if (!win) return;
+		if (o.background) win.setBackgroundColor(o.background);
+		if (!isMac) {
+			try {
+				win.setTitleBarOverlay({ height: o.height, color: o.color, symbolColor: o.symbolColor });
+			} catch {
+				/* a window built without titleBarOverlay has nothing to update */
+			}
+		}
+		onChrome?.(o);
+	});
 
 	// ---- menu state, for the native macOS bar ----
 	ipcMain.on('window:menu-state', (e, state: MenuState) => {
