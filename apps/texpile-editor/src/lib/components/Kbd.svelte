@@ -20,12 +20,10 @@
 		 * the places that ARE about the keys themselves - the shortcut sheet, the command field.
 		 */
 		cap?: boolean;
-		/** cap only: drop the vertical padding: the title bar's command field is just 24px tall. */
-		compact?: boolean;
 		class?: string;
 	}
 
-	let { keys, raw, cap = false, compact = false, class: className = '' }: Props = $props();
+	let { keys, raw, cap = false, class: className = '' }: Props = $props();
 
 	const macSymbols: Record<string, string> = {
 		mod: '⌘',
@@ -75,9 +73,7 @@
 	const parts = $derived(raw != null ? null : formatShortcut(keys ?? ''));
 	// mac stacks its symbols with no separator, the way the system does; win/linux joins with +
 	const gap = $derived(isMac ? 'gap-0' : 'gap-0.5');
-	const look = $derived(
-		cap ? `border-surface-300-700 bg-surface-100-900 rounded border ${compact ? 'px-1.5' : 'px-1.5 py-0.5'}` : 'text-surface-500'
-	);
+	const look = $derived(cap ? 'border-surface-300-700 bg-surface-100-900 rounded border px-1.5 py-0.5' : 'text-surface-500');
 </script>
 
 <kbd class="inline-flex items-center font-sans text-xs whitespace-nowrap {gap} {look} {className}">
