@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Download, ChevronDown, Check } from '@lucide/svelte';
+	import { Download, ChevronDown, Check, ArrowRight } from '@lucide/svelte';
 	import Showcase from '$lib/comp/Showcase.svelte';
 	import typingWebm from '$lib/assets/showcase/visual-typing.webm';
 	import typingMp4 from '$lib/assets/showcase/visual-typing.mp4';
@@ -127,9 +127,10 @@
 <section id="live-preview" class="bg-white py-16 md:py-20">
 	<div class="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
 		<h2 class="text-surface-900 text-center text-2xl font-semibold md:text-3xl">{m.live_preview_heading()}</h2>
-		<p class="text-surface-600 mx-auto mt-4 mb-10 max-w-2xl text-center text-lg leading-relaxed">
+		<p class="text-surface-600 mx-auto mt-4 max-w-2xl text-center text-lg leading-relaxed">
 			{m.live_preview_body()}
 		</p>
+		<p class="mb-10 text-center">{@render docsLink('/docs/live-preview')}</p>
 		<div class="border-surface-200 overflow-hidden rounded-xl border shadow-2xl">
 			<!-- muted looping demo, behaves like an animated image -->
 			<video autoplay muted loop playsinline disablepictureinpicture aria-label={m.live_preview_video_aria()} class="block w-full">
@@ -155,6 +156,7 @@
 						</li>
 					{/each}
 				</ul>
+				<div>{@render docsLink('/docs/visual-editing')}</div>
 			</div>
 			<div class="border-surface-200 order-2 mx-auto w-fit overflow-hidden rounded-xl border shadow-2xl lg:order-1">
 				<!-- muted looping demo, behaves like an animated image -->
@@ -189,6 +191,7 @@
 						</li>
 					{/each}
 				</ul>
+				<div>{@render docsLink('/docs/collaboration')}</div>
 			</div>
 			<div class="border-surface-200 mx-auto w-full max-w-xl overflow-hidden rounded-xl border shadow-2xl">
 				<img src={collabShot} alt={m.collab_heading()} loading="lazy" draggable="false" class="block w-full" />
@@ -214,6 +217,7 @@
 						</li>
 					{/each}
 				</ul>
+				<div>{@render docsLink('/docs/intellisense')}</div>
 			</div>
 		</div>
 	</div>
@@ -234,6 +238,11 @@
 				</div>
 			{/each}
 		</div>
+
+		<p class="text-surface-600 mt-12 text-center">
+			{'Every feature is documented in full.'}
+			<span class="ml-2 inline-block">{@render docsLink('/docs')}</span>
+		</p>
 	</div>
 </section>
 
@@ -275,6 +284,13 @@
 		</div>
 	</div>
 </section>
+
+{#snippet docsLink(href: string)}
+	<a {href} class="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1.5 font-medium transition-colors">
+		{'Read the docs'}
+		<ArrowRight class="h-4 w-4" />
+	</a>
+{/snippet}
 
 <section id="ps" class="border-surface-200 border-t bg-white py-14">
 	<div class="container mx-auto max-w-2xl px-4 text-center sm:px-6">

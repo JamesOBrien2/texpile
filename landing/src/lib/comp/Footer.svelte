@@ -14,6 +14,9 @@
 				<h4 class="font-semibold text-white">{m.footer_project_heading()}</h4>
 				<ul class="space-y-2">
 					<li>
+						<a href="/docs" class="text-surface-300 hover:text-white">{m.footer_docs()}</a>
+					</li>
+					<li>
 						<a href="/download" class="text-surface-300 hover:text-white">{m.footer_download()}</a>
 					</li>
 					<li>

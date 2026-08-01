@@ -132,5 +132,7 @@
 	"nav_machine_translated_tag": "(machine translated)",
 	"mt_banner_text": "This page was machine-translated and has not been reviewed yet.",
 	"mt_report_issue": "Report an issue",
-	"mt_dismiss_aria": "Dismiss"
+	"mt_dismiss_aria": "Dismiss",
+	"nav_docs": "Docs",
+	"footer_docs": "Docs"
 }

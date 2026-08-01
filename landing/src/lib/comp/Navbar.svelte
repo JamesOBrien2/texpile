@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import type { Pathname } from '$app/types';
 	import { Menu, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { locales, localizeHref, getLocale, type Locale } from '$lib/paraglide/runtime';
 	import { m } from '$lib/paraglide/messages';
@@ -12,6 +13,7 @@
 	// absolute hrefs so they resolve from any route, not just the home page
 	const navLinks = [
 		{ href: '/#features', label: m.nav_features() },
+		{ href: '/docs', label: m.nav_docs() },
 		{ href: '/download', label: m.nav_download() },
 		{ href: '/#faq', label: m.nav_faq() }
 	];
@@ -20,8 +22,12 @@
 
 	// full document navigation (not client-side routing), same as every other locale switch on this site.
 	// details.value is always one of `locales` (that's all the menu ever renders), hence the cast.
+	// The Pathname cast is a lie by construction and always was: localizeHref returns a rewritten
+	// URL (/de/docs/mcp) whose locale prefix hooks.ts strips again, so it is never one of the route
+	// pathnames resolve() is typed against. resolve() is still what applies `base`.
 	function onLocaleSelect(details: { value: string }) {
-		window.location.href = resolve(localizeHref(page.url.pathname, { locale: details.value as Locale }) as '/' | '/download');
+		const href = localizeHref(page.url.pathname, { locale: details.value as Locale });
+		window.location.href = resolve(href as Pathname);
 	}
 
 	let atTop = $state(true);
