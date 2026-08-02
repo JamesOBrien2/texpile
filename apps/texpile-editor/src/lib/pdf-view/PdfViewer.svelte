@@ -4,6 +4,7 @@
 </script>
 
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import {
 		setPdfViewerContext,
@@ -11,7 +12,7 @@
 		type PdfViewerState,
 		type PdfViewerActions,
 		type PdfSource
-	} from './pdf-viewer/context.js';
+	} from './pdf-viewer/context';
 
 	interface Props {
 		/** PDF source - URL string, ArrayBuffer, Uint8Array, or Blob */
@@ -40,7 +41,7 @@
 		error: null,
 		totalPages: 0,
 		currentPage: 1,
-		scale: initialScale,
+		scale: untrack(() => initialScale),
 		rotation: 0,
 		searchQuery: '',
 		searchCurrent: 0,
@@ -131,7 +132,7 @@
 		_registerRenderer: (renderer: PdfViewerActions) => {
 			rendererActions = renderer;
 		},
-		_onerror: onerror,
+		_onerror: untrack(() => onerror),
 		_setSrcDataForDownload: (data: ArrayBuffer | null) => {
 			srcDataForDownload = data;
 		}

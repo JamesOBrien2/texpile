@@ -21,10 +21,14 @@ export const mainFile = writable<string | null>(null);
 
 export const isDirty = writable<boolean>(false);
 
+// Declared BEFORE the store below, and it has to stay there. loadRecent() is hoisted so calling it
+// at init works, but the const is not: reading it from inside that call hits the temporal dead zone,
+// throws, and the catch quietly returns [] - so the list loaded as empty every launch and the first
+// folder opened overwrote the whole history with itself.
+const MAX_RECENT = 8;
+
 /** most-recent first, persisted to localStorage. */
 export const recentFolders = writable<string[]>(loadRecent());
-
-const MAX_RECENT = 8;
 
 // cap on READ as well as write: the stored value is just localStorage, so a hand-edited or
 // older-format entry would otherwise render an unbounded list until the next folder open trims it

@@ -125,6 +125,7 @@ function labels(): Record<string, string> {
 		shortcuts: m.menubar_keyboard_shortcuts(),
 		tutorial: m.menubar_open_tutorial(),
 		whatsNew: m.whatsnew_menu_label(),
+		documentation: m.menubar_documentation(),
 		discord: m.menubar_join_discord(),
 		support: m.menubar_contact_support(),
 		updates: m.menubar_check_for_updates(),

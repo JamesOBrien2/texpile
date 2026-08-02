@@ -16,8 +16,8 @@
 /** fullscreen presentation mode; derivative work based on PDF.js pdf_presentation_mode.js. */
 
 import type { PDFDocumentProxy, PDFPageProxy, PageViewport } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { EventBus } from './EventBus.js';
-import { SimpleLinkService } from './SimpleLinkService.js';
+import { EventBus } from './EventBus';
+import { SimpleLinkService } from './SimpleLinkService';
 
 let AnnotationLayer: typeof import('pdfjs-dist/legacy/build/pdf.mjs').AnnotationLayer;
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	// controlled: pass src (a texfile:// URL or bytes); uncontrolled: omit src and it follows pdfStore
-	import { PdfViewer, PdfToolbar, PdfRenderer, type PdfSource, type PdfViewerActions } from 'svelte-pdf-view';
+	import { PdfViewer, PdfToolbar, PdfRenderer, type PdfSource, type PdfViewerActions } from '$lib/pdf-view';
 	import PdfActionsBridge from './PdfActionsBridge.svelte';
 	import { pdfStore } from '$lib/stores/pdfStore';
 	import { resolvedMode } from '$lib/theme';

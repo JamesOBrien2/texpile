@@ -17,6 +17,10 @@ apps/texpile-editor/tests/fixtures/lang/*.pages.json
 apps/texpile-editor/src/lib/paraglide/
 landing/src/lib/paraglide/
 
+# pnpm rewrites the lockfile in its own style on every install, so formatting it just puts a
+# ~1700-line diff in front of whoever runs `pnpm format` next, to be undone on the next install
+pnpm-lock.yaml
+
 # inlang regenerates everything here except settings.json (see each project.inlang/.gitignore),
 # in its own formatting, so prettier must not police it
 apps/texpile-editor/project.inlang/*

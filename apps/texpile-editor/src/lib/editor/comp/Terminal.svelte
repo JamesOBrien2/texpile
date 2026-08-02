@@ -184,9 +184,16 @@
 			);
 			unsubs.push(
 				b.onExit(({ id: tid, code }) => {
-					if (tid === id) {
-						status = 'exited';
-						term?.write(`\r\n\x1b[90m[shell exited with code ${code}]\x1b[0m\r\n`);
+					if (tid !== id) return;
+					status = 'exited';
+					term?.write(`\r\n\x1b[90m[shell exited with code ${code}]\x1b[0m\r\n`);
+					// a dead shell ends whatever command it was running: the sentinel will never echo,
+					// and without resolving it here the compile pipeline waits out its full poll
+					// timeout before conceding the run is over
+					if (tracked) {
+						const { done, chunks } = tracked;
+						tracked = null;
+						done(chunks.join('').slice(-MAX_CAPTURE));
 					}
 				})
 			);

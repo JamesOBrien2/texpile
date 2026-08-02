@@ -15,7 +15,7 @@
 
 /** renders PDF annotations (links, form widgets, popups); adapted from PDF.js annotation_layer_builder.js. */
 import type { PDFPageProxy, PageViewport } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { SimpleLinkService } from './SimpleLinkService.js';
+import type { SimpleLinkService } from './SimpleLinkService';
 
 let AnnotationLayer: typeof import('pdfjs-dist/legacy/build/pdf.mjs').AnnotationLayer;
 

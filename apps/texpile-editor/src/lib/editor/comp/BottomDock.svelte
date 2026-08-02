@@ -229,8 +229,12 @@
 								</button>
 							</div>
 						{/each}
+						<!-- the rule and its margin separate this from the terminal list above; with no terminals
+						     there is nothing to separate it from and they just read as a gap at the top -->
 						<button
-							class="hover:preset-tonal-primary border-surface-200-800 mt-1 flex w-full items-center gap-2 border-t px-2.5 py-1.5 text-left"
+							class="hover:preset-tonal-primary flex w-full items-center gap-2 px-2.5 py-1.5 text-left {terminals.length
+								? 'border-surface-200-800 mt-1 border-t'
+								: ''}"
 							onclick={add}
 						>
 							<Plus class="size-3.5" />
@@ -279,5 +283,14 @@
 				<TerminalComp bind:this={refs[t.id]} {cwd} />
 			</div>
 		{/each}
+	{/if}
+	{#if terminalEnabled && view === 'terminal' && terminals.length === 0}
+		<!-- the dock reopens without shells (a compile or a Problems jump is what left it visible) -->
+		<div class="absolute inset-0 flex items-center justify-center">
+			<button class="btn btn-sm preset-tonal flex items-center gap-1.5 text-xs" onclick={add}>
+				<Plus class="size-3.5" />
+				{m.wsview_new_terminal()}
+			</button>
+		</div>
 	{/if}
 </div>

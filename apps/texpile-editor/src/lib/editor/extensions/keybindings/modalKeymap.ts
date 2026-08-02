@@ -1,12 +1,6 @@
-// Vim and Emacs keybindings for the source editor, via the same two packages Overleaf uses.
-//
+// Vim and Emacs keybindings for the source editor
 // Loaded on demand, never at startup: the vim implementation is a couple of hundred KB of key
-// parsing and ex commands, and almost nobody turns it on. A user who does pays for it once, on the
-// first editor mount after the setting changes.
-//
-// Source editor only. Both extensions bind Escape and build a mode line, neither of which belongs
-// inside a code_block node view - there Escape is how the caret gets back out to ProseMirror, and a
-// status panel per block would be absurd.
+// Source editor only.
 import { Compartment, type Extension } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { settings, type AppSettings } from '$lib/settings';

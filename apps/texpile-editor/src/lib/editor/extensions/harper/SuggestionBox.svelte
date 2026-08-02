@@ -154,6 +154,14 @@
 		}
 	}
 
+	// The box is opened by clicking a word, which leaves focus in the editor - so the handler on the
+	// box itself never sees a key. Escape has to be caught at the window to close it at all.
+	function handleWindowKeydown(e: KeyboardEvent) {
+		if (e.key !== 'Escape' || !isReady) return;
+		e.stopPropagation();
+		onClose();
+	}
+
 	function handleWindowClick() {
 		if (isReady) {
 			onClose();
@@ -193,11 +201,11 @@
 	});
 </script>
 
-<svelte:window onclick={handleWindowClick} />
+<svelte:window onclick={handleWindowClick} onkeydown={handleWindowKeydown} />
 
 <div
 	bind:this={boxElement}
-	class="card preset-tonal-surface-100-900 border-surface-300-700 bg-surface-50-950 pointer-events-auto fixed z-[999999] min-w-[280px] max-w-[360px] space-y-3 border p-4 shadow-2xl"
+	class="card preset-tonal-surface-100-900 border-surface-300-700 bg-surface-50-950 pointer-events-auto fixed z-[999999] min-w-[200px] max-w-[280px] space-y-1.5 border p-2 shadow-2xl"
 	onclick={handleClick}
 	onkeydown={handleKeydown}
 	role="dialog"
@@ -209,29 +217,29 @@
 	<div class="flex items-center justify-between gap-2">
 		<div class="flex items-center gap-2">
 			{#if sanitizedType() === 'spelling' || sanitizedType() === 'typo'}
-				<IconBookText size={18} class="text-primary-500" />
+				<IconBookText size={14} class="text-primary-500" />
 			{:else if sanitizedType() === 'capitalization'}
-				<IconType size={18} class="text-primary-500" />
+				<IconType size={14} class="text-primary-500" />
 			{:else if sanitizedType() === 'wordchoice'}
-				<IconMessageSquare size={18} class="text-primary-500" />
+				<IconMessageSquare size={14} class="text-primary-500" />
 			{:else if sanitizedType() === 'style'}
-				<IconSparkles size={18} class="text-primary-500" />
+				<IconSparkles size={14} class="text-primary-500" />
 			{:else if sanitizedType() === 'repetition'}
-				<IconRepeat size={18} class="text-primary-500" />
+				<IconRepeat size={14} class="text-primary-500" />
 			{:else}
-				<IconHelpCircle size={18} class="text-primary-500" />
+				<IconHelpCircle size={14} class="text-primary-500" />
 			{/if}
-			<span class="text-sm font-semibold capitalize opacity-75">
+			<span class="text-xs font-semibold capitalize opacity-75">
 				{sanitizedType()}
 			</span>
 		</div>
 		<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={onClose} aria-label={m.harper_close_button_aria_label()}>
-			<IconX size={16} />
+			<IconX size={14} />
 		</button>
 	</div>
 
-	<div class="space-y-2">
-		<p class="text-sm leading-relaxed">
+	<div class="space-y-1.5">
+		<p class="text-xs leading-snug">
 			{error.shortmsg || error.msg}
 		</p>
 
@@ -239,11 +247,11 @@
 			{#if error.text}
 				{@const diffParts = getDiffParts(error.text, error.replacements[0])}
 				<button
-					class="bg-surface-100-900 hover:preset-tonal border-surface-300-700 w-full cursor-pointer rounded border p-3 text-left transition-colors"
+					class="bg-surface-100-900 hover:preset-tonal border-surface-300-700 w-full cursor-pointer rounded border px-2 py-1.5 text-left transition-colors"
 					onclick={() => handleReplace(error.replacements[0])}
 					title={m.harper_apply_suggestion_title()}
 				>
-					<div class="font-mono text-sm leading-relaxed">
+					<div class="font-mono text-xs leading-snug">
 						{#each diffParts as part}
 							{#if part.removed}
 								<del class="text-error-700-300 line-through opacity-60">{part.value === ' ' ? '␣' : part.value}</del>
@@ -258,14 +266,14 @@
 			{/if}
 
 			{#if error.replacements.length > 1}
-				<div class="space-y-2">
-					<p class="text-xs font-semibold uppercase tracking-wider opacity-60">
+				<div class="space-y-1">
+					<p class="text-[10px] font-semibold uppercase tracking-wider opacity-60">
 						{m.harper_additional_suggestions_heading()}
 					</p>
 					<div class="space-y-1">
 						{#each error.replacements.slice(1) as replacement}
 							<button
-								class="btn preset-tonal hover:preset-filled-primary-500 w-full justify-start font-mono text-sm"
+								class="btn btn-sm preset-tonal hover:preset-filled-primary-500 w-full justify-start font-mono text-xs"
 								onclick={() => handleReplace(replacement)}
 							>
 								{formatReplacement(replacement)}
@@ -277,18 +285,18 @@
 		{/if}
 	</div>
 
-	<div class="border-surface-200-800 flex flex-col gap-2 border-t pt-2">
+	<div class="border-surface-200-800 flex items-center gap-1.5 border-t pt-1.5">
 		{#if canAddToDictionary()}
 			<button
-				class="btn preset-tonal-primary hover:preset-filled-primary-500 w-full justify-center gap-1.5"
+				class="btn btn-sm preset-tonal-primary hover:preset-filled-primary-500 flex-1 justify-center gap-1 text-xs"
 				onclick={handleAddToDictionary}
 				title={m.harper_add_to_dictionary_title({ word: error.text })}
 			>
-				<IconBookPlus size={16} />
+				<IconBookPlus size={13} />
 				<span>{m.harper_add_to_dictionary_button()}</span>
 			</button>
 		{/if}
-		<button class="btn preset-tonal hover:preset-filled w-full" onclick={handleIgnore}>
+		<button class="btn btn-sm preset-tonal hover:preset-filled flex-1 text-xs" onclick={handleIgnore}>
 			{m.harper_ignore_button()}
 		</button>
 	</div>

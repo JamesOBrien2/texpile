@@ -224,14 +224,22 @@ const spellPlugin = ViewPlugin.fromClass(SpellPlugin, {
 			const hits: Problem[] = [];
 			plugin.decorations.between(pos, pos, (from, to, deco) => {
 				const p = (deco.spec as { problem?: Problem }).problem;
+				// The caret landing exactly at the END of a flagged word is someone clicking past the
+				// last letter to put the cursor there, not asking about the word. between() counts a
+				// merely touching range as a hit, so without this "Hello World|" pops the box every time.
+				if (pos === to) return;
 				// positions may have drifted since the lint: read them off the live decoration
 				if (p) hits.push({ ...p, from, to, text: view.state.sliceDoc(from, to) });
 			});
 			if (!hits.length) return false;
+			// under the start of the word, matching the visual editor. Anchoring to the click point put
+			// the box wherever the pointer happened to be, so the same word opened somewhere different
+			// every time and the box could sit on top of the text it was about.
+			const anchor = view.coordsAtPos(hits[0].from);
 			createHarperSuggestionBox({
 				error: hits[0],
 				errors: hits,
-				position: { x: e.clientX, y: e.clientY },
+				position: anchor ? { x: anchor.left, y: anchor.bottom } : { x: e.clientX, y: e.clientY },
 				onReplace: (value) => {
 					view.dispatch({ changes: { from: hits[0].from, to: hits[0].to, insert: value } });
 					view.focus();

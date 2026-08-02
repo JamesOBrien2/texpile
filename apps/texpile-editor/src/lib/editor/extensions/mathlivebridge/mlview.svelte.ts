@@ -253,7 +253,9 @@ export default class MathLiveView implements NodeView {
 			field.dispatchEvent(new CustomEvent('ml:focusin', { bubbles: true, cancelable: true }));
 		}) as typeof field.focus;
 
-		field.mathVirtualKeyboardPolicy = 'auto';
+		// Desktop Electron app: there is always a physical keyboard, so the on-screen one is dead
+		// weight. Left at 'manual' so MathLive never raises it on its own.
+		// field.mathVirtualKeyboardPolicy = 'auto';
 
 		// undo/redo handled by prosemirror
 		field.canUndo = () => false;
@@ -391,7 +393,8 @@ export default class MathLiveView implements NodeView {
 		this.pendingDelete = false;
 		target.style.backgroundColor = 'transparent';
 		if (focus) {
-			target.style.border = '1px solid #000';
+			// var, not #000: a black ring is invisible against the dark-mode editor background
+			target.style.border = '1px solid var(--mathfield-focus-border, #000)';
 			target.style.outline = 'none';
 		} else {
 			target.style.border = 'none';
@@ -403,7 +406,12 @@ export default class MathLiveView implements NodeView {
 		const field = this.mathField;
 		// only ever reached from the field's own listeners, so this is a type guard, not a case
 		if (!field) return;
-		if (this.updating || !field.hasFocus) return;
+		// hasFocus(), not hasFocus: the method reference is always truthy, so this guard never fired and
+		// every input event was treated as the user typing. MathLive emits one asynchronously after the
+		// setValue() in update(), by which point `updating` has already been cleared by its rAF - so a
+		// field that merely re-rendered would write its normalized latex back into the document and
+		// move the selection inside itself, stealing focus from wherever the caret actually was.
+		if (this.updating || !field.hasFocus()) return;
 
 		this.isNewlyCreated = false;
 

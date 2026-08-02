@@ -1,7 +1,5 @@
 <script lang="ts">
-	// Open-file tabs on a dedicated strip above the editor (Overleaf-style: recessed row, flat
-	// tabs, the active one in the editor background so it connects to the content below).
-	// Pure chrome; state lives in workspace/tabs.svelte.ts.
+	// Open-file tabs on a dedicated strip above the editor
 	import { X } from '@lucide/svelte';
 	import { basename, samePath } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';
@@ -21,7 +19,7 @@
 
 {#if tabs.length > 0}
 	<div
-		class="bg-surface-100-900 border-surface-200-800 toolbar-hscroll flex h-9 shrink-0 items-stretch overflow-x-auto overflow-y-hidden border-b"
+		class="bg-surface-100-900 border-surface-200-800 toolbar-hscroll relative z-20 flex h-9 shrink-0 items-stretch overflow-x-auto overflow-y-hidden border-b"
 		role="tablist"
 	>
 		{#each tabs as tab (tab)}

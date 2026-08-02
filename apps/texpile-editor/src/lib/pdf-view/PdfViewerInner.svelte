@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { BROWSER } from 'esm-env';
 	import { onDestroy, onMount } from 'svelte';
 	import { ZoomIn, ZoomOut, RotateCcw, RotateCw, Search, ChevronLeft, ChevronRight } from '@lucide/svelte';
@@ -17,7 +18,7 @@
 
 	let loading = $state(true);
 	let error = $state<string | null>(null);
-	let currentScale = $state(initialScale);
+	let currentScale = $state(untrack(() => initialScale));
 	let currentRotation = $state(0);
 	let currentPage = $state(1);
 	let totalPages = $state(0);
@@ -27,8 +28,8 @@
 	let searchTotal = $state(0);
 	let isSearching = $state(false);
 
-	let viewer: import('./pdf-viewer/PDFViewerCore.js').PDFViewerCore | null = null;
-	let findController: import('./pdf-viewer/FindController.js').FindController | null = null;
+	let viewer: import('./pdf-viewer/PDFViewerCore').PDFViewerCore | null = null;
+	let findController: import('./pdf-viewer/FindController').FindController | null = null;
 
 	async function loadPdf(url: string) {
 		if (!BROWSER || !scrollContainerEl) return;
@@ -37,14 +38,14 @@
 		error = null;
 
 		try {
-			const { getPdfJs, getPdfDocument } = await import('./pdf-viewer/pdfjs-singleton.js');
+			const { getPdfJs, getPdfDocument } = await import('./pdf-viewer/pdfjs-singleton');
 			// still the availability check (it is null off the browser); the load itself goes through
 			// getPdfDocument so the shared worker is passed rather than adopted
 			if (!(await getPdfJs())) return;
 
-			const { PDFViewerCore } = await import('./pdf-viewer/PDFViewerCore.js');
-			const { FindController } = await import('./pdf-viewer/FindController.js');
-			const { EventBus } = await import('./pdf-viewer/EventBus.js');
+			const { PDFViewerCore } = await import('./pdf-viewer/PDFViewerCore');
+			const { FindController } = await import('./pdf-viewer/FindController');
+			const { EventBus } = await import('./pdf-viewer/EventBus');
 
 			if (viewer) {
 				viewer.destroy();

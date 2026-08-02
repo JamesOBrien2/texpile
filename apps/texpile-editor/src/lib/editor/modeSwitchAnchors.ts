@@ -92,8 +92,14 @@ export function resolveVisualAnchor(v: EditorView & { isDestroyed?: boolean }, a
 				if (v.isDestroyed) return; // the view can be torn down between consume and resolve
 				const doc = v.state.doc; // live doc (includes normalization blocks, which carry no orig)
 				const map = buildBlockMap(doc, bodyOffset);
+				// blockAtSource clamps past the END of the document but returns null before the START,
+				// and every srcStart is at least bodyOffset - so a viewport-top offset of 0, or a caret
+				// anywhere in the preamble, resolved to nothing and the switch became a silent no-op.
+				// On a near-empty file that is EVERY offset in it, which is why creating a .tex and
+				// toggling modes never moved the caret at all. Clamp in both directions.
+				const firstBlock = map.find((b) => b.srcStart != null) ?? map[0] ?? null;
 				// scroll: restore the reading position (the block that topped the source viewport)
-				const scrollHit = blockAtSource(map, anchor.scroll);
+				const scrollHit = blockAtSource(map, anchor.scroll) ?? firstBlock;
 				if (scrollHit) {
 					const dom = v.nodeDOM(scrollHit.pmPos);
 					if (dom instanceof HTMLElement) dom.scrollIntoView({ block: 'start' });
@@ -102,7 +108,7 @@ export function resolveVisualAnchor(v: EditorView & { isDestroyed?: boolean }, a
 				// to the scroll block. no scrollIntoView on the tr: the scroll anchor owns the viewport.
 				const caretPos =
 					(anchor.cursor != null ? sourceOffsetToPmPos(doc, map, anchor.cursor) : null) ?? (scrollHit ? scrollHit.pmPos + 1 : null);
-				if (caretPos == null) return; // everything resolved into the preamble, stay at the top
+				if (caretPos == null) return; // an empty doc: nothing to place a caret in at all
 				v.dispatch(v.state.tr.setSelection(TextSelection.near(v.state.doc.resolve(caretPos))).setMeta('addToHistory', false));
 				// reclaim DOM focus for PM: the mount-time selection can sit inside a CM-backed
 				// nodeview that focuses its inner CodeMirror; PM then never syncs the DOM caret

@@ -17,7 +17,6 @@ const rootPkg = require('../../package.json') as { version?: string };
 // build-only packages must not be pre-bundled for the browser
 const NO_PREBUNDLE = new Set([
 	'harper.js', // ships its own WASM worker; kept external (see optimizeDeps.exclude)
-	'svelte-pdf-view', // bundles the PDF.js worker; pre-bundling breaks worker loading (see optimizeDeps.exclude)
 	'@tailwindcss/vite', // a Vite plugin, not a runtime dependency
 	'@inlang/paraglide-js', // compiler/vite plugin; app code imports the generated $lib/paraglide output, not this package
 	'y-protocols' // no root export (only y-protocols/awareness, /sync); prebundling the bare package fails
@@ -80,15 +79,13 @@ export default defineConfig(({ mode }) => ({
 			// through it with Vite's `a > b` syntax
 			'@codemirror/language-data > @codemirror/legacy-modes/mode/stex', // LaTeX highlighting
 			'@codemirror/language-data > @codemirror/lang-json',
-			// both belong to svelte-pdf-view, which stays EXCLUDED (pre-bundling it breaks its
-			// worker), so the prebundle list above misses them and pnpm won't resolve them from the
-			// app root: reach them through their owner. Vite used to discover them lazily when the
-			// preview first loaded, then force-reload the page mid-session, which white-screened the
-			// route-split views on the 504 their in-flight import got.
-			'svelte-pdf-view > esm-env',
-			'svelte-pdf-view > pdfjs-dist/legacy/build/pdf.mjs'
+			// the pdf viewer is app source now, so these are its own direct deps rather than something
+			// reached through a package. Still listed explicitly: only the .mjs legacy entry is ever
+			// imported, and leaving it to lazy discovery re-optimizes mid-session and force-reloads
+			// the page, which white-screened the route-split views on the 504 the in-flight import got.
+			'pdfjs-dist/legacy/build/pdf.mjs'
 		],
-		exclude: ['harper.js', 'svelte-pdf-view'],
+		exclude: ['harper.js'],
 		// never discover a dep lazily. Discovery re-optimizes mid-session and force-reloads the
 		// page, which white-screens the route-split views when an in-flight chunk import 504s. The
 		// include list above is generated from package.json, so everything imported directly is

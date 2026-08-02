@@ -271,10 +271,16 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 				...(s.canTutorial ? [{ label: label(s, 'tutorial', 'Open tutorial'), click: () => fire(win, 'help:tutorial') }] : []),
 				{ label: label(s, 'whatsNew', "What's new"), click: () => fire(win, 'help:whatsnew') },
 				{ type: 'separator' },
+				{ label: label(s, 'documentation', 'Documentation'), click: () => fire(win, 'help:docs') },
 				{ label: label(s, 'discord', 'Join Discord'), click: () => fire(win, 'help:discord') },
 				{ label: label(s, 'support', 'Contact support'), click: () => fire(win, 'help:support') },
 				{ type: 'separator' },
-				{ label: label(s, 'updates', 'Check for updates'), click: () => fire(win, 'help:updates') }
+				{ label: label(s, 'updates', 'Check for updates'), click: () => fire(win, 'help:updates') },
+				// Handled here rather than by role: 'toggleDevTools', whose built-in accelerator would put
+				// Cmd+Alt+I back on the keyboard. A packaged build is meant to have no binding at all.
+				// Deliberately untranslated: it is a diagnostic, and English is what a support note or a
+				// web search will name, so a localized build would make it harder to talk someone to.
+				{ label: 'Dev Tools', click: () => win.webContents.toggleDevTools() }
 			]
 		}
 	];

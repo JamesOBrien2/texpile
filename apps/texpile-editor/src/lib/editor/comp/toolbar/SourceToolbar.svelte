@@ -9,6 +9,7 @@
 	import { computeToggleWrap, computeWrapBlock } from '$lib/editor/extensions/intellisense/shortcuts';
 	import SourceTableDropdown from './SourceTableDropdown.svelte';
 	import SourceMathDropdown from './SourceMathDropdown.svelte';
+	import ToolbarOverflow from './ToolbarOverflow.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	function run(build: (state: EditorState) => TransactionSpec) {
@@ -28,122 +29,138 @@
 	];
 </script>
 
-<div class="flex items-center gap-1 sm:gap-1.5" data-keep-caret role="presentation" onmousedown={(e) => e.preventDefault()}>
-	<ul class="border-surface-300-700 flex items-center gap-1 border-r pr-1.5 sm:gap-1.5 sm:pr-2">
-		<li class="toolbarButton hover:preset-tonal">
-			<button
-				onclick={run((s) => computeToggleWrap(s, 'textbf'))}
-				class="flex items-center p-1"
-				aria-label={m.srctoolbar_bold_aria()}
-				title={m.srctoolbar_bold_title()}
-			>
-				<Bold class="h-4.5 w-4.5" />
-			</button>
-		</li>
-		<li class="toolbarButton hover:preset-tonal">
-			<button
-				onclick={run((s) => computeToggleWrap(s, 'textit'))}
-				class="flex items-center p-1"
-				aria-label={m.srctoolbar_italic_aria()}
-				title={m.srctoolbar_italic_title()}
-			>
-				<Italic class="h-4.5 w-4.5" />
-			</button>
-		</li>
-		<li class="toolbarButton hover:preset-tonal">
-			<button
-				onclick={run((s) => computeToggleWrap(s, 'underline'))}
-				class="flex items-center p-1"
-				aria-label={m.srctoolbar_underline_aria()}
-				title={m.srctoolbar_underline_title()}
-			>
-				<Underline class="h-4.5 w-4.5 translate-y-[1px]" />
-			</button>
-		</li>
-		<li class="toolbarButton hover:preset-tonal">
-			<button
-				onclick={run((s) => computeToggleWrap(s, 'texttt'))}
-				class="flex items-center p-1"
-				aria-label={m.srctoolbar_monospace_aria()}
-				title={m.srctoolbar_monospace_title()}
-			>
-				<Code class="h-4.5 w-4.5" />
-			</button>
-		</li>
-		<li class="toolbarButton hover:preset-tonal">
-			<button
-				onclick={run((s) => computeToggleWrap(s, 'textsuperscript'))}
-				class="flex items-center p-1"
-				aria-label={m.srctoolbar_superscript_aria()}
-				title={m.srctoolbar_superscript_title()}
-			>
-				<Superscript class="h-4.5 w-4.5" />
-			</button>
-		</li>
-		<li class="toolbarButton hover:preset-tonal">
-			<button
-				onclick={run((s) => computeToggleWrap(s, 'textsubscript'))}
-				class="flex items-center p-1"
-				aria-label={m.srctoolbar_subscript_aria()}
-				title={m.srctoolbar_subscript_title()}
-			>
-				<Subscript class="h-4.5 w-4.5" />
-			</button>
-		</li>
-	</ul>
-
-	<ul class="border-surface-300-700 flex items-center gap-1 border-r pr-1.5 sm:gap-1.5 sm:pr-2">
-		{#each HEADINGS as h (h.macro)}
+<div class="flex min-w-0 flex-1 items-center gap-1 sm:gap-1.5" data-keep-caret role="presentation" onmousedown={(e) => e.preventDefault()}>
+	{#snippet st_format()}
+		<ul class="border-surface-300-700 flex items-center gap-1 border-r pr-1.5 sm:gap-1.5 sm:pr-2">
 			<li class="toolbarButton hover:preset-tonal">
 				<button
-					onclick={run((s) => computeWrapBlock(s, `\\${h.macro}{`, '}'))}
-					class="flex h-6 min-w-6 items-center justify-center px-1 text-xs font-semibold"
-					aria-label={h.label}
-					title={h.label}
+					onclick={run((s) => computeToggleWrap(s, 'textbf'))}
+					class="flex items-center p-1"
+					aria-label={m.srctoolbar_bold_aria()}
+					title={m.srctoolbar_bold_title()}
 				>
-					{h.label}
+					<Bold class="h-4.5 w-4.5" />
 				</button>
 			</li>
-		{/each}
-	</ul>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeToggleWrap(s, 'textit'))}
+					class="flex items-center p-1"
+					aria-label={m.srctoolbar_italic_aria()}
+					title={m.srctoolbar_italic_title()}
+				>
+					<Italic class="h-4.5 w-4.5" />
+				</button>
+			</li>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeToggleWrap(s, 'underline'))}
+					class="flex items-center p-1"
+					aria-label={m.srctoolbar_underline_aria()}
+					title={m.srctoolbar_underline_title()}
+				>
+					<Underline class="h-4.5 w-4.5 translate-y-[1px]" />
+				</button>
+			</li>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeToggleWrap(s, 'texttt'))}
+					class="flex items-center p-1"
+					aria-label={m.srctoolbar_monospace_aria()}
+					title={m.srctoolbar_monospace_title()}
+				>
+					<Code class="h-4.5 w-4.5" />
+				</button>
+			</li>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeToggleWrap(s, 'textsuperscript'))}
+					class="flex items-center p-1"
+					aria-label={m.srctoolbar_superscript_aria()}
+					title={m.srctoolbar_superscript_title()}
+				>
+					<Superscript class="h-4.5 w-4.5" />
+				</button>
+			</li>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeToggleWrap(s, 'textsubscript'))}
+					class="flex items-center p-1"
+					aria-label={m.srctoolbar_subscript_aria()}
+					title={m.srctoolbar_subscript_title()}
+				>
+					<Subscript class="h-4.5 w-4.5" />
+				</button>
+			</li>
+		</ul>
+	{/snippet}
+	{#snippet st_headings()}
+		<ul class="border-surface-300-700 flex items-center gap-1 border-r pr-1.5 sm:gap-1.5 sm:pr-2">
+			{#each HEADINGS as h (h.macro)}
+				<li class="toolbarButton hover:preset-tonal">
+					<button
+						onclick={run((s) => computeWrapBlock(s, `\\${h.macro}{`, '}'))}
+						class="flex h-6 min-w-6 items-center justify-center px-1 text-xs font-semibold"
+						aria-label={h.label}
+						title={h.label}
+					>
+						{h.label}
+					</button>
+				</li>
+			{/each}
+		</ul>
+	{/snippet}
+	{#snippet st_blocks()}
+		<ul class="border-surface-300-700 flex items-center gap-1 border-r pr-1.5 sm:gap-1.5 sm:pr-2">
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeWrapBlock(s, '\\begin{quote}\n', '\n\\end{quote}'))}
+					class="flex items-center p-1"
+					aria-label={m.srctoolbar_quote_block_aria()}
+					title={m.srctoolbar_quote_title()}
+				>
+					<Quote class="h-4.5 w-4.5" />
+				</button>
+			</li>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeWrapBlock(s, '\\begin{verbatim}\n', '\n\\end{verbatim}'))}
+					class="flex items-center p-1"
+					aria-label={m.srctoolbar_verbatim_block_aria()}
+					title={m.srctoolbar_verbatim_title()}
+				>
+					<Code class="h-4.5 w-4.5" />
+				</button>
+			</li>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeWrapBlock(s, '\\(', '\\)'))}
+					class="flex items-center p-1"
+					aria-label={m.srctoolbar_inline_math_aria()}
+					title={m.srctoolbar_inline_math_title()}
+				>
+					<Sigma class="h-4.5 w-4.5" />
+				</button>
+			</li>
+		</ul>
+	{/snippet}
+	{#snippet st_inserts()}
+		<ul class="flex items-center gap-1 sm:gap-1.5">
+			<li><SourceTableDropdown /></li>
+			<li><SourceMathDropdown /></li>
+		</ul>
+	{/snippet}
 
-	<ul class="border-surface-300-700 flex items-center gap-1 border-r pr-1.5 sm:gap-1.5 sm:pr-2">
-		<li class="toolbarButton hover:preset-tonal">
-			<button
-				onclick={run((s) => computeWrapBlock(s, '\\begin{quote}\n', '\n\\end{quote}'))}
-				class="flex items-center p-1"
-				aria-label={m.srctoolbar_quote_block_aria()}
-				title={m.srctoolbar_quote_title()}
-			>
-				<Quote class="h-4.5 w-4.5" />
-			</button>
-		</li>
-		<li class="toolbarButton hover:preset-tonal">
-			<button
-				onclick={run((s) => computeWrapBlock(s, '\\begin{verbatim}\n', '\n\\end{verbatim}'))}
-				class="flex items-center p-1"
-				aria-label={m.srctoolbar_verbatim_block_aria()}
-				title={m.srctoolbar_verbatim_title()}
-			>
-				<Code class="h-4.5 w-4.5" />
-			</button>
-		</li>
-		<li class="toolbarButton hover:preset-tonal">
-			<button
-				onclick={run((s) => computeWrapBlock(s, '\\(', '\\)'))}
-				class="flex items-center p-1"
-				aria-label={m.srctoolbar_inline_math_aria()}
-				title={m.srctoolbar_inline_math_title()}
-			>
-				<Sigma class="h-4.5 w-4.5" />
-			</button>
-		</li>
-	</ul>
-
-	<ul class="flex items-center gap-1 sm:gap-1.5">
-		<li><SourceTableDropdown /></li>
-		<li><SourceMathDropdown /></li>
-	</ul>
+	<ToolbarOverflow
+		gapClass="gap-1 sm:gap-1.5"
+		menuLabel={m.toolbar_more_actions_aria()}
+		items={[
+			{ id: 'format', pinned: true, render: st_format },
+			{ id: 'headings', render: st_headings },
+			{ id: 'blocks', render: st_blocks },
+			{ id: 'inserts', render: st_inserts }
+		]}
+	/>
 </div>
 
 <style lang="postcss">

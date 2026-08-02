@@ -42,9 +42,10 @@ export class TerminalDockState {
 		if (this.available && settings.terminalVisible) {
 			this.mounted = true;
 			this.visible = true;
-			// the dock was open with a shell when the window closed, so put one back. Deferred a tick
-			// because `dock` is only bound once BottomDock has mounted.
-			setTimeout(() => this.dock?.ensureTerminal(), 0);
+			// No shell here. terminalVisible is set by anything that REVEALS the dock - a compile
+			// showing its output, a jump to Problems - so spawning one on restore handed every
+			// reopened workspace a Terminal 1 the user never asked for, sitting next to the Compile
+			// shell that does the actual work. The empty pane offers one instead.
 		}
 		if (browser && localStorage.getItem(SHRINK_KEY) === '1') this.shrink = true;
 	}

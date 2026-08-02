@@ -20,8 +20,12 @@
 	import VisualLoading from './VisualLoading.svelte';
 	import type { BibLaTeXReference } from '$lib/workspace/citations';
 	import type { Starter, ImportedFile } from '$lib/workspace/starters';
+	import { get } from 'svelte/store';
 	import { basename, dirname } from '$lib/workspace/fileSystem';
 	import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
+	import { editorViewStore } from '$lib/stores/editorStore';
+	import { restoreVisualPosition } from '$lib/workspace/visualPositions';
+	import { bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
 	import TabBar from './TabBar.svelte';
 	import { m } from '$lib/paraglide/messages';
 
@@ -147,16 +151,25 @@
 
 	/** the visual editor is wanted, whether or not it has been built yet */
 	const visualPending = $derived(loadedPath && kind === 'tex' && viewMode === 'visual');
+
+	/** ProseMirror is built: put the caret back where this file was left. A one-shot callback rather
+	 *  than an effect, so it cannot re-enter - the editor is built exactly once per file. */
+	function onVisualReady(): void {
+		readyFor = loadedPath;
+		const v = get(editorViewStore);
+		if (!v || !loadedPath || session.collabFor(loadedPath)) return;
+		restoreVisualPosition(v, loadedPath, texSource, docMeta ? bodyOffsetOf(docMeta) : 0);
+	}
 </script>
 
 <div class="flex min-h-0 min-w-0 flex-col" style="grid-column: 1; grid-row: 2">
 	<TabBar tabs={openTabs} activePath={loadedPath} dirty={$isDirty && !session.isGuest} onActivate={onActivateTab} onClose={onCloseTab} />
 	{#if visualDoc && loadedPath && kind === 'tex' && viewMode === 'visual'}
-		<div class="border-surface-200-800 toolbar-hscroll flex min-h-10 items-center overflow-x-auto border-b px-2">
+		<div class="border-surface-200-800 @container relative z-20 flex min-h-10 items-center overflow-hidden border-b px-2">
 			<Toolbar minimal />
 		</div>
 	{:else if loadedPath && kind === 'tex' && viewMode === 'source'}
-		<div class="border-surface-200-800 toolbar-hscroll flex min-h-10 items-center overflow-x-auto border-b px-2">
+		<div class="border-surface-200-800 @container relative z-20 flex min-h-10 items-center overflow-hidden border-b px-2">
 			<SourceToolbar />
 		</div>
 	{/if}
@@ -204,6 +217,7 @@
 			{:else if loadedPath && kind === 'tex' && viewMode === 'source'}
 				{#key sourceKey}
 					<SourceEditor
+						docPath={loadedPath}
 						value={texSource}
 						onInput={onTexInput}
 						gotoLine={sourceGotoLine}
@@ -220,7 +234,8 @@
 				{#key loadedPath}
 					<!-- texpile-main-editor scopes the editor's right-click context menu (ContextMenu.svelte) -->
 					<!-- px-12 reserves room for the block-handle gutters (~48px left / ~30px right); on narrow
-				     windows the mx-auto centering margin collapses and this padding keeps them from clipping -->
+				     windows the mx-auto centering margin collapses and this padding keeps them from clipping.
+				     The \noindent marker has to fit this 48px too, which is why it is abbreviated (app.css) -->
 					<div class="px-12 py-8">
 						<div class="texpile-main-editor mx-auto w-full max-w-3xl min-w-0">
 							{#if docMeta?.hadDocumentEnv}
@@ -234,7 +249,7 @@
 								onSelectionChange={onVisualSelection}
 								placeholder={m.wsview_editor_placeholder()}
 								{onHistoryBoundary}
-								onReady={() => (readyFor = loadedPath)}
+								onReady={onVisualReady}
 							/>
 							{#if showRenderBar}
 								<!-- EditorView keeps its own root hidden until ProseMirror exists, so this sits in the
@@ -254,6 +269,7 @@
 				     CRDT-bound and would desync or clobber remote edits -->
 				{#key sourceKey}
 					<SourceEditor
+						docPath={loadedPath}
 						value={rawContent}
 						onInput={onRawInput}
 						filename={loadedPath}
@@ -268,6 +284,7 @@
 			{:else if loadedPath && kind === 'text'}
 				{#key sourceKey}
 					<SourceEditor
+						docPath={loadedPath}
 						value={rawContent}
 						onInput={onRawInput}
 						filename={loadedPath}

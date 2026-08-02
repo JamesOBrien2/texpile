@@ -15,9 +15,9 @@
 
 /** renders a single PDF page (canvas + text layer + annotation layer); derivative work based on PDF.js pdf_page_view.js. */
 import type { PDFPageProxy, PageViewport, TextLayer } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { EventBus } from './EventBus.js';
-import { AnnotationLayerBuilder } from './AnnotationLayerBuilder.js';
-import type { SimpleLinkService } from './SimpleLinkService.js';
+import type { EventBus } from './EventBus';
+import { AnnotationLayerBuilder } from './AnnotationLayerBuilder';
+import type { SimpleLinkService } from './SimpleLinkService';
 
 let setLayerDimensions: typeof import('pdfjs-dist/legacy/build/pdf.mjs').setLayerDimensions;
 

@@ -156,7 +156,6 @@
 					<LocateFixed class="size-4" />
 				</button>
 			{/if}
-			<!-- Compile / Stop with an attached options caret (Overleaf-style) -->
 			<div class="relative flex items-center">
 				{#if compiling}
 					<button

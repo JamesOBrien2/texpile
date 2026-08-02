@@ -46,7 +46,7 @@
 	import { createTocPlugin } from './extensions/tableofcontents/tocPlugin';
 	import { createPersistentSelectionPlugin } from './extensions/persistentSelection/persistentSelectionPlugin';
 	import { createSuggestPlugin } from './extensions/suggest/suggestPlugin';
-	import { proofreadPlugin } from './extensions/spellcheck/spellcheckplugin';
+	import { proofreadPlugin, spellClickBoundaryPlugin } from './extensions/spellcheck/spellcheckplugin';
 	import { createTemplateEditorSettings, createLocalImageSettings } from './extensions/image/imageplugin.svelte';
 	import { createWordCountPlugin } from './extensions/wordcount/wordCountPlugin';
 	import { emDashRule, enDashRule, emDashUpgradeRule } from './extensions/inputrules/dashRules';
@@ -181,6 +181,7 @@
 			createRefUpdatePlugin(),
 			createTocPlugin(),
 			createPersistentSelectionPlugin(),
+			spellClickBoundaryPlugin, // must precede proofreadPlugin; see its comment
 			proofreadPlugin,
 			createTrailingParagraphPlugin(),
 			createBoundaryClickPlugin(),
@@ -234,6 +235,13 @@
 			},
 			editable: () => true,
 			dispatchTransaction(transaction) {
+				// A plugin that finishes asynchronously can dispatch into a view that was destroyed while
+				// it was working - the spellchecker does exactly this when a tab switch tears the editor
+				// down mid-check. destroy() nulls docView, and updateState then throws reading
+				// docView.matchesNode, which surfaces as an unhandled rejection on every switch.
+				// Dropping is right: only async plugins can reach here after destroy (user input needs a
+				// live view), and what they carry is decorations for a document nobody is looking at.
+				if (this.isDestroyed) return;
 				const newState = this.state.apply(transaction);
 				this.updateState(newState);
 

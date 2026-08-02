@@ -1,6 +1,6 @@
 {
 	"name": "texpile-desktop",
-	"version": "0.16.0",
+	"version": "0.16.1",
 	"private": true,
 	"description": "Texpile",
 	"author": {
@@ -14,7 +14,7 @@
 		"set-version": "node scripts/set-version.mjs",
 		"preinstall": "npx only-allow pnpm",
 		"postinstall": "pnpm -r --if-present sync",
-		"app:build": "pnpm --filter=svelte-pdf-view run package && pnpm --filter=texpile-editor run build && pnpm electron:build:prod",
+		"app:build": "pnpm --filter=texpile-editor run build && pnpm electron:build:prod",
 		"electron": "pnpm electron:build && electron .",
 		"electron:build": "tsc -p electron --noEmit && node scripts/build-electron.mjs --dev",
 		"_comment:electron:dev": "--host/--strictPort keep vite on the IPv4 address wait-on polls; without them it binds ::1 or drifts to 5174 and this hangs for ever.",

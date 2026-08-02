@@ -1,7 +1,5 @@
 // gzip helpers for collab frames. Large sync/state frames (seeding a big .tex, or the full-doc
 // reply a guest gets on join) would otherwise blow the relay's per-message cap; LaTeX source
-// compresses ~4x, so gzipping BEFORE seal keeps them under it. CompressionStream is a web standard
-// present in Electron/Chromium and Node >= 18, so this runs in the app and headless in tests alike.
 
 async function run(bytes: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
 	const writer = stream.writable.getWriter();

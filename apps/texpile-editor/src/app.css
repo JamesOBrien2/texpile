@@ -29,6 +29,14 @@ html[data-mode='dark'] body {
 	color: var(--color-surface-50);
 }
 
+/* focus ring around a focused mathfield (mlview sets it inline, so it has to be a var) */
+html {
+	--mathfield-focus-border: var(--color-surface-950);
+}
+html[data-mode='dark'] {
+	--mathfield-focus-border: var(--color-surface-400);
+}
+
 /* the theme's error reds are tuned for white backgrounds and lose contrast as text on dark;
    lift the text-relevant steps while preserving the scale's ordering */
 html[data-mode='dark'] {
@@ -192,8 +200,15 @@ html[data-mode='dark'] {
 	background: var(--color-surface-800);
 }
 
-/* first-line indent from the Tab toggle (data-indent). 'noindent' renders flush like 'auto',
-   so it gets a \noindent label in the left margin to tell the two apart. */
+/* first-line indent from the Tab toggle (data-indent). 'noindent' renders flush like 'auto', so it
+   gets a label in the left margin to tell the two apart. The block handle shares that margin, so it
+   drops a line for these paragraphs (see block-handle-plugin).
+
+   Abbreviated, and small, because the margin is 48px (EditorPane's px-12) and that is a hard
+   ceiling: on a narrow window the mx-auto centering collapses and there is nothing else. Spelt in
+   full at 0.8em the label wanted ~70px and got cut from the LEFT, so \noindent rendered as
+   "indent" - the one thing it must never say. max-width pins the failure direction: if it ever
+   doesn't fit, the tail goes, not the head. */
 .ProseMirror p[data-indent='indent'] {
 	text-indent: 1.5em;
 }
@@ -201,14 +216,16 @@ html[data-mode='dark'] {
 	position: relative;
 }
 .ProseMirror p[data-indent='noindent']::before {
-	content: '\\noindent';
+	content: '\\noind';
 	position: absolute;
 	top: 0;
 	right: 100%;
-	margin-right: 0.5em;
+	margin-right: 0.4em;
+	max-width: 2.6rem;
+	overflow: hidden;
 	color: var(--color-surface-400);
 	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-	font-size: 0.8em;
+	font-size: 0.7em;
 	white-space: nowrap;
 	user-select: none;
 	pointer-events: none;
@@ -293,21 +310,13 @@ html[data-mode='dark'] {
 }
 /* thin always-present scrollbar on the toolbar: the macOS overlay scrollbar hides until you
    scroll, which made off-screen toolbar icons look simply missing */
+/* Chrome bars scroll by wheel and trackpad, but never show a bar. A horizontal scrollbar inside a
+   fixed-height strip has to take its space from somewhere: the toolbar's content is min-h-9 in a
+   min-h-10 bar, so the 6px it used to claim did not fit and grew the whole bar by 2px, shoving the
+   editor down. The PDF toolbar has shorter controls, absorbed the same 6px in its own slack, and
+   did not move - which is the entire reason the two looked inconsistent. */
 .toolbar-hscroll {
-	scrollbar-width: thin;
-}
-.toolbar-hscroll::-webkit-scrollbar {
-	height: 6px;
-}
-.toolbar-hscroll::-webkit-scrollbar-track {
-	background: transparent;
-}
-.toolbar-hscroll::-webkit-scrollbar-thumb {
-	background-color: var(--color-surface-300);
-	border-radius: 3px;
-}
-[data-mode='dark'] .toolbar-hscroll::-webkit-scrollbar-thumb {
-	background-color: var(--color-surface-600);
+	scrollbar-width: none;
 }
 
 @theme {

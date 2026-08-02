@@ -2,7 +2,7 @@
 	// must live inside <PdfViewer> to read the viewer context; hands the actions proxy
 	// back to the parent so the app can drive SyncTeX forward search
 	import { onMount } from 'svelte';
-	import { getPdfViewerContext, type PdfViewerActions } from 'svelte-pdf-view';
+	import { getPdfViewerContext, type PdfViewerActions } from '$lib/pdf-view';
 
 	let { onActions }: { onActions: (a: PdfViewerActions) => void } = $props();
 	const ctx = getPdfViewerContext();

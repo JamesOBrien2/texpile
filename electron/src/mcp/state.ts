@@ -23,6 +23,9 @@ export interface WindowState {
 	tabs: TabState[];
 	cursor: { line: number; column: number } | null;
 	selection: { text: string } | null;
+	/** live preview rather than the shell compile: compile only nudges an engine already running,
+	 *  the PDF is _draft/draft.pdf, and diagnostics come from that engine's own log */
+	livePreview: boolean;
 	/** when the renderer last pushed; exposed so a stale window is visible rather than silently old */
 	updatedAt: number;
 }
@@ -51,6 +54,7 @@ const EMPTY: WindowState = {
 	tabs: [],
 	cursor: null,
 	selection: null,
+	livePreview: false,
 	updatedAt: 0
 };
 

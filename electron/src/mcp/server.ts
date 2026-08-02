@@ -91,8 +91,35 @@ function originOk(req: IncomingMessage): boolean {
 	return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(origin);
 }
 
+/**
+ * Sent at initialize and injected into the client's context, so it is read once per session and
+ * costs tokens every time - it holds only what changes what a caller DOES, not what Texpile is.
+ * Everything here is something an agent gets wrong by default: writing over a buffer the user has
+ * edited, quoting a line number at a window that is not showing lines, or treating a view change as
+ * free when the user is sitting in front of it.
+ */
+const INSTRUCTIONS = [
+	'Texpile is a local, offline LaTeX editor. It opens a FOLDER of .tex files, and the file on disk IS the document:',
+	'no database, no document ids, and saving writes the .tex back in place.',
+	'',
+	'Nothing on this server writes a document, deliberately. Your own file tools are better at that. What this gives',
+	'you instead is the state of the editor the user is actually looking at, and the ability to steer it.',
+	'',
+	'Before you read a .tex from disk, check get_editor_state. A tab marked dirty means the editor holds newer content',
+	'than the file, and get_unsaved returns it; writing over a dirty file raises a conflict prompt at the user rather',
+	'than applying cleanly.',
+	'',
+	'Line numbers only mean anything in Source view. In Visual view the caret is a ProseMirror position that does not',
+	'map to a line, and get_editor_state honestly reports null rather than guessing.',
+	'',
+	'The window belongs to the user. open_file, set_view_mode and show_diff all change what is on their screen, so',
+	'use them when you have something worth showing, not to mirror your own progress.',
+	'',
+	'If a compile fails because the wrong file is main, or none is set, set_main_file fixes it and you can retry.'
+].join('\n');
+
 function buildServer(): McpServer {
-	const server = new McpServer({ name: 'texpile', version: '1' }, { capabilities: { tools: {} } });
+	const server = new McpServer({ name: 'texpile', version: '1' }, { capabilities: { tools: {} }, instructions: INSTRUCTIONS });
 
 	server.registerTool(
 		'get_editor_state',
@@ -102,7 +129,10 @@ function buildServer(): McpServer {
 				'What Texpile is showing right now: every open workspace window, its tabs and which have ' +
 				'unsaved changes, the active file, view mode, caret and selection. Use this to work on what ' +
 				'the user is actually looking at. Prefer the workspace whose root matches your working ' +
-				'directory over the focused one, since focus changes when the user clicks another window.',
+				'directory over the focused one, since focus changes when the user clicks another window. ' +
+				'Note livePreview: when true the user is not running their compile command at all, so ' +
+				'compile only nudges an engine already going, the PDF is _draft/draft.pdf rather than the ' +
+				'one their command would produce, and diagnostics come from that engine.',
 			inputSchema: {}
 		},
 		async () => {
@@ -151,9 +181,17 @@ function buildServer(): McpServer {
 		{
 			title: 'Get compile errors and warnings',
 			description:
-				'Errors and warnings parsed from the last compile, with file and line. Reflects the last ' +
-				'compile the user ran - it does not compile anything, so if they have edited since, this is ' +
-				'stale. Empty before the first compile of the session.',
+				'Errors and warnings parsed from a compile, with file and line. It compiles nothing itself, ' +
+				'so ALWAYS check which run you are being handed: compiling:true means a compile is in ' +
+				'flight and everything here predates it, and logWrittenAt says when the .log this came from ' +
+				'was written. endSignal says how the end of a run is detected: shell-exit is trustworthy, ' +
+				'while log-quiet is inferred from the log going still and can flip compiling to false ' +
+				'during a long between-pass pause - if you see log-quiet, confirm logWrittenAt has stopped ' +
+				'moving across two polls a few seconds apart before treating the numbers as final. ' +
+				'Reading straight after calling compile, without checking those, gets you the ' +
+				'PREVIOUS run - errors rarely differ between two runs so it looks right, while status.pages ' +
+				'quietly describes the document you had before. In live-preview mode (live:true) no shell ' +
+				'compile runs at all, so this can be whatever .log was left in the folder, however old.',
 			inputSchema: { root: z.string().optional().describe('workspace root; defaults to the focused window') }
 		},
 		async ({ root }) => {
@@ -264,15 +302,44 @@ function buildServer(): McpServer {
 	);
 
 	server.registerTool(
+		'set_main_file',
+		{
+			title: 'Set the project main file',
+			description:
+				'Point the project at the .tex file that gets compiled - the one with \\documentclass and ' +
+				'\\begin{document}. This is also the root of the macro scan, so it decides which command ' +
+				'definitions the editor knows about across the project. get_editor_state reports the current ' +
+				'one. Omit path to clear it. Setting the file that is already main is a no-op, not a toggle. ' +
+				'Reach for this when compile fails because the wrong file is main, or none is set.',
+			inputSchema: {
+				path: z.string().optional().describe('workspace-relative .tex path; omit to clear'),
+				root: z.string().optional().describe('workspace root; defaults to the focused window')
+			}
+		},
+		async ({ path: p, root }) => {
+			const t = target(root);
+			if (!t) return fail('no matching Texpile window');
+			// a request, not a command: a path outside the workspace or one that is not a .tex is refused,
+			// and a caller told it succeeded would compile the wrong thing and never learn why
+			const r = (await request(t.win, 'main_file', { path: p })) as { ok?: boolean; reason?: string } | null;
+			if (r === null) return fail('the editor did not respond in time');
+			if (!r.ok) return fail(r.reason ?? 'the editor refused to set the main file');
+			return ok(r);
+		}
+	);
+
+	server.registerTool(
 		'compile',
 		{
 			title: 'Compile the document',
 			description:
 				"Run the project's configured compile, exactly as the toolbar button does. Returns as soon as " +
-				'it starts, since a compile takes seconds to minutes. The reply says which mode it ran in ' +
-				'and what to do next: in terminal mode poll get_diagnostics once it finishes, while in live ' +
-				'mode the preview is already recompiling incrementally and this only nudges it. Runs in its ' +
-				'own terminal either way and does not take over whatever shell the user is in.',
+				'it starts, since a compile takes seconds to minutes - so the reply is NOT a result. To get ' +
+				'the result, poll get_diagnostics until compiling is false; that same reply then already ' +
+				'contains the results of this run (diagnostics are published before the run is marked ' +
+				'finished, and that holds even when latexmk found the build up to date and re-ran nothing). ' +
+				'In live mode the preview is already recompiling incrementally and this only nudges it. Runs ' +
+				'in its own terminal either way and does not take over whatever shell the user is in.',
 			// No engine and no flags, deliberately. The compile runs with -no-shell-escape, which is the
 			// only thing standing between "compile a .tex file" and arbitrary code execution; a flags
 			// passthrough would hand that to anything able to write a .tex file, including the caller.

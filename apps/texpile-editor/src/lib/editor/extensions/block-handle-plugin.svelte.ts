@@ -11,6 +11,11 @@ export const blockHandlePluginKey = new PluginKey('block-handle');
 const GUTTER_OFFSET_LEFT = 48;
 const GUTTER_OFFSET_RIGHT = 8;
 
+// a \noindent paragraph prints its own label in this same left margin, at the block's top edge
+// (app.css). Drop the gutter clear of it rather than have the two draw over each other.
+const NOINDENT_LABEL_DROP = 22;
+const dropsForLabel = (dom: HTMLElement) => dom.tagName === 'P' && dom.dataset.indent === 'noindent';
+
 // skipped when resolving the hovered block: dragging a row/cell out would tear the schema,
 // so hovering inside a cell surfaces the outer table_wrapper instead
 const SKIP_NODE_TYPES = new Set(['table_row', 'table_cell', 'table_header']);
@@ -100,7 +105,7 @@ class BlockHandleView {
 		const containerRect = this.view.dom.getBoundingClientRect();
 		this.cancelHide();
 		this.state.visible = true;
-		this.state.top = rect.top;
+		this.state.top = rect.top + (dropsForLabel(dom) ? NOINDENT_LABEL_DROP : 0);
 		this.state.left = containerRect.left - GUTTER_OFFSET_LEFT;
 		this.state.right = containerRect.right + GUTTER_OFFSET_RIGHT;
 	}

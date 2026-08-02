@@ -17,7 +17,7 @@
 	import { parseRecords, pageIsRtl } from './pageRecords';
 	import { sfntFromTtc } from './ttc';
 	import { parseT1, type T1Font } from './type1/t1font';
-	import { getPdfDocument } from 'svelte-pdf-view';
+	import { getPdfDocument } from '$lib/pdf-view';
 	import { native, fileUrl } from '$lib/workspace/fileSystem';
 	import type { DraftPage } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';

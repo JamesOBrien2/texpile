@@ -9,7 +9,7 @@
 		rectangularSelection,
 		crosshairCursor
 	} from '@codemirror/view';
-	import { EditorState, Compartment, Transaction } from '@codemirror/state';
+	import { EditorState, Compartment, Text, Transaction } from '@codemirror/state';
 	import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 	import { bracketMatching, indentOnInput, LanguageDescription } from '@codemirror/language';
 	import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
@@ -30,6 +30,7 @@
 	import { caretDoctor, logDocReplace } from '$lib/debug/caretDoctor';
 	import { setSourceDocCount, setSourceSelectionCount } from '$lib/stores/countStore.svelte';
 	import { trailingDebounce } from '$lib/trailingDebounce';
+	import { docPositions, resolvePosition } from '$lib/workspace/docPositions';
 	import { m } from '$lib/paraglide/messages';
 	import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 	import * as Y from 'yjs';
@@ -66,6 +67,7 @@
 		value = '',
 		onInput,
 		filename = '',
+		docPath = null,
 		gotoLine,
 		onSyncToPdf,
 		initialScrollPos = null,
@@ -78,6 +80,8 @@
 		value?: string;
 		onInput?: (v: string) => void;
 		filename?: string;
+		/** absolute path, for remembering this file's caret across tab switches */
+		docPath?: string | null;
 		gotoLine?: { line: number; token: number; selectText?: string };
 		onSyncToPdf?: (line: number) => void;
 		initialScrollPos?: { scroll: number | null; cursor: number | null } | null;
@@ -191,6 +195,42 @@
 	// round-tripped edits skip the second full doc.toString() per keystroke
 	let lastEmitted: string | null = null;
 	const deferredDocCount = trailingDebounce(300, setSourceDocCount);
+
+	// The viewport, cached as it moves. Measuring it needs a laid-out DOM, and onDestroy - which is
+	// the tab switch, and the one moment we MUST have a value - can run once the element is already
+	// detached, where getBoundingClientRect reads all zeros and every line resolves to line 1. That
+	// is why the caret used to come back correctly while the scroll always snapped to the top.
+	let lastVisibleLine = 1;
+	let lastVisibleOffset = 0;
+	function captureVisibleLine(): void {
+		if (!view) return;
+		const rect = view.scrollDOM.getBoundingClientRect();
+		if (rect.height === 0) return; // detached or hidden: the last good value stands
+		const topH = rect.top - view.documentTop; // viewport top, in document height coordinates
+		const block = view.lineBlockAtHeight(topH);
+		lastVisibleLine = view.state.doc.lineAt(Math.min(block.from, view.state.doc.length)).number;
+		// how far INTO that line the viewport starts, which is what makes the restore exact rather
+		// than snapped to a line boundary
+		lastVisibleOffset = Math.max(0, Math.round(topH - block.top));
+	}
+
+	/** Snapshot the caret and first visible line for docPositions. Line/column rather than an
+	 *  offset: this file can change on disk between sessions, and a line survives that far better.
+	 *  Collab is excluded - the Y.Text is the document and positions there are not ours to assert. */
+	function rememberPosition(): void {
+		if (!view || !docPath || collab) return;
+		captureVisibleLine();
+		const head = view.state.selection.main.head;
+		const line = view.state.doc.lineAt(head);
+		docPositions.set(docPath, {
+			row: line.number - 1,
+			column: head - line.from,
+			firstVisibleLine: lastVisibleLine,
+			offset: lastVisibleOffset
+		});
+	}
+	// throttle-ish: scrolling and arrow keys fire constantly, and only the resting place matters
+	const deferredRememberPosition = trailingDebounce<void>(400, rememberPosition);
 	// reads the selection at fire time (not capture), so a huge selection isn't sliced per keystroke
 	const deferredSelectionCount = trailingDebounce<void>(150, () => {
 		if (!view) return;
@@ -205,10 +245,21 @@
 		// collab mode: the Y.Text is the document, CRDT undo replaces CM history (plain CM undo
 		// would revert other people's edits)
 		undoManager = collab ? new Y.UndoManager(collab.ytext) : null;
+		const initialDoc = collab ? collab.ytext.toString() : value;
+		// Where this file was left. Folded into EditorState.create rather than dispatched after
+		// mount, so the first paint is already in the right place instead of jumping to it.
+		// A mode-switch anchor outranks it (that block below runs on mount), and an explicit
+		// gotoLine outranks both (its own effect fires later still).
+		const saved = !collab && !initialScrollPos && docPath ? docPositions.get(docPath) : null;
+		// Text.of, not a throwaway EditorState: resolvePosition only needs line lookup, and building a
+		// second full state to get it would parse the whole paper twice on every file open.
+		const restored = saved ? resolvePosition(saved, Text.of(initialDoc.split('\n'))) : null;
 		view = new EditorView({
 			parent: host,
+			...(restored ? { scrollTo: EditorView.scrollIntoView(restored.scroll, { y: 'start', yMargin: 0 }) } : {}),
 			state: EditorState.create({
-				doc: collab ? collab.ytext.toString() : value,
+				doc: initialDoc,
+				...(restored ? { selection: { anchor: restored.cursor } } : {}),
 				extensions: [
 					// gutters render in extension order: lint goes before lineNumbers so it lands on their left
 					...(!filename || /\.tex$/i.test(filename) ? [lintGutter({ hoverTime: 0 })] : []),
@@ -260,6 +311,8 @@
 					// opt-in diagnostic for "the caret moved and I didn't move it"; see caretDoctor
 					caretDoctor(),
 					EditorView.contentAttributes.of({ spellcheck: 'false', 'data-gramm': 'false', 'data-enable-grammarly': 'false' }),
+					// scrolling produces no ViewUpdate at all, so the update listener below never sees it
+					EditorView.domEventHandlers({ scroll: () => deferredRememberPosition() }),
 					EditorView.updateListener.of((u) => {
 						if (u.docChanged) {
 							const text = docText(u.state.doc);
@@ -270,11 +323,24 @@
 							deferredDocCount(text); // word/char count is display-only, off the keystroke path
 						}
 						if (u.docChanged || u.selectionSet) deferredSelectionCount();
+						if (u.selectionSet || u.docChanged || u.geometryChanged) deferredRememberPosition();
 					})
 				]
 			})
 		});
 		view.focus();
+		// scrollTo above lands the saved line at the viewport top; this adds the remembered fraction of
+		// that line back so the restore is exact rather than snapped to a line boundary. Deferred by a
+		// frame because the line's height is only known once CM has measured it, and clamped to that
+		// height so a rewrapped (narrower) line cannot overshoot into the next one.
+		if (restored && saved?.offset) {
+			const px = saved.offset;
+			requestAnimationFrame(() => {
+				if (!view) return;
+				const block = view.lineBlockAt(restored.scroll);
+				view.scrollDOM.scrollTop += Math.min(px, Math.max(0, block.height - 1));
+			});
+		}
 		unbindKeymap = bindModalKeymap(view, keymapConf);
 		// collab mount: the Y.Text may be ahead of the caller's value (guest edits landed while
 		// the file was closed) — hand the truth back so the save pipeline starts aligned
@@ -438,15 +504,26 @@
 		const pos = doc.line(line).from;
 		return { from: pos, to: pos };
 	}
+	// The token is what says "this is a NEW jump", and it has to be checked, not just carried. This
+	// effect re-runs on far more than gotoLine changing: the prop travels down through inline object
+	// literals (WorkspaceView's panes={{...}}), so reading it re-reads every other field in them -
+	// diagnostics, the reference list, the tab list. Without this guard a save, a compile or a
+	// citation rescan re-applied the last jump, yanking the caret away with the amber flash.
+	let lastGotoToken: number | null = null;
 	$effect(() => {
 		const req = gotoLine;
 		if (!req || !view) return;
+		if (req.token === lastGotoToken) return;
+		lastGotoToken = req.token;
 		const { from, to } = resolveTarget(view.state.doc, req);
 		view.dispatch({ selection: { anchor: from, head: to }, scrollIntoView: true, effects: flashLineEffect.of(from) });
 		view.focus();
 	});
 
 	onDestroy(() => {
+		// this teardown IS the tab switch: last chance to record where the user was, and the
+		// debounce below is about to be cancelled, so take the snapshot synchronously first
+		rememberPosition();
 		sourceCmView.set(null);
 		unbindKeymap?.();
 		unbindKeymap = null;
@@ -461,6 +538,7 @@
 		// stale timers must not write the NEXT file's counts into the shared store
 		deferredDocCount.cancel();
 		deferredSelectionCount.cancel();
+		deferredRememberPosition.cancel();
 	});
 </script>
 

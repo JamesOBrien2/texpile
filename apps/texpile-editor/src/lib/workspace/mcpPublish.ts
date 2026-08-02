@@ -2,11 +2,13 @@
 // tool. Push, not pull: main caches the last payload, so a tool call answers instantly even while
 // this renderer is blocked building a large ProseMirror document.
 //
-// Called from a $effect in WorkspaceView. The reactive reads happen inside this function, which is
-// invoked synchronously from that effect, so Svelte tracks them and a change here re-publishes.
+// Called from a $effect in WorkspaceView. Every store below is read with get(), which does NOT
+// register a dependency - so that effect names them itself. Adding a store-backed field here means
+// adding it there too, or the cache silently stops reflecting it.
 import { get } from 'svelte/store';
 import { browser } from '$lib/runtime';
 import { workspaceRoot, mainFile, activeFilePath, isDirty } from './workspaceStore';
+import { settings } from '$lib/settings';
 import { tabs } from './tabs.svelte';
 import { sourceCmView } from '$lib/stores/editorStore';
 import { relativeTo } from './fileSystem';
@@ -26,6 +28,9 @@ export interface WindowStatePayload {
 	tabs: TabPayload[];
 	cursor: { line: number; column: number } | null;
 	selection: { text: string } | null;
+	/** live preview instead of the shell compile. Changes what compile does, which PDF exists, and
+	 *  where diagnostics come from, so it belongs in the state an agent reads BEFORE any of that. */
+	livePreview: boolean;
 }
 
 interface NativeMcp {
@@ -79,6 +84,7 @@ export function buildWindowState(viewMode: ViewMode | null): WindowStatePayload 
 			dirty: dirty && !!active && p === active,
 			active: !!active && p === active
 		})),
+		livePreview: get(settings).draftMode === true,
 		...readCursorAndSelection(viewMode)
 	};
 }

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { BROWSER } from 'esm-env';
 	import { onDestroy, onMount } from 'svelte';
-	import { getPdfViewerContext, type PdfViewerActions, type PdfSource } from './pdf-viewer/context.js';
-	import { getPdfJs, getPdfDocument } from './pdf-viewer/pdfjs-singleton.js';
-	import { PdfPresentationMode } from './pdf-viewer/PdfPresentationMode.js';
-	import { rendererStyles } from './pdf-viewer/renderer-styles.js';
+	import { getPdfViewerContext, type PdfViewerActions, type PdfSource } from './pdf-viewer/context';
+	import { getPdfJs, getPdfDocument } from './pdf-viewer/pdfjs-singleton';
+	import { PdfPresentationMode } from './pdf-viewer/PdfPresentationMode';
+	import { rendererStyles } from './pdf-viewer/renderer-styles';
 
 	interface Props {
 		/** PDF source; falls back to the src from PdfViewer context. */
@@ -48,8 +48,8 @@
 	let scrollContainerEl: HTMLDivElement | null = null;
 	let mounted = $state(false);
 
-	let viewer: import('./pdf-viewer/PDFViewerCore.js').PDFViewerCore | null = null;
-	let findController: import('./pdf-viewer/FindController.js').FindController | null = null;
+	let viewer: import('./pdf-viewer/PDFViewerCore').PDFViewerCore | null = null;
+	let findController: import('./pdf-viewer/FindController').FindController | null = null;
 	// the document loaded into `viewer`; when the next load carries the same key it's a reload of
 	// the same file (a recompile) and we keep the scroll position instead of jumping to the top
 	let loadedKey: string | number | undefined;
@@ -120,9 +120,9 @@
 			if (!(await getPdfJs())) return;
 
 			if (!viewer) {
-				const { PDFViewerCore } = await import('./pdf-viewer/PDFViewerCore.js');
-				const { FindController } = await import('./pdf-viewer/FindController.js');
-				const { EventBus } = await import('./pdf-viewer/EventBus.js');
+				const { PDFViewerCore } = await import('./pdf-viewer/PDFViewerCore');
+				const { FindController } = await import('./pdf-viewer/FindController');
+				const { EventBus } = await import('./pdf-viewer/EventBus');
 
 				const eventBus = new EventBus();
 

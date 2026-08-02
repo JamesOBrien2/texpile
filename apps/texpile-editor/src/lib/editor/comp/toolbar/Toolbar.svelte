@@ -22,8 +22,8 @@
 	import { isReadOnly } from '$lib/stores/permissionStore';
 	import { onMount } from 'svelte';
 	import MobileActionBar from './MobileActionBar.svelte';
+	import ToolbarOverflow from './ToolbarOverflow.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import 'swiper/css';
 
 	interface Props {
 		// hides the Preview/Compile buttons
@@ -42,9 +42,23 @@
 	let currentHeadingLevel = $state(0);
 	let currentHeadingNumbered = $state(true);
 
+	// Whether a mathfield is focused - which decides whether MathToolbar exists at all.
+	//
+	// Focus landing on the math toolbar's own palette does NOT mean the user left their equation.
+	// Treating it as such unmounted the toolbar between mousedown and click on a symbol button: the
+	// button was gone before the click could dispatch, so nothing inserted and nothing reported it,
+	// because the handler never ran. Repro was two symbols in a row - the second one vanished.
 	function updateMathfieldState() {
 		setTimeout(() => {
-			isMathfieldActive = document.activeElement instanceof window.MathfieldElement;
+			const active = document.activeElement;
+			if (active instanceof window.MathfieldElement) {
+				isMathfieldActive = true;
+				return;
+			}
+			// our own palette (portalled, hence [data-scope]) or anything inside this toolbar: the user
+			// is still working on the equation, so hold the previous answer rather than tearing down
+			if (active instanceof Element && active.closest('[data-scope], [data-math-toolbar]')) return;
+			isMathfieldActive = false;
 		}, 0);
 	}
 
@@ -149,143 +163,172 @@
 	}
 </script>
 
-<div class="flex items-center gap-4 sm:gap-6" data-keep-caret role="presentation" onmousedown={preventEditorFocusLoss}>
-	<div class="swiper toolbarSwiper flex-shrink-0">
-		<div class="swiper-wrapper">
-			<div class="swiper-slide !w-auto">
-				<!-- item gaps and divider padding use the same step per breakpoint, so the border sits centered in its gap -->
-				<div class="text-surface-800-200 flex min-h-9 items-center gap-2.5 sm:gap-4 xl:w-auto 2xl:gap-6">
-					<ul class="border-surface-300-700 flex items-center gap-2.5 border-r pr-2.5 sm:gap-4 sm:pr-4 2xl:gap-6 2xl:pr-6">
-						<li class="toolbarButton hover:preset-tonal">
-							<button
-								onclick={() => {
-									displaySearchBarStore.set(!$displaySearchBarStore);
-								}}
-								class="flex items-center p-1"
-							>
-								<Search class="h-5 w-5" />
-							</button>
-						</li>
-					</ul>
+<div class="flex min-w-0 flex-1 items-center gap-3 sm:gap-4" data-keep-caret role="presentation" onmousedown={preventEditorFocusLoss}>
+	<div class="flex min-w-0 flex-1 items-center">
+		<!-- item gaps and divider padding use the same step per breakpoint, so the border sits centered in its gap -->
+		<div class="text-surface-800-200 flex min-h-9 min-w-0 flex-1 items-center gap-2 sm:gap-3 2xl:gap-4">
+			<ul class="border-surface-300-700 flex shrink-0 items-center gap-2 border-r pr-2 sm:gap-3 sm:pr-3 2xl:gap-4 2xl:pr-4">
+				<li class="toolbarButton hover:preset-tonal">
+					<button
+						onclick={() => {
+							displaySearchBarStore.set(!$displaySearchBarStore);
+						}}
+						class="flex items-center p-1"
+					>
+						<Search class="h-5 w-5" />
+					</button>
+				</li>
+			</ul>
 
-					{#if $isReadOnly}
-						<div class="text-surface-500 flex items-center gap-1.5">
-							<Eye class="size-4" />
-							<span class="text-sm font-medium">{m.toolbar_read_only()}</span>
-						</div>
-					{:else}
-						<ul class="border-surface-300-700 flex items-center gap-2.5 border-r pr-2.5 sm:gap-4 sm:pr-4 2xl:gap-6 2xl:pr-6">
-							<li class="toolbarButton hover:preset-tonal">
-								<button onclick={keepEditorFocus(undo)} class="flex items-center p-1" aria-label={m.toolbar_undo_aria()}>
-									<Undo class="h-5 w-5" />
-								</button>
-							</li>
-							<li class="toolbarButton hover:preset-tonal">
-								<button onclick={keepEditorFocus(redo)} class="flex items-center p-1" aria-label={m.toolbar_redo_aria()}>
-									<Redo class="h-5 w-5" />
-								</button>
-							</li>
-						</ul>
-
-						{#if $rawEditorActiveStore}
-							<!-- a raw-LaTeX CM block is focused: prose formatting doesn't apply, show a minimal bar -->
-							<div class="text-surface-600-300 flex min-h-9 items-center gap-2 text-sm">
-								<Code class="size-4" />
-								<span class="font-medium">{m.toolbar_latex_code()}</span>
-								<span class="text-surface-500 hidden sm:inline">{m.toolbar_latex_code_hint()}</span>
-							</div>
-						{:else if isMathfieldActive || mathToolbarState.aiInputActive || mathToolbarState.paletteOpen}
-							<MathToolbar />
-						{:else}
-							<ul class="flex items-center gap-4 2xl:gap-6">
-								<li>
-									<HeadingDropdown level={currentHeadingLevel} numbered={currentHeadingNumbered} onSelect={applyHeading} />
-								</li>
-
-								<li class={`toolbarButton ${activeCommands.strong ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
-									<button
-										onclick={keepEditorFocus((s, d) => toggleMark(schema.marks.strong)(s, d))}
-										class="flex items-center p-1"
-										aria-label={m.toolbar_bold_aria()}
-									>
-										<Bold class="h-5 w-5" />
-									</button>
-								</li>
-
-								<li class={`toolbarButton ${activeCommands.u ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
-									<button
-										onclick={keepEditorFocus((s, d) => toggleMark(schema.marks.u)(s, d))}
-										class="flex items-center p-1"
-										aria-label={m.toolbar_underline_aria()}
-									>
-										<!-- nudged down 1.5px, lucide's U glyph rides high of the other icons' center line -->
-										<Underline class="h-5 w-5 translate-y-[1.5px]" />
-									</button>
-								</li>
-
-								<li class={`toolbarButton ${activeCommands.em ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
-									<button
-										onclick={keepEditorFocus((s, d) => toggleMark(schema.marks.em)(s, d))}
-										class="flex items-center p-1"
-										aria-label={m.toolbar_italic_aria()}
-									>
-										<Italic class="h-5 w-5" />
-									</button>
-								</li>
-
-								<li>
-									<SupSubDropdown
-										sup={!!activeCommands.sup}
-										sub={!!activeCommands.sub}
-										onToggle={(which) => {
-											toggleMark(schema.marks[which])($editorViewStore.state, $editorViewStore.dispatch);
-											$editorViewStore.focus();
-										}}
-									/>
-								</li>
-
-								<li>
-									<TextColorDropdown {activeTextColor} />
-								</li>
-
-								<li>
-									<HighlightDropdown {activeHighlightColor} />
-								</li>
-
-								<li>
-									<MathDropdown />
-								</li>
-
-								<li>
-									<ToolbarTable />
-								</li>
-								<li class="toolbarButton hover:preset-tonal">
-									<button
-										class="flex items-center p-1"
-										onclick={() => {
-											createCodeBlock()($editorViewStore.state, $editorViewStore.dispatch);
-										}}
-										aria-label={m.toolbar_insert_code_block_aria()}
-									>
-										<Code class="h-5 w-5" />
-									</button>
-								</li>
-
-								<li class="toolbarButton hover:preset-tonal">
-									<button
-										class="flex items-center p-1"
-										onclick={keepEditorFocus(selectParentNode)}
-										aria-label={m.toolbar_select_block_aria()}
-										title={m.toolbar_select_parent_block_title()}
-									>
-										<BoxSelect class="h-5 w-5" />
-									</button>
-								</li>
-							</ul>
-						{/if}
-					{/if}
+			{#if $isReadOnly}
+				<div class="text-surface-500 flex items-center gap-1.5">
+					<Eye class="size-4" />
+					<span class="text-sm font-medium">{m.toolbar_read_only()}</span>
 				</div>
-			</div>
+			{:else}
+				<ul class="border-surface-300-700 flex shrink-0 items-center gap-2 border-r pr-2 sm:gap-3 sm:pr-3 2xl:gap-4 2xl:pr-4">
+					<li class="toolbarButton hover:preset-tonal">
+						<button onclick={keepEditorFocus(undo)} class="flex items-center p-1" aria-label={m.toolbar_undo_aria()}>
+							<Undo class="h-5 w-5" />
+						</button>
+					</li>
+					<li class="toolbarButton hover:preset-tonal">
+						<button onclick={keepEditorFocus(redo)} class="flex items-center p-1" aria-label={m.toolbar_redo_aria()}>
+							<Redo class="h-5 w-5" />
+						</button>
+					</li>
+				</ul>
+
+				{#if $rawEditorActiveStore}
+					<!-- a raw-LaTeX CM block is focused: prose formatting doesn't apply, show a minimal bar -->
+					<!-- Sheds the hint first, then the whole indicator - icon included. A bare icon left
+					     behind reads as a button you can press, and this is a status label, not a control.
+					     Container queries, not sm:, which measures the WINDOW: a wide window with a narrow
+					     editor pane kept showing the hint and it wrapped onto a second line. -->
+					<div class="text-surface-600-300 hidden min-h-9 min-w-0 items-center gap-2 text-sm whitespace-nowrap @sm:flex">
+						<Code class="size-4 shrink-0" />
+						<span class="font-medium">{m.toolbar_latex_code()}</span>
+						<span class="text-surface-500 hidden @xl:inline">{m.toolbar_latex_code_hint()}</span>
+					</div>
+				{:else if isMathfieldActive || mathToolbarState.aiInputActive || mathToolbarState.paletteOpen}
+					<MathToolbar />
+				{:else}
+					{#snippet tb_heading()}
+						<div>
+							<HeadingDropdown level={currentHeadingLevel} numbered={currentHeadingNumbered} onSelect={applyHeading} />
+						</div>
+					{/snippet}
+					{#snippet tb_bold()}
+						<div class={`toolbarButton ${activeCommands.strong ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
+							<button
+								onclick={keepEditorFocus((s, d) => toggleMark(schema.marks.strong)(s, d))}
+								class="flex items-center p-1"
+								aria-label={m.toolbar_bold_aria()}
+							>
+								<Bold class="h-5 w-5" />
+							</button>
+						</div>
+					{/snippet}
+					{#snippet tb_underline()}
+						<div class={`toolbarButton ${activeCommands.u ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
+							<button
+								onclick={keepEditorFocus((s, d) => toggleMark(schema.marks.u)(s, d))}
+								class="flex items-center p-1"
+								aria-label={m.toolbar_underline_aria()}
+							>
+								<!-- nudged down 1.5px, lucide's U glyph rides high of the other icons' center line -->
+								<Underline class="h-5 w-5 translate-y-[1.5px]" />
+							</button>
+						</div>
+					{/snippet}
+					{#snippet tb_italic()}
+						<div class={`toolbarButton ${activeCommands.em ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
+							<button
+								onclick={keepEditorFocus((s, d) => toggleMark(schema.marks.em)(s, d))}
+								class="flex items-center p-1"
+								aria-label={m.toolbar_italic_aria()}
+							>
+								<Italic class="h-5 w-5" />
+							</button>
+						</div>
+					{/snippet}
+					{#snippet tb_supsub()}
+						<div>
+							<SupSubDropdown
+								sup={!!activeCommands.sup}
+								sub={!!activeCommands.sub}
+								onToggle={(which) => {
+									toggleMark(schema.marks[which])($editorViewStore.state, $editorViewStore.dispatch);
+									$editorViewStore.focus();
+								}}
+							/>
+						</div>
+					{/snippet}
+					{#snippet tb_textcolor()}
+						<div>
+							<TextColorDropdown {activeTextColor} />
+						</div>
+					{/snippet}
+					{#snippet tb_highlight()}
+						<div>
+							<HighlightDropdown {activeHighlightColor} />
+						</div>
+					{/snippet}
+					{#snippet tb_math()}
+						<div>
+							<MathDropdown />
+						</div>
+					{/snippet}
+					{#snippet tb_table()}
+						<div>
+							<ToolbarTable />
+						</div>
+					{/snippet}
+					{#snippet tb_code()}
+						<div class="toolbarButton hover:preset-tonal">
+							<button
+								class="flex items-center p-1"
+								onclick={() => {
+									createCodeBlock()($editorViewStore.state, $editorViewStore.dispatch);
+								}}
+								aria-label={m.toolbar_insert_code_block_aria()}
+							>
+								<Code class="h-5 w-5" />
+							</button>
+						</div>
+					{/snippet}
+					{#snippet tb_selectblock()}
+						<div class="toolbarButton hover:preset-tonal">
+							<button
+								class="flex items-center p-1"
+								onclick={keepEditorFocus(selectParentNode)}
+								aria-label={m.toolbar_select_block_aria()}
+								title={m.toolbar_select_parent_block_title()}
+							>
+								<BoxSelect class="h-5 w-5" />
+							</button>
+						</div>
+					{/snippet}
+
+					<ToolbarOverflow
+						gapClass="gap-3 2xl:gap-4"
+						menuLabel={m.toolbar_more_actions_aria()}
+						items={[
+							{ id: 'heading', pinned: true, render: tb_heading },
+							{ id: 'bold', pinned: true, render: tb_bold },
+							{ id: 'underline', pinned: true, render: tb_underline },
+							{ id: 'italic', pinned: true, render: tb_italic },
+							{ id: 'supsub', render: tb_supsub },
+							{ id: 'textcolor', render: tb_textcolor },
+							{ id: 'highlight', render: tb_highlight },
+							{ id: 'math', render: tb_math },
+							{ id: 'table', render: tb_table },
+							{ id: 'code', render: tb_code },
+							{ id: 'selectblock', render: tb_selectblock }
+						]}
+					/>
+				{/if}
+			{/if}
 		</div>
 	</div>
 
@@ -354,26 +397,5 @@
 	button:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
-	}
-
-	.no-scrollbar {
-		/* Firefox */
-		scrollbar-width: none;
-		/* IE/Edge */
-		-ms-overflow-style: none;
-	}
-	.no-scrollbar::-webkit-scrollbar {
-		display: none; /* Chrome/Safari */
-	}
-
-	/* no Swiper JS: keep the toolbar at natural width and let the parent's overflow-x-auto scroll it.
-	   higher specificity so it wins over swiper/css's .swiper { overflow: hidden }. */
-	:global(.swiper.toolbarSwiper) {
-		flex-shrink: 0;
-		overflow: visible;
-		width: max-content;
-	}
-	:global(.toolbarSwiper .swiper-wrapper) {
-		justify-content: flex-start !important;
 	}
 </style>

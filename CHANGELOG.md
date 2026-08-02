@@ -5,6 +5,12 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-08-02
+
+- feat: the editor remembers where you left off in each file, across tab switches and restarts
+- feat: toolbars fold into a "..." when the window is narrow, instead of putting buttons out of reach
+- fix: math symbols insert reliably from the toolbar, and equations no longer steal the cursor
+
 ## [0.16.0] - 2026-07-31
 
 - feat: a command palette on Ctrl+K (Cmd+K on macOS) to open a file, compile, and run editor actions without leaving the keyboard. The file name in the middle of the title bar opens it too

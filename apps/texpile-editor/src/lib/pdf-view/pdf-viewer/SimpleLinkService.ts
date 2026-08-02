@@ -15,7 +15,7 @@
 
 /** PDF navigation for annotation links; adapted from PDF.js pdf_link_service.js. */
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { EventBus } from './EventBus.js';
+import type { EventBus } from './EventBus';
 
 const DEFAULT_LINK_REL = 'noopener noreferrer nofollow';
 
@@ -200,17 +200,14 @@ export class SimpleLinkService {
 		}
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	executeSetOCGState(_action: unknown): void {
 		// not implemented, optional content is not supported
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	goToXY(pageNumber: number, _x: number, _y: number): void {
 		this.goToPage(pageNumber);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	setHash(_hash: string): void {
 		// not implemented, hash navigation is not supported
 	}

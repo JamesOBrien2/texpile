@@ -14,8 +14,8 @@
  */
 
 /** text search for the PDF viewer; derivative work based on PDF.js pdf_find_controller.js and text_highlighter.js. */
-import type { EventBus } from './EventBus.js';
-import type { PDFViewerCore } from './PDFViewerCore.js';
+import type { EventBus } from './EventBus';
+import type { PDFViewerCore } from './PDFViewerCore';
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 export const FindState = {

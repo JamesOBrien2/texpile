@@ -21,6 +21,7 @@
 	import { StarterActions } from '$lib/workspace/starterActions.svelte';
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import { tabs } from '$lib/workspace/tabs.svelte';
+	import { docPositions } from '$lib/workspace/docPositions';
 	import { SyncTexNav, sessionRelativeTarget, needsActivate, normSyncPath } from '$lib/workspace/syncTexNav';
 	import { sourceTocStore } from '$lib/editor/extensions/tableofcontents/tocStore';
 	import { parseOutlineRaw, assembleProjectOutline } from '$lib/editor/extensions/tableofcontents/latexHeadings';
@@ -50,6 +51,8 @@
 	import { DiffMode } from '$lib/workspace/diffMode.svelte';
 	import { attachWindowListeners, attachCloseGuard } from '$lib/workspace/workspaceMount';
 	import { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
+	import { saveVisualPosition } from '$lib/workspace/visualPositions';
+	import { bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
 	import { publishWindowState } from '$lib/workspace/mcpPublish';
 	import { attachMcpCommands } from '$lib/workspace/mcpCommands';
 	import { setPaletteActions } from '$lib/workspace/commandPalette.svelte';
@@ -266,6 +269,7 @@
 			void initProject(root);
 		}
 		tabs.bind(root, hostMode); // restore this folder's open tabs (guests start fresh)
+		docPositions.bind(root, hostMode); // and where the caret was in each of them
 		termDock.available = isDesktop() && hostMode; // client-only; set here so SSR/CSR agree
 		if (guest) layout.pdfPaneOpen = true; // guests land with the host's PDF visible
 		loadRefs(root);
@@ -313,6 +317,18 @@
 		const p = $activeFilePath;
 		if (p) tabs.noteOpened(p);
 	});
+
+	// Leaving a file in visual mode: record the caret before the switch tears the editor down. A plain
+	// store subscription fires synchronously on set, ahead of any rendering, so the view is still
+	// mounted - and doc.path is still the file we are LEAVING, since the load effect has not run yet.
+	// (Nothing to do for source mode; SourceEditor keeps its own position.)
+	onMount(() =>
+		activeFilePath.subscribe(() => {
+			const v = get(editorViewStore);
+			if (!v || modes.mode !== 'visual' || !doc.path || session.collabFor(doc.path)) return;
+			saveVisualPosition(v, doc.path, doc.texSource, doc.docMeta ? bodyOffsetOf(doc.docMeta) : 0);
+		})
+	);
 
 	function activateTab(path: string) {
 		activeFilePath.set(path);
@@ -362,10 +378,22 @@
 	// what was there at join time.
 	onMount(() => provider.watch?.(() => void refreshTree()));
 
-	// keep main's cache of what this window shows current, for the MCP get_editor_state tool.
-	// The reactive reads happen inside publishWindowState, so this re-runs whenever any of them
-	// changes; it de-dupes identical payloads itself.
-	$effect(() => publishWindowState(modes.mode));
+	// Keep main's cache of what this window shows current, for the MCP get_editor_state tool.
+	//
+	// The dependencies have to be named HERE. buildWindowState reads every one of them with get(),
+	// which is the deliberately non-reactive store read - it subscribes and unsubscribes on the spot
+	// and never registers a dependency. So this used to track modes.mode alone, and the cache froze:
+	// set_main_file left mainFile null for the rest of the session, and `dirty` went stale after an
+	// edit even though the server's own instructions tell agents to check it before overwriting a
+	// file. publishWindowState de-dupes identical payloads, so listing these costs nothing.
+	$effect(() => {
+		void $mainFile;
+		void $activeFilePath;
+		void $isDirty;
+		void $settings;
+		void tabs.list;
+		publishWindowState(modes.mode);
+	});
 
 	// the MCP tools that need this window: get_unsaved / get_diagnostics answer here, and the steer
 	// commands (open_file, show_diff, set_view_mode) run through the same paths the UI uses
@@ -379,7 +407,9 @@
 			setViewMode,
 			getViewMode: () => modes.mode,
 			syncToLine: (line) => syncForwardLine(line),
-			runCompile: () => compiler.runCompile()
+			runCompile: () => compiler.runCompile(),
+			setMainFile: (abs) => applyMainFile(abs),
+			isCompiling: () => compiler.busy
 		})
 	);
 
@@ -410,12 +440,16 @@
 	const initProject = (root: string) => folder.initProject(root);
 	let tutorialModalOpen = $state(false);
 
+	/** the file tree's star: clicking the current main again clears it */
+	const toggleMainFile = (path: string) => applyMainFile($mainFile && samePath($mainFile, path) ? null : path);
+
 	// persist the new main file, re-gather macros, and re-derive the open visual doc from
-	// doc.texSource so the newly resolved command signatures take effect immediately
-	async function applyMainFile(path: string) {
+	// doc.texSource so the newly resolved command signatures take effect immediately.
+	// Takes the value to APPLY, not the file that was clicked: the toggle belongs to the click, and
+	// an MCP caller naming the file that is already main must not have it cleared out from under them.
+	async function applyMainFile(next: string | null) {
 		const root = get(workspaceRoot);
 		if (!root) return;
-		const next = $mainFile && samePath($mainFile, path) ? null : path; // click the current main again to clear
 		setMainFile(root, next);
 		mainPrompt.confirmed = true; // an explicit choice (set or clear) settles the first-compile question
 		void compiler.loadExistingPdf(); // the main file changed â†’ its expected PDF did too
@@ -495,10 +529,6 @@
 		const target = $mainFile ?? doc.path;
 		return $workspaceRoot && target ? relFromRoot(target, $workspaceRoot) : '';
 	});
-
-	// First-compile main-file confirmation. Overleaf never shows the concept, so a silent
-	// guess confuses people coming from it: multi-file folders with no explicitly chosen
-	// main ask ONCE, with the detected file preselected; confirming persists it exactly
 	// like the file tree's "Set as main file" (star badge included).
 	// Tri-state: null = unresolved for the current folder; the modal never auto-opens on
 	// null, so it can't flash while initProject is still scanning. Storage is consulted
@@ -592,7 +622,7 @@
 	// a SyncTeX-inverse / Find-in-Files jump. the token distinguishes repeat jumps to the same line
 	// so the editor re-fires; selectText is the word double-clicked in the PDF, anchored on to
 	// correct for line drift (see SourceEditor's gotoLine effect)
-	let sourceGotoLine = $state<{ line: number; token: number; selectText?: string } | undefined>(undefined);
+	let sourceGotoLine = $state<{ line: number; token: number; selectText?: string; path: string } | undefined>(undefined);
 	let gotoToken = 0;
 
 	// compile / terminal / PDF-watch orchestration lives in lib/workspace/compilePipeline.svelte.ts
@@ -697,7 +727,7 @@
 		const target = sessionRelativeTarget(file, guest);
 		modes.mode = 'source';
 		localStorage.setItem('texpile:viewMode', 'source');
-		sourceGotoLine = { line, token: ++gotoToken, selectText };
+		sourceGotoLine = { line, token: ++gotoToken, selectText, path: target };
 		if (needsActivate(target)) activeFilePath.set(target);
 	}
 	// forward/inverse SyncTeX resolution lives in lib/workspace/syncTexNav.ts
@@ -929,6 +959,9 @@
 	function clearPerFileViewState() {
 		modes.sourceScrollAnchor = null;
 		modes.pendingVisualAnchor = null;
+		// a jump asked for THIS file survives (that is why we're opening it); an older one must not,
+		// or every later tab switch remounts the source editor and replays it
+		if (sourceGotoLine && !samePath(sourceGotoLine.path, doc.path ?? '')) sourceGotoLine = undefined;
 	}
 
 	// opening the active file into the buffers lives in lib/workspace/fileOpener.ts
@@ -1102,8 +1135,11 @@
 			// A compile that never reached the engine (lualatex not on PATH) leaves no log to read,
 			// and publishLogDiagnostics would throw on the missing file. That case is exactly the one
 			// the preview's own banner exists for, so there is nothing to add here.
-			if (!(await statFile(logPath)).exists) return;
-			await compiler.publishLogDiagnostics(logPath, Date.now(), true, null);
+			const s = await statFile(logPath);
+			if (!s.exists) return;
+			// the log's OWN mtime, not now(): updatedAt is what tells a reader how old this parse is,
+			// and stamping it with the read time made a day-old log look freshly written
+			await compiler.publishLogDiagnostics(logPath, s.mtimeMs, true, null);
 		},
 		toggleTerminalShrink,
 		toggleTerminal
@@ -1129,7 +1165,7 @@
 		closeGlobalSearch: () => void closeGlobalSearch(),
 		openFileAt: openFileAtLine,
 		openEntry,
-		setMain: (entry: TreeEntry) => void applyMainFile(entry.path),
+		setMain: (entry: TreeEntry) => void toggleMainFile(entry.path),
 		refreshGit: () => refreshGitStatus(get(workspaceRoot))
 	};
 

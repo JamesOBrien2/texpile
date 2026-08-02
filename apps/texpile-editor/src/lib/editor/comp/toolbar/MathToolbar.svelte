@@ -2,47 +2,37 @@
 	// paletteOpen keeps Toolbar from unmounting us: Zag hands focus to the closing popover's trigger
 	// on the next frame, which blurs the mathfield, and Toolbar drops this toolbar the instant a
 	// mathfield isn't focused. Without it the palette vanishes under the user's cursor mid-click.
-	export const mathToolbarState = $state({ aiInputActive: false, paletteOpen: false });
+	export const mathToolbarState = $state<{ aiInputActive: boolean; paletteOpen: boolean; openGroup: string | null }>({
+		aiInputActive: false,
+		paletteOpen: false,
+		/** which symbol group the docked panel is showing; EditorPane renders it */
+		openGroup: null
+	});
 </script>
 
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
-	import { Keyboard, ChevronDown, BoxSelect } from '@lucide/svelte';
+	import { ChevronDown, BoxSelect } from '@lucide/svelte';
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import { TextSelection } from 'prosemirror-state';
 	import { m } from '$lib/paraglide/messages';
-	import { SYMBOL_GROUPS, MATRIX_BRACKETS, generateMatrixLatex, symbolTooltip, type MatrixBracket } from './mathSymbols';
-
-	// mathlive loads lazily so a static edge here can't drag it into the eager bundle (EditorView
-	// already pulls it in with the math plugin, so this resolves from cache by the time we show).
-	// static.css provides styles for convertLatexToMarkup output (fonts.css already loaded by mlview)
-	let convertLatexToMarkup = $state<((latex: string) => string) | null>(null);
-	onMount(() => {
-		Promise.all([import('mathlive'), import('mathlive/static.css')]).then(([ml]) => {
-			convertLatexToMarkup = ml.convertLatexToMarkup;
-		});
-	});
-
-	function renderLatex(latex: string): string {
-		try {
-			return convertLatexToMarkup ? convertLatexToMarkup(latex) : latex;
-		} catch {
-			return latex;
-		}
-	}
+	import ToolbarOverflow from './ToolbarOverflow.svelte';
+	import MathSymbolPanel from './MathSymbolPanel.svelte';
+	import { SYMBOL_GROUPS } from './mathSymbols';
 
 	let activeMathfieldRef: HTMLElement | null = $state(null);
-	let savedSelection: { start: number; end: number } | null = $state(null);
-	let matrixGridHoverRows = $state(2);
-	let matrixGridHoverCols = $state(2);
-	let matrixBracketMode = $state<MatrixBracket>('pmatrix');
 
-	// this toolbar only shows while a mathfield is focused, so capture the ref eagerly
+	// Track the focused mathfield through an EVENT, not a read of document.activeElement: that is not
+	// reactive, so the effect this replaces ran once at mount and never again. Inserting a symbol
+	// makes ProseMirror rebuild the math node, which throws away the element this pointed at - after
+	// which every insert targeted a detached field and did nothing at all, silently. Repro was two
+	// symbols in a row: the first worked, the second vanished.
 	$effect(() => {
-		if (document.activeElement instanceof window.MathfieldElement) {
-			activeMathfieldRef = document.activeElement;
-		}
+		const onFocusIn = (e: FocusEvent) => {
+			if (e.target instanceof window.MathfieldElement) activeMathfieldRef = e.target;
+		};
+		document.addEventListener('focusin', onFocusIn, true);
+		if (document.activeElement instanceof window.MathfieldElement) activeMathfieldRef = document.activeElement;
+		return () => document.removeEventListener('focusin', onFocusIn, true);
 	});
 
 	let isBlockMath = $derived.by(() => {
@@ -99,250 +89,101 @@
 		e.stopPropagation();
 	}
 
-	function toggleGroup(groupId: string) {
-		// capture the mathfield ref and cursor position before any state changes
-		const mf = document.activeElement;
-		if (mf instanceof window.MathfieldElement) {
-			activeMathfieldRef = mf;
-			const sel = mf.selection;
-			if (sel && typeof sel === 'object' && 'ranges' in sel) {
-				const ranges = sel.ranges;
-				if (ranges && ranges.length > 0) {
-					savedSelection = { start: ranges[0][0], end: ranges[0][1] };
-				}
-			} else {
-				// fallback: position property
-				const pos = mf.position ?? 0;
-				savedSelection = { start: pos, end: pos };
-			}
-		}
+	/** where the dropdown hangs: the rect of whichever group button opened it */
+	let anchor = $state({ top: 0, left: 0 });
 
-		const isClosing = openGroup === groupId;
-		openGroup = isClosing ? null : groupId;
-
-		// Only on close. While a palette is open focus legitimately sits on the trigger (zag's
-		// setFinalFocus puts it there), and pulling it back to the mathfield reads as an outside
-		// interaction and dismisses the palette. mathToolbarState.paletteOpen is what keeps this
-		// toolbar mounted through that blur.
-		if (isClosing && activeMathfieldRef) {
-			setTimeout(() => {
-				activeMathfieldRef?.focus();
-			}, 0);
+	function toggleGroup(groupId: string, trigger?: HTMLElement) {
+		if (trigger) {
+			const r = trigger.getBoundingClientRect();
+			// clamped so a group near the right edge does not open off-screen
+			anchor = { top: r.bottom + 4, left: Math.max(4, Math.min(r.left, window.innerWidth - 340)) };
 		}
+		// A plain toggle now. The old version captured the mathfield and its caret here because the
+		// popover was about to take focus away; the docked panel never does, so there is nothing to
+		// save and nothing to put back.
+		mathToolbarState.openGroup = mathToolbarState.openGroup === groupId ? null : groupId;
+		mathToolbarState.paletteOpen = mathToolbarState.openGroup !== null;
 	}
 
-	function insertSymbol(latex: string) {
-		const mf = activeMathfieldRef;
-		const selToRestore = savedSelection;
-
-		if (mf && mf instanceof window.MathfieldElement) {
-			openGroup = null;
-
-			// setTimeout so focus happens after the popover closes
-			setTimeout(() => {
-				mf.focus();
-				if (selToRestore) {
-					mf.selection = { ranges: [[selToRestore.start, selToRestore.end]] };
-				}
-				mf.insert(latex, {
-					selectionMode: 'placeholder',
-					format: 'latex'
-				});
-			}, 0);
-		} else {
-			openGroup = null;
-		}
-	}
-
-	function toggleVirtualKeyboard() {
-		if (window.mathVirtualKeyboard?.visible) {
-			window.mathVirtualKeyboard.hide();
-		} else {
-			window.mathVirtualKeyboard.show();
-		}
-		if (activeMathfieldRef) {
-			activeMathfieldRef.focus();
-		}
-	}
-
-	function insertCustomMatrix(rows: number, cols: number) {
-		const latex = generateMatrixLatex(rows, cols, matrixBracketMode);
-		openGroup = null;
-		insertSymbol(latex);
-	}
+	// Virtual keyboard disabled (desktop app, physical keyboard always present). Kept for reference
+	// along with virtualKeyboardConfig.ts; re-add the toolbar item to bring it back.
+	// function toggleVirtualKeyboard() {
+	// if (window.mathVirtualKeyboard?.visible) {
+	// window.mathVirtualKeyboard.hide();
+	// } else {
+	// window.mathVirtualKeyboard.show();
+	// }
+	// // resolved live rather than from a cached ref, same as everything else here
+	// const mf = liveMathfield();
+	// if (mf instanceof window.MathfieldElement) mf.focus();
+	// }
+	//
 </script>
 
-<ul class="flex items-center gap-1 sm:gap-1.5 2xl:gap-2">
-	{#each SYMBOL_GROUPS as group}
-		{@const Icon = group.icon}
-		<li>
-			<Popover
-				open={openGroup === group.id}
-				onOpenChange={(e) => {
-					// Every popover reports its own close, including the outgoing one when the user switches
-					// straight from one group to another. Only the group that is still open may clear the
-					// state: otherwise the closing group wipes the one just opened and it never renders.
-					if (!e.open && openGroup === group.id) {
-						openGroup = null;
-					}
-				}}
-				positioning={{ placement: 'bottom-start', offset: { mainAxis: 0 } }}
-				autoFocus={false}
-			>
-				<Popover.Trigger>
-					<button
-						class="toolbarButton flex items-center gap-1 rounded p-1 hover:preset-tonal"
-						class:preset-tonal-primary={openGroup === group.id}
-						aria-label={group.label()}
-						title={group.label()}
-						tabindex="-1"
-						onmousedown={preventFocusLoss}
-						onclick={() => toggleGroup(group.id)}
-					>
-						<Icon class="h-4 w-4" />
-						<span class="text-xs">{group.label()}</span>
-						<ChevronDown class="h-3 w-3 opacity-50" />
-					</button>
-				</Popover.Trigger>
+{#snippet symbolGroup(item)}
+	{@const group = item.data as (typeof SYMBOL_GROUPS)[number]}
+	{@const Icon = group.icon}
+	<div>
+		<button
+			class="toolbarButton flex items-center gap-1 rounded p-1 hover:preset-tonal"
+			class:preset-tonal-primary={mathToolbarState.openGroup === group.id}
+			aria-label={group.label()}
+			title={group.label()}
+			aria-pressed={mathToolbarState.openGroup === group.id}
+			tabindex="-1"
+			onmousedown={preventFocusLoss}
+			onpointerdown={(e) => {
+				e.preventDefault();
+				toggleGroup(group.id, e.currentTarget as HTMLElement);
+			}}
+		>
+			<Icon class="h-5 w-5" />
+			<ChevronDown class="size-3 opacity-60" />
+		</button>
+	</div>
+{/snippet}
 
-				<Portal>
-					<Popover.Positioner class="z-floating-ui">
-						<Popover.Content class="card bg-surface-50-950 border-surface-300-700 min-w-[200px] border shadow-lg">
-							<div class="py-1" tabindex="-1" role="presentation" onmousedown={preventFocusLoss}>
-								<div class="text-surface-600-400 px-2 py-1 text-xs font-semibold uppercase">{group.label()}</div>
-
-								{#if group.id === 'matrices'}
-									<div class="border-surface-300-700 border-b p-3">
-										<div class="mb-2 text-xs font-medium">{m.mathtoolbar_matrix_style_label()}</div>
-										<div class="mb-3 flex flex-wrap gap-2">
-											{#each MATRIX_BRACKETS as b (b.mode)}
-												<button
-													type="button"
-													class="rounded border px-2 py-1 text-xs transition-colors"
-													class:preset-tonal-primary={matrixBracketMode === b.mode}
-													class:border-blue-400={matrixBracketMode === b.mode}
-													class:bg-surface-100-900={matrixBracketMode !== b.mode}
-													class:border-surface-300-700={matrixBracketMode !== b.mode}
-													onclick={() => (matrixBracketMode = b.mode)}
-													onmousedown={preventFocusLoss}
-													tabindex="-1"
-													title={b.title()}
-												>
-													{b.label}
-												</button>
-											{/each}
-										</div>
-										<div class="mb-2 text-xs font-medium">{m.mathtoolbar_matrix_size_label()}</div>
-										<div class="space-y-2">
-											<div class="grid gap-1" style="grid-template-columns: repeat(6, 1fr);">
-												{#each Array.from({ length: 6 }) as _, row}
-													{#each Array.from({ length: 6 }) as _, col}
-														<button
-															type="button"
-															class="aspect-square w-full rounded border text-xs transition-colors"
-															class:preset-tonal-primary={row + 1 <= matrixGridHoverRows && col + 1 <= matrixGridHoverCols}
-															class:border-blue-400={row + 1 <= matrixGridHoverRows && col + 1 <= matrixGridHoverCols}
-															class:bg-surface-100-900={!(row + 1 <= matrixGridHoverRows && col + 1 <= matrixGridHoverCols)}
-															class:border-surface-300-700={!(row + 1 <= matrixGridHoverRows && col + 1 <= matrixGridHoverCols)}
-															aria-label={m.mathtoolbar_insert_matrix_aria({ rows: row + 1, cols: col + 1 })}
-															onmouseover={() => {
-																matrixGridHoverRows = row + 1;
-																matrixGridHoverCols = col + 1;
-															}}
-															onfocus={() => {
-																matrixGridHoverRows = row + 1;
-																matrixGridHoverCols = col + 1;
-															}}
-															onclick={() => insertCustomMatrix(row + 1, col + 1)}
-															onmousedown={preventFocusLoss}
-															tabindex="-1"
-														>
-														</button>
-													{/each}
-												{/each}
-											</div>
-											<div class="text-surface-600 text-center text-xs font-medium">{matrixGridHoverRows}×{matrixGridHoverCols}</div>
-										</div>
-									</div>
-								{/if}
-
-								{#if group.id === 'environments'}
-									<div class="env-list">
-										{#each group.symbols as symbol}
-											<button
-												type="button"
-												class="env-btn bg-surface-100-900"
-												tabindex="-1"
-												onmousedown={preventFocusLoss}
-												onclick={() => insertSymbol(symbol.latex)}
-												title={symbolTooltip(symbol) || symbol.latex}
-											>
-												<span class="env-label">{symbolTooltip(symbol)}</span>
-												<span class="env-preview">
-													<!-- eslint-disable-next-line svelte/no-at-html-tags -- renderLatex() is mathlive's own trusted math-typesetting HTML for a symbol from the hardcoded SYMBOL_GROUPS table above, never user/network input. -->
-													{@html renderLatex(symbol.displayLatex ?? symbol.latex)}
-												</span>
-											</button>
-										{/each}
-									</div>
-								{:else}
-									<div class="symbol-grid" data-group={group.id}>
-										{#each group.symbols as symbol}
-											<button
-												type="button"
-												class="symbol-btn bg-surface-100-900"
-												tabindex="-1"
-												onmousedown={preventFocusLoss}
-												onclick={() => insertSymbol(symbol.latex)}
-												title={symbolTooltip(symbol) || symbol.latex}
-											>
-												<span class="symbol-content">
-													<!-- eslint-disable-next-line svelte/no-at-html-tags -- renderLatex() is mathlive's own trusted math-typesetting HTML for a symbol from the hardcoded SYMBOL_GROUPS table above, never user/network input. -->
-													{@html renderLatex(symbol.displayLatex ?? symbol.latex)}
-												</span>
-											</button>
-										{/each}
-									</div>
-								{/if}
-							</div>
-						</Popover.Content>
-					</Popover.Positioner>
-				</Portal>
-			</Popover>
-		</li>
-	{/each}
-
-	<li class="border-surface-300-700 h-6 border-r"></li>
-
-	<li>
+{#snippet blockMathItem()}
+	<div class="flex items-center gap-1 sm:gap-1.5">
+		<span class="border-surface-300-700 h-6 border-r"></span>
 		<button
 			class="toolbarButton rounded p-1 hover:preset-tonal"
 			tabindex="-1"
 			onmousedown={preventFocusLoss}
-			onclick={toggleVirtualKeyboard}
-			aria-label={m.mathtoolbar_toggle_keyboard_aria()}
-			title={m.mathtoolbar_virtual_keyboard_title()}
+			onclick={selectBlockMath}
+			aria-label={m.mathtoolbar_select_block_aria()}
+			title={m.mathtoolbar_select_equation_block_title()}
 		>
-			<Keyboard class="h-5 w-5" />
+			<BoxSelect class="h-5 w-5" />
 		</button>
-	</li>
+	</div>
+{/snippet}
 
-	{#if isBlockMath}
-		<li class="border-surface-300-700 h-6 border-r"></li>
-		<li>
-			<button
-				class="toolbarButton rounded p-1 hover:preset-tonal"
-				tabindex="-1"
-				onmousedown={preventFocusLoss}
-				onclick={selectBlockMath}
-				aria-label={m.mathtoolbar_select_block_aria()}
-				title={m.mathtoolbar_select_equation_block_title()}
-			>
-				<BoxSelect class="h-5 w-5" />
-			</button>
-		</li>
-	{/if}
-</ul>
+{#if mathToolbarState.openGroup}
+	<MathSymbolPanel
+		groupId={mathToolbarState.openGroup}
+		top={anchor.top}
+		left={anchor.left}
+		onClose={() => {
+			mathToolbarState.openGroup = null;
+			mathToolbarState.paletteOpen = false;
+		}}
+	/>
+{/if}
+
+<!-- data-math-toolbar: Toolbar checks for it before concluding the user left the equation -->
+<div data-math-toolbar class="flex min-w-0 flex-1 items-center">
+	<ToolbarOverflow
+		gapClass="gap-1 sm:gap-1.5 2xl:gap-2"
+		menuLabel={m.toolbar_more_actions_aria()}
+		items={[
+			...SYMBOL_GROUPS.map((g) => ({ id: g.id, data: g, render: symbolGroup })),
+			// virtual keyboard disabled: desktop app, physical keyboard always present
+			// { id: 'keyboard', pinned: true, render: keyboardItem },
+			...(isBlockMath ? [{ id: 'blockmath', pinned: true, render: blockMathItem }] : [])
+		]}
+	/>
+</div>
 
 <style lang="postcss">
 	@reference "../../../../app.css";

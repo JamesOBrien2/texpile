@@ -288,7 +288,10 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 		width: 1280,
 		height: 860,
 		// below this the panes clip each other and the toolbar overflows
-		minWidth: 900,
+		// 900 was set when the toolbars could only clip: every bar now collapses into its own "..."
+		// instead, so a narrow window stays usable. The floor is the pane layout rather than the
+		// chrome now - the sidebar's 180 minimum plus the editor's 360 reserve, plus window frame.
+		minWidth: 700,
 		minHeight: 600,
 		title: 'Texpile',
 		icon: path.join(__dirname, '..', 'icon.png'),
@@ -334,9 +337,9 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 			preload: path.join(__dirname, 'preload.js'),
 			contextIsolation: true,
 			nodeIntegration: false,
-			// dev always; in a packaged build only when TEXPILE_DEVTOOLS is set (e.g. to watch for CSP
-			// violations in a dist:dir smoke test) - never on for a normal install
-			devTools: !app.isPackaged || !!process.env.TEXPILE_DEVTOOLS
+			// Always available, packaged or not, reached through Help > Toggle Developer Tools. No key
+			// binding anywhere: a writer must never open a debugger by fumbling a shortcut mid-sentence.
+			devTools: true
 		}
 	});
 	// capture now: webContents is gone by the time 'closed' fires
@@ -345,7 +348,6 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 	windowRoots.set(wcId, null);
 	if (pending) pendingOpens.set(wcId, pending);
 	win.loadURL(url);
-	if (app.isPackaged && process.env.TEXPILE_DEVTOOLS) win.webContents.openDevTools({ mode: 'detach' });
 	win.webContents.on('did-finish-load', () => {
 		// restore the saved whole-window zoom before the first paint the user sees
 		const z = Number(readSettings().uiZoom);
@@ -356,18 +358,6 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 			win.webContents.send(p.kind === 'file' ? 'main:open-path' : 'main:open-folder', p.path);
 		}
 	});
-	// no native View menu, so wire the DevTools shortcut by hand (dev only). Ctrl+Shift+I only:
-	// F12 belongs to the editor's go-to-definition and must reach the renderer
-	if (!app.isPackaged) {
-		win.webContents.on('before-input-event', (event, input) => {
-			if (input.type !== 'keyDown') return;
-			const mod = input.control || input.meta;
-			if (mod && input.shift && input.key.toLowerCase() === 'i') {
-				win.webContents.toggleDevTools();
-				event.preventDefault();
-			}
-		});
-	}
 	win.webContents.setWindowOpenHandler(({ url: target }) => {
 		if (/^https?:/.test(target)) shell.openExternal(target);
 		return { action: 'deny' };
@@ -704,6 +694,9 @@ ipcMain.on('window:close-decision', (e, proceed: boolean) => {
 ipcMain.handle('window:new', () => {
 	createWindow(startUrl());
 });
+// scoped to the sender rather than the focused window: with several workspaces open, the menu
+// that was clicked is the one whose console the user wants
+ipcMain.on('window:toggle-devtools', (e) => e.sender.toggleDevTools());
 // picker + new window in one step, deduped against windows that already have the folder
 ipcMain.handle('window:openFolderNew', async (e) => {
 	const res = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender) ?? undefined!, {

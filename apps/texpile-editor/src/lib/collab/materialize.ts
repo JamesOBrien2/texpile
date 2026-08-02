@@ -2,7 +2,7 @@
 // disk, and folds the host's own editor saves into the doc as minimal splices. The host is the
 // only disk-writer in a session; guests only ever touch the Y.Doc.
 //
-// Injected fs so the whole thing runs headless in tests (and, later, on a server).
+// Injected fs so the whole thing runs headless in tests.
 
 import type * as Y from 'yjs';
 import { manifestOf, locksOf, textOf, type ManifestEntry } from './session';

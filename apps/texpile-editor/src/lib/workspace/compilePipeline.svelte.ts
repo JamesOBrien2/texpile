@@ -217,7 +217,7 @@ export class CompilePipeline {
 		// final one -- a double reload that flashes. Without the marker there's no exit signal, so
 		// watchPdf is the fallback, and it now waits for the file to stop changing before loading.
 		if (!track && pdfPath) this.watchPdf(gen, pdfPath, before);
-		if (logPath) this.watchLog(gen, logPath, logBefore);
+		if (logPath) this.watchLog(gen, logPath, logBefore, track);
 		// reload the explorer as the build writes its output (also covers builds that produce no PDF)
 		[2000, 6000].forEach((d) => setTimeout(this.deps.refreshTree, d));
 	};
@@ -268,13 +268,19 @@ export class CompilePipeline {
 	};
 
 	// poll the .log and parse once it settles: the engine rewrites the log during each pass, so
-	// "newer than baseline AND unchanged across two polls" is the engine-agnostic completion signal
-	// (a multi-pass latexmk run just re-parses after each later pass). also catches failed builds,
-	// where no PDF ever appears but the log does.
+	// "newer than baseline AND unchanged across two polls" re-parses after each pass and also
+	// catches failed builds, where no PDF ever appears but the log does.
+	//
+	// Settling is a HEURISTIC, and it must not end a sentinel-tracked run: any engine pause longer
+	// than the two polls (biber grinding between passes, MiKTeX installing a package on the fly)
+	// makes the log look settled mid-run, and dropping `busy` there hands an MCP poller pass-1
+	// diagnostics as final while latexmk is still going. When `tracked`, publishing stays (live
+	// Problems updates per pass) but the end belongs to finalizeCompile's shell-exit signal alone.
 	private watchLog(
 		gen: number,
 		logPath: string,
 		before: number,
+		tracked = false,
 		elapsed = 0,
 		prev: { mtimeMs: number; size: number } | null = null,
 		lastParsed = 0
@@ -288,14 +294,16 @@ export class CompilePipeline {
 			if (changedSinceCompile && stable && s.mtimeMs !== lastParsed) {
 				try {
 					await this.publishLogDiagnostics(logPath, s.mtimeMs);
-					this.endRun(); // a settled log means the run (or its final pass) ended
+					// a settled log is only "the run ended" when nothing better is coming; tracked runs
+					// end on the shell's exit signal, and this settle may just be a between-pass pause
+					if (!tracked) this.endRun();
 					lastParsed = s.mtimeMs;
 				} catch {
 					/* transient read race with the engine; next poll retries */
 				}
 			}
 			if (elapsed < 180000) {
-				this.watchLog(gen, logPath, before, elapsed + 1200, { mtimeMs: s.mtimeMs, size: s.size }, lastParsed);
+				this.watchLog(gen, logPath, before, tracked, elapsed + 1200, { mtimeMs: s.mtimeMs, size: s.size }, lastParsed);
 			} else {
 				this.logWatchTimer = null;
 				this.endRun();

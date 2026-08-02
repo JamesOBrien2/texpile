@@ -15,9 +15,9 @@
 
 /** main viewer managing all pages in a scroll container; derivative work based on PDF.js pdf_viewer.js. */
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { EventBus } from './EventBus.js';
-import { PDFPageView, RenderingStates } from './PDFPageView.js';
-import { SimpleLinkService } from './SimpleLinkService.js';
+import { EventBus } from './EventBus';
+import { PDFPageView, RenderingStates } from './PDFPageView';
+import { SimpleLinkService } from './SimpleLinkService';
 
 export interface PDFViewerOptions {
 	container: HTMLElement;

@@ -3,6 +3,7 @@
 import { get } from 'svelte/store';
 import { workspaceRoot, activeFilePath } from './workspaceStore';
 import { tabs } from './tabs.svelte';
+import { docPositions } from './docPositions';
 import { joinPath, dirname, basename, samePath, type TreeEntry } from './fileSystem';
 import { createStarterLatex } from './latexRoundtrip';
 import { toaster } from '$lib/modals/toaster-svelte';
@@ -65,6 +66,7 @@ export class TreeOps {
 			await this.deps.rename(entry.path, to);
 			this.deps.retargetPendingSave(entry.path, to); // don't let a queued write recreate the old path
 			tabs.rename(entry.path, to);
+			docPositions.rename(entry.path, to);
 			if (get(activeFilePath) === entry.path) activeFilePath.set(to);
 			await this.deps.refreshTree();
 			this.deps.afterRename(entry.path, to);
@@ -84,6 +86,7 @@ export class TreeOps {
 				activeFilePath.set(null); // clears the editor buffers via the load effect
 			}
 			tabs.closeUnder(entry.path);
+			docPositions.forget(entry.path);
 			await this.deps.remove(entry.path);
 			if (refresh) await this.deps.refreshTree();
 		} catch (e) {
@@ -100,6 +103,7 @@ export class TreeOps {
 			await this.deps.rename(entry.path, to);
 			this.deps.retargetPendingSave(entry.path, to); // don't let a queued write recreate the old path
 			tabs.rename(entry.path, to);
+			docPositions.rename(entry.path, to);
 			// keep the open file pointed at its new location if it (or its folder) moved
 			const active = get(activeFilePath);
 			if (active === entry.path) activeFilePath.set(to);
