@@ -4,6 +4,7 @@
 	import { Menu, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { trackEvent } from '$lib/plausible';
 	import OsLogo from '$lib/comp/OsLogo.svelte';
+	import { detectOS } from '$lib/os';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocale } from '$lib/paraglide/runtime';
 
@@ -34,15 +35,6 @@
 			/* no history section if the manifest is missing */
 		}
 	});
-
-	function detectOS(): 'windows' | 'mac' | 'linux' | null {
-		if (typeof navigator === 'undefined') return null;
-		const ua = navigator.userAgent;
-		if (/Windows|Win32|Win64/i.test(ua)) return 'windows';
-		if (/Macintosh|Mac OS X/i.test(ua) && !/iPhone|iPad|iPod/i.test(ua)) return 'mac';
-		if (/Linux|X11/i.test(ua) && !/Android/i.test(ua)) return 'linux';
-		return null;
-	}
 
 	function fmtDate(iso?: string) {
 		if (!iso) return '';

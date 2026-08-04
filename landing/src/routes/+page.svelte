@@ -1,33 +1,58 @@
 <script lang="ts">
-	import { Download, ChevronDown, Check, ArrowRight } from '@lucide/svelte';
-	import Showcase from '$lib/comp/Showcase.svelte';
+	import {
+		Download,
+		ChevronDown,
+		Check,
+		ArrowRight,
+		Terminal,
+		GitCommitHorizontal,
+		FolderTree,
+		Command,
+		Keyboard,
+		TextCursorInput,
+		SpellCheck,
+		Plug,
+		History
+	} from '@lucide/svelte';
+	import Hero from '$lib/comp/Hero.svelte';
 	import typingWebm from '$lib/assets/showcase/visual-typing.webm';
 	import typingMp4 from '$lib/assets/showcase/visual-typing.mp4';
 	import livePreviewMp4 from '$lib/assets/showcase/live-preview.mp4';
 	import collabShot from '$lib/assets/showcase/editor-collab.webp';
-	import intellisenseShot from '$lib/assets/showcase/intellisense.webp';
-	// feature-grid thumbs, all 5:3
-	import thumbSynctex from '$lib/assets/showcase/thumbs/thumb-synctex.png';
-	import thumbTerminal from '$lib/assets/showcase/thumbs/thumb-terminal.png';
-	import thumbDiff from '$lib/assets/showcase/thumbs/thumb-diff.png';
-	import thumbToggle from '$lib/assets/showcase/thumbs/thumb-toggle.png';
-	import thumbTree from '$lib/assets/showcase/thumbs/thumb-tree.png';
-	import thumbMath from '$lib/assets/showcase/thumbs/thumb-math.png';
+	// the -dark png over intellisense.webp: the webp is 579px and blurry at this column width
+	import intellisenseShot from '$lib/assets/showcase/intellisense-dark.png';
 	import { m } from '$lib/paraglide/messages';
 
 	const features = [
-		{ shot: thumbSynctex, title: m.feature_synctex_title(), body: m.feature_synctex_body() },
-		{ shot: thumbTerminal, title: m.feature_terminal_title(), body: m.feature_terminal_body() },
-		{ shot: thumbDiff, title: m.feature_history_title(), body: m.feature_history_body() },
-		{ shot: thumbToggle, title: m.feature_sync_title(), body: m.feature_sync_body() },
-		{ shot: thumbTree, title: m.feature_multifile_title(), body: m.feature_multifile_body() },
-		{ shot: thumbMath, title: m.feature_math_title(), body: m.feature_math_body() }
+		{ icon: Terminal, title: m.feature_terminal_title(), body: m.feature_terminal_body() },
+		{ icon: GitCommitHorizontal, title: m.feature_history_title(), body: m.feature_history_body() },
+		{ icon: FolderTree, title: m.feature_multifile_title(), body: m.feature_multifile_body() },
+		{ icon: Command, title: m.feature_palette_title(), body: m.feature_palette_body() },
+		{ icon: Keyboard, title: m.feature_keymaps_title(), body: m.feature_keymaps_body() },
+		{ icon: TextCursorInput, title: m.feature_multicursor_title(), body: m.feature_multicursor_body() },
+		{ icon: SpellCheck, title: m.feature_spellcheck_title(), body: m.feature_spellcheck_body() },
+		{ icon: Plug, title: m.feature_mcp_title(), body: m.feature_mcp_body() },
+		{ icon: History, title: m.feature_tabs_title(), body: m.feature_tabs_body() }
 	];
 
-	const editingPoints = [m.editing_point_1(), m.editing_point_2(), m.editing_point_3(), m.editing_point_4()];
+	const editingPoints = [
+		m.editing_point_1(),
+		m.editing_point_2(),
+		m.editing_point_3(),
+		m.editing_point_5(),
+		m.editing_point_6(),
+		m.editing_point_4()
+	];
 
 	// every claim here is backed by the static project parse
-	const intellisensePoints = [m.intellisense_point_1(), m.intellisense_point_2(), m.intellisense_point_3(), m.intellisense_point_4()];
+	const sourcePoints = [
+		m.intellisense_point_1(),
+		m.intellisense_point_2(),
+		m.intellisense_point_3(),
+		m.intellisense_point_4(),
+		m.feature_math_body(),
+		m.feature_synctex_body()
+	];
 
 	const collabPoints = [m.collab_point_1(), m.collab_point_2(), m.collab_point_3(), m.collab_point_4()];
 
@@ -69,8 +94,6 @@
 		},
 		featureList: jsonLdFeatureList
 	}).replace(/</g, '\\u003c');
-
-	let openFaq = $state(-1);
 </script>
 
 <svelte:head>
@@ -99,39 +122,16 @@
 	{@html `<script type="application/ld+json">${jsonLd}</script>`}
 </svelte:head>
 
-<section id="top" class="from-primary-50 to-secondary-50 bg-gradient-to-br">
-	<div class="container mx-auto px-4 pt-16 pb-6 sm:px-6 md:pt-24 lg:px-8">
-		<div class="mx-auto max-w-3xl space-y-6 text-center">
-			<h1 class="text-3xl leading-tight font-bold sm:text-4xl">{m.hero_heading()}</h1>
-			<p class="text-surface-600 mx-auto max-w-2xl text-lg leading-relaxed">
-				{m.hero_body()}
-			</p>
-			<div class="flex flex-col items-center justify-center gap-3">
-				<a
-					href="/download"
-					class="btn preset-filled-primary-500 rounded-base inline-flex items-center gap-2 px-7 py-3 font-semibold text-white"
-				>
-					<Download class="h-5 w-5" />
-					{m.word_download()}
-				</a>
-				<p class="text-surface-500 font-mono text-xs">{m.hero_tagline()}</p>
-			</div>
-		</div>
-	</div>
+<Hero />
 
-	<div class="pb-16 md:pb-20">
-		<Showcase />
-	</div>
-</section>
-
-<section id="live-preview" class="bg-white py-16 md:py-20">
+<section id="live-preview" class="border-surface-200 border-t bg-white py-16 md:py-20">
 	<div class="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-		<h2 class="text-surface-900 text-center text-2xl font-semibold md:text-3xl">{m.live_preview_heading()}</h2>
+		<h2 class="text-center text-surface-900 text-2xl font-semibold md:text-3xl">{m.live_preview_heading()}</h2>
 		<p class="text-surface-600 mx-auto mt-4 max-w-2xl text-center text-lg leading-relaxed">
 			{m.live_preview_body()}
 		</p>
 		<p class="mb-10 text-center">{@render docsLink('/docs/live-preview')}</p>
-		<div class="border-surface-200 overflow-hidden rounded-xl border shadow-2xl">
+		<div class="overflow-hidden rounded-lg border-surface-200 border shadow-2xl">
 			<!-- muted looping demo, behaves like an animated image -->
 			<video autoplay muted loop playsinline disablepictureinpicture aria-label={m.live_preview_video_aria()} class="block w-full">
 				<source src={livePreviewMp4} type="video/mp4" />
@@ -140,14 +140,30 @@
 	</div>
 </section>
 
-<section id="visual-editing" class="border-surface-200 border-t bg-white py-16 md:py-20">
+<section id="editing" class="border-surface-200 border-t bg-surface-50 py-16 md:py-20">
 	<div class="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-		<h2 class="text-surface-900 mb-10 text-center text-2xl font-semibold md:text-3xl">{m.visual_editing_heading()}</h2>
-		<div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
-			<div class="order-1 flex flex-col justify-center gap-6 lg:order-2">
-				<p class="text-surface-600 text-lg leading-relaxed">
-					{m.visual_editing_body()}
-				</p>
+		<h2 class="text-surface-900 mb-12 text-center text-2xl font-semibold md:text-3xl">{m.editing_heading()}</h2>
+
+		<!-- the two modes read as a pair, so they sit in one row rather than two stacked sections -->
+		<div class="grid gap-10 lg:grid-cols-2 lg:gap-12">
+			<div id="visual-editing" class="flex flex-col gap-5">
+				<div class="border-surface-200 h-[240px] overflow-hidden rounded-lg border bg-white shadow-lg lg:h-[280px]">
+					<!-- muted looping demo, behaves like an animated image -->
+					<video
+						autoplay
+						muted
+						loop
+						playsinline
+						disablepictureinpicture
+						aria-label={m.visual_editing_video_aria()}
+						class="h-full w-full object-cover object-top"
+					>
+						<source src={typingWebm} type="video/webm" />
+						<source src={typingMp4} type="video/mp4" />
+					</video>
+				</div>
+				<h3 class="text-surface-900 text-xl font-semibold">{m.visual_editing_heading()}</h3>
+				<p class="text-surface-600 leading-relaxed">{m.visual_editing_body()}</p>
 				<ul class="space-y-3">
 					{#each editingPoints as point (point)}
 						<li class="flex items-start gap-3">
@@ -156,30 +172,38 @@
 						</li>
 					{/each}
 				</ul>
-				<div>{@render docsLink('/docs/visual-editing')}</div>
+				<div class="mt-auto pt-1">{@render docsLink('/docs/visual-editing')}</div>
 			</div>
-			<div class="border-surface-200 order-2 mx-auto w-fit overflow-hidden rounded-xl border shadow-2xl lg:order-1">
-				<!-- muted looping demo, behaves like an animated image -->
-				<video
-					autoplay
-					muted
-					loop
-					playsinline
-					disablepictureinpicture
-					aria-label={m.visual_editing_video_aria()}
-					class="block max-h-[340px] w-auto max-w-full"
-				>
-					<source src={typingWebm} type="video/webm" />
-					<source src={typingMp4} type="video/mp4" />
-				</video>
+
+			<div id="source-editing" class="flex flex-col gap-5">
+				<div class="border-surface-200 h-[240px] overflow-hidden rounded-lg border bg-white shadow-lg lg:h-[280px]">
+					<img
+						src={intellisenseShot}
+						alt={m.intellisense_shot_alt()}
+						loading="lazy"
+						draggable="false"
+						class="h-full w-full object-cover object-top"
+					/>
+				</div>
+				<h3 class="text-surface-900 text-xl font-semibold">{m.source_editing_heading()}</h3>
+				<p class="text-surface-600 leading-relaxed">{m.source_editing_body()}</p>
+				<ul class="space-y-3">
+					{#each sourcePoints as point (point)}
+						<li class="flex items-start gap-3">
+							<Check class="text-primary-500 mt-1 h-4 w-4 shrink-0" strokeWidth={2.5} />
+							<span class="text-surface-700 leading-relaxed">{point}</span>
+						</li>
+					{/each}
+				</ul>
+				<div class="mt-auto pt-1">{@render docsLink('/docs/intellisense')}</div>
 			</div>
 		</div>
 	</div>
 </section>
 
-<section id="collaboration" class="border-surface-200 border-t bg-white py-16 md:py-20">
+<section id="collaboration" class="border-surface-200 border-t bg-surface-50 py-16 md:py-20">
 	<div class="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-		<h2 class="text-surface-900 mb-10 text-center text-2xl font-semibold md:text-3xl">{m.collab_heading()}</h2>
+		<h2 class="mb-10 text-center text-surface-900 text-2xl font-semibold md:text-3xl">{m.collab_heading()}</h2>
 		<div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
 			<div class="flex flex-col justify-center gap-6">
 				<p class="text-surface-600 text-lg leading-relaxed">{m.collab_body()}</p>
@@ -193,31 +217,8 @@
 				</ul>
 				<div>{@render docsLink('/docs/collaboration')}</div>
 			</div>
-			<div class="border-surface-200 mx-auto w-full max-w-xl overflow-hidden rounded-xl border shadow-2xl">
+			<div class="mx-auto w-full max-w-xl overflow-hidden rounded-lg border-surface-200 border shadow-2xl">
 				<img src={collabShot} alt={m.collab_heading()} loading="lazy" draggable="false" class="block w-full" />
-			</div>
-		</div>
-	</div>
-</section>
-
-<section id="intellisense" class="border-surface-200 border-t bg-white py-16 md:py-20">
-	<div class="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-		<h2 class="text-surface-900 mb-10 text-center text-2xl font-semibold md:text-3xl">{m.intellisense_heading()}</h2>
-		<div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
-			<div class="border-surface-200 order-2 mx-auto w-full max-w-lg overflow-hidden rounded-xl border shadow-2xl lg:order-1">
-				<img src={intellisenseShot} alt={m.intellisense_heading()} loading="lazy" draggable="false" class="block w-full" />
-			</div>
-			<div class="order-1 space-y-6 lg:order-2">
-				<p class="text-surface-600 text-lg leading-relaxed">{m.intellisense_body()}</p>
-				<ul class="space-y-3">
-					{#each intellisensePoints as point (point)}
-						<li class="flex items-start gap-3">
-							<Check class="text-primary-500 mt-1 h-4 w-4 shrink-0" strokeWidth={2.5} />
-							<span class="text-surface-700 leading-relaxed">{point}</span>
-						</li>
-					{/each}
-				</ul>
-				<div>{@render docsLink('/docs/intellisense')}</div>
 			</div>
 		</div>
 	</div>
@@ -225,24 +226,45 @@
 
 <section id="features" class="border-surface-200 border-t bg-white py-16 md:py-20">
 	<div class="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-		<h2 class="text-surface-900 mb-10 text-center text-2xl font-semibold md:text-3xl">{m.features_heading()}</h2>
+		<h2 class="mb-10 text-center text-surface-900 text-2xl font-semibold md:text-3xl">{m.features_heading()}</h2>
 
-		<div class="mx-auto grid max-w-5xl gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+		<div class="mx-auto grid max-w-5xl gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
 			{#each features as f (f.title)}
+				{@const Icon = f.icon}
 				<div>
-					<div class="border-surface-200 mb-3 overflow-hidden rounded-lg border">
-						<img src={f.shot} alt={f.title} loading="lazy" draggable="false" class="aspect-[5/3] w-full object-cover" />
+					<div class="bg-primary-50 text-primary-600 rounded-base mb-4 flex h-10 w-10 items-center justify-center">
+						<Icon class="h-5 w-5" strokeWidth={2} />
 					</div>
-					<h3 class="text-surface-500 mb-1.5 text-base tracking-wider uppercase">{f.title}</h3>
-					<p class="text-surface-600 leading-relaxed">{f.body}</p>
+					<h3 class="text-surface-900 mb-1.5 text-base font-semibold">{f.title}</h3>
+					<p class="text-surface-700 leading-relaxed">{f.body}</p>
 				</div>
 			{/each}
 		</div>
 
 		<p class="text-surface-600 mt-12 text-center">
-			{'Every feature is documented in full.'}
+			{m.features_docs_note()}
 			<span class="ml-2 inline-block">{@render docsLink('/docs')}</span>
 		</p>
+	</div>
+</section>
+
+<section id="faq" class="border-surface-200 border-t bg-surface-50 py-16 md:py-20">
+	<div class="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+		<h2 class="mb-10 text-center text-surface-900 text-2xl font-semibold md:text-3xl">{m.faq_heading()}</h2>
+		<div class="border-surface-200 overflow-hidden rounded-lg border bg-white">
+			{#each faqs as f (f.q)}
+				<!-- details, not a JS accordion: the answers stay in the DOM for crawlers and work with JS off -->
+				<details class="group border-surface-200 border-b last:border-b-0">
+					<summary
+						class="flex cursor-pointer list-none items-center justify-between text-surface-900 gap-4 px-5 py-4 font-medium [&::-webkit-details-marker]:hidden"
+					>
+						{f.q}
+						<ChevronDown class="text-surface-400 h-5 w-5 shrink-0 transition-transform group-open:rotate-180" />
+					</summary>
+					<p class="text-surface-600 px-5 pb-5 leading-relaxed">{f.a}</p>
+				</details>
+			{/each}
+		</div>
 	</div>
 </section>
 
@@ -262,41 +284,18 @@
 	</div>
 </section>
 
-<section id="faq" class="border-surface-200 border-t bg-white py-16 md:py-20">
-	<div class="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-		<h2 class="text-surface-900 mb-10 text-center text-2xl font-semibold md:text-3xl">{m.faq_heading()}</h2>
-		<div class="divide-surface-200 border-surface-200 divide-y rounded-lg border">
-			{#each faqs as f, i (f.q)}
-				<div class="bg-white first:rounded-t-lg last:rounded-b-lg">
-					<button
-						class="flex w-full items-center justify-between gap-4 px-5 py-4 text-left font-medium"
-						onclick={() => (openFaq = openFaq === i ? -1 : i)}
-						aria-expanded={openFaq === i}
-					>
-						{f.q}
-						<ChevronDown class="text-surface-400 h-5 w-5 shrink-0 transition-transform {openFaq === i ? 'rotate-180' : ''}" />
-					</button>
-					{#if openFaq === i}
-						<p class="text-surface-600 px-5 pb-5 leading-relaxed">{f.a}</p>
-					{/if}
-				</div>
-			{/each}
-		</div>
+<section id="ps" class="border-surface-200 border-t bg-surface-50 py-14">
+	<div class="container mx-auto max-w-2xl px-4 text-center sm:px-6">
+		<h2 class="text-surface-900 text-base font-semibold">{m.ps_heading()}</h2>
+		<p class="text-surface-500 mt-3 text-sm leading-relaxed">
+			{m.ps_body()}
+		</p>
 	</div>
 </section>
 
 {#snippet docsLink(href: string)}
 	<a {href} class="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1.5 font-medium transition-colors">
-		{'Read the docs'}
+		{m.docs_link_label()}
 		<ArrowRight class="h-4 w-4" />
 	</a>
 {/snippet}
-
-<section id="ps" class="border-surface-200 border-t bg-white py-14">
-	<div class="container mx-auto max-w-2xl px-4 text-center sm:px-6">
-		<h2 class="text-surface-900 text-lg font-semibold">{m.ps_heading()}</h2>
-		<p class="text-surface-600 mt-3 leading-relaxed">
-			{m.ps_body()}
-		</p>
-	</div>
-</section>

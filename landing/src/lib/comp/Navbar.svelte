@@ -40,9 +40,9 @@
 </script>
 
 <header
-	class="bg-surface-50/95 sticky top-0 z-50 border-b backdrop-blur-sm transition-colors duration-200 {atTop
-		? 'border-transparent'
-		: 'border-surface-200'}"
+	class="sticky top-0 z-50 border-b backdrop-blur-sm transition-colors duration-200 {atTop
+		? 'border-transparent bg-transparent'
+		: 'border-surface-200 bg-surface-50/95'}"
 >
 	<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 		<nav class="relative flex h-16 items-center justify-between">
