@@ -90,12 +90,21 @@
 		title={'Producing a PDF'}
 		body={'Press Preview (or Compile, in source mode) and Texpile runs a sensible default command for you: latexmk with lualatex. It just needs a TeX distribution installed on your machine.'}
 	>
-		<a
-			href="/docs/compiling"
-			class="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1.5 font-medium transition-colors"
-		>
-			{'Compiling, live preview, and the Problems panel, in full'}
-			<ArrowRight class="h-4 w-4" />
-		</a>
+		<div class="flex flex-wrap gap-x-6 gap-y-2">
+			<a
+				href="/docs/installation"
+				class="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1.5 font-medium transition-colors"
+			>
+				{'Installing TeX Live, MacTeX, or MiKTeX'}
+				<ArrowRight class="h-4 w-4" />
+			</a>
+			<a
+				href="/docs/compiling"
+				class="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1.5 font-medium transition-colors"
+			>
+				{'Compiling, live preview, and the Problems panel, in full'}
+				<ArrowRight class="h-4 w-4" />
+			</a>
+		</div>
 	</Section>
 </div>

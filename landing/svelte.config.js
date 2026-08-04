@@ -5,6 +5,10 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 // nav can never 404 in another locale. Keep in sync with TOPICS in src/lib/docs/nav.ts.
 const DOC_SLUGS = [
 	'',
+	'/installation',
+	'/installation/windows',
+	'/installation/macos',
+	'/installation/linux',
 	'/getting-started',
 	'/live-preview',
 	'/visual-editing',

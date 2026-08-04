@@ -1,4 +1,8 @@
 import {
+	HardDriveDownload,
+	Monitor,
+	Apple,
+	TerminalSquare,
 	Rocket,
 	Eye,
 	PenLine,
@@ -30,6 +34,17 @@ export interface Topic {
 // order here is the sidebar order and the prev/next order; keep it in sync with
 // `docsEntries` in svelte.config.js, which prerenders the localized variants
 export const TOPICS: Topic[] = [
+	{
+		slug: 'installation',
+		title: 'Installation',
+		blurb: 'Install Texpile, then a TeX distribution for it to compile with.',
+		icon: HardDriveDownload,
+		children: [
+			{ slug: 'windows', title: 'Windows', blurb: 'The installer, then TeX Live or MiKTeX.', icon: Monitor },
+			{ slug: 'macos', title: 'macOS', blurb: 'The .dmg, then MacTeX or BasicTeX.', icon: Apple },
+			{ slug: 'linux', title: 'Linux', blurb: 'The .deb or AppImage, then TeX Live.', icon: TerminalSquare }
+		]
+	},
 	{
 		slug: 'getting-started',
 		title: 'Getting started',
