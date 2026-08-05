@@ -71,6 +71,7 @@
 		"esm-env": "^1.2.2",
 		"harper.js": "^1.0.0",
 		"lib0": "^0.2.117",
+		"markdown-it": "^15.0.0",
 		"mathlive": "^0.110.0",
 		"opentype.js": "^2.0.0",
 		"pdfjs-dist": "^5.4.394",

@@ -62,7 +62,8 @@ class InlineLatexView {
 				drawSelection(),
 				this.languageConf.of([]),
 				cmSyntaxHighlight(),
-				latexAutocomplete({ tooltipsInBody: true }), // popup escapes the inline node's box
+				// popup escapes the inline node's box; only latex content has completions to offer
+				...(String(this.node.attrs.lang ?? 'latex') === 'latex' ? [latexAutocomplete({ tooltipsInBody: true })] : []),
 				// reject anything that would make it multi-line
 				EditorState.transactionFilter.of((tr) => (tr.newDoc.lines > 1 ? [] : tr)),
 				// soft-wrap long inline blocks instead of pushing past the page width; still one logical line
@@ -92,8 +93,10 @@ class InlineLatexView {
 		}
 
 		const cm = this.cm;
-		const latexLang = cmlangdata.find((lang) => lang.name === 'LaTeX');
-		latexLang?.load().then((lang) => cm.dispatch({ effects: this.languageConf.reconfigure(lang) }));
+		// attrs.lang picks the mode, same contract as the block RawLatexView (md html/markdown chips)
+		const langName = { latex: 'LaTeX', html: 'HTML', markdown: 'Markdown' }[String(this.node.attrs.lang ?? 'latex')] ?? 'LaTeX';
+		const langData = cmlangdata.find((lang) => lang.name === langName);
+		langData?.load().then((lang) => cm.dispatch({ effects: this.languageConf.reconfigure(lang) }));
 
 		cm.dom.addEventListener('blur', this.handleBlur, true);
 	};

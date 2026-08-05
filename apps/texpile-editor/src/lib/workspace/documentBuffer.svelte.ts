@@ -7,11 +7,12 @@
 import { get } from 'svelte/store';
 import { isDirty } from '$lib/workspace/workspaceStore';
 import { serializeLatexFile, type ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
+import { serializeMarkdownFile } from '$lib/markdown/roundtrip';
 import { replacePreambleFrontmatter } from '$lib/editor/extensions/raw-latex/frontmatterView';
 import { basename, relativeTo, type Eol } from '$lib/workspace/fileSystem';
 import type { Node as PMNode } from 'prosemirror-model';
 
-export type FileKind = 'tex' | 'bib' | 'pdf' | 'image' | 'binary' | 'text' | null;
+export type FileKind = 'tex' | 'md' | 'bib' | 'pdf' | 'image' | 'binary' | 'text' | null;
 export type DocMeta = Pick<ParsedLatexFile, 'preamble' | 'postamble' | 'hadDocumentEnv'> | null;
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i;
@@ -20,11 +21,22 @@ const BINARY_EXT = /\.(pdf|zip|gz|tar|otf|ttf|woff2?|eot|docx?|pptx?|xlsx?|bin)$
 export function fileKind(path: string | null): FileKind {
 	if (!path) return null;
 	if (/\.tex$/i.test(path)) return 'tex';
+	if (/\.(md|markdown)$/i.test(path)) return 'md';
 	if (/\.bib$/i.test(path)) return 'bib';
 	if (/\.pdf$/i.test(path)) return 'pdf';
 	if (IMAGE_EXT.test(path)) return 'image';
 	if (BINARY_EXT.test(path)) return 'binary';
 	return 'text';
+}
+
+/** kinds that parse into the visual (ProseMirror) editor and hold their source in texSource. */
+export function hasVisualMode(kind: FileKind): kind is 'tex' | 'md' {
+	return kind === 'tex' || kind === 'md';
+}
+
+/** the dialect the parser worker / serializer should use for a structured kind. */
+export function formatOf(kind: FileKind): 'tex' | 'md' {
+	return kind === 'md' ? 'md' : 'tex';
 }
 
 export interface DocumentBufferDeps {
@@ -68,7 +80,13 @@ export class DocumentBuffer {
 
 	/** the live buffer for whichever kind is open */
 	get buffer(): string {
-		return this.kind === 'tex' ? this.texSource : this.rawContent;
+		return hasVisualMode(this.kind) ? this.texSource : this.rawContent;
+	}
+
+	/** serialize the visual doc back to source in the open file's dialect */
+	private serializeFile(doc: PMNode): string {
+		if (!this.docMeta) return this.texSource;
+		return this.kind === 'md' ? serializeMarkdownFile(this.docMeta, doc) : serializeLatexFile(this.docMeta, doc);
 	}
 
 	/** display name: root-relative when we have a root, else just the basename */
@@ -125,7 +143,7 @@ export class DocumentBuffer {
 	onVisualChange(doc: PMNode): void {
 		if (!this.docMeta) return;
 		this.lastDoc = doc;
-		this.texSource = serializeLatexFile(this.docMeta, doc);
+		this.texSource = this.serializeFile(doc);
 		// nodeviews settling on load (or an edit undone back to the saved bytes) fire a docChanged
 		// transaction that serializes right back to disk: that isn't an unsaved change, so don't
 		// flag the pristine file dirty or queue a no-op save that would nag on the next switch
@@ -143,7 +161,7 @@ export class DocumentBuffer {
 	/** inline preamble-frontmatter edit (\title/\author/\date): splice the new text into the
 	 * preamble verbatim and re-serialize. Anything else in the preamble is Source-view territory. */
 	editFrontmatter(kind: string, inner: string): void {
-		if (!this.docMeta || !this.lastDoc) return;
+		if (!this.docMeta || !this.lastDoc || this.kind !== 'tex') return; // \title/\author is LaTeX-only
 		this.docMeta = { ...this.docMeta, preamble: replacePreambleFrontmatter(this.docMeta.preamble, kind, inner) };
 		this.texSource = serializeLatexFile(this.docMeta, this.lastDoc);
 		isDirty.set(true);
@@ -178,7 +196,7 @@ export class DocumentBuffer {
 	save(force = false): void {
 		this.deps.discardQueuedSave(); // drop the queued debounce; we're writing the current content now
 		if (!this.path) return;
-		if (this.kind === 'tex') this.deps.writeNow(this.path, this.texSource, force);
+		if (hasVisualMode(this.kind)) this.deps.writeNow(this.path, this.texSource, force);
 		else if (this.kind === 'text' || this.kind === 'bib') this.deps.writeNow(this.path, this.rawContent, force);
 	}
 }

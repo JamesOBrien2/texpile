@@ -1,4 +1,3 @@
-import { schema } from '$lib/schema/schema';
 import { EditorState, NodeSelection, Transaction } from 'prosemirror-state';
 import { trackFeatureUsed } from '$lib/plausible';
 
@@ -8,7 +7,9 @@ export function createMathField(createblock = false) {
 		trackFeatureUsed('equation');
 
 		if (createblock) {
-			const newNode = state.schema.nodes.block_math.create({}, schema.text(' '));
+			// state.schema, not the tex schema import: this command serves both editors, and
+			// nodes from different Schema objects must never mix in one doc
+			const newNode = state.schema.nodes.block_math.create({}, state.schema.text(' '));
 
 			const $from = state.doc.resolve(from);
 			const parent = $from.parent;
@@ -33,7 +34,7 @@ export function createMathField(createblock = false) {
 				return true;
 			}
 		} else {
-			const newNode = state.schema.nodes.inline_math.create({}, schema.text(' '));
+			const newNode = state.schema.nodes.inline_math.create({}, state.schema.text(' '));
 
 			if (newNode) {
 				const tr = state.tr.insert(from, newNode);

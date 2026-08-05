@@ -1,4 +1,4 @@
-// mode-switch scroll + cursor sync (visual/source, .tex only): both directions carry two anchors
+// mode-switch scroll + cursor sync (visual/source, both structured dialects): both directions carry two anchors
 // as texSource offsets, resolved positionally via the parse-time orig.start stamps (content
 // matching fails wholesale against an edited buffer; positions only drift). scroll = the
 // viewport-top block, cursor = the caret mapped proportionally within its block's orig.latex slice.
@@ -85,7 +85,12 @@ export function captureSourceAnchor(): SourceAnchor | null {
  * EditorView's doc-swap effect restores its saved scrollTop in a single rAF registered in this
  * same flush; ours must land after it or the anchor scroll gets overwritten.
  */
-export function resolveVisualAnchor(v: EditorView & { isDestroyed?: boolean }, anchor: SourceAnchor, bodyOffset: number): void {
+export function resolveVisualAnchor(
+	v: EditorView & { isDestroyed?: boolean },
+	anchor: SourceAnchor,
+	bodyOffset: number,
+	strip?: (s: string) => string
+): void {
 	requestAnimationFrame(() =>
 		requestAnimationFrame(() => {
 			try {
@@ -107,7 +112,7 @@ export function resolveVisualAnchor(v: EditorView & { isDestroyed?: boolean }, a
 				// caret: text-anchored inside the block containing the source cursor, falling back
 				// to the scroll block. no scrollIntoView on the tr: the scroll anchor owns the viewport.
 				const caretPos =
-					(anchor.cursor != null ? sourceOffsetToPmPos(doc, map, anchor.cursor) : null) ?? (scrollHit ? scrollHit.pmPos + 1 : null);
+					(anchor.cursor != null ? sourceOffsetToPmPos(doc, map, anchor.cursor, strip) : null) ?? (scrollHit ? scrollHit.pmPos + 1 : null);
 				if (caretPos == null) return; // an empty doc: nothing to place a caret in at all
 				v.dispatch(v.state.tr.setSelection(TextSelection.near(v.state.doc.resolve(caretPos))).setMeta('addToHistory', false));
 				// reclaim DOM focus for PM: the mount-time selection can sit inside a CM-backed

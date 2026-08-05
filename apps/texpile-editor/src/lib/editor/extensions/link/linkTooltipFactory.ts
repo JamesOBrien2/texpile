@@ -15,6 +15,8 @@ export interface LinkTooltipOptions {
 	onUpdate: (href: string, title: string | null) => void;
 	onRemove: () => void;
 	onClose: () => void;
+	/** open interception: true = handled in-app (md workspace link), else browser fallback */
+	onOpen?: (href: string) => boolean;
 }
 
 let currentContainer: HTMLDivElement | null = null;
@@ -44,7 +46,8 @@ export function createLinkTooltip(options: LinkTooltipOptions): void {
 				position: options.position,
 				onUpdate: options.onUpdate,
 				onRemove: options.onRemove,
-				onClose: options.onClose
+				onClose: options.onClose,
+				onOpen: options.onOpen
 			}
 		});
 	} catch (error) {

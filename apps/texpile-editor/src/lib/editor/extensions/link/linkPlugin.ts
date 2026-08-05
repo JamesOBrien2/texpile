@@ -96,7 +96,8 @@ function showLinkTooltip(
 	from: number,
 	to: number,
 	onUpdate: (href: string, title: string | null) => void,
-	onRemove: () => void
+	onRemove: () => void,
+	onOpen?: (href: string) => boolean
 ) {
 	const coords = view.coordsAtPos(from);
 	const linkText = view.state.doc.textBetween(from, to);
@@ -108,13 +109,20 @@ function showLinkTooltip(
 		position: { x: coords.left, y: coords.bottom },
 		onUpdate,
 		onRemove,
+		onOpen,
 		onClose: () => {
 			destroyLinkTooltip();
 		}
 	});
 }
 
-export function createLinkPlugin() {
+export interface LinkPluginOptions {
+	/** intercept the tooltip's "open" action: return true when handled (a workspace-relative
+	 * markdown link opening in the editor), false to fall through to the browser. */
+	onOpen?: (href: string) => boolean;
+}
+
+export function createLinkPlugin(opts: LinkPluginOptions = {}) {
 	return new Plugin<LinkPluginState>({
 		key: LINK_PLUGIN_KEY,
 
@@ -268,7 +276,8 @@ export function createLinkPlugin() {
 						const tr = state.tr.removeMark(pluginState.linkFrom, pluginState.linkTo, linkType);
 						dispatch(tr);
 						destroyLinkTooltip();
-					}
+					},
+					opts.onOpen
 				);
 			};
 

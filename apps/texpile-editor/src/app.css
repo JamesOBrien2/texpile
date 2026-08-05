@@ -53,6 +53,22 @@ html[data-mode='dark'] {
 	outline: none;
 }
 
+/* CodeMirror's base theme paints its own `1px dotted #212121` on the WRAPPER (.cm-editor), not
+   the focused contenteditable, so the rule above never sees it - a black dotted ring, glaring
+   on dark surfaces. Individual views used to each re-disable it; do it once, for every instance. */
+.cm-editor.cm-focused {
+	outline: none;
+}
+
+/* Thematic breaks. Skeleton styles `hr` as a UTILITY CLASS, which an element the schema emits
+   never gets, so a bare <hr> fell through to Tailwind preflight - whose border-color defaults to
+   currentColor, i.e. the TEXT colour: a glaring near-white bar in dark mode. */
+.TexpileEditor hr {
+	border-top-width: 1px;
+	border-color: var(--color-surface-200-800);
+	margin: 1.5rem 0;
+}
+
 /* CodeMirror doesn't auto-theme, so dark-theme its chrome to match the dark editor */
 [data-mode='dark'] .cm-gutters {
 	background-color: transparent;

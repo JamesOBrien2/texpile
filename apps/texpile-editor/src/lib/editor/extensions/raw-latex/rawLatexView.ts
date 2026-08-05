@@ -11,7 +11,11 @@ import { languages as cmlangdata } from '@codemirror/language-data';
 import { rawEditorActiveStore } from '$lib/stores/editorStore';
 import { latexAutocomplete } from '$lib/editor/extensions/intellisense/intellisense';
 
-// codemirror-backed NodeView for raw_latex blocks; content reaches the serializer unprocessed
+// codemirror-backed NodeView for raw source blocks; content reaches the serializer unprocessed.
+// attrs.lang picks the CodeMirror mode: 'latex' (default, with autocomplete), or 'html' /
+// 'markdown' for the raw islands a markdown doc produces.
+const LANG_NAMES: Record<string, string> = { latex: 'LaTeX', html: 'HTML', markdown: 'Markdown' };
+
 class RawLatexView {
 	node: Node;
 	view: ProseMirrorView;
@@ -34,9 +38,10 @@ class RawLatexView {
 				drawSelection(),
 				// wrap long lines instead of scrolling horizontally
 				CodeMirrorView.lineWrapping,
-				this.languageConf.of([]), // latex lang loads async below
+				this.languageConf.of([]), // lang loads async below
 				cmSyntaxHighlight(),
-				latexAutocomplete({ tooltipsInBody: true }), // popup escapes the block's box
+				// popup escapes the block's box; only latex content has completions to offer
+				...(String(node.attrs.lang ?? 'latex') === 'latex' ? [latexAutocomplete({ tooltipsInBody: true })] : []),
 				// transparent surface so the raw block blends into the document
 				CodeMirrorView.theme({
 					'&': { backgroundColor: 'transparent' },
@@ -61,9 +66,10 @@ class RawLatexView {
 		wrapper.appendChild(this.cm.dom);
 		this.dom = wrapper;
 
-		const latexLang = cmlangdata.find((lang) => lang.name === 'LaTeX');
-		if (latexLang) {
-			latexLang.load().then((lang) => {
+		const langName = LANG_NAMES[String(node.attrs.lang ?? 'latex')] ?? 'LaTeX';
+		const langData = cmlangdata.find((lang) => lang.name === langName);
+		if (langData) {
+			langData.load().then((lang) => {
 				this.cm.dispatch({
 					effects: this.languageConf.reconfigure(lang)
 				});

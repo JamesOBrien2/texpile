@@ -48,11 +48,11 @@ export class VisualParser {
 
 	/** The failure is RETURNED rather than handled here: only the caller knows whether its parse is
 	 * still the current one, and a superseded parse must not yank the user out of visual mode. */
-	async parse(text: string): Promise<ParseOutcome> {
+	async parse(text: string, format: 'tex' | 'md' = 'tex'): Promise<ParseOutcome> {
 		try {
 			const timeoutMs = Math.min(MAX_TIMEOUT_MS, MIN_TIMEOUT_MS + Math.floor(text.length / 100));
 			this.progress = 'parsing';
-			return { parsed: await parseLatexFileAsync(text, this.getMacros(), timeoutMs, (p) => (this.progress = p), MAX_VISUAL_NODES) };
+			return { parsed: await parseLatexFileAsync(text, this.getMacros(), timeoutMs, (p) => (this.progress = p), MAX_VISUAL_NODES, format) };
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			// TODO: unified-latex's PEG tokenizer throws "RangeError: Invalid array length" on very

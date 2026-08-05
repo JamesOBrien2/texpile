@@ -17,6 +17,7 @@
 	import { searchKeymap, openSearchPanel } from '@codemirror/search';
 	import { texpileSearch } from '$lib/editor/extensions/search-panel/searchPanel';
 	import { latexAutocomplete, latexIntellisense } from '$lib/editor/extensions/intellisense/intellisense';
+	import { mdSourceShortcuts } from '$lib/markdown/sourceExtensions';
 	import { cmSpellcheck } from '$lib/editor/extensions/spellcheck/cmSpellcheck';
 	import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
 	import { mathPreview } from '$lib/editor/extensions/math-preview/mathPreview';
@@ -92,6 +93,11 @@
 		onOpenFileAt?: (file: string, line: number) => void;
 		collab?: CollabBinding | null;
 	} = $props();
+
+	// language/extension gating: EditorPane only passes docPath, so `filename` alone was always
+	// '' and EVERY file (md, bib) silently fell into the "no name -> assume LaTeX" branch —
+	// latex intellisense shortcuts and highlighting in markdown source mode included
+	const fileFor = $derived(filename || docPath || '');
 
 	let ctxMenu = $state<{ x: number; y: number; line: number; hasSelection: boolean } | null>(null);
 	function onContextMenu(e: MouseEvent) {
@@ -262,7 +268,7 @@
 				...(restored ? { selection: { anchor: restored.cursor } } : {}),
 				extensions: [
 					// gutters render in extension order: lint goes before lineNumbers so it lands on their left
-					...(!filename || /\.tex$/i.test(filename) ? [lintGutter({ hoverTime: 0 })] : []),
+					...(!fileFor || /\.tex$/i.test(fileFor) ? [lintGutter({ hoverTime: 0 })] : []),
 					lineNumbers(),
 					gutterTheme,
 					highlightActiveLine(),
@@ -285,11 +291,13 @@
 					// full intellisense (completion + shortcuts + hover + folding + go-to-def) + math preview for
 					// .tex only; .bib gets entry-type/field completion. Guests included: the sources read
 					// stores fed through the workspace provider, so a session serves them from the shared doc.
-					...(!filename || /\.tex$/i.test(filename)
+					...(!fileFor || /\.tex$/i.test(fileFor)
 						? [latexIntellisense({ onJumpToFile, onOpenFileAt }), mathPreview(), starterGhost(), cmSpellcheck()]
-						: /\.bib$/i.test(filename)
-							? [latexAutocomplete({ bib: true })]
-							: []),
+						: /\.(md|markdown)$/i.test(fileFor)
+							? [mdSourceShortcuts(), mathPreview(), cmSpellcheck()] // md chords; $-math and spellcheck are dialect-free
+							: /\.bib$/i.test(fileFor)
+								? [latexAutocomplete({ bib: true })]
+								: []),
 					synctexFlash(), // flash the line jumped to by SyncTeX inverse search / Find-in-Files
 					// compact find/replace widget, floated top-right (styles below)
 					texpileSearch(),
@@ -368,13 +376,13 @@
 		// .bib uses our hand-written highlighter (language-data ships none). language-data's LaTeX
 		// descriptor only matches .tex/.ltx, so route .cls/.sty (same TeX syntax) to it directly
 		// instead of through matchFilename, which would leave them unhighlighted.
-		if (filename && /\.bib$/i.test(filename)) {
+		if (fileFor && /\.bib$/i.test(fileFor)) {
 			view?.dispatch({ effects: langConf.reconfigure(bibtex()) });
 		} else {
 			const desc =
-				!filename || /\.(tex|cls|sty)$/i.test(filename)
+				!fileFor || /\.(tex|cls|sty)$/i.test(fileFor)
 					? cmlangdata.find((l) => l.name === 'LaTeX')
-					: LanguageDescription.matchFilename(cmlangdata, filename);
+					: LanguageDescription.matchFilename(cmlangdata, fileFor);
 			desc?.load().then((lang) => view?.dispatch({ effects: langConf.reconfigure(lang) }));
 		}
 	});

@@ -1,18 +1,7 @@
 <script lang="ts">
-	import {
-		ChevronRight,
-		ChevronDown,
-		Folder,
-		FileText,
-		File,
-		FilePlus,
-		FolderPlus,
-		Pencil,
-		Trash2,
-		Star,
-		FileSymlink
-	} from '@lucide/svelte';
+	import { ChevronRight, ChevronDown, FilePlus, FolderPlus, Pencil, Trash2, Star, FileSymlink } from '@lucide/svelte';
 	import { untrack } from 'svelte';
+	import FileIcon from './FileIcon.svelte';
 	import { samePath, type TreeEntry } from '$lib/workspace/fileSystem';
 	import { gitKey } from '$lib/workspace/gitStore';
 	import type { GitBadge } from '$lib/workspace/git';
@@ -475,9 +464,11 @@
 
 {#snippet createInput(depth: number)}
 	<div class="flex items-center gap-1 py-0.5" style="padding-left: {depth * 12 + 6}px">
-		{#if createType === 'dir'}<Folder class="text-surface-400 size-4 shrink-0" />{:else if createType === 'include'}<FileSymlink
+		<!-- the icon previews what the row is about to become, so it tracks the name as it is typed
+		     (an empty name falls through to the generic document glyph) -->
+		{#if createType === 'dir'}<FileIcon name="" folder="closed" class="size-4 shrink-0" />{:else if createType === 'include'}<FileSymlink
 				class="text-surface-400 size-4 shrink-0"
-			/>{:else}<File class="text-surface-400 size-4 shrink-0" />{/if}
+			/>{:else}<FileIcon name={createValue} class="size-4 shrink-0" />{/if}
 		<input
 			class="input h-6 flex-1 py-0 text-sm"
 			placeholder={createType === 'dir'
@@ -530,10 +521,10 @@
 					{#if expanded[entry.path]}<ChevronDown class="text-surface-400 size-3.5 shrink-0" />{:else}<ChevronRight
 							class="text-surface-400 size-3.5 shrink-0"
 						/>{/if}
-					<Folder class="text-surface-400 size-4 shrink-0" />
+					<FileIcon name={entry.name} folder={expanded[entry.path] ? 'open' : 'closed'} class="size-4 shrink-0" />
 				{:else}
 					<span class="w-3.5 shrink-0"></span>
-					<FileText class="text-surface-400 size-4 shrink-0" />
+					<FileIcon name={entry.name} class="size-4 shrink-0" />
 				{/if}
 				{#if renaming === entry.path}
 					<input

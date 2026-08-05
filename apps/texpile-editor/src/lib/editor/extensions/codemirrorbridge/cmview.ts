@@ -57,8 +57,10 @@ class CodeBlockView {
 	 * until the picker is actually opened, then fill in the rest. */
 	private buildDropdown(): HTMLSelectElement {
 		const dropdown = document.createElement('select');
+		// surface-100/900, not 50/950: the darkest surface read as a black bar against the code
+		// card in dark mode, and the lightest washed out against it in light mode
 		dropdown.className =
-			'noautofocus bg-surface-50-950 text-surface-900-100 border-surface-300-700 flex h-5 w-full items-center justify-center rounded border-[0.504px] text-xs font-medium';
+			'noautofocus bg-surface-100-900 text-surface-900-100 border-surface-300-700 flex h-5 w-full items-center justify-center rounded border-[0.504px] text-xs font-medium';
 
 		const current = document.createElement('option');
 		current.value = current.text = this.node.attrs.lang || 'Markdown';

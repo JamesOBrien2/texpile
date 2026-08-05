@@ -35,11 +35,17 @@ export function saveVisualPosition(v: EditorView, path: string, source: string, 
  * lands after this one and wins - the precedence we want, without this needing to know the mode
  * switch exists.
  */
-export function restoreVisualPosition(v: EditorView, path: string, source: string, bodyOffset: number): void {
+export function restoreVisualPosition(
+	v: EditorView,
+	path: string,
+	source: string,
+	bodyOffset: number,
+	strip?: (s: string) => string
+): void {
 	const pos = docPositions.get(path);
 	if (!pos) return;
 	const doc = v.state.doc;
-	const target = sourceOffsetToPmPos(doc, buildBlockMap(doc, bodyOffset), rowColToOffset(source, pos.row, pos.column));
+	const target = sourceOffsetToPmPos(doc, buildBlockMap(doc, bodyOffset), rowColToOffset(source, pos.row, pos.column), strip);
 	if (target == null) return; // resolved into the preamble, which the visual editor does not show
 
 	// Never restore ONTO an embedded node. TextSelection.near hands back a NodeSelection when the

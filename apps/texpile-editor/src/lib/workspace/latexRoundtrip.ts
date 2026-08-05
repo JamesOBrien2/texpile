@@ -2,7 +2,7 @@
 // saving regenerates only the body and splices it back under the untouched preamble
 import * as LatexParser from '$lib/latex-parser';
 import { serializeToLatexDetailed, serializeNode } from '$lib/serializer/latexSerializer';
-import { Fragment } from 'prosemirror-model';
+import { fillOrigNorms } from '$lib/serializer/blockAssembly';
 import type { Node } from 'prosemirror-model';
 
 // the importer runs in max-fidelity mode: unrecognized constructs are preserved as raw/inline LaTeX
@@ -40,38 +40,6 @@ export interface ParsedLatexFile {
 	hadDocumentEnv: boolean;
 	/** Non-fatal notes (e.g. raw LaTeX that could not be converted). */
 	warnings: string[];
-}
-
-/**
- * Fills orig.norm on top-level blocks: the block's deterministic serialization at parse time.
- * The serializer re-emits the original orig.latex slice only while the block still serializes
- * to exactly norm, so any edit falls back to regeneration. A block that fails to serialize
- * keeps norm null and always regenerates.
- */
-function fillOrigNorms(doc: Node): Node {
-	let changed = false;
-	const kids: Node[] = [];
-	for (let i = 0; i < doc.childCount; i++) {
-		const child = doc.child(i);
-		const orig = (child.attrs as { orig?: { latex?: unknown; norm?: unknown } | null }).orig;
-		if (orig && typeof orig.latex === 'string' && orig.norm == null) {
-			try {
-				const norm = serializeNode(child, {
-					parent: doc,
-					index: i,
-					isLastChild: i === doc.childCount - 1,
-					inTableCell: false
-				});
-				kids.push(child.type.create({ ...child.attrs, orig: { ...orig, norm } }, child.content, child.marks));
-				changed = true;
-				continue;
-			} catch {
-				// leave norm unset, the safe direction: this block always regenerates
-			}
-		}
-		kids.push(child);
-	}
-	return changed ? doc.copy(Fragment.fromArray(kids)) : doc;
 }
 
 /** counts raw_latex / inline_latex nodes (constructs the parser couldn't model). */
@@ -123,7 +91,7 @@ export function parseLatexFile(latex: string, projectMacros = '', onPhase?: (pha
 	const { doc: parsedDoc } = LatexParser.latexToProseMirror(body, { preamble: scanPreamble, onPhase });
 	onPhase?.('finalizing');
 	// complete the verbatim stamps: untouched blocks then round-trip byte-for-byte
-	const doc = fillOrigNorms(parsedDoc);
+	const doc = fillOrigNorms(parsedDoc, serializeNode);
 
 	// dev-only tripwire: a doc that violates the content model renders fine but freezes the editor
 	// on the first structural edit (PM throws mid-dispatch). production still opens the file, degraded.

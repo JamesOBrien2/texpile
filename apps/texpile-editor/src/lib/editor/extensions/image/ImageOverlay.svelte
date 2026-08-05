@@ -3,6 +3,7 @@
 	import { Settings, ChevronDown, Info } from '@lucide/svelte';
 	import type { EditorView } from 'prosemirror-view';
 	import type { Node as PMNode } from 'prosemirror-model';
+	import type { Dialect } from '$lib/editor/dialect';
 	import { sanitizeLabel } from '$lib/editor/utils/label';
 	import { isReadOnly } from '$lib/stores/permissionStore';
 	import { templateFeaturesStore } from '$lib/stores/editorStore';
@@ -13,11 +14,17 @@
 		node: PMNode;
 		view: EditorView;
 		getPos: () => number | undefined;
+		/** dialect-aware chrome (see lib/editor/dialect.ts): feature flags derive from this. */
+		dialect?: Dialect;
 	}
 
-	let { node, view, getPos }: Props = $props();
+	let { node, view, getPos, dialect = 'latex' }: Props = $props();
+	// markdown has no width or figure-numbering syntax to write back, so those controls hide
+	const latexControls = $derived(dialect === 'latex');
 
-	const columnSpanningEnabled = $derived($templateFeaturesStore?.columnSpanningFigures ?? false);
+	// figure* spanning both columns is a LaTeX two-column-template feature; markdown has no
+	// counterpart, and templateFeatures is never populated for an md doc anyway
+	const columnSpanningEnabled = $derived(latexControls && ($templateFeaturesStore?.columnSpanningFigures ?? false));
 
 	let settingsOpen = $state(false);
 	let showAdvanced = $state(false);
@@ -155,21 +162,23 @@
 				<Popover.Positioner class="z-floating-ui">
 					<Popover.Content class="card bg-surface-50-950 border-surface-300-700 min-w-[250px] border shadow-lg">
 						<div class="settings-content">
-							<div class="settings-row">
-								<div class="mb-1 flex items-center justify-between">
-									<span class="text-sm">{m.imageoverlay_size_label()}</span>
-									<span class="text-surface-500 text-xs tabular-nums">{sizePercent}%</span>
+							{#if latexControls}
+								<div class="settings-row">
+									<div class="mb-1 flex items-center justify-between">
+										<span class="text-sm">{m.imageoverlay_size_label()}</span>
+										<span class="text-surface-500 text-xs tabular-nums">{sizePercent}%</span>
+									</div>
+									<input
+										type="range"
+										class="accent-primary-500 w-full"
+										min={Math.round(sizeStep * 100)}
+										max={100}
+										step={Math.round(sizeStep * 100)}
+										value={sizePercent}
+										oninput={(e) => setSizePercent(Number((e.currentTarget as HTMLInputElement).value))}
+									/>
 								</div>
-								<input
-									type="range"
-									class="accent-primary-500 w-full"
-									min={Math.round(sizeStep * 100)}
-									max={100}
-									step={Math.round(sizeStep * 100)}
-									value={sizePercent}
-									oninput={(e) => setSizePercent(Number((e.currentTarget as HTMLInputElement).value))}
-								/>
-							</div>
+							{/if}
 
 							<div class="settings-row flex items-center justify-between">
 								<div class="flex items-center gap-2">
@@ -199,33 +208,35 @@
 								</button>
 							</div>
 
-							<div class="settings-row flex items-center justify-between">
-								<div class="flex items-center gap-2">
-									<span class="text-sm">{m.imageoverlay_numbered_label()}</span>
-									<Tooltip positioning={{ placement: 'top' }} openDelay={200}>
-										<Tooltip.Trigger class="inline-flex items-center">
-											<Info class="text-surface-500 h-3.5 w-3.5" />
-										</Tooltip.Trigger>
-										<Portal>
-											<Tooltip.Positioner class="z-floating-ui">
-												<Tooltip.Content class="card preset-filled p-2 text-sm">{m.imageoverlay_numbered_tooltip()}</Tooltip.Content>
-											</Tooltip.Positioner>
-										</Portal>
-									</Tooltip>
+							{#if latexControls}
+								<div class="settings-row flex items-center justify-between">
+									<div class="flex items-center gap-2">
+										<span class="text-sm">{m.imageoverlay_numbered_label()}</span>
+										<Tooltip positioning={{ placement: 'top' }} openDelay={200}>
+											<Tooltip.Trigger class="inline-flex items-center">
+												<Info class="text-surface-500 h-3.5 w-3.5" />
+											</Tooltip.Trigger>
+											<Portal>
+												<Tooltip.Positioner class="z-floating-ui">
+													<Tooltip.Content class="card preset-filled p-2 text-sm">{m.imageoverlay_numbered_tooltip()}</Tooltip.Content>
+												</Tooltip.Positioner>
+											</Portal>
+										</Tooltip>
+									</div>
+									<button
+										type="button"
+										class="toggle-button {numberedInput ? 'active' : ''}"
+										aria-label={m.imageoverlay_numbered_aria()}
+										aria-pressed={numberedInput}
+										onclick={() => {
+											numberedInput = !numberedInput;
+											updateAttrs({ numbered: numberedInput });
+										}}
+									>
+										<span class="toggle-thumb"></span>
+									</button>
 								</div>
-								<button
-									type="button"
-									class="toggle-button {numberedInput ? 'active' : ''}"
-									aria-label={m.imageoverlay_numbered_aria()}
-									aria-pressed={numberedInput}
-									onclick={() => {
-										numberedInput = !numberedInput;
-										updateAttrs({ numbered: numberedInput });
-									}}
-								>
-									<span class="toggle-thumb"></span>
-								</button>
-							</div>
+							{/if}
 
 							{#if columnSpanningEnabled}
 								<div class="settings-row flex items-center justify-between">
@@ -257,7 +268,10 @@
 								</div>
 							{/if}
 
-							{#if numberedInput}
+							<!-- the only thing under Advanced is the \label for \ref, so the whole disclosure is
+							     LaTeX-only; gated on the dialect as well as on numbering, so an image carrying
+							     numbered=true (pasted from a tex doc) still can't offer it in markdown -->
+							{#if latexControls && numberedInput}
 								<button
 									type="button"
 									class="text-surface-600-400 hover:text-surface-900-100 my-3 flex w-full items-center gap-2 text-sm transition-colors"

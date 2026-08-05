@@ -15,12 +15,15 @@
 		state,
 		onInsert,
 		onDragStart,
-		onDelete
+		onDelete,
+		items = BLOCK_INSERT_ITEMS
 	}: {
 		state: State;
 		onInsert: (item: BlockInsertItem) => void;
 		onDragStart: (event: DragEvent) => void;
 		onDelete: () => void;
+		/** insert-menu entries; defaults to the LaTeX set, the markdown editor passes its own */
+		items?: BlockInsertItem[];
 	} = $props();
 </script>
 
@@ -46,7 +49,7 @@
 					<div class="text-surface-500 px-2 py-1 text-[10px] font-semibold tracking-wider uppercase">
 						{m.blockhandle_insert_header()}
 					</div>
-					{#each BLOCK_INSERT_ITEMS as item (item.label)}
+					{#each items as item (item.label)}
 						<button
 							type="button"
 							class="hover:preset-tonal flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm"

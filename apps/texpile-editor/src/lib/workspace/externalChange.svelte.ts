@@ -13,7 +13,8 @@ export interface ExternalChangeDeps {
 	getLoadedPath(): string | null;
 	/** only text-ish kinds can meaningfully conflict */
 	isTextual(): boolean;
-	isTex(): boolean;
+	/** structured kinds (tex/md) reload into texSource + a visual rebuild; the rest into rawContent */
+	isStructured(): boolean;
 	/** resolves once every queued write has landed */
 	whenIdle(): Promise<void>;
 	readText(path: string): Promise<string>;
@@ -65,7 +66,7 @@ export class ExternalChangeWatcher {
 		const d = this.deps;
 		d.setEol(eol);
 		d.setDiskBaseline(disk);
-		if (d.isTex()) {
+		if (d.isStructured()) {
 			d.setTexSource(disk);
 			d.rebuildVisual();
 		} else {

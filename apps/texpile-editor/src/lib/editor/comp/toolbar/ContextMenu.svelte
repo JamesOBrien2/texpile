@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { schema } from '$lib/schema/schema';
+	import type { Dialect } from '$lib/editor/dialect';
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import { DOMSerializer } from 'prosemirror-model';
 	import { onMount } from 'svelte';
@@ -21,6 +22,14 @@
 	import { Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal } from '@lucide/svelte';
 	import Kbd from '$lib/components/Kbd.svelte';
 	import { m } from '$lib/paraglide/messages';
+
+	interface Props {
+		/** dialect-aware chrome (see lib/editor/dialect.ts): feature flags derive from this. */
+		dialect?: Dialect;
+	}
+	let { dialect = 'latex' }: Props = $props();
+	// merged cells have no pipe-table syntax, so the markdown editor loses merge/split
+	const cellMerging = $derived(dialect === 'latex');
 
 	let isVisible: boolean = $state(false);
 	let isOnTable: boolean = $state(false);
@@ -206,7 +215,7 @@
 			label: m.ctxmenu_merge_cells(),
 			icon: Combine,
 			showFor: ['cell'],
-			showWhen: () => canMerge,
+			showWhen: () => cellMerging && canMerge,
 			action: () => {
 				const view = $editorViewStore;
 				const { state, dispatch } = view;
@@ -218,14 +227,14 @@
 			label: m.ctxmenu_split_cell(),
 			icon: SplitSquareHorizontal,
 			showFor: ['cell'],
-			showWhen: () => canSplit,
+			showWhen: () => cellMerging && canSplit,
 			action: () => {
 				const view = $editorViewStore;
 				const { state, dispatch } = view;
 				splitCell(state, dispatch);
 			}
 		},
-		{ type: 'separator', showFor: ['cell'], showWhen: () => canMerge || canSplit },
+		{ type: 'separator', showFor: ['cell'], showWhen: () => cellMerging && (canMerge || canSplit) },
 		{
 			type: 'item',
 			label: m.ctxmenu_delete_column(),

@@ -1,6 +1,7 @@
 // main-thread client for the parser worker: hard wall-clock timeout, terminate on
 // overrun (a runaway sync parse can't be cancelled any other way), fresh worker next call
 import { schema } from '$lib/schema/schema';
+import { mdSchema } from '$lib/markdown/schema';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { ParsedLatexFile, ParsePhase } from './latexRoundtrip';
 
@@ -9,6 +10,8 @@ interface PendingRequest {
 	reject: (reason: Error) => void;
 	timeoutId: ReturnType<typeof setTimeout>;
 	onProgress?: (phase: ParsePhase) => void;
+	/** which schema rehydrates the result: each dialect's docs live in its own Schema object */
+	format: 'tex' | 'md';
 }
 
 interface ProgressMessage {
@@ -70,7 +73,7 @@ function ensureWorker(): Worker {
 		clearTimeout(pend.timeoutId);
 		if (msg.type === 'result') {
 			try {
-				const doc: PMNode = schema.nodeFromJSON(msg.docJSON);
+				const doc: PMNode = (pend.format === 'md' ? mdSchema : schema).nodeFromJSON(msg.docJSON);
 				pend.resolve({
 					doc,
 					preamble: msg.preamble,
@@ -107,7 +110,8 @@ export function parseLatexFileAsync(
 	projectMacros = '',
 	timeoutMs = 3000,
 	onProgress?: (phase: ParsePhase) => void,
-	maxNodes = 0
+	maxNodes = 0,
+	format: 'tex' | 'md' = 'tex'
 ): Promise<ParsedLatexFile> {
 	return new Promise((resolve, reject) => {
 		const w = ensureWorker();
@@ -120,7 +124,7 @@ export function parseLatexFileAsync(
 			worker = null;
 			reject(new Error(PARSE_TIMEOUT));
 		}, timeoutMs);
-		pending.set(id, { resolve, reject, timeoutId, onProgress });
-		w.postMessage({ id, source, projectMacros, maxNodes });
+		pending.set(id, { resolve, reject, timeoutId, onProgress, format });
+		w.postMessage({ id, source, projectMacros, maxNodes, format });
 	});
 }

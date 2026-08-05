@@ -11,11 +11,11 @@
 	import type { EditorView as PMEditorView } from 'prosemirror-view';
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { fixTables } from 'prosemirror-tables';
-	import { schema } from '$lib/schema/schema';
 	import { buildTrailingParagraphTr } from '$lib/editor/extensions/trailing-paragraph-plugin';
 	import { computeBlockPatch, syncOrigAttrs } from '$lib/editor/blockPatch';
 	import { setRemoteCursors, type RemotePeerSel } from '$lib/editor/extensions/remoteCursors';
 	import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/sourceMap';
+	import { stripFor } from '$lib/markdown/sourceMap';
 	import { bodyOffsetOf, type ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
 	import { spliceDiff, EDIT_ORIGIN, SEED_ORIGIN } from '$lib/collab/materialize';
 	import { editorViewStore } from '$lib/stores/editorStore';
@@ -42,8 +42,11 @@
 	}
 	let { session, path, kind, viewMode, api }: Props = $props();
 
-	const active = () => session.active && kind === 'tex' && viewMode === 'visual';
+	// both visual dialects share this machinery: the orig stamps, the block map and the block patch
+	// are format-neutral, so only the markup stripper below is chosen per dialect
+	const active = () => session.active && (kind === 'tex' || kind === 'md') && viewMode === 'visual';
 	const bodyOffset = () => (api.docMeta ? bodyOffsetOf(api.docMeta) : 0);
+	const strip = () => stripFor(kind);
 
 	// trace the presence pipeline: set window.texpileCursorDebug = true in DevTools
 	const cdbg = (...args: unknown[]) => {
@@ -104,9 +107,11 @@
 		if (snapshot !== oldSource) api.commit(p, snapshot);
 	}
 
-	// the mount path's normalization, applied to a fresh parse so it diffs cleanly against the live doc
+	// the mount path's normalization, applied to a fresh parse so it diffs cleanly against the live doc.
+	// doc.type.schema, never an imported one: this serves both editors and a doc parsed into mdSchema
+	// cannot be re-stated under the tex schema (nodes from different Schema objects never mix)
 	function normalizeParsedDoc(doc: PMNode): PMNode {
-		let s = EditorState.create({ schema, doc });
+		let s = EditorState.create({ schema: doc.type.schema, doc });
 		const fix = fixTables(s);
 		if (fix) s = s.apply(fix);
 		const trail = buildTrailingParagraphTr(s);
@@ -142,7 +147,7 @@
 		tr.setMeta('addToHistory', false).setMeta('collabRemotePatch', true);
 		if (srcOffset != null) {
 			const map = buildBlockMap(tr.doc, newPreLen);
-			const pos = sourceOffsetToPmPos(tr.doc, map, srcOffset);
+			const pos = sourceOffsetToPmPos(tr.doc, map, srcOffset, strip());
 			if (pos != null) tr.setSelection(TextSelection.near(tr.doc.resolve(pos)));
 		}
 		v.dispatch(tr);
@@ -272,8 +277,8 @@
 				drops.push(`${clientId}: relpos resolves off-file`);
 				return;
 			}
-			const anchorPm = sourceOffsetToPmPos(doc, map, carryBack(ai));
-			const headPm = ai === hi ? anchorPm : sourceOffsetToPmPos(doc, map, carryBack(hi));
+			const anchorPm = sourceOffsetToPmPos(doc, map, carryBack(ai), strip());
+			const headPm = ai === hi ? anchorPm : sourceOffsetToPmPos(doc, map, carryBack(hi), strip());
 			if (anchorPm == null || headPm == null) {
 				drops.push(`${clientId}: offset ${ai} maps to no block (preamble?)`);
 				return;

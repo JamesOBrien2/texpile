@@ -17,9 +17,11 @@
 		onUpdate: (href: string, title: string | null) => void;
 		onRemove: () => void;
 		onClose: () => void;
+		/** open interception: true = handled in-app, else the browser fallback runs */
+		onOpen?: (href: string) => boolean;
 	}
 
-	let { href, title, position, onUpdate, onRemove, onClose }: Props = $props();
+	let { href, title, position, onUpdate, onRemove, onClose, onOpen }: Props = $props();
 
 	let boxElement: HTMLDivElement;
 	let isReady = $state(false);
@@ -86,6 +88,7 @@
 	}
 
 	function handleOpenLink() {
+		if (onOpen?.(href)) return; // handled in-app (workspace-relative markdown link)
 		window.open(href, '_blank', 'noopener,noreferrer');
 	}
 

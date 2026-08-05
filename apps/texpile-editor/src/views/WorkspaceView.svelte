@@ -142,7 +142,7 @@
 		})();
 	});
 	import { modLabel } from '$lib/platform';
-	import { DocumentBuffer, fileKind } from '$lib/workspace/documentBuffer.svelte';
+	import { DocumentBuffer, fileKind, formatOf, hasVisualMode } from '$lib/workspace/documentBuffer.svelte';
 	import { FileOpener } from '$lib/workspace/fileOpener';
 	import { VisualParser, type ParseFailure } from '$lib/workspace/visualParse.svelte';
 	import type { Node as PMNode } from 'prosemirror-model';
@@ -160,7 +160,7 @@
 	// on entry / file switch / manual refresh so it never re-diffs per keystroke
 	// worker parse + sequencing live in lib/workspace/visualParse.svelte.ts
 	const parser = new VisualParser(() => projectMacros);
-	const tryParseVisual = (text: string) => parser.parse(text);
+	const tryParseVisual = (text: string) => parser.parse(text, formatOf(kind));
 
 	// the open file's buffers and edit handlers live in lib/workspace/documentBuffer.svelte.ts
 	const doc = new DocumentBuffer({
@@ -201,7 +201,7 @@
 	// HEAD-vs-working-copy view; state and snapshotting live in lib/workspace/diffMode.svelte.ts
 	const diff = new DiffMode({
 		getLoadedPath: () => doc.path,
-		getWorkingText: () => (kind === 'tex' ? doc.texSource : doc.rawContent)
+		getWorkingText: () => (hasVisualMode(kind) ? doc.texSource : doc.rawContent)
 	});
 	const captureDiffSnapshot = () => diff.snapshot();
 	// macro-defining text from the main file's include chain, fed to the parser (see workspace/project.ts)
@@ -213,14 +213,19 @@
 	const kind = $derived(doc.kind);
 	// a guest opening a text-looking file the host shares as name only (too large / extension the
 	// session doesn't sync): say so instead of rendering a silently empty editor
-	const nameOnly = $derived(guest && (kind === 'tex' || kind === 'bib' || kind === 'text') && session.sharedKindOf(doc.path) === 'binary');
+	const nameOnly = $derived(
+		guest && (hasVisualMode(kind) || kind === 'bib' || kind === 'text') && session.sharedKindOf(doc.path) === 'binary'
+	);
 
 	// shared session: a file the host holds in a NON-Y-bound editor is host-exclusive (guests go
 	// read-only), else concurrent guest edits to that file's Y.Text would be clobbered. Source mode
-	// (tex/bib/text) is Y-bound and co-edits freely; visual tex consumes remote edits through the
-	// re-parse patcher (runRemotePatch below), so only bib held in BibManager still locks.
+	// (tex/bib/text) is Y-bound and co-edits freely; BOTH visual dialects consume remote edits
+	// through the re-parse patcher (VisualCollab), so only bib held in BibManager still locks —
+	// BibManager isn't wired to the shared doc at all.
 	function hostHoldsExclusively(k: string, mode: string, path: string | null): boolean {
 		if (!path) return false;
+		// markdown was listed here only while it had no remote-patch path; VisualCollab now serves
+		// both visual dialects, so it co-edits exactly like tex does
 		return k === 'bib' && mode !== 'source';
 	}
 	$effect(() => {
@@ -485,7 +490,8 @@
 	// proxied by $state, so the objects themselves behave exactly as they would unwrapped.
 	let layout = $state(new PaneLayout());
 
-	const showToc = $derived(!!doc.path && kind === 'tex' && (modes.mode === 'visual' || modes.mode === 'source'));
+	// visual TOC reads PM headings (works for md too); source-mode TOC parses raw LaTeX, tex-only
+	const showToc = $derived(!!doc.path && (modes.mode === 'visual' ? hasVisualMode(kind) : modes.mode === 'source' && kind === 'tex'));
 	// source mode has no ProseMirror plugin to feed the outline, so parse headings from the raw
 	// .tex; \input fragments pre-scanned into projectIntel merge into one numbered project outline.
 	// debounced (display-only) and reading state LIVE at fire time, so typing never pays the parse.
@@ -977,7 +983,10 @@
 			if (session.active) session.setVisualLock(hostHoldsExclusively(fileKind(path), modes.mode, path) ? path : null);
 		},
 		beforeOpen: (path) => session.beforeOpen(path),
-		parse: (text) => tryParseVisual(text),
+		// MUST honor the opener's format: it parses BEFORE doc.path switches, so the reactive
+		// `kind` (tryParseVisual) still points at the outgoing file and cross-format opens
+		// would parse .tex as markdown (and vice versa)
+		parse: (text, format) => parser.parse(text, format),
 		fallbackToSource,
 		resetHistory: (text) => sourceHistory.reset(text),
 		disableHistory: () => sourceHistory.disable(),
@@ -990,13 +999,13 @@
 	// on-disk change detection + conflict resolution live in lib/workspace/externalChange.svelte.ts
 	const external = new ExternalChangeWatcher({
 		getLoadedPath: () => doc.path,
-		isTextual: () => kind === 'tex' || kind === 'text' || kind === 'bib',
-		isTex: () => kind === 'tex',
+		isTextual: () => hasVisualMode(kind) || kind === 'text' || kind === 'bib',
+		isStructured: () => hasVisualMode(kind),
 		whenIdle: () => saver.whenIdle(),
 		readText: readTextFile,
 		getDiskBaseline: () => doc.diskBaseline,
 		setDiskBaseline: (t) => (doc.diskBaseline = t),
-		getBuffer: () => (kind === 'tex' ? doc.texSource : doc.rawContent),
+		getBuffer: () => (hasVisualMode(kind) ? doc.texSource : doc.rawContent),
 		setTexSource: (t) => (doc.texSource = t),
 		setRawContent: (t) => (doc.rawContent = t),
 		setEol: (e) => (doc.eol = e),
@@ -1016,7 +1025,7 @@
 		writeText: writeTextFile,
 		getEol: () => doc.eol,
 		getLoadedPath: () => doc.path,
-		getLiveContent: () => (kind === 'tex' ? doc.texSource : doc.rawContent),
+		getLiveContent: () => (hasVisualMode(kind) ? doc.texSource : doc.rawContent),
 		setDiskBaseline: (content) => (doc.diskBaseline = content),
 		setDirty: (dirty) => isDirty.set(dirty),
 		diskChanged: diskChangedSince,
@@ -1245,7 +1254,7 @@
 			disabled: !doc.path,
 			// an image is written next to the document, so a workspace that takes no tree writes has
 			// nowhere to put one however good the path looks
-			imageDir: hostMode && doc.path && kind === 'tex' ? dirname(doc.path) : undefined,
+			imageDir: hostMode && doc.path && hasVisualMode(kind) ? dirname(doc.path) : undefined,
 			// never a guest: a guest is IN someone's session, not in a position to open one
 			shareable: isDesktop() && !guest,
 			hostMode,

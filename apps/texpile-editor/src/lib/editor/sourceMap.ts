@@ -138,15 +138,21 @@ export function pmPosToSourceOffset(doc: Node, map: BlockSpan[], pmPos: number):
 }
 
 /** doc position for an absolute source offset; block-accurate at worst, word-accurate where the
- *  source text before the offset survives into the rendered block. */
-export function sourceOffsetToPmPos(doc: Node, map: BlockSpan[], offset: number): number | null {
+ *  source text before the offset survives into the rendered block.
+ *
+ *  `strip` removes the markup so the surviving words match the rendered text. It defaults to the
+ *  LaTeX one; a markdown doc MUST pass its own (lib/markdown/sourceMap), because stripLatex eats
+ *  `_ ^ $ { }` and would split snake_case and swallow $math$ — inflating the word-occurrence count
+ *  the caret is placed by. Getting it wrong only costs accuracy: an unanchored offset falls back to
+ *  proportional interpolation within the right block. */
+export function sourceOffsetToPmPos(doc: Node, map: BlockSpan[], offset: number, strip: (s: string) => string = stripLatex): number | null {
 	const b = blockAtSource(map, offset);
 	if (!b || b.srcStart == null) return null;
 	const block = doc.child(b.index);
 	const clampInside = (pos: number) => Math.min(Math.max(pos, b.pmPos + 1), b.pmPos + Math.max(1, block.nodeSize - 1));
 	if (!b.latex) return b.pmPos + 1;
 	const rel = Math.min(Math.max(0, offset - b.srcStart), b.latex.length);
-	const stripped = stripLatex(b.latex.slice(0, rel));
+	const stripped = strip(b.latex.slice(0, rel));
 	const word = stripped.match(/([\p{L}\p{N}]{3,})\s*$/u)?.[1];
 	if (word) {
 		// which occurrence of the word the offset sits after, so repeats land on the right one

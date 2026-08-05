@@ -2,6 +2,7 @@
 // terminates the worker after a wall-clock deadline to kill runaway parses. PM Nodes can't
 // structured-clone, so the doc crosses as toJSON() and the client rehydrates via nodeFromJSON.
 import { parseLatexFile } from './latexRoundtrip';
+import { parseMarkdownFile } from '$lib/markdown/roundtrip';
 
 interface ParseRequest {
 	id: number;
@@ -9,14 +10,17 @@ interface ParseRequest {
 	projectMacros: string;
 	/** refuse to hand back a doc bigger than this; 0/undefined disables the check. */
 	maxNodes?: number;
+	/** source dialect; defaults to LaTeX. */
+	format?: 'tex' | 'md';
 }
 
 self.onmessage = (event: MessageEvent<ParseRequest>) => {
-	const { id, source, projectMacros, maxNodes } = event.data;
+	const { id, source, projectMacros, maxNodes, format } = event.data;
 	// keep it a call ON self: an unbound postMessage reference throws "Illegal invocation"
 	const post = (m: unknown) => (self as unknown as { postMessage: (m: unknown) => void }).postMessage(m);
 	try {
-		const parsed = parseLatexFile(source, projectMacros, (phase) => post({ type: 'progress', id, phase }));
+		const parse = format === 'md' ? parseMarkdownFile : parseLatexFile;
+		const parsed = parse(source, projectMacros, (phase) => post({ type: 'progress', id, phase }));
 		// ProseMirror renders every node eagerly (no virtualization) and builds a node view per
 		// math/raw/citation node, so an oversized doc locks the renderer for minutes. Decide HERE:
 		// rejecting before toJSON also skips serializing and cloning a doc we'd only throw away.

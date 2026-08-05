@@ -940,5 +940,13 @@
 	"mcpsetup_close": "Schließen",
 	"mcpsetup_claude": "Claude Code",
 	"mcpsetup_codex": "Codex",
-	"mcpsetup_codex_note": "In ~/.codex/config.toml eintragen"
+	"mcpsetup_codex_note": "In ~/.codex/config.toml eintragen",
+	"mdtoolbar_strike": "Durchgestrichen",
+	"mdtoolbar_task_list": "Aufgabenliste",
+	"mdtoolbar_inline_math": "Inline-Mathematik",
+	"mdtoolbar_hr": "Horizontale Linie",
+	"mdtoolbar_paragraph": "Absatz",
+	"mdtoolbar_heading_label": "Überschriftenebene",
+	"mdtoolbar_heading_n": "Überschrift {n}",
+	"mdtoolbar_link": "Link einfügen"
 }

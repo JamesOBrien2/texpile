@@ -940,5 +940,13 @@
 	"mcpsetup_close": "關閉",
 	"mcpsetup_claude": "Claude Code",
 	"mcpsetup_codex": "Codex",
-	"mcpsetup_codex_note": "加入 ~/.codex/config.toml"
+	"mcpsetup_codex_note": "加入 ~/.codex/config.toml",
+	"mdtoolbar_strike": "刪除線",
+	"mdtoolbar_task_list": "任務列表",
+	"mdtoolbar_inline_math": "行內公式",
+	"mdtoolbar_hr": "水平分割線",
+	"mdtoolbar_paragraph": "段落",
+	"mdtoolbar_heading_label": "標題級別",
+	"mdtoolbar_heading_n": "標題 {n}",
+	"mdtoolbar_link": "插入連結"
 }

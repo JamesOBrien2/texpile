@@ -137,11 +137,15 @@
 				'Mod-,': toggleMark(schema.marks.sub),
 				'Mod-Shift-b': toggleBlockQuote(),
 				'Mod-Shift-`': createCodeBlock(),
-				// heading shortcuts dodge AltGr on Windows (Ctrl+Alt+N swallows the superscript digits)
-				// and the mac screenshot shortcuts (Cmd+Shift+3/4/5)
-				...(isMac
-					? { 'Mod-Alt-1': toggleHeading(1), 'Mod-Alt-2': toggleHeading(2), 'Mod-Alt-3': toggleHeading(3) }
-					: { 'Mod-Shift-1': toggleHeading(1), 'Mod-Shift-2': toggleHeading(2), 'Mod-Shift-3': toggleHeading(3) }),
+				// Word/Docs convention (and source mode's own \section shortcuts): Mod-Alt-N on every
+				// platform, Mod-Alt-0 back to paragraph. On AltGr layouts where Ctrl+Alt+digit types a
+				// character the binding never fires (the key name differs), so Windows keeps the old
+				// Mod-Shift-N as a fallback. Mac never had Shift variants (Cmd+Shift+3/4/5 = screenshots).
+				'Mod-Alt-0': toggleHeading(0),
+				'Mod-Alt-1': toggleHeading(1),
+				'Mod-Alt-2': toggleHeading(2),
+				'Mod-Alt-3': toggleHeading(3),
+				...(isMac ? {} : { 'Mod-Shift-1': toggleHeading(1), 'Mod-Shift-2': toggleHeading(2), 'Mod-Shift-3': toggleHeading(3) }),
 				'Mod-m': createMathField(),
 				'Mod-Shift-m': createMathField(true),
 				Tab: (state: EditorState, dispatch: (tr: Transaction) => void) => {

@@ -14,6 +14,7 @@ import { isDirty } from '$lib/workspace/workspaceStore';
 import { editorViewStore, viewMode as viewModeStore } from '$lib/stores/editorStore';
 import { captureVisualAnchor as captureVisualAnchorAt, captureSourceAnchor, resolveVisualAnchor } from '$lib/editor/modeSwitchAnchors';
 import { bodyOffsetOf, type ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
+import { stripFor } from '$lib/markdown/sourceMap';
 import { createSourceHistory } from '$lib/workspace/sourceHistory';
 
 const VIEW_MODE_KEY = 'texpile:viewMode';
@@ -74,7 +75,7 @@ export class ViewModeSwitch {
 		if (!v || anchor == null || this.mode !== 'visual') return;
 		if (this.deps.getSource() !== this.deps.getLastParsedSource()) return; // parse in flight
 		this.pendingVisualAnchor = null;
-		resolveVisualAnchor(v, anchor, this.bodyOffset());
+		resolveVisualAnchor(v, anchor, this.bodyOffset(), stripFor(this.deps.getKind()));
 	}
 
 	/** mirror into the store the editors read; diff presents as source to them */
@@ -95,8 +96,9 @@ export class ViewModeSwitch {
 			return;
 		}
 		const kind = d.getKind();
-		if (kind !== 'tex' && kind !== 'bib') return;
-		if (kind === 'tex') {
+		const structured = kind === 'tex' || kind === 'md';
+		if (!structured && kind !== 'bib') return;
+		if (structured) {
 			this.history.capture(d.getSource()); // flush the pre-switch state into the cross-mode history
 			// scroll sync: capture the outgoing view's anchor for the incoming one
 			if (this.mode === 'visual' && mode === 'source') this.sourceScrollAnchor = captureVisualAnchorAt(this.bodyOffset());
@@ -107,20 +109,22 @@ export class ViewModeSwitch {
 		// pane. .bib uses the raw buffer for both views, so no rebuild is needed.
 		this.mode = mode;
 		this.lastEditMode = mode;
-		if (kind === 'tex' && mode === 'visual') d.rebuildVisual();
+		if (structured && mode === 'visual') d.rebuildVisual();
 		if (browser) localStorage.setItem(VIEW_MODE_KEY, mode);
 	}
 
 	exitDiff(): void {
 		this.mode = this.lastEditMode;
-		if (this.deps.getKind() === 'tex' && this.lastEditMode === 'visual') this.deps.rebuildVisual();
+		const kind = this.deps.getKind();
+		if ((kind === 'tex' || kind === 'md') && this.lastEditMode === 'visual') this.deps.rebuildVisual();
 	}
 
 	/** step the workspace history; false at the stack edge lets the key fall through */
 	historyStep(dir: 'undo' | 'redo'): boolean {
 		const d = this.deps;
 		const path = d.getLoadedPath();
-		if (d.getKind() !== 'tex' || !path) return false;
+		const kind = d.getKind();
+		if ((kind !== 'tex' && kind !== 'md') || !path) return false;
 		const target = this.history.step(dir, d.getSource());
 		if (target == null) return false;
 		d.setSource(target);

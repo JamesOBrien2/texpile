@@ -15,6 +15,9 @@
 	import PDFViewer from './PDFViewer.svelte';
 	import PreambleFrontmatter from './PreambleFrontmatter.svelte';
 	import EditorView from '$lib/editor/EditorView.svelte';
+	import MarkdownEditorView from '$lib/markdown/MarkdownEditorView.svelte';
+	import MarkdownToolbar from '$lib/markdown/MarkdownToolbar.svelte';
+	import MarkdownSourceToolbar from '$lib/markdown/MarkdownSourceToolbar.svelte';
 	import type { EditSession } from '$lib/collab/editSession';
 	import type { ParsedLatexFile, ParsePhase } from '$lib/workspace/latexRoundtrip';
 	import VisualLoading from './VisualLoading.svelte';
@@ -25,11 +28,12 @@
 	import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import { restoreVisualPosition } from '$lib/workspace/visualPositions';
+	import { stripFor } from '$lib/markdown/sourceMap';
 	import { bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
 	import TabBar from './TabBar.svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	type FileKind = 'tex' | 'bib' | 'pdf' | 'image' | 'binary' | 'text' | null;
+	import type { FileKind } from '$lib/workspace/documentBuffer.svelte';
 
 	interface Props {
 		loadedPath: string | null;
@@ -149,8 +153,19 @@
 	 * the bar on a slow CPU exactly where the wait is worst. */
 	const showRenderBar = $derived(!editorReady);
 
+	/** kinds that have a visual (ProseMirror) surface */
+	const structured = $derived(kind === 'tex' || kind === 'md');
+
+	/** md link tooltip Open: real schemes go to the browser, in-doc anchors are swallowed (no
+	 * anchor targets yet), anything path-like opens in the workspace. */
+	function onMdLink(href: string): boolean {
+		if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return false;
+		if (href.startsWith('#')) return true;
+		onJumpToFile(decodeURIComponent(href.split('#')[0]));
+		return true;
+	}
 	/** the visual editor is wanted, whether or not it has been built yet */
-	const visualPending = $derived(loadedPath && kind === 'tex' && viewMode === 'visual');
+	const visualPending = $derived(loadedPath && structured && viewMode === 'visual');
 
 	/** ProseMirror is built: put the caret back where this file was left. A one-shot callback rather
 	 *  than an effect, so it cannot re-enter - the editor is built exactly once per file. */
@@ -158,24 +173,32 @@
 		readyFor = loadedPath;
 		const v = get(editorViewStore);
 		if (!v || !loadedPath || session.collabFor(loadedPath)) return;
-		restoreVisualPosition(v, loadedPath, texSource, docMeta ? bodyOffsetOf(docMeta) : 0);
+		restoreVisualPosition(v, loadedPath, texSource, docMeta ? bodyOffsetOf(docMeta) : 0, stripFor(kind));
 	}
 </script>
 
 <div class="flex min-h-0 min-w-0 flex-col" style="grid-column: 1; grid-row: 2">
 	<TabBar tabs={openTabs} activePath={loadedPath} dirty={$isDirty && !session.isGuest} onActivate={onActivateTab} onClose={onCloseTab} />
-	{#if visualDoc && loadedPath && kind === 'tex' && viewMode === 'visual'}
+	{#if visualDoc && loadedPath && structured && viewMode === 'visual'}
 		<div class="border-surface-200-800 @container relative z-20 flex min-h-10 items-center overflow-hidden border-b px-2">
-			<Toolbar minimal />
+			{#if kind === 'md'}
+				<MarkdownToolbar />
+			{:else}
+				<Toolbar minimal />
+			{/if}
 		</div>
-	{:else if loadedPath && kind === 'tex' && viewMode === 'source'}
+	{:else if loadedPath && structured && viewMode === 'source'}
 		<div class="border-surface-200-800 @container relative z-20 flex min-h-10 items-center overflow-hidden border-b px-2">
-			<SourceToolbar />
+			{#if kind === 'md'}
+				<MarkdownSourceToolbar />
+			{:else}
+				<SourceToolbar />
+			{/if}
 		</div>
 	{/if}
 	<!-- relative anchors the floating find bar; it sits outside the scroller so it doesn't scroll away -->
 	<div class="relative min-h-0 min-w-0 flex-1">
-		{#if loadedPath && kind === 'tex' && viewMode === 'visual' && visualDoc}
+		{#if loadedPath && structured && viewMode === 'visual' && visualDoc}
 			<SearchBar />
 		{/if}
 		<div class="h-full w-full overflow-auto">
@@ -201,7 +224,7 @@
 				<div class="text-surface-500 mt-12 text-center text-sm">
 					{m.wsview_shared_name_only({ name: basename(loadedPath) })}
 				</div>
-			{:else if loadedPath && viewMode === 'diff' && (kind === 'tex' || kind === 'bib' || kind === 'text')}
+			{:else if loadedPath && viewMode === 'diff' && (structured || kind === 'bib' || kind === 'text')}
 				<DiffPane
 					filename={loadedPath}
 					original={diffOriginal}
@@ -214,7 +237,7 @@
 					onRefresh={onRefreshDiff}
 					onExit={onExitDiff}
 				/>
-			{:else if loadedPath && kind === 'tex' && viewMode === 'source'}
+			{:else if loadedPath && structured && viewMode === 'source'}
 				{#key sourceKey}
 					<SourceEditor
 						docPath={loadedPath}
@@ -230,7 +253,7 @@
 						collab={session.collabFor(loadedPath)}
 					/>
 				{/key}
-			{:else if loadedPath && kind === 'tex' && visualDoc}
+			{:else if loadedPath && structured && visualDoc}
 				{#key loadedPath}
 					<!-- texpile-main-editor scopes the editor's right-click context menu (ContextMenu.svelte) -->
 					<!-- px-12 reserves room for the block-handle gutters (~48px left / ~30px right); on narrow
@@ -238,19 +261,35 @@
 				     The \noindent marker has to fit this 48px too, which is why it is abbreviated (app.css) -->
 					<div class="px-12 py-8">
 						<div class="texpile-main-editor mx-auto w-full max-w-3xl min-w-0">
-							{#if docMeta?.hadDocumentEnv}
+							{#if docMeta?.hadDocumentEnv && kind === 'tex'}
+								<!-- \title/\author fields are LaTeX; md frontmatter is YAML, edited in source mode -->
 								<PreambleFrontmatter preamble={docMeta.preamble} onEdit={onEditFrontmatter} />
 							{/if}
-							<EditorView
-								localValue={visualDoc}
-								localReferences={allReferences}
-								imageDir={dirname(loadedPath)}
-								onLocalChange={onVisualChange}
-								onSelectionChange={onVisualSelection}
-								placeholder={m.wsview_editor_placeholder()}
-								{onHistoryBoundary}
-								onReady={onVisualReady}
-							/>
+							{#if kind === 'md'}
+								<!-- an entirely separate ProseMirror over mdSchema; see lib/markdown -->
+								<MarkdownEditorView
+									localValue={visualDoc}
+									localReferences={allReferences}
+									imageDir={dirname(loadedPath)}
+									onLocalChange={onVisualChange}
+									onSelectionChange={onVisualSelection}
+									placeholder={m.wsview_editor_placeholder()}
+									{onHistoryBoundary}
+									onReady={onVisualReady}
+									onOpenLink={onMdLink}
+								/>
+							{:else}
+								<EditorView
+									localValue={visualDoc}
+									localReferences={allReferences}
+									imageDir={dirname(loadedPath)}
+									onLocalChange={onVisualChange}
+									onSelectionChange={onVisualSelection}
+									placeholder={m.wsview_editor_placeholder()}
+									{onHistoryBoundary}
+									onReady={onVisualReady}
+								/>
+							{/if}
 							{#if showRenderBar}
 								<!-- EditorView keeps its own root hidden until ProseMirror exists, so this sits in the
 								     space the editor will occupy rather than over it. It is on screen for the paint

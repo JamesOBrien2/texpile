@@ -93,12 +93,12 @@
 			<FileText class="text-surface-400 size-4 shrink-0" />
 			<span class="truncate text-sm font-medium">{m.wsview_no_file()}</span>
 		{/if}
-		{#if loadedPath && kind === 'tex' && (viewMode === 'visual' || viewMode === 'source')}
+		{#if loadedPath && (kind === 'tex' || kind === 'md') && (viewMode === 'visual' || viewMode === 'source')}
 			<span class="shrink-0"><WordCount /></span>
 		{/if}
 	</div>
 	<div class="flex items-center gap-2">
-		{#if loadedPath && (kind === 'tex' || (kind === 'bib' && !guest))}
+		{#if loadedPath && (kind === 'tex' || kind === 'md' || (kind === 'bib' && !guest))}
 			<!-- visual/source toggle; for .bib it's the reference editor vs raw BibTeX (BibManager
 			     stays host-only: it isn't wired to the shared doc yet) -->
 			<div class="border-surface-300-700 inline-flex shrink-0 overflow-hidden rounded-md border text-xs">

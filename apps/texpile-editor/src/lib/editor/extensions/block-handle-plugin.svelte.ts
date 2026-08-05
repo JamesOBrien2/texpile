@@ -35,7 +35,7 @@ class BlockHandleView {
 	private hideTimer: number | null = null;
 	private rafId: number | null = null;
 
-	constructor(view: EditorView) {
+	constructor(view: EditorView, items?: BlockInsertItem[]) {
 		this.view = view;
 
 		this.host = document.createElement('div');
@@ -47,7 +47,8 @@ class BlockHandleView {
 				state: this.state,
 				onInsert: (item: BlockInsertItem) => this.runInsert(item),
 				onDragStart: this.onDragStart,
-				onDelete: this.runDelete
+				onDelete: this.runDelete,
+				items
 			}
 		});
 
@@ -195,9 +196,9 @@ class BlockHandleView {
 	}
 }
 
-export function createBlockHandlePlugin() {
+export function createBlockHandlePlugin(opts: { items?: BlockInsertItem[] } = {}) {
 	return new Plugin({
 		key: blockHandlePluginKey,
-		view: (view) => new BlockHandleView(view)
+		view: (view) => new BlockHandleView(view, opts.items)
 	});
 }

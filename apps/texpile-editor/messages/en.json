@@ -940,5 +940,13 @@
 	"mcpsetup_close": "Close",
 	"mcpsetup_claude": "Claude Code",
 	"mcpsetup_codex": "Codex",
-	"mcpsetup_codex_note": "Add to ~/.codex/config.toml"
+	"mcpsetup_codex_note": "Add to ~/.codex/config.toml",
+	"mdtoolbar_strike": "Strikethrough",
+	"mdtoolbar_task_list": "Task list",
+	"mdtoolbar_inline_math": "Inline math",
+	"mdtoolbar_hr": "Horizontal rule",
+	"mdtoolbar_paragraph": "Paragraph",
+	"mdtoolbar_heading_label": "Heading level",
+	"mdtoolbar_heading_n": "Heading {n}",
+	"mdtoolbar_link": "Insert link"
 }

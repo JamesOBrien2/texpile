@@ -181,6 +181,28 @@ function fileStream(file: string, range?: { start: number; end: number }): Reada
 	return Readable.toWeb(fs.createReadStream(file, range)) as unknown as ReadableStream;
 }
 
+// protocol.handle can't see which window sent the request, so the confinement is the union of
+// live claimed roots. realpath both sides: a symlink inside the root must not escape it.
+async function insideClaimedRoot(p: string): Promise<boolean> {
+	let real: string;
+	try {
+		real = await fs.promises.realpath(p);
+	} catch {
+		return false; // missing file: the handler would 404 anyway
+	}
+	const n = normRoot(real);
+	for (const r of windowRoots.values()) {
+		if (!r) continue;
+		try {
+			const rn = normRoot(await fs.promises.realpath(r.raw));
+			if (n === rn || n.startsWith(rn + path.sep)) return true;
+		} catch {
+			/* root vanished (unmounted drive): claim is dead, keep looking */
+		}
+	}
+	return false;
+}
+
 function registerProtocolHandlers(): void {
 	protocol.handle('app', async (request) => {
 		const url = new URL(request.url);
@@ -223,6 +245,9 @@ function registerProtocolHandlers(): void {
 		if (!p) return new Response('Missing path', { status: 400 });
 		// texfile:// is a different origin than app://bundle, so pdf.js's fetch needs CORS
 		const cors = { 'Access-Control-Allow-Origin': '*' };
+		// every request must land inside a claimed workspace root (VS Code's localResourceRoots):
+		// nothing renderer-reachable may turn texfile:// into an arbitrary-file read primitive
+		if (!(await insideClaimedRoot(p))) return new Response('Forbidden', { status: 403, headers: cors });
 		try {
 			const st = await fs.promises.stat(p);
 			if (!st.isFile()) return new Response('Not found', { status: 404, headers: cors });
@@ -264,13 +289,6 @@ function registerProtocolHandlers(): void {
 	});
 }
 
-/**
- * Title-bar colours as the renderer last reported them, for the first paint of a new window.
- *
- * Defaults are light, and are only ever seen on a genuine first run: the window is painted before
- * any renderer exists to ask, so a dark-theme user would otherwise get a white flash and pale
- * window buttons every launch.
- */
 function chromeColors(): { height: number; color: string; symbolColor: string; background: string } {
 	const s = readSettings();
 	const hex = (v: unknown, fallback: string) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : fallback);
@@ -337,6 +355,9 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 			preload: path.join(__dirname, 'preload.js'),
 			contextIsolation: true,
 			nodeIntegration: false,
+			// explicit (it IS the default): the preload/bridges must never reach any subframe;
+			// the renderer CSP forbids frames entirely (frame-src 'none'), this backs that up
+			nodeIntegrationInSubFrames: false,
 			// Always available, packaged or not, reached through Help > Toggle Developer Tools. No key
 			// binding anywhere: a writer must never open a debugger by fumbling a shortcut mid-sentence.
 			devTools: true
@@ -373,6 +394,11 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 		}
 		event.preventDefault();
 		if (/^https?:/i.test(target)) shell.openExternal(target);
+	});
+	// will-navigate covers only the top frame. The renderer CSP forbids frames outright, so any
+	// subframe navigation is unexpected — block it wholesale (defence in depth).
+	win.webContents.on('will-frame-navigate', (event) => {
+		if (!event.isMainFrame) event.preventDefault();
 	});
 	// hold the close so the renderer can flush (autosave's 1.5s debounce) or prompt for unsaved
 	// edits; the timeout guarantees a hung renderer can never make the window unclosable
