@@ -3,6 +3,7 @@
 import { browser } from '$lib/runtime';
 import { writable, get } from 'svelte/store';
 import { setLocale as setParaglideLocale } from '$lib/paraglide/runtime';
+import { trailingDebounce } from '$lib/trailingDebounce';
 
 export interface AppSettings {
 	reopenLastFolder: boolean;
@@ -55,6 +56,11 @@ export interface AppSettings {
 	whatsNewSeen: string;
 	/** live math preview tooltip in source mode. */
 	mathPreview: boolean;
+	/** soft-wrap long lines in Source mode instead of scrolling horizontally. */
+	sourceLineWrap: boolean;
+	/** widest the visual editor's text column may grow, in px. Past this the window pads with
+	 *  empty space rather than stretching the measure, which is why it is adjustable. */
+	visualMaxWidth: number;
 	/** modal keybindings for the source editor and code blocks. */
 	editorKeymap: 'default' | 'vim' | 'emacs';
 	/** UI display language. Not the LaTeX document language (see DocumentLanguage). */
@@ -98,6 +104,9 @@ const DEFAULTS: AppSettings = {
 	uiZoom: 1,
 	whatsNewSeen: '',
 	mathPreview: true,
+	sourceLineWrap: true,
+	// 768px = the max-w-3xl the editor column was pinned to before this became adjustable
+	visualMaxWidth: 768,
 	editorKeymap: 'default',
 	uiLocale: 'en',
 	collabRelayUrl: DEFAULT_COLLAB_RELAY_URL,
@@ -186,6 +195,17 @@ export function updateSettings(partial: Partial<AppSettings>): void {
 	const next = { ...get(settings), ...partial };
 	settings.set(next);
 	persist(partial);
+}
+
+// A dragged slider emits a value per pointer move. The STORE has to take every one of them - that
+// is what makes the editor resize under the cursor - but each persist is an IPC round trip and a
+// settings.json rewrite in main, so only the value the user settles on is worth writing.
+const persistSoon = trailingDebounce<Partial<AppSettings>>(250, persist);
+
+/** updateSettings for a continuous control: applies at once, writes to disk once it settles. */
+export function updateSettingsLive(partial: Partial<AppSettings>): void {
+	settings.set({ ...get(settings), ...partial });
+	persistSoon(partial);
 }
 
 /**

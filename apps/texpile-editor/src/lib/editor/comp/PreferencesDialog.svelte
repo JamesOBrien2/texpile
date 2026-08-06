@@ -2,10 +2,13 @@
 	import { X, Languages } from '@lucide/svelte';
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
 	import { themeChoice, setTheme, type ThemeChoice } from '$lib/theme';
-	import { settings, updateSettings, applyUiLocale, setMcpEnabled, type AppSettings } from '$lib/settings';
+	import { settings, updateSettings, updateSettingsLive, applyUiLocale, setMcpEnabled, type AppSettings } from '$lib/settings';
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
 	import McpSetupModal from './McpSetupModal.svelte';
+	// dark wordmark for light backgrounds, white one for dark mode - the pair StartView uses
+	import logoOnLight from '$lib/assets/logo/Logo-dark.svg';
+	import logoOnDark from '$lib/assets/logo/Logo-light.svg';
 	import { m } from '$lib/paraglide/messages';
 
 	// autosave is forced on (shown disabled) while live mode or a hosted session is active
@@ -41,6 +44,24 @@
 
 	/** the instructions modal, stacked above this dialog */
 	let setupOpen = $state(false);
+
+	// One category on screen at a time, rather than every setting in one scroll. The list had grown
+	// past the point where "wrap long lines" and "editor width" could be told apart at a glance -
+	// which editor, and which of them, was only answerable by reading the hint under each.
+	type Category = 'appearance' | 'editing' | 'source' | 'visual' | 'preview' | 'startup' | 'ai';
+	let category = $state<Category>('appearance');
+	const categories: { id: Category; label: string }[] = [
+		{ id: 'appearance', label: m.prefs_appearance() },
+		{ id: 'editing', label: m.prefs_group_editing() },
+		{ id: 'source', label: m.prefs_group_source() },
+		{ id: 'visual', label: m.prefs_group_visual() },
+		{ id: 'preview', label: m.prefs_group_preview() },
+		{ id: 'startup', label: m.prefs_group_startup() },
+		{ id: 'ai', label: m.prefs_group_ai() }
+	];
+
+	/** every row is the same shape: name and explanation on the left, the control on the right */
+	const ROW = 'border-surface-200-800 flex items-start justify-between gap-6 border-b py-4 last:border-b-0';
 
 	const themes: { value: ThemeChoice; label: string }[] = [
 		{ value: 'system', label: m.prefs_theme_system() },
@@ -97,9 +118,16 @@
 
 <svelte:window onkeydown={(e) => open && e.key === 'Escape' && (open = false)} />
 
-{#snippet toggle(label: string, checked: boolean, onChange: (v: boolean) => void, disabled = false, hint = '')}
-	<div class="flex items-center justify-between gap-4" title={hint}>
-		<span class="text-sm {disabled ? 'text-surface-400' : ''}">{label}</span>
+{#snippet label(text: string, hint: string, disabled = false)}
+	<div class="min-w-0">
+		<div class="text-sm font-medium {disabled ? 'text-surface-400' : ''}">{text}</div>
+		{#if hint}<p class="text-surface-500 mt-1 text-xs leading-relaxed">{hint}</p>{/if}
+	</div>
+{/snippet}
+
+{#snippet toggleRow(text: string, hint: string, checked: boolean, onChange: (v: boolean) => void, disabled = false, title = '')}
+	<div class={ROW} {title}>
+		{@render label(text, hint, disabled)}
 		<Switch {checked} {disabled} onCheckedChange={(d) => onChange(d.checked)}>
 			<Switch.Control><Switch.Thumb /></Switch.Control>
 			<Switch.HiddenInput />
@@ -107,147 +135,184 @@
 	</div>
 {/snippet}
 
+{#snippet selectRow(
+	text: string,
+	hint: string,
+	value: string | number,
+	options: { value: string | number; label: string }[],
+	onChange: (v: string) => void,
+	width = 'w-32'
+)}
+	<div class={ROW}>
+		{@render label(text, hint)}
+		<select class="select {width} shrink-0 text-sm" {value} onchange={(e) => onChange((e.currentTarget as HTMLSelectElement).value)}>
+			{#each options as o (o.value)}
+				<option value={o.value}>{o.label}</option>
+			{/each}
+		</select>
+	</div>
+{/snippet}
+
 {#if open}
 	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
+		class="app-scrim fixed inset-0 z-1300 flex items-center justify-center bg-black/40 p-4"
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && (open = false)}
 	>
-		<!-- wide enough for two columns: the settings list had grown tall enough to always scroll,
-		     and these rows are short, so height was being spent on nothing -->
-		<div class="card bg-surface-50-950 border-surface-300-700 flex max-h-full w-full max-w-2xl flex-col border p-5 shadow-2xl">
-			<div class="mb-4 flex items-center justify-between gap-4">
-				<h2 class="text-base font-semibold">{m.prefs_title()}</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" aria-label={m.prefs_close_aria()} onclick={() => (open = false)}
-					><X class="size-4" /></button
-				>
-			</div>
+		<div
+			class="card bg-surface-50-950 border-surface-300-700 flex h-[34rem] max-h-full w-full max-w-3xl overflow-hidden border p-0 shadow-2xl"
+		>
+			<!-- category list. Plain buttons rather than a tree: there is one level, and a disclosure
+			     arrow on something that never expands is a promise the UI does not keep. -->
+			<nav class="border-surface-300-700 bg-surface-100-900 w-44 shrink-0 overflow-y-auto border-r p-2">
+				<!-- the column's top edge was dead space, and this is the one dialog with a column to
+				     spare. Height matched to the category rows so it reads as a heading over them
+				     rather than a banner. -->
+				<div class="mb-2 px-3 pt-2 pb-3">
+					<img src={logoOnLight} alt="Texpile" class="h-6 w-auto dark:hidden" />
+					<img src={logoOnDark} alt="Texpile" class="hidden h-6 w-auto dark:block" />
+				</div>
+				{#each categories as c (c.id)}
+					<button
+						class="mb-0.5 block w-full rounded px-3 py-1.5 text-left text-sm {category === c.id
+							? 'bg-primary-500/15 text-primary-700 dark:text-primary-300 font-medium'
+							: 'hover:bg-surface-200-800'}"
+						onclick={() => (category = c.id)}
+					>
+						{c.label}
+					</button>
+				{/each}
+			</nav>
 
-			<!-- one column on a narrow window, two when there is room. items-start so a row with a hint
-			     paragraph does not stretch its neighbour to match. -->
-			<div class="grid min-h-0 grid-cols-1 items-start gap-x-8 gap-y-5 overflow-y-auto sm:grid-cols-2">
-				<div>
-					<div class="text-surface-600-400 mb-1.5 text-sm font-medium">{m.prefs_appearance()}</div>
-					<div class="bg-surface-200-800 rounded-base flex gap-1 p-0.5">
-						{#each themes as t (t.value)}
-							<button
-								class="rounded-base flex-1 px-3 py-1 text-sm {$themeChoice === t.value
-									? 'bg-surface-50-950 font-medium shadow-sm'
-									: 'text-surface-600-400 hover:text-surface-950-50'}"
-								onclick={() => setTheme(t.value)}
-							>
-								{t.label}
-							</button>
-						{/each}
-					</div>
-					<p class="text-surface-500 mt-1.5 text-xs">{m.prefs_appearance_hint()}</p>
+			<div class="flex min-w-0 flex-1 flex-col">
+				<div class="border-surface-200-800 flex shrink-0 items-center justify-between gap-4 border-b px-5 py-3">
+					<h2 class="text-base font-semibold">{categories.find((c) => c.id === category)?.label ?? m.prefs_title()}</h2>
+					<button class="btn-icon btn-icon-sm hover:preset-tonal" aria-label={m.prefs_close_aria()} onclick={() => (open = false)}
+						><X class="size-4" /></button
+					>
 				</div>
 
-				<div>
-					<div class="flex items-center justify-between gap-4">
-						<!-- the one setting a user may need to find while the UI is in a language they can't
-						     read, so it carries an icon the others don't -->
-						<span class="flex items-center gap-2 text-sm">
-							<Languages class="text-surface-500 size-4 shrink-0" />
-							{m.prefs_language()}
-						</span>
-						<select class="select w-32 text-sm" value={$settings.uiLocale} onchange={onLocaleChange}>
-							{#each uiLocales as l (l.value)}
-								<option value={l.value}>{l.label}</option>
-							{/each}
-						</select>
-					</div>
-				</div>
-
-				<div>
-					{@render toggle(
-						m.prefs_autosave(),
-						autosaveForced || $settings.autosave,
-						(v) => updateSettings({ autosave: v }),
-						autosaveForced,
-						autosaveForced ? m.prefs_autosave_hint_forced() : ''
-					)}
-					<p class="text-surface-500 mt-1 text-xs">
-						{#if collabHost.active}
-							{m.prefs_autosave_note_session()}
-						{:else if $settings.draftMode}
-							{m.prefs_autosave_note_live()}
-						{:else}
-							{m.prefs_autosave_note_off()}
-						{/if}
-					</p>
-				</div>
-				{@render toggle(m.prefs_reopen_last_folder(), $settings.reopenLastFolder, (v) => updateSettings({ reopenLastFolder: v }))}
-				{@render toggle(m.prefs_check_updates(), $settings.checkForUpdates, (v) => updateSettings({ checkForUpdates: v }))}
-				{@render toggle(m.prefs_spellcheck(), $settings.spellcheck, (v) => setSpellcheckEnabled(v))}
-				<div>
-					<!-- persisted through the main process, not updateSettings: flipping this also has to
-				     start or stop the loopback server, and main owns it -->
-					{@render toggle(m.prefs_mcp(), $settings.mcpEnabled === true, (v) => void onMcpToggle(v))}
-					<p class="text-surface-500 mt-1 text-xs">{m.prefs_mcp_note()}</p>
-
-					{#if $settings.mcpEnabled === true && mcp}
-						<!-- One row. The command lives in its own modal: it is long, it is read once, and it
-						     should not cost height in this list forever. -->
-						<div class="mt-1.5 flex items-center justify-between gap-3">
-							{#if mcp.running && mcp.port}
-								<span class="text-surface-500 text-xs">{m.prefs_mcp_status({ addr: `127.0.0.1:${mcp.port}` })}</span>
-								<button class="btn btn-sm preset-tonal shrink-0 text-xs" onclick={() => (setupOpen = true)}>{m.prefs_mcp_show()}</button>
-							{:else}
-								<span class="text-error-600 text-xs">{m.prefs_mcp_error({ error: mcp.error ?? '' })}</span>
-							{/if}
+				<div class="min-h-0 flex-1 overflow-y-auto px-5">
+					{#if category === 'appearance'}
+						<div class={ROW}>
+							{@render label(m.prefs_theme(), m.prefs_appearance_hint())}
+							<div class="bg-surface-200-800 rounded-base flex shrink-0 gap-1 p-0.5">
+								{#each themes as t (t.value)}
+									<button
+										class="rounded-base px-3 py-1 text-sm {$themeChoice === t.value
+											? 'bg-surface-50-950 font-medium shadow-sm'
+											: 'text-surface-600-400 hover:text-surface-950-50'}"
+										onclick={() => setTheme(t.value)}
+									>
+										{t.label}
+									</button>
+								{/each}
+							</div>
 						</div>
-
-						<!-- A SECOND permission, nested under the first because it is meaningless without it,
-						     but deliberately not implied by it: everything else this server exposes reads
-						     state or moves the window, while a compile command is a shell command line. -->
-						<div class="border-surface-200-800 mt-2 border-l-2 pl-3">
-							{@render toggle(m.prefs_mcp_compile_command(), $settings.mcpAllowCompileCommand === true, (v) =>
-								updateSettings({ mcpAllowCompileCommand: v })
+						<div class={ROW}>
+							<!-- the one setting a user may need to find while the UI is in a language they
+							     cannot read, so it carries an icon the others do not -->
+							<div class="flex min-w-0 items-center gap-2">
+								<Languages class="text-surface-500 size-4 shrink-0" />
+								{@render label(m.prefs_language(), '')}
+							</div>
+							<select class="select w-32 shrink-0 text-sm" value={$settings.uiLocale} onchange={onLocaleChange}>
+								{#each uiLocales as l (l.value)}
+									<option value={l.value}>{l.label}</option>
+								{/each}
+							</select>
+						</div>
+					{:else if category === 'editing'}
+						{@render toggleRow(
+							m.prefs_autosave(),
+							collabHost.active
+								? m.prefs_autosave_note_session()
+								: $settings.draftMode
+									? m.prefs_autosave_note_live()
+									: m.prefs_autosave_note_off(),
+							autosaveForced || $settings.autosave,
+							(v) => updateSettings({ autosave: v }),
+							autosaveForced,
+							autosaveForced ? m.prefs_autosave_hint_forced() : ''
+						)}
+						{@render toggleRow(m.prefs_spellcheck(), '', $settings.spellcheck, (v) => setSpellcheckEnabled(v))}
+						{@render selectRow(m.prefs_keybindings(), m.prefs_keybindings_note(), $settings.editorKeymap ?? 'default', keymaps, (v) =>
+							updateSettings({ editorKeymap: v as AppSettings['editorKeymap'] })
+						)}
+					{:else if category === 'source'}
+						{@render toggleRow(m.prefs_source_line_wrap(), m.prefs_source_line_wrap_note(), $settings.sourceLineWrap !== false, (v) =>
+							updateSettings({ sourceLineWrap: v })
+						)}
+						{@render toggleRow(m.prefs_math_preview(), m.prefs_math_preview_note(), $settings.mathPreview !== false, (v) =>
+							updateSettings({ mathPreview: v })
+						)}
+					{:else if category === 'visual'}
+						<div class={ROW}>
+							{@render label(m.prefs_visual_width(), m.prefs_visual_width_note())}
+							<div class="w-48 shrink-0">
+								<div class="text-surface-500 mb-1 text-right text-xs tabular-nums">{$settings.visualMaxWidth ?? 768}px</div>
+								<!-- oninput, not onchange: a width slider is only useful if the column moves under
+								     the cursor. updateSettingsLive applies each value, writing only the settled one. -->
+								<input
+									class="w-full accent-current"
+									type="range"
+									min="560"
+									max="1600"
+									step="16"
+									value={$settings.visualMaxWidth ?? 768}
+									oninput={(e) => updateSettingsLive({ visualMaxWidth: Number((e.currentTarget as HTMLInputElement).value) })}
+									aria-label={m.prefs_visual_width()}
+								/>
+							</div>
+						</div>
+						{@render selectRow(
+							m.prefs_image_resize_step(),
+							m.prefs_image_resize_step_note(),
+							$settings.figureResizeStep,
+							resizeSteps,
+							(v) => updateSettings({ figureResizeStep: Number(v) }),
+							'w-24'
+						)}
+					{:else if category === 'preview'}
+						{@render toggleRow(m.prefs_dark_pdf_pages(), m.prefs_dark_pdf_pages_note(), $settings.pdfDarkPages, (v) =>
+							updateSettings({ pdfDarkPages: v })
+						)}
+					{:else if category === 'startup'}
+						{@render toggleRow(m.prefs_reopen_last_folder(), '', $settings.reopenLastFolder, (v) =>
+							updateSettings({ reopenLastFolder: v })
+						)}
+						{@render toggleRow(m.prefs_check_updates(), '', $settings.checkForUpdates, (v) => updateSettings({ checkForUpdates: v }))}
+					{:else if category === 'ai'}
+						<div class={ROW}>
+							<!-- persisted through the main process, not updateSettings: flipping this also has to
+							     start or stop the loopback server, and main owns it -->
+							{@render label(m.prefs_mcp(), m.prefs_mcp_note())}
+							<Switch checked={$settings.mcpEnabled === true} onCheckedChange={(d) => void onMcpToggle(d.checked)}>
+								<Switch.Control><Switch.Thumb /></Switch.Control>
+								<Switch.HiddenInput />
+							</Switch>
+						</div>
+						{#if $settings.mcpEnabled === true && mcp}
+							<div class="border-surface-200-800 flex items-center justify-between gap-3 border-b py-3">
+								{#if mcp.running && mcp.port}
+									<span class="text-surface-500 text-xs">{m.prefs_mcp_status({ addr: `127.0.0.1:${mcp.port}` })}</span>
+									<!-- the command lives in its own modal: it is long, and read once -->
+									<button class="btn btn-sm preset-tonal shrink-0 text-xs" onclick={() => (setupOpen = true)}>{m.prefs_mcp_show()}</button>
+								{:else}
+									<span class="text-error-600 text-xs">{m.prefs_mcp_error({ error: mcp.error ?? '' })}</span>
+								{/if}
+							</div>
+							<!-- A SECOND permission, listed under the first because it is meaningless without it,
+							     but deliberately not implied by it: everything else this server exposes reads
+							     state or moves the window, while a compile command is a shell command line. -->
+							{@render toggleRow(
+								m.prefs_mcp_compile_command(),
+								m.prefs_mcp_compile_command_note(),
+								$settings.mcpAllowCompileCommand === true,
+								(v) => updateSettings({ mcpAllowCompileCommand: v })
 							)}
-							<p class="text-surface-500 mt-1 text-xs">{m.prefs_mcp_compile_command_note()}</p>
-						</div>
+						{/if}
 					{/if}
-				</div>
-				<div>
-					{@render toggle(m.prefs_math_preview(), $settings.mathPreview !== false, (v) => updateSettings({ mathPreview: v }))}
-					<p class="text-surface-500 mt-1 text-xs">{m.prefs_math_preview_note()}</p>
-				</div>
-				<div>
-					<div class="flex items-center justify-between gap-4">
-						<span class="text-sm">{m.prefs_keybindings()}</span>
-						<select
-							class="select w-32 text-sm"
-							value={$settings.editorKeymap ?? 'default'}
-							onchange={(e) =>
-								updateSettings({ editorKeymap: (e.currentTarget as HTMLSelectElement).value as AppSettings['editorKeymap'] })}
-						>
-							{#each keymaps as k (k.value)}
-								<option value={k.value}>{k.label}</option>
-							{/each}
-						</select>
-					</div>
-					<p class="text-surface-500 mt-1 text-xs">{m.prefs_keybindings_note()}</p>
-				</div>
-				<div>
-					{@render toggle(m.prefs_dark_pdf_pages(), $settings.pdfDarkPages, (v) => updateSettings({ pdfDarkPages: v }))}
-					<p class="text-surface-500 mt-1 text-xs">{m.prefs_dark_pdf_pages_note()}</p>
-				</div>
-
-				<div>
-					<div class="flex items-center justify-between gap-4">
-						<span class="text-sm">{m.prefs_image_resize_step()}</span>
-						<select
-							class="select w-24 text-sm"
-							value={$settings.figureResizeStep}
-							onchange={(e) => updateSettings({ figureResizeStep: Number((e.currentTarget as HTMLSelectElement).value) })}
-						>
-							{#each resizeSteps as s (s.value)}
-								<option value={s.value}>{s.label}</option>
-							{/each}
-						</select>
-					</div>
-					<p class="text-surface-500 mt-1 text-xs">{m.prefs_image_resize_step_note()}</p>
 				</div>
 			</div>
 		</div>

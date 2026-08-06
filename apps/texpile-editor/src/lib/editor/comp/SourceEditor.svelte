@@ -18,6 +18,7 @@
 	import { texpileSearch } from '$lib/editor/extensions/search-panel/searchPanel';
 	import { latexAutocomplete, latexIntellisense } from '$lib/editor/extensions/intellisense/intellisense';
 	import { mdSourceShortcuts } from '$lib/markdown/sourceExtensions';
+	import { mdPathCompletion } from '$lib/markdown/pathCompletion';
 	import { cmSpellcheck } from '$lib/editor/extensions/spellcheck/cmSpellcheck';
 	import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
 	import { mathPreview } from '$lib/editor/extensions/math-preview/mathPreview';
@@ -33,6 +34,7 @@
 	import { trailingDebounce } from '$lib/trailingDebounce';
 	import { docPositions, resolvePosition } from '$lib/workspace/docPositions';
 	import { m } from '$lib/paraglide/messages';
+	import { settings } from '$lib/settings';
 	import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 	import * as Y from 'yjs';
 	import type { Awareness } from 'y-protocols/awareness';
@@ -192,6 +194,9 @@
 	});
 	const langConf = new Compartment();
 	const roConf = new Compartment();
+	// soft wrap is a compartment, not a mounted-once extension: toggling it in Preferences has to
+	// take effect in the editor already on screen, and remounting would lose the caret and scroll
+	const wrapConf = new Compartment();
 	// vim / emacs bindings, filled in after mount because the packages are dynamically imported
 	const keymapConf = modalKeymapCompartment();
 	let unbindKeymap: (() => void) | null = null;
@@ -294,7 +299,8 @@
 					...(!fileFor || /\.tex$/i.test(fileFor)
 						? [latexIntellisense({ onJumpToFile, onOpenFileAt }), mathPreview(), starterGhost(), cmSpellcheck()]
 						: /\.(md|markdown)$/i.test(fileFor)
-							? [mdSourceShortcuts(), mathPreview(), cmSpellcheck()] // md chords; $-math and spellcheck are dialect-free
+							? // md chords; $-math, spellcheck and project file paths are dialect-free
+								[mdSourceShortcuts(), mdPathCompletion(), mathPreview(), cmSpellcheck()]
 							: /\.bib$/i.test(fileFor)
 								? [latexAutocomplete({ bib: true })]
 								: []),
@@ -315,7 +321,7 @@
 									{ key: 'Mod-Shift-z', run: () => (onHistoryBoundary ? (onHistoryBoundary('redo'), true) : false) }
 								]
 					),
-					EditorView.lineWrapping,
+					wrapConf.of($settings.sourceLineWrap === false ? [] : EditorView.lineWrapping),
 					// opt-in diagnostic for "the caret moved and I didn't move it"; see caretDoctor
 					caretDoctor(),
 					EditorView.contentAttributes.of({ spellcheck: 'false', 'data-gramm': 'false', 'data-enable-grammarly': 'false' }),
@@ -385,6 +391,12 @@
 					: LanguageDescription.matchFilename(cmlangdata, fileFor);
 			desc?.load().then((lang) => view?.dispatch({ effects: langConf.reconfigure(lang) }));
 		}
+	});
+
+	// follow the Preferences toggle in the open editor rather than only at mount
+	$effect(() => {
+		const wrap = $settings.sourceLineWrap !== false;
+		view?.dispatch({ effects: wrapConf.reconfigure(wrap ? EditorView.lineWrapping : []) });
 	});
 
 	// Reconcile an external value change into the document without echoing. addToHistory(false)

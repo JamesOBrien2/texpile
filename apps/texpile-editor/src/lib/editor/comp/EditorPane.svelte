@@ -32,6 +32,7 @@
 	import { bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
 	import TabBar from './TabBar.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { settings } from '$lib/settings';
 
 	import type { FileKind } from '$lib/workspace/documentBuffer.svelte';
 
@@ -260,7 +261,10 @@
 				     windows the mx-auto centering margin collapses and this padding keeps them from clipping.
 				     The \noindent marker has to fit this 48px too, which is why it is abbreviated (app.css) -->
 					<div class="px-12 py-8">
-						<div class="texpile-main-editor mx-auto w-full max-w-3xl min-w-0">
+						<!-- the measure, from Preferences. Was a fixed max-w-3xl (768px), which is still the
+						     default; past it a wide window pads with empty space rather than stretching the
+						     line length, and how much of that is comfortable is a matter of taste -->
+						<div class="texpile-main-editor mx-auto w-full min-w-0" style="max-width: {$settings.visualMaxWidth ?? 768}px">
 							{#if docMeta?.hadDocumentEnv && kind === 'tex'}
 								<!-- \title/\author fields are LaTeX; md frontmatter is YAML, edited in source mode -->
 								<PreambleFrontmatter preamble={docMeta.preamble} onEdit={onEditFrontmatter} />

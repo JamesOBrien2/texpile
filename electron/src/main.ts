@@ -639,6 +639,9 @@ const DEFAULT_SETTINGS = {
 	checkForUpdates: true,
 	uiZoom: 1, // whole-window zoom factor (webContents.setZoomFactor); the View menu adjusts it
 	mathPreview: true, // live math preview tooltip in source mode
+	sourceLineWrap: true, // soft-wrap long lines in Source mode
+	visualMaxWidth: 768, // widest the visual editor's text column may grow, in px
+
 	editorKeymap: 'default', // modal keybindings for the source editor: 'default' | 'vim' | 'emacs'
 	uiLocale: 'en', // UI display language, not the LaTeX document language. Overridden per-read by
 	// the detected system language until the user picks one; see systemUiLocale + readSettings.

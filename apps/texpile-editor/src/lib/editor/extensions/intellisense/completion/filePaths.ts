@@ -6,7 +6,8 @@ import { get } from 'svelte/store';
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { filePathStore } from '$lib/stores/editorStore';
 
-const IMG_EXTS = ['png', 'jpg', 'jpeg', 'pdf', 'eps', 'gif', 'svg', 'webp', 'bmp'];
+/** exported for the markdown source completion, which offers the same figures from the same store */
+export const IMG_EXTS = ['png', 'jpg', 'jpeg', 'pdf', 'eps', 'gif', 'svg', 'webp', 'bmp'];
 
 // commands whose {...} arg is a file path, with the extensions each one wants
 const FILE_CMD_EXTS: Record<string, string[]> = {
@@ -30,8 +31,9 @@ const FILE_CMD_EXTS: Record<string, string[]> = {
 // (\include{intro.tex} would make LaTeX look for intro.tex.tex)
 const STRIP_EXT = new Set(['include', 'includeonly', 'excludeonly', 'bibliography']);
 
-// build junk hidden from the commands that take any extension (lstinputlisting etc.)
-const JUNK_PATH = /\.(?:aux|log|out|toc|lof|lot|bbl|blg|fls|fdb_latexmk|synctex(?:\.gz)?|xdv|nav|snm|vrb)$/i;
+// build junk hidden from the commands that take any extension (lstinputlisting etc.). Shared with
+// the markdown source completion: a .md file sits in the same project and sees the same artifacts.
+export const JUNK_PATH = /\.(?:aux|log|out|toc|lof|lot|bbl|blg|fls|fdb_latexmk|synctex(?:\.gz)?|xdv|nav|snm|vrb)$/i;
 
 const CMD_NAMES = [...Object.keys(FILE_CMD_EXTS), 'lstinputlisting', 'verbatiminput', 'inputminted'];
 const FILEPATH_BEFORE = new RegExp(`\\\\(${CMD_NAMES.join('|')})\\*?(?:\\[[^\\]]*\\])*\\{[^{}]*$`);
@@ -50,7 +52,7 @@ function graphicsDirs(text: string): string[] {
 
 // match on "basename path" (CM's fuzzy matcher doesn't treat / as a word boundary, so a lone
 // first letter of the filename would never match the bare path), show the path, insert `insert`
-function pathOption(path: string, stripExt: boolean): Completion {
+export function pathOption(path: string, stripExt: boolean): Completion {
 	const insert = stripExt ? path.replace(/\.[^./\\]+$/, '') : path;
 	const base = path.replace(/\\/g, '/').split('/').pop() ?? path;
 	return { label: base === path ? path : `${base} ${path}`, displayLabel: path, apply: insert, type: 'text' };
