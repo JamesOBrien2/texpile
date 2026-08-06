@@ -34,6 +34,46 @@ export function buildCompileCommand(engine: Engine, latexmk: boolean, cmd: strin
 	return latexmk ? `latexmk ${ENGINE_FLAG[engine]} ${flags} {main}` : `${engine} ${flags} {main}`;
 }
 
+/**
+ * A directory name safe to splice into the compile command, or null.
+ *
+ * This is the whole defence for the MCP set_output_paths tool. That tool is deliberately NOT gated
+ * behind a setting, unlike set_compile_command, and the only thing separating "retarget the build
+ * output" from "run an extra command" is what is allowed through here - the value lands inside a
+ * string that a shell will parse.
+ *
+ * Backslashes are folded to forward slashes rather than permitted: a backslash is an escape to a
+ * POSIX shell, and every TeX engine accepts forward slashes on Windows anyway, so folding removes
+ * the character without costing Windows callers anything. A space is legal but gets quoted, since
+ * an unquoted one would split the flag into two arguments.
+ */
+export function sanitizeOutputDir(dir: string): string | null {
+	const d = dir.trim().replace(/\\/g, '/');
+	if (!d) return null;
+	// leading (drive|root) then an ordinary path. The first character may not be '-', or the engine
+	// reads the whole value as another flag
+	if (!/^(\/|[A-Za-z]:\/)?[A-Za-z0-9._][A-Za-z0-9._/ -]*$/.test(d)) return null;
+	return d.includes(' ') ? `"${d}"` : d;
+}
+
+/**
+ * Point an EXISTING command at a different output directory, leaving the rest of it alone.
+ *
+ * Deliberately a substitution rather than a regeneration: buildCompileCommand rewrites the command
+ * from an engine guess, which is right when the user picked an engine chip and wrong here, where
+ * the command may be latexmk with flags, a Makefile target, or a wrapper script whose other
+ * arguments were put there on purpose.
+ *
+ * `dir` must already have been through sanitizeOutputDir.
+ */
+export function withOutputDir(cmd: string, dir: string): string {
+	const flag = /-(output-directory|outdir)([=\s]+)("[^"]*"|'[^']*'|\S+)/;
+	if (flag.test(cmd)) return cmd.replace(flag, (_m, name: string, sep: string) => `-${name}${sep}${dir}`);
+	// no flag to replace: it has to land before {main}, because a trailing argument after the file
+	// name is ignored by some engines and taken as a second job name by others
+	return cmd.includes('{main}') ? cmd.replace('{main}', () => `-output-directory=${dir} {main}`) : `${cmd} -output-directory=${dir}`;
+}
+
 // a Windows drive (C:\), or a POSIX/UNC leading separator
 const isAbsolutePath = (p: string) => /^([a-zA-Z]:[\\/]|[\\/])/.test(p);
 

@@ -86,7 +86,17 @@
 	import { TreeOps } from '$lib/workspace/treeOps';
 	import { settings, loadSettings, updateSettings } from '$lib/settings';
 	import { detectMainFile, gatherProjectMacros } from '$lib/workspace/project';
-	import { basename, dirname, claimWorkspace, isDesktop, samePath, native, type TreeEntry } from '$lib/workspace/fileSystem';
+	import {
+		basename,
+		dirname,
+		claimWorkspace,
+		isDesktop,
+		samePath,
+		native,
+		revealItem,
+		purgeUndoBackups,
+		type TreeEntry
+	} from '$lib/workspace/fileSystem';
 	import { diskProvider } from '$lib/workspace/diskProvider';
 	import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
 	// the file-access seam: the host gets the disk-backed provider by default; a guest session
@@ -111,6 +121,9 @@
 	// lifecycle (folder claim, terminal, main-file/macro scan, on-disk change checks) so this same
 	// view can run over a shared session.
 	const hostMode = $derived(provider.caps.manageTree);
+	// tree undo needs somewhere to park a deleted entry AND a way to fetch it back; only the
+	// disk-backed provider has both, so a guest session records no file history at all
+	const canTrash = $derived(!!provider.trash && !!provider.restore);
 	// a guest session: host chrome (compile/terminal/git/file-ops/share) hidden
 	const guest = $derived(session.isGuest);
 	// guests never enter diff (no disk/git to diff against); visual is fine, it runs on the
@@ -271,6 +284,10 @@
 				}
 			});
 			resolveMainConfirm(root); // storage first, before anything can want a compile
+			// Nothing can reach the last session's undo backups: the stack is memory-only, so they
+			// became unreachable when the window closed. Purging on open (rather than on close) also
+			// means they outlive a crash, and the files themselves are in the recycle bin regardless.
+			void purgeUndoBackups(root).catch(() => {});
 			void initProject(root);
 		}
 		tabs.bind(root, hostMode); // restore this folder's open tabs (guests start fresh)
@@ -414,7 +431,11 @@
 			syncToLine: (line) => syncForwardLine(line),
 			runCompile: () => compiler.runCompile(),
 			setMainFile: (abs) => applyMainFile(abs),
-			isCompiling: () => compiler.busy
+			isCompiling: () => compiler.busy,
+			getCompileCommand: () => compileCommand,
+			// deferred through compileSettings so an MCP change persists exactly the way the dialog's
+			// Save does - folder command, global default, folder output overrides
+			applyCompile: (command, outputs) => compileSettings.applyCommand(command, outputs)
 		})
 	);
 
@@ -469,6 +490,12 @@
 		remove: deleteEntry,
 		rename: renameEntry,
 		copy: copyEntry,
+		// only the disk provider can park a deleted entry somewhere it can be fetched back from; a
+		// guest gets neither, and TreeOps then records no history rather than offering an undo it
+		// cannot honour
+		trash: (p, dir) => provider.trash!(p, dir),
+		restore: (from, to) => provider.restore!(from, to),
+		supportsTrash: () => canTrash,
 		writeBinary: writeBinaryFile,
 		stat: statFile,
 		refreshTree,
@@ -1175,6 +1202,7 @@
 		openFileAt: openFileAtLine,
 		openEntry,
 		setMain: (entry: TreeEntry) => void toggleMainFile(entry.path),
+		revealEntry: (entry: TreeEntry) => void revealItem(entry.path),
 		refreshGit: () => refreshGitStatus(get(workspaceRoot))
 	};
 

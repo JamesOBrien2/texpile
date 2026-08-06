@@ -39,6 +39,19 @@ export interface WorkspaceProvider {
 	remove(path: string): Promise<void>;
 	rename(from: string, to: string): Promise<void>;
 	copy(from: string, to: string): Promise<void>;
+	/**
+	 * Undoable delete: back the entry up outside the workspace, then send the original to the OS
+	 * recycle bin. `backup` is null when it was too large to copy; `recycled` is false when the OS
+	 * had no trash and it was unlinked instead. Deleted either way - the two flags say what, if
+	 * anything, it can still be recovered from.
+	 *
+	 * Optional because it is what makes tree undo possible, and a backend that cannot offer it
+	 * should degrade to a plain remove rather than pretend. TreeOps checks for it and skips
+	 * recording history when it is absent, so undo is never offered for something it cannot reverse.
+	 */
+	trash?(path: string, root: string): Promise<{ backup: string | null; recycled: boolean }>;
+	/** copy a backed-up entry back to `to`; must refuse rather than overwrite. */
+	restore?(from: string, to: string): Promise<void>;
 
 	// capability-gated extras
 	search?(

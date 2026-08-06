@@ -24,6 +24,26 @@ export function normalizeShareCode(code: string): string {
 	return code.toUpperCase().replace(/[^A-Z2-9]/g, '');
 }
 
+/**
+ * Display form: normalized, then grouped like a generated code. What the join field shows while
+ * someone types, so a hand-entered code lines up with the one they are reading off a screen.
+ *
+ * The separator is inserted only BETWEEN groups - the lookahead is what makes that true - and never
+ * trailing. A trailing hyphen would be re-added the instant backspace removed it, which makes the
+ * field impossible to delete backwards through.
+ *
+ * Separators and anything non-alphanumeric are dropped, but the four letters the alphabet omits -
+ * I, L, O, U - are deliberately NOT. They have no digit to fold into (0 and 1 are excluded too), so
+ * there is no correction to apply, and silently swallowing them would leave someone retyping a code
+ * that looks complete while a character they pressed had vanished. Kept visible, the field simply
+ * stays invalid and the Join button stays disabled.
+ */
+export function formatShareCode(code: string): string {
+	return normalizeShareCode(code)
+		.slice(0, 26)
+		.replace(/(.{5})(?=.)/g, '$1-');
+}
+
 export function isValidShareCode(code: string): boolean {
 	const c = normalizeShareCode(code);
 	return c.length === 26 && [...c].every((ch) => B32.includes(ch));

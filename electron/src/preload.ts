@@ -129,8 +129,15 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	fsTree: (root: string) => invokeFs('fs:tree', root),
 	/** tree + flat file scan (CSV exts, default 'tex') in ONE walk -> { root, children, files }. */
 	fsTreeScan: (root: string, exts?: string) => invokeFs('fs:treeScan', root, exts),
-	/** create / delete / rename -> { ok }. */
+	/** create / delete / restore / rename / copy -> { ok }. */
 	fsOp: (body: Record<string, unknown>) => invokeFs('fs:op', body),
+	/** undoable delete: backs the entry up (if small enough) then sends it to the OS recycle bin.
+	 *  -> { backup } , null when it was too large to copy and so cannot be undone. */
+	fsTrash: (body: { path: string; root: string }) => invokeFs('fs:trash', body),
+	/** discard a folder's undo backups -> { ok }. */
+	fsPurgeUndo: (root: string) => invokeFs('fs:purgeUndo', root),
+	/** select a file in the OS file manager (Explorer, Finder, ...) -> { ok }. */
+	revealItem: (path: string) => ipcRenderer.invoke('shell:revealItem', path),
 	/** find-in-files -> { results, truncated, total? }. */
 	fsSearch: (root: string, q: string, regex: boolean, caseSensitive: boolean) => invokeFs('fs:search', root, q, regex, caseSensitive),
 	/** { exists, mtimeMs, size }, used to poll for a freshly-written compile output. */

@@ -3,11 +3,21 @@
 // file tools for that, and keeping writes out is what makes this surface safe.
 import { get } from 'svelte/store';
 import { browser } from '$lib/runtime';
-import { workspaceRoot, isDirty, mainFile, texFiles } from './workspaceStore';
+import { workspaceRoot, isDirty, mainFile, texFiles, savedCompileOutputs } from './workspaceStore';
 import { isGitRepo, refreshGitStatus } from './gitStore';
 import { compileLog } from '$lib/stores/compileLogStore';
 import { settings } from '$lib/settings';
 import { joinPath, relativeTo, samePath } from './fileSystem';
+import {
+	compileOutDir,
+	detectEngine,
+	expectedLogPath,
+	expectedPdfPath,
+	outputPathIssue,
+	sanitizeOutputDir,
+	usesLatexmk,
+	withOutputDir
+} from './compileCommand';
 
 export interface McpCommandDeps {
 	/** the open file's absolute path */
@@ -30,6 +40,10 @@ export interface McpCommandDeps {
 	setMainFile(abs: string | null): Promise<void>;
 	/** a run is dispatched and not yet known to have finished, so the published log predates it */
 	isCompiling(): boolean;
+	/** the compile command in effect for this folder, with {main} still unexpanded */
+	getCompileCommand(): string;
+	/** persist a command and/or the folder's PDF/log overrides; both optional, see applyCommand */
+	applyCompile(command?: string, outputs?: { pdf?: string; log?: string }): void;
 }
 
 interface NativeMcp {
@@ -183,6 +197,105 @@ function relOrNull(root: string): string | null {
 	return m ? relativeTo(root, m) : null;
 }
 
+/**
+ * Everything about where this project's build goes and comes from, in one reply.
+ *
+ * pdfPath/logPath are the RESOLVED paths - the ones the preview pane and the log parser actually
+ * watch, after a manual override has had its say - rather than what the command implies. In a
+ * monorepo those are routinely not the same thing, and reporting the derivation instead of the
+ * result is how a caller ends up confidently reading a PDF nobody is looking at.
+ */
+function compileConfigPayload(deps: McpCommandDeps) {
+	const root = get(workspaceRoot);
+	const cmd = deps.getCompileCommand();
+	const main = get(mainFile);
+	const ov = root ? savedCompileOutputs(root) : {};
+	const rel = (p: string | null) => (p && root ? relativeTo(root, p) : p);
+	const s = get(settings);
+	return {
+		command: cmd,
+		engine: detectEngine(cmd),
+		latexmk: usesLatexmk(cmd),
+		outputDir: compileOutDir(cmd),
+		mainFile: main ? rel(main) : null,
+		pdfPath: rel(expectedPdfPath(cmd, root, main, ov.pdf)),
+		logPath: rel(expectedLogPath(cmd, root, main, ov)),
+		// null rather than absent, so "no override, this was detected" is distinguishable from
+		// "an override happens to match what would have been detected"
+		overrides: { pdf: ov.pdf ?? null, log: ov.log ?? null },
+		live: s.draftMode === true,
+		// so a caller can tell "you may not do that" apart from "that failed", without trying it
+		canSetCommand: s.mcpAllowCompileCommand === true
+	};
+}
+
+/**
+ * Retarget the build: the output directory, and/or where the viewer reads the PDF and log.
+ *
+ * Ungated, unlike set_compile_command, and the validation here is what earns that. The output
+ * directory is spliced into a shell command line, so it goes through sanitizeOutputDir and can
+ * only ever name a place; the PDF/log overrides are never executed at all, only read, so they only
+ * have to be single real files of the right kind.
+ */
+function setOutputPathsPayload(deps: McpCommandDeps, a: Record<string, unknown>) {
+	const root = get(workspaceRoot);
+	if (!root) return { ok: false, reason: 'no folder is open' };
+	const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+	const outputDir = str(a.outputDir);
+	const pdf = str(a.pdf);
+	const log = str(a.log);
+	if (outputDir === undefined && pdf === undefined && log === undefined)
+		return { ok: false, reason: 'nothing to change: pass outputDir, pdf, or log' };
+
+	let command: string | undefined;
+	if (outputDir !== undefined) {
+		const safe = sanitizeOutputDir(outputDir);
+		if (!safe)
+			return {
+				ok: false,
+				reason:
+					'outputDir must be a plain directory path (letters, digits, . _ - / and spaces). It is spliced into a shell command, so quotes and shell metacharacters are refused.'
+			};
+		command = withOutputDir(deps.getCompileCommand(), safe);
+	}
+	// blank clears an override; anything else must be one real file of the right kind
+	for (const [v, ext, name] of [
+		[pdf, '.pdf', 'pdf'],
+		[log, '.log', 'log']
+	] as const) {
+		if (v === undefined || !v.trim()) continue;
+		const issue = outputPathIssue(v, ext);
+		if (issue === 'has-token') return { ok: false, reason: `${name} is a literal file path, so {main} and other tokens are not expanded` };
+		if (issue === 'wrong-ext') return { ok: false, reason: `${name} must name a single ${ext} file` };
+	}
+
+	deps.applyCompile(command, pdf === undefined && log === undefined ? undefined : { pdf, log });
+	return { ok: true, ...compileConfigPayload(deps) };
+}
+
+/**
+ * Replace the compile command outright.
+ *
+ * Gated behind a setting that is off by default, and that gate is the whole point: this string is
+ * handed to a shell, so anything able to set it can run anything the user can. Every other tool on
+ * this server reads state or moves the window. Refusing loudly - naming the setting - beats
+ * failing in a way a caller would work around by editing the settings file itself.
+ */
+function setCompileCommandPayload(deps: McpCommandDeps, command: unknown) {
+	if (!get(settings).mcpAllowCompileCommand)
+		return {
+			ok: false,
+			reason:
+				'setting the compile command is turned off. The user can enable it in Preferences > AI assistant ("Allow changing the compile command"); it is separate from MCP access because a compile command is a shell command line. set_output_paths can retarget the output directory without it.'
+		};
+	const cmd = typeof command === 'string' ? command.trim() : '';
+	if (!cmd) return { ok: false, reason: 'command must be a non-empty string' };
+	if (!cmd.includes('{main}'))
+		return { ok: false, reason: 'command must contain the {main} token, which expands to the project main file' };
+	deps.applyCompile(cmd);
+	return { ok: true, ...compileConfigPayload(deps) };
+}
+
 function syncTexPayload(deps: McpCommandDeps, line: unknown) {
 	const n = Number(line);
 	if (!Number.isInteger(n) || n < 1) return { ok: false, reason: 'line must be a positive integer' };
@@ -203,6 +316,9 @@ export function attachMcpCommands(deps: McpCommandDeps): () => void {
 		if (req.kind === 'unsaved') return reply(unsavedPayload(deps));
 		if (req.kind === 'diagnostics') return reply(diagnosticsPayload(deps));
 		if (req.kind === 'synctex') return reply(syncTexPayload(deps, a.line));
+		if (req.kind === 'compile_config') return reply(compileConfigPayload(deps));
+		if (req.kind === 'set_output_paths') return reply(setOutputPathsPayload(deps, a));
+		if (req.kind === 'set_compile_command') return reply(setCompileCommandPayload(deps, a.command));
 		if (req.kind === 'main_file') return void mainFilePayload(deps, a.path).then(reply);
 		if (req.kind === 'compile') {
 			// Live mode and terminal mode are different enough that the caller has to be told which one

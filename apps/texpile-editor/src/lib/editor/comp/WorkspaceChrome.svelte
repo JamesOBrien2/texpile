@@ -131,6 +131,8 @@
 			onImport={treeOps.import}
 			onCopyIn={treeOps.copyIn}
 			onSetMain={actions.setMain}
+			onReveal={actions.revealEntry}
+			fileHistory={treeOps.history}
 			onStartTocResize={layout.startTocResize}
 			onResizeTocByKey={layout.resizeTocByKey}
 			onRefreshGit={actions.refreshGit}

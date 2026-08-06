@@ -3,7 +3,7 @@
 	// Once joined, App swaps to WorkspaceView (guest mode) — this only covers the not-yet-editing states.
 	import { navigate } from '$lib/router.svelte';
 	import { collabGuest } from '$lib/collab/guestStore.svelte';
-	import { isValidShareCode } from '$lib/collab/e2e/shareCode';
+	import { formatShareCode, isValidShareCode, normalizeShareCode } from '$lib/collab/e2e/shareCode';
 	import AppFrame from '$lib/editor/comp/chrome/AppFrame.svelte';
 	import { settings, updateSettings, DEFAULT_COLLAB_RELAY_URL } from '$lib/settings';
 	import { m } from '$lib/paraglide/messages';
@@ -40,6 +40,32 @@
 			/* private mode */
 		}
 		await collabGuest.join(codeInput, nameInput);
+	}
+
+	/**
+	 * Group the code as it is typed, so a hand-entered one matches the hyphenated form people are
+	 * reading off the host's screen. Normalizing already made the separators optional for JOINING;
+	 * this is about being able to see your place in 26 characters while entering them.
+	 *
+	 * The caret is re-derived rather than restored, because inserting a separator behind it would
+	 * otherwise leave it one character back on every fifth keystroke. Count the significant
+	 * characters before the caret, then walk that far into the formatted string - which also lands
+	 * correctly when the edit was a paste, or a deletion from the middle.
+	 */
+	function onCodeInput(e: Event) {
+		const el = e.currentTarget as HTMLInputElement;
+		const before = normalizeShareCode(el.value.slice(0, el.selectionStart ?? el.value.length)).length;
+		const formatted = formatShareCode(el.value);
+		// assign the DOM value first: Svelte's own update then sees the element already holding this
+		// string and skips it, so it cannot clobber the caret we are about to set
+		el.value = formatted;
+		codeInput = formatted;
+		let pos = 0;
+		for (let seen = 0; pos < formatted.length && seen < before; pos++) if (formatted[pos] !== '-') seen++;
+		// step past a separator the just-typed character completed, so the caret sits ready for the
+		// next one rather than in front of a hyphen
+		while (pos < formatted.length && formatted[pos] === '-') pos++;
+		el.setSelectionRange(pos, pos);
 	}
 
 	function backHome() {
@@ -85,7 +111,11 @@
 					<input
 						class="input w-full font-mono tracking-wide uppercase"
 						placeholder="ABCDE-FGHJK-MNPQR-STVWX-YZ234-5"
-						bind:value={codeInput}
+						autocapitalize="characters"
+						autocomplete="off"
+						spellcheck="false"
+						value={codeInput}
+						oninput={onCodeInput}
 						onkeydown={(e) => e.key === 'Enter' && !joinDisabled && join()}
 					/>
 				</label>

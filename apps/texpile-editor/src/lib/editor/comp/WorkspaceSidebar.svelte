@@ -8,6 +8,7 @@
 	import { workspaceRoot, fileTree, activeFilePath, mainFile } from '$lib/workspace/workspaceStore';
 	import { isGitRepo, gitBranch, gitChanges, gitStatusMap } from '$lib/workspace/gitStore';
 	import { basename, type TreeEntry } from '$lib/workspace/fileSystem';
+	import type { FileHistory } from '$lib/workspace/fileHistory.svelte';
 	import type { GitStatusEntry } from '$lib/workspace/git';
 	import { m } from '$lib/paraglide/messages';
 	import { FilePlus, FolderPlus, RefreshCw, GitBranch, Search } from '@lucide/svelte';
@@ -36,6 +37,9 @@
 		onImport: (items: { relPath: string; file: globalThis.File }[], targetDir: string) => void;
 		onCopyIn: (paths: string[], targetDir: string) => void;
 		onSetMain: (entry: TreeEntry) => void;
+		onReveal: (entry: TreeEntry) => void;
+		/** the file tree's own undo/redo stack, kept separate from the editor's text history. */
+		fileHistory: FileHistory | null;
 		onStartTocResize: (e: MouseEvent) => void;
 		onResizeTocByKey: (e: KeyboardEvent) => void;
 		onRefreshGit: () => void;
@@ -70,6 +74,8 @@
 		onImport,
 		onCopyIn,
 		onSetMain,
+		onReveal,
+		fileHistory,
 		onStartTocResize,
 		onResizeTocByKey,
 		onRefreshGit,
@@ -176,6 +182,8 @@
 					{onImport}
 					{onCopyIn}
 					onSetMain={guest ? undefined : onSetMain}
+					onReveal={guest ? undefined : onReveal}
+					history={guest ? null : fileHistory}
 				/>
 			</div>
 			{#if showToc}

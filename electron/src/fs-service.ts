@@ -3,6 +3,7 @@ import { readdir, readFile, writeFile, mkdir, rm, rename, stat, cp } from 'node:
 import { join, dirname, basename, extname, relative, sep, isAbsolute, normalize, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 
 // '_draft' holds Draft-mode's transient compile artifacts (page records, daemon wrapper,
 // draft.pdf) -- never surface them in the tree, scan, or search.
@@ -227,6 +228,10 @@ export interface FsOpBody {
 	to?: string;
 }
 
+export interface FsOpResult {
+	ok: true;
+}
+
 // reject names illegal on any target OS (enforced everywhere so projects stay portable): on
 // Windows a ':' silently creates an NTFS alternate data stream, trailing dot/space and device names throw
 const RESERVED_WIN = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
@@ -239,7 +244,68 @@ function validateName(name: string): void {
 	if (RESERVED_WIN.test(name)) throw new Error(`"${name}" is a reserved file name`);
 }
 
-export async function op(body: FsOpBody): Promise<{ ok: true }> {
+/**
+ * Bytes in a file or a whole directory tree, giving up as soon as `limit` is passed.
+ *
+ * The early exit is the point: this runs before every delete, and walking a node_modules to find
+ * out it is 400 MB would cost more than the copy it is meant to avoid. Anything over the limit only
+ * needs to be known as "too big", not measured.
+ */
+async function sizeOf(p: string, limit: number): Promise<number> {
+	let total = 0;
+	const walk = async (target: string): Promise<boolean> => {
+		let st;
+		try {
+			st = await stat(target);
+		} catch {
+			return true; // vanished mid-walk; nothing to copy for it either
+		}
+		if (!st.isDirectory()) {
+			total += st.size;
+			return total <= limit;
+		}
+		let entries;
+		try {
+			entries = await readdir(target, { withFileTypes: true });
+		} catch {
+			return true;
+		}
+		for (const e of entries) if (!(await walk(join(target, e.name)))) return false;
+		return true;
+	};
+	await walk(p);
+	return total;
+}
+
+/**
+ * Copy an entry somewhere the file tree's undo can fetch it back from, BEFORE it is deleted.
+ *
+ * Returns null when the entry is too large to be worth copying, and null means "this delete will
+ * not be undoable" - the caller records no history rather than offering an undo that would take a
+ * minute and a second copy of a large folder to honour. The delete itself still happens, and still
+ * goes to the OS recycle bin, so the file is not gone either way.
+ *
+ * The copy lands OUTSIDE the workspace (the caller sites it under the app's own data directory), so
+ * nothing appears in the user's project and there is nothing for `git add -A` to sweep up. The cost
+ * of being off-volume is that this is a real copy rather than a rename, which is exactly why the
+ * size limit exists.
+ */
+export async function backupForUndo(path: string, backupDir: string, maxBytes: number): Promise<string | null> {
+	if (await sizeOf(path, maxBytes).then((n) => n > maxBytes)) return null;
+	// its own slot per entry: two files called figure.png, or the same path deleted twice, would
+	// otherwise collide - and the name inside the slot is what the restore path is rebuilt from
+	const slot = join(backupDir, `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`);
+	await mkdir(slot, { recursive: true });
+	const dest = join(slot, basename(path));
+	try {
+		await cp(path, dest, { recursive: true });
+	} catch {
+		return null; // unreadable, or it moved under us: no backup, so no undo offered
+	}
+	return dest;
+}
+
+export async function op(body: FsOpBody): Promise<FsOpResult> {
 	const action = body?.action;
 	if (action === 'create') {
 		const path = body.path;
@@ -255,6 +321,17 @@ export async function op(body: FsOpBody): Promise<{ ok: true }> {
 		const path = body.path;
 		if (!path) throw new Error('Missing path');
 		await rm(path, { recursive: true, force: true });
+	} else if (action === 'restore') {
+		const { from, to } = body;
+		if (!from || !to) throw new Error('Missing from/to');
+		// Never overwrite on the way back. Undo is supposed to be the safe direction, and something
+		// standing at the old path means the world moved on - report that rather than clobber it.
+		if (existsSync(to)) throw new Error(`Cannot restore: "${basename(to)}" already exists`);
+		// the folder that held it may have been deleted since
+		await mkdir(dirname(to), { recursive: true });
+		// COPY back, not move: the backup has to survive so a redo-then-undo can restore it again,
+		// and the whole set is discarded together when the workspace is next opened
+		await cp(from, to, { recursive: true, errorOnExist: true });
 	} else if (action === 'rename') {
 		const { from, to } = body;
 		if (!from || !to) throw new Error('Missing from/to');

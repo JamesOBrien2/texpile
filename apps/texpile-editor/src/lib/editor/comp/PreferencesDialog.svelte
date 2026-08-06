@@ -197,6 +197,16 @@
 								<span class="text-error-600 text-xs">{m.prefs_mcp_error({ error: mcp.error ?? '' })}</span>
 							{/if}
 						</div>
+
+						<!-- A SECOND permission, nested under the first because it is meaningless without it,
+						     but deliberately not implied by it: everything else this server exposes reads
+						     state or moves the window, while a compile command is a shell command line. -->
+						<div class="border-surface-200-800 mt-2 border-l-2 pl-3">
+							{@render toggle(m.prefs_mcp_compile_command(), $settings.mcpAllowCompileCommand === true, (v) =>
+								updateSettings({ mcpAllowCompileCommand: v })
+							)}
+							<p class="text-surface-500 mt-1 text-xs">{m.prefs_mcp_compile_command_note()}</p>
+						</div>
 					{/if}
 				</div>
 				<div>

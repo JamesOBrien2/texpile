@@ -39,6 +39,31 @@ export class CompileSettings {
 		if (thenRun && command) this.runCompile();
 	}
 
+	/**
+	 * Apply a command and/or output overrides with no modal involved - the MCP path.
+	 *
+	 * Shares save()'s persistence deliberately rather than writing the same three stores again:
+	 * a command set from outside has to land in the folder map, the global default AND the live
+	 * compile pipeline, and a copy of that list would drift the first time one of them moved.
+	 * Each argument is optional so a caller can change the outputs without touching the command.
+	 */
+	applyCommand(command?: string, outputs?: { pdf?: string; log?: string }) {
+		const root = get(workspaceRoot);
+		if (command !== undefined) {
+			const c = command.trim();
+			this.setCommand(c);
+			if (root) setFolderCompileCommand(root, c || null);
+			updateSettings({ compileCommand: c });
+		}
+		if (outputs && root) {
+			// merge, so setting only the PDF does not silently clear a log override the user set
+			const cur = savedCompileOutputs(root);
+			setCompileOutputs(root, { pdf: outputs.pdf ?? cur.pdf ?? '', log: outputs.log ?? cur.log ?? '' });
+		}
+		// keep an open dialog showing what was just applied under it
+		if (this.modalOpen) this.open();
+	}
+
 	useDefault() {
 		this.draft = DEFAULT_COMPILE_COMMAND;
 		this.save(true);

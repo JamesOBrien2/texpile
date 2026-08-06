@@ -115,7 +115,11 @@ const INSTRUCTIONS = [
 	'The window belongs to the user. open_file, set_view_mode and show_diff all change what is on their screen, so',
 	'use them when you have something worth showing, not to mirror your own progress.',
 	'',
-	'If a compile fails because the wrong file is main, or none is set, set_main_file fixes it and you can retry.'
+	'If a compile fails because the wrong file is main, or none is set, set_main_file fixes it and you can retry.',
+	'',
+	'Do not infer where a build lands from the compile command. A folder can override the PDF and log paths',
+	'independently of it, which is normal in a repo where one output directory serves several documents, so',
+	'get_compile_config reports the resolved paths and set_output_paths is what changes them.'
 ].join('\n');
 
 function buildServer(): McpServer {
@@ -352,6 +356,84 @@ function buildServer(): McpServer {
 			if (r === null) return fail('the editor did not respond in time');
 			// pass the renderer's own mode and guidance through rather than restating it here, so the
 			// two cannot drift apart
+			return ok(r);
+		}
+	);
+
+	server.registerTool(
+		'get_compile_config',
+		{
+			title: 'Get the compile configuration',
+			description:
+				'The compile command, the engine, the output directory, and - the part worth having - the ' +
+				'RESOLVED paths the PDF pane and the log parser actually watch. In a monorepo those are ' +
+				'routinely not what the command implies, because a folder can override either one. Read this ' +
+				'before assuming where a build landed. canSetCommand tells you whether set_compile_command is ' +
+				'permitted here, so you can pick a route without provoking a refusal.',
+			inputSchema: { root: z.string().optional().describe('workspace root; defaults to the focused window') }
+		},
+		async ({ root }) => {
+			const t = target(root);
+			if (!t) return fail('no matching Texpile window');
+			const data = await request(t.win, 'compile_config');
+			if (data === null) return fail('the editor did not respond in time');
+			return ok(data);
+		}
+	);
+
+	server.registerTool(
+		'set_output_paths',
+		{
+			title: 'Retarget the build output',
+			description:
+				'Point the build somewhere else: outputDir changes where the engine writes (the ' +
+				'-output-directory flag is substituted into the existing command, leaving its other flags ' +
+				'alone), while pdf and log override where the viewer READS, for when the command writes ' +
+				'somewhere the editor cannot infer. pdf/log are literal file paths - no {main} - and pass an ' +
+				'empty string to clear one. Returns the new resolved configuration.',
+			inputSchema: {
+				// a directory only, and a restricted one: this value is spliced into a shell command line,
+				// so the renderer refuses quotes and metacharacters outright
+				outputDir: z.string().optional().describe('directory the engine writes to, e.g. build/paper'),
+				pdf: z.string().optional().describe('literal path to the compiled .pdf; empty string clears the override'),
+				log: z.string().optional().describe('literal path to the .log; empty string clears the override'),
+				root: z.string().optional().describe('workspace root; defaults to the focused window')
+			}
+		},
+		async ({ outputDir, pdf, log, root }) => {
+			const t = target(root);
+			if (!t) return fail('no matching Texpile window');
+			const r = (await request(t.win, 'set_output_paths', { outputDir, pdf, log })) as { ok?: boolean; reason?: string } | null;
+			if (r === null) return fail('the editor did not respond in time');
+			if (!r.ok) return fail(r.reason ?? 'the editor refused the change');
+			return ok(r);
+		}
+	);
+
+	server.registerTool(
+		'set_compile_command',
+		{
+			title: 'Set the compile command',
+			description:
+				"Replace the project's compile command outright - for a wrapper script, a Makefile target, or " +
+				'an engine this editor does not generate. Must contain {main}, which expands to the main file. ' +
+				'OFF BY DEFAULT: a compile command is a shell command line, so the user has to enable this ' +
+				'separately from MCP access, and get_compile_config reports whether they have (canSetCommand). ' +
+				'If you only need the build to land elsewhere, use set_output_paths instead - that needs no ' +
+				'permission.',
+			inputSchema: {
+				command: z.string().describe('shell command; {main} expands to the main file path'),
+				root: z.string().optional().describe('workspace root; defaults to the focused window')
+			}
+		},
+		async ({ command, root }) => {
+			const t = target(root);
+			if (!t) return fail('no matching Texpile window');
+			// the gate lives in the renderer, with the settings store, so it cannot be bypassed by
+			// reaching this server directly
+			const r = (await request(t.win, 'set_compile_command', { command })) as { ok?: boolean; reason?: string } | null;
+			if (r === null) return fail('the editor did not respond in time');
+			if (!r.ok) return fail(r.reason ?? 'the editor refused to set the compile command');
 			return ok(r);
 		}
 	);

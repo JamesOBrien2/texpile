@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { Readable } from 'node:stream';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import * as fsService from './fs-service';
 import * as gitService from './git-service';
 import * as draftService from './draft-service';
@@ -498,6 +499,53 @@ handleFs('fs:op', fsService.op);
 handleFs('fs:search', fsService.search);
 handleFs('fs:stat', fsService.statFile);
 handleFs('fs:formatLatex', fsService.formatLatex);
+// Reveal a file in the OS file manager. showItemInFolder SELECTS the item in a browser window and
+// nothing more - deliberately not shell.openPath, which hands the path to the OS to open with
+// whatever is registered for it, and so would turn a tree row into an execution surface.
+ipcMain.handle('shell:revealItem', (_e, p: string) => {
+	if (typeof p !== 'string' || !p) return { ok: false };
+	shell.showItemInFolder(p);
+	return { ok: true };
+});
+/**
+ * Where a workspace's undo backups live: under the app's OWN data directory, never inside the
+ * project. Namespaced per folder so opening one workspace cannot discard the undo history of a
+ * folder another window still has open.
+ */
+function undoDir(root: string): string {
+	const key = createHash('sha256').update(path.resolve(root).toLowerCase()).digest('hex').slice(0, 16);
+	return path.join(app.getPath('userData'), 'undo', key);
+}
+/** Above this, a delete is not made undoable. The backup is a real copy (it crosses volumes), so
+ *  the limit is what stops deleting a build directory from duplicating it first. */
+const UNDO_MAX_BYTES = 64 * 1024 * 1024;
+
+// The undoable delete. Copy the entry somewhere recoverable when it is small enough, then send the
+// original to the OS recycle bin rather than unlinking it - so even a delete too large to undo in
+// the editor is still recoverable by the user from their file manager. A null `backup` is how the
+// renderer learns not to offer undo for this one.
+handleFs('fs:trash', async (body: { path: string; root: string }) => {
+	const backup = await fsService.backupForUndo(body.path, undoDir(body.root), UNDO_MAX_BYTES);
+	let recycled = true;
+	try {
+		await shell.trashItem(body.path);
+	} catch {
+		// Network shares, and Linux boxes with no trash implementation, have nowhere to put it. The
+		// file still has to go, so it is unlinked - but the caller is TOLD, because "it is in your
+		// recycle bin" is the one thing we must not claim when it is not. With no backup either,
+		// this is the only path in the app that destroys something outright.
+		recycled = false;
+		await fsService.op({ action: 'delete', path: body.path });
+	}
+	return { backup, recycled };
+});
+
+// Drop a folder's backups. Called when that workspace is opened: the undo stack that could reach
+// them is memory-only, so anything left from a previous session is already unreachable.
+handleFs('fs:purgeUndo', async (root: string) => {
+	await fsService.op({ action: 'delete', path: undoDir(root) });
+	return { ok: true };
+});
 handleFs('synctex:call', fsService.synctex);
 // One live preview at a time: the warm engine (and its reconcile compiles) belong to one
 // window. A second window asking gets a clean 'engine-busy' value instead of silently
@@ -599,6 +647,10 @@ const DEFAULT_SETTINGS = {
 	// default: connecting also requires pasting a config snippet into the client, so defaulting this
 	// on would open a loopback port for everyone while buying nothing until they act anyway.
 	mcpEnabled: false,
+	// Whether a connected client may rewrite the compile command, which is a shell command line and
+	// so amounts to running anything this user can. A separate permission from mcpEnabled, and off
+	// even when that is on; retargeting only the output DIRECTORY does not need it.
+	mcpAllowCompileCommand: false,
 	// 0 = use the channel default (mcp.PORT_DEFAULT / PORT_DEFAULT_DEV). Fixed rather than
 	// ephemeral so a client config keeps working across restarts; overridable for a port clash.
 	mcpPort: 0,

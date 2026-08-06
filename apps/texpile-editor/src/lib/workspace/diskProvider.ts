@@ -16,6 +16,8 @@ import {
 	deleteEntry,
 	renameEntry,
 	copyEntry,
+	trashEntry,
+	restoreEntry,
 	searchInFolder,
 	formatLatexDocument
 } from './fileSystem';
@@ -36,6 +38,8 @@ export const diskProvider: WorkspaceProvider = {
 	remove: deleteEntry,
 	rename: renameEntry,
 	copy: copyEntry,
+	trash: trashEntry,
+	restore: restoreEntry,
 	search: searchInFolder,
 	format: formatLatexDocument
 };

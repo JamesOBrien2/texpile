@@ -76,6 +76,9 @@ interface TexpileNative {
 	fsTree: (root: string) => Promise<{ root: string; children: TreeEntry[] }>;
 	fsTreeScan: (root: string, exts?: string) => Promise<{ root: string; children: TreeEntry[]; files: TexFile[] }>;
 	fsOp: (body: Record<string, unknown>) => Promise<{ ok: boolean }>;
+	fsTrash: (body: { path: string; root: string }) => Promise<{ backup: string | null; recycled: boolean }>;
+	fsPurgeUndo: (root: string) => Promise<{ ok: boolean }>;
+	revealItem?: (path: string) => Promise<{ ok: boolean }>;
 	fsSearch: (
 		root: string,
 		q: string,
@@ -180,15 +183,45 @@ export async function scanTreeAndFiles(root: string, exts?: string[]): Promise<{
 	return ipc(requireNative().fsTreeScan(root, exts?.join(',')));
 }
 
-async function op(payload: Record<string, unknown>): Promise<void> {
-	await ipc(requireNative().fsOp(payload));
+async function op(payload: Record<string, unknown>): Promise<{ ok: boolean; trashed?: string }> {
+	return ipc(requireNative().fsOp(payload));
+}
+/** the common case: run the op and discard the reply, which only 'trash' has anything in. */
+async function opVoid(payload: Record<string, unknown>): Promise<void> {
+	await op(payload);
 }
 
-export const createEntry = (path: string, type: 'file' | 'dir', content = '') => op({ action: 'create', path, type, content });
-export const deleteEntry = (path: string) => op({ action: 'delete', path });
-export const renameEntry = (from: string, to: string) => op({ action: 'rename', from, to });
+export const createEntry = (path: string, type: 'file' | 'dir', content = '') => opVoid({ action: 'create', path, type, content });
+export const deleteEntry = (path: string) => opVoid({ action: 'delete', path });
+export const renameEntry = (from: string, to: string) => opVoid({ action: 'rename', from, to });
 /** recursive copy; fails instead of overwriting an existing destination. */
-export const copyEntry = (from: string, to: string) => op({ action: 'copy', from, to });
+export const copyEntry = (from: string, to: string) => opVoid({ action: 'copy', from, to });
+
+/**
+ * The undoable delete: back the entry up outside the workspace, then send it to the OS recycle bin.
+ *
+ * `backup` is null when the entry was too large to copy - still deleted, just not undoable here.
+ * `recycled` is false when the OS had nowhere to put it and it had to be unlinked instead. Both
+ * are reported rather than inferred, because the two failures compound: neither one leaves anything
+ * to recover from, and that is the only case worth interrupting the user about.
+ */
+export async function trashEntry(path: string, root: string): Promise<{ backup: string | null; recycled: boolean }> {
+	const r = await ipc(requireNative().fsTrash({ path, root }));
+	return { backup: r?.backup ?? null, recycled: r?.recycled !== false };
+}
+
+/** copy a backed-up entry back into place; refuses rather than overwrite whatever stands at `to`. */
+export const restoreEntry = (from: string, to: string) => opVoid({ action: 'restore', from, to });
+
+/** discard this folder's undo backups; called when the workspace is opened. */
+export async function purgeUndoBackups(root: string): Promise<void> {
+	await ipc(requireNative().fsPurgeUndo(root));
+}
+
+/** select the file in the OS file manager. A no-op outside the desktop shell. */
+export async function revealItem(path: string): Promise<void> {
+	await native()?.revealItem?.(path);
+}
 
 export async function readTextFile(path: string): Promise<string> {
 	return (await ipc(requireNative().fsRead(path))).content;

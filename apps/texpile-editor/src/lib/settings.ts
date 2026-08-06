@@ -38,6 +38,17 @@ export interface AppSettings {
 	 * default: connecting also needs a config snippet pasted into the client, so defaulting this on
 	 * would open a loopback port for everyone while buying nothing until they act anyway. */
 	mcpEnabled: boolean;
+	/**
+	 * Let a connected MCP client REWRITE the compile command outright.
+	 *
+	 * Separate from mcpEnabled, and off even when that is on, because it is a different kind of
+	 * permission: the compile command is a shell command line, so a client that can set it can run
+	 * anything this user can. Everything else the server exposes reads state or moves the window.
+	 *
+	 * Retargeting the OUTPUT DIRECTORY does not need this - that path goes through
+	 * sanitizeOutputDir and can only ever change where the build lands.
+	 */
+	mcpAllowCompileCommand: boolean;
 	/** whole-window zoom factor (1 = 100%), applied via webContents.setZoomFactor. */
 	uiZoom: number;
 	/** newest changelog version the What's New modal was dismissed for. */
@@ -83,6 +94,7 @@ const DEFAULTS: AppSettings = {
 	draftMode: false,
 	checkForUpdates: true,
 	mcpEnabled: false,
+	mcpAllowCompileCommand: false,
 	uiZoom: 1,
 	whatsNewSeen: '',
 	mathPreview: true,
