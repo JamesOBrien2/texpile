@@ -162,6 +162,8 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	},
 	/** Save the live preview's reconcile PDF via a save dialog -> { saved, path? }. */
 	draftSavePdf: (body: { root: string; defaultName: string; to?: string }) => invokeFs('draft:savePdf', body),
+	/** Save an already-produced PDF via a save dialog -> { saved, path? }. */
+	savePdfAs: (body: { src: string; defaultPath: string; to?: string }) => invokeFs('shell:savePdfAs', body),
 
 	/** per-file git status + branch -> { ok, branch?, entries? }. */
 	gitStatus: (root: string) => invokeFs('git:status', root),
@@ -201,6 +203,36 @@ contextBridge.exposeInMainWorld('texpileUpdates', {
 		const h = (_e: unknown, err: { message: string }) => cb(err);
 		ipcRenderer.on('update:error', h);
 		return () => ipcRenderer.removeListener('update:error', h);
+	}
+});
+
+// tinymist: compiles Typst documents and serves their language features. The LSP wire format is
+// framed in the main process; what crosses here is bare JSON-RPC strings, which is exactly what
+// @codemirror/lsp-client's Transport speaks.
+contextBridge.exposeInMainWorld('texpileTypst', {
+	/** locate tinymist. Resolves null when it isn't installed. */
+	resolve: () => ipcRenderer.invoke('typst:resolve'),
+	/** probe every external program the app shells out to (latexmk, git, synctex, ...). */
+	probeToolchain: () => ipcRenderer.invoke('toolchain:probe'),
+	/** fetch tinymist's preview page, theme it, and re-serve it; resolves to a typstpreview:// URL. */
+	preparePreview: (host: string, background: string, foreground: string) =>
+		ipcRenderer.invoke('typst:preview:prepare', { host, background, foreground }),
+	releasePreview: () => ipcRenderer.send('typst:preview:release'),
+	/** spawn `tinymist lsp` for this window, rooted at `root`. */
+	startLsp: (root: string | null) => ipcRenderer.invoke('typst:lsp:start', root),
+	send: (json: string) => ipcRenderer.send('typst:lsp:send', json),
+	stopLsp: () => ipcRenderer.send('typst:lsp:stop'),
+	/** subscribe to server->client messages. Returns an unsubscribe fn. */
+	onMessage: (cb: (json: string) => void) => {
+		const h = (_e: unknown, json: string) => cb(json);
+		ipcRenderer.on('typst:lsp:message', h);
+		return () => ipcRenderer.removeListener('typst:lsp:message', h);
+	},
+	/** subscribe to server exit. Returns an unsubscribe fn. */
+	onExit: (cb: (code: number | null) => void) => {
+		const h = (_e: unknown, code: number | null) => cb(code);
+		ipcRenderer.on('typst:lsp:exit', h);
+		return () => ipcRenderer.removeListener('typst:lsp:exit', h);
 	}
 });
 

@@ -3,7 +3,17 @@
 // file tools for that, and keeping writes out is what makes this surface safe.
 import { get } from 'svelte/store';
 import { browser } from '$lib/runtime';
-import { workspaceRoot, isDirty, mainFile, texFiles, savedCompileOutputs } from './workspaceStore';
+import {
+	workspaceRoot,
+	isDirty,
+	mainFile,
+	texFiles,
+	fileTree,
+	savedCompileFormat,
+	effectiveCompileFormat,
+	savedFormatOutputs
+} from './workspaceStore';
+import type { TreeEntry } from './fileSystem';
 import { isGitRepo, refreshGitStatus } from './gitStore';
 import { compileLog } from '$lib/stores/compileLogStore';
 import { settings } from '$lib/settings';
@@ -156,9 +166,16 @@ async function viewModePayload(deps: McpCommandDeps, mode: unknown) {
 	return now === mode ? { ok: true, viewMode: now } : { ok: false, reason: 'the editor refused the switch', viewMode: now };
 }
 
+/** whether the open tree contains this exact file; the .typ leg of main_file's containment. */
+function inOpenTree(abs: string): boolean {
+	const walk = (nodes: TreeEntry[]): boolean =>
+		nodes.some((n) => (n.type === 'file' && samePath(n.path, abs)) || (n.children ? walk(n.children) : false));
+	return walk(get(fileTree));
+}
+
 /**
  * Set the main file, or clear it when `path` is omitted. Refusable, so it reports what happened:
- * naming a file outside the workspace, or one that is not a .tex, changes nothing and says why.
+ * naming a file outside the workspace, or one that is not a .tex/.typ, changes nothing and says why.
  *
  * The extension check is the point of this rather than a bare setMainFile(). The main file drives
  * the compile and the project-wide macro scan, and pointing it at a .bib or an image gives every
@@ -174,20 +191,21 @@ async function mainFilePayload(deps: McpCommandDeps, path: unknown) {
 	}
 	const abs = resolveInWorkspace(rel);
 	if (!abs) return { ok: false, reason: 'path is outside this workspace', mainFile: relOrNull(root) };
-	// Must name a .tex file that is actually THERE. resolveInWorkspace only contains the path, and
-	// deliberately does not check existence - open_file can lean on the opener's "cannot load" path
-	// for that, but nothing here does: a bad main file is written to localStorage and then surfaces
-	// as a compile failure with no visible connection to the tool call that caused it.
-	// Matched against the scanned .tex list rather than the disk, which is the same open-tree-only
-	// rule the rest of this surface follows, and gets the extension check for free.
+	// Must name a .tex or .typ file that is actually THERE. resolveInWorkspace only contains the
+	// path, and deliberately does not check existence - a bad main file is written to localStorage
+	// and then surfaces as a compile failure with no visible connection to the tool call that
+	// caused it. .tex is matched against the scanned list (extension check for free); .typ against
+	// the open tree, since the scan is .tex-only. Setting a .typ main flips the Auto compile
+	// format to Typst, same as the file tree's "Set as main file".
 	const known = get(texFiles).find((f) => samePath(f.path, abs));
-	if (!known)
+	const typOk = !known && /\.typ$/i.test(abs) && inOpenTree(abs);
+	if (!known && !typOk)
 		return {
 			ok: false,
-			reason: 'no such .tex file in this workspace - get_editor_state lists what is open',
+			reason: 'no such .tex or .typ file in this workspace - get_editor_state lists what is open',
 			mainFile: relOrNull(root)
 		};
-	await deps.setMainFile(known.path);
+	await deps.setMainFile(known ? known.path : abs);
 	return { ok: true, mainFile: relOrNull(root), cleared: false };
 }
 
@@ -209,11 +227,17 @@ function compileConfigPayload(deps: McpCommandDeps) {
 	const root = get(workspaceRoot);
 	const cmd = deps.getCompileCommand();
 	const main = get(mainFile);
-	const ov = root ? savedCompileOutputs(root) : {};
+	const format = effectiveCompileFormat(root, main);
+	const ov = root ? savedFormatOutputs(root, format) : {};
 	const rel = (p: string | null) => (p && root ? relativeTo(root, p) : p);
 	const s = get(settings);
 	return {
 		command: cmd,
+		// the typesetter in effect, from the folder's EXPLICIT format switch (auto follows the
+		// main file). Switch it by setting a .typ/.tex main while the switch is 'auto', or, gated,
+		// via set_compile_command (which pins the command's format).
+		format,
+		formatSwitch: root ? savedCompileFormat(root) : 'auto',
 		engine: detectEngine(cmd),
 		latexmk: usesLatexmk(cmd),
 		outputDir: compileOutDir(cmd),

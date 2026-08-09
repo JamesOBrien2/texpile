@@ -9,11 +9,19 @@ interface DragOptions {
 	apply: (value: number) => void;
 	/** persist once the gesture ends, not on every frame */
 	commit: () => void;
+	/**
+	 * Called true on grab and false on release.
+	 *
+	 * Panes that are expensive to reflow (an iframe re-lays out its whole document) use this to hold
+	 * their old size for the duration of the drag and take the cost once, on release.
+	 */
+	onState?: (dragging: boolean) => void;
 }
 
 /** begin a drag gesture; listeners live on window so the pointer can leave the handle */
-export function startDrag(e: MouseEvent, { compute, apply, commit }: DragOptions): void {
+export function startDrag(e: MouseEvent, { compute, apply, commit, onState }: DragOptions): void {
 	e.preventDefault();
+	onState?.(true);
 	const onMove = (ev: MouseEvent) => {
 		const next = compute(ev);
 		if (next !== null) apply(next);
@@ -21,6 +29,7 @@ export function startDrag(e: MouseEvent, { compute, apply, commit }: DragOptions
 	const onUp = () => {
 		window.removeEventListener('mousemove', onMove);
 		window.removeEventListener('mouseup', onUp);
+		onState?.(false);
 		commit();
 	};
 	window.addEventListener('mousemove', onMove);

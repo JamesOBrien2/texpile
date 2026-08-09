@@ -8,7 +8,7 @@ import { get } from 'svelte/store';
 import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
 import { toLf, detectEol } from '$lib/workspace/fileSystem';
 import { recordDiskStamp } from '$lib/workspace/diskStamp';
-import { fileKind, formatOf, hasVisualMode, type DocumentBuffer } from '$lib/workspace/documentBuffer.svelte';
+import { fileKind, formatOf, hasVisualMode, isRawTextKind, type DocumentBuffer } from '$lib/workspace/documentBuffer.svelte';
 import type { VisualParser, ParseOutcome, ParseFailure } from '$lib/workspace/visualParse.svelte';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
@@ -26,7 +26,7 @@ export interface FileOpenerDeps {
 	claimVisualLock(path: string): void;
 	/** settle pending guest edits onto disk before we read it */
 	beforeOpen(path: string): Promise<void>;
-	parse(text: string, format: 'tex' | 'md'): Promise<ParseOutcome>;
+	parse(text: string, format: 'tex' | 'md' | 'typ'): Promise<ParseOutcome>;
 	/** the parse failed: drop to source mode with a toast rather than a stuck spinner */
 	fallbackToSource(failure: ParseFailure): void;
 	/** anchors and cross-mode history are keyed to the outgoing file */
@@ -91,7 +91,7 @@ export class FileOpener {
 				d.resetHistory(text); // the on-disk content is the floor of the cross-mode undo history
 				d.clearPerFileViewState();
 				if (d.isDiffMode()) d.captureDiffSnapshot(); // re-diff the newly-opened file
-			} else if (k === 'text' || k === 'bib') {
+			} else if (isRawTextKind(k)) {
 				const raw = await d.readText(path);
 				if (!this.current(path)) return;
 				d.doc.openRaw(path, toLf(raw), detectEol(raw));

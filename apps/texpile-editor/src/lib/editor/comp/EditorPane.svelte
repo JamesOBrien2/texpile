@@ -18,6 +18,9 @@
 	import MarkdownEditorView from '$lib/markdown/MarkdownEditorView.svelte';
 	import MarkdownToolbar from '$lib/markdown/MarkdownToolbar.svelte';
 	import MarkdownSourceToolbar from '$lib/markdown/MarkdownSourceToolbar.svelte';
+	import TypstEditorView from '$lib/typst/visual/TypstEditorView.svelte';
+	import TypstToolbar from '$lib/typst/visual/TypstToolbar.svelte';
+	import TypstSourceToolbar from '$lib/typst/visual/TypstSourceToolbar.svelte';
 	import type { EditSession } from '$lib/collab/editSession';
 	import type { ParsedLatexFile, ParsePhase } from '$lib/workspace/latexRoundtrip';
 	import VisualLoading from './VisualLoading.svelte';
@@ -82,6 +85,8 @@
 		onHistoryBoundary: (dir: 'undo' | 'redo') => boolean;
 		onJumpToFile: (name: string) => void;
 		onOpenFileAt: (file: string, line: number, selectText?: string) => void;
+		/** caret moved to this ZERO-based line/column in the source editor */
+		onCaretMove?: (line: number, character: number) => void;
 		onToggleDiffLayout: () => void;
 		onRefreshDiff: () => void;
 		onExitDiff: () => void;
@@ -127,6 +132,7 @@
 		onHistoryBoundary,
 		onJumpToFile,
 		onOpenFileAt,
+		onCaretMove,
 		onToggleDiffLayout,
 		onRefreshDiff,
 		onExitDiff
@@ -155,7 +161,7 @@
 	const showRenderBar = $derived(!editorReady);
 
 	/** kinds that have a visual (ProseMirror) surface */
-	const structured = $derived(kind === 'tex' || kind === 'md');
+	const structured = $derived(kind === 'tex' || kind === 'md' || kind === 'typ');
 
 	/** md link tooltip Open: real schemes go to the browser, in-doc anchors are swallowed (no
 	 * anchor targets yet), anything path-like opens in the workspace. */
@@ -184,6 +190,8 @@
 		<div class="border-surface-200-800 @container relative z-20 flex min-h-10 items-center overflow-hidden border-b px-2">
 			{#if kind === 'md'}
 				<MarkdownToolbar />
+			{:else if kind === 'typ'}
+				<TypstToolbar />
 			{:else}
 				<Toolbar minimal />
 			{/if}
@@ -192,6 +200,8 @@
 		<div class="border-surface-200-800 @container relative z-20 flex min-h-10 items-center overflow-hidden border-b px-2">
 			{#if kind === 'md'}
 				<MarkdownSourceToolbar />
+			{:else if kind === 'typ'}
+				<TypstSourceToolbar />
 			{:else}
 				<SourceToolbar />
 			{/if}
@@ -248,9 +258,10 @@
 						{onSyncToPdf}
 						initialScrollPos={sourceScrollAnchor}
 						{onHistoryBoundary}
-						diagnostics={sourceDiagnostics}
+						diagnostics={kind === 'typ' ? undefined : sourceDiagnostics}
 						{onJumpToFile}
 						{onOpenFileAt}
+						{onCaretMove}
 						collab={session.collabFor(loadedPath)}
 					/>
 				{/key}
@@ -275,6 +286,19 @@
 									localValue={visualDoc}
 									localReferences={allReferences}
 									imageDir={dirname(loadedPath)}
+									onLocalChange={onVisualChange}
+									onSelectionChange={onVisualSelection}
+									placeholder={m.wsview_editor_placeholder()}
+									{onHistoryBoundary}
+									onReady={onVisualReady}
+									onOpenLink={onMdLink}
+								/>
+							{:else if kind === 'typ'}
+								<!-- an entirely separate ProseMirror over typSchema; see lib/typst/visual -->
+								<TypstEditorView
+									localValue={visualDoc}
+									localReferences={allReferences}
+									docDir={dirname(loadedPath)}
 									onLocalChange={onVisualChange}
 									onSelectionChange={onVisualSelection}
 									placeholder={m.wsview_editor_placeholder()}
@@ -325,6 +349,9 @@
 					<BibManager value={rawContent} onInput={onRawInput} />
 				{/key}
 			{:else if loadedPath && kind === 'text'}
+				<!-- .typ no longer lands here: it is structured now (typSchema), so its source mode
+				     is the texSource branch above, which carries onCaretMove/onSyncToPdf for the
+				     Typst preview's follow and "Show in preview" -->
 				{#key sourceKey}
 					<SourceEditor
 						docPath={loadedPath}

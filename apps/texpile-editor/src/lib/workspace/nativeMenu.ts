@@ -44,6 +44,12 @@ export interface NativeMenuHandlers {
 /** the flags main needs; the labels are added here */
 export interface MenuStateInput {
 	disabled: boolean;
+	/** the open file has a text buffer for Edit/Spelling to act on (false for pdf/image/binary) */
+	editable: boolean;
+	/** the open file is a structured tex/md/typ document, so Insert/Format apply */
+	structured: boolean;
+	/** which syntax Insert/Format write; decides the LaTeX-only items' visibility */
+	dialect: 'tex' | 'md' | 'typ';
 	cursorInCm: boolean;
 	spellcheck: boolean;
 	terminalAvailable: boolean;
@@ -53,6 +59,8 @@ export interface MenuStateInput {
 	canFormat: boolean;
 	/** the three a guest lacks: no tree writes, nowhere to put an image, no workspace to swap */
 	canNewFile: boolean;
+	/** the compile target is Typst: File > New offers .typ instead of .tex/.cls/.sty */
+	typstProject: boolean;
 	canInsertImage: boolean;
 	canOpenFolder: boolean;
 	canTutorial: boolean;
@@ -75,7 +83,9 @@ function labels(): Record<string, string> {
 		terminal: m.menubar_menu_terminal(),
 		new: m.menubar_new_file_menu(),
 		newTex: m.menubar_new_tex(),
+		newTyp: m.menubar_new_typ(),
 		newBib: m.menubar_new_bib(),
+		newMd: m.menubar_new_md(),
 		newCls: m.menubar_new_cls(),
 		newSty: m.menubar_new_sty(),
 		openFolder: m.menubar_open_new_folder(),

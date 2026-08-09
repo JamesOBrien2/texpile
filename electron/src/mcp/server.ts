@@ -286,10 +286,11 @@ function buildServer(): McpServer {
 		{
 			title: 'Show a source line in the PDF',
 			description:
-				'Forward SyncTeX: scroll the PDF pane to where a line of the open file renders, and open the ' +
+				'Forward sync: scroll the output pane to where a line of the open file renders, and open the ' +
 				'pane if it is closed. This is the good way to point at something, because the user keeps ' +
-				'reading their document while seeing the typeset result. Needs a compiled PDF with SyncTeX ' +
-				'data; if the file has changed since the last compile the position will be approximate.',
+				'reading their document while seeing the typeset result. LaTeX files need a compiled PDF with ' +
+				'SyncTeX data (approximate if the file changed since the last compile); Typst files jump the ' +
+				'live Preview pane instead, which must be running - Typst has no SyncTeX.',
 			inputSchema: {
 				line: z.number().int().positive().describe('1-based line in the currently open file'),
 				root: z.string().optional().describe('workspace root; defaults to the focused window')
@@ -310,21 +311,24 @@ function buildServer(): McpServer {
 		{
 			title: 'Set the project main file',
 			description:
-				'Point the project at the .tex file that gets compiled - the one with \\documentclass and ' +
-				'\\begin{document}. This is also the root of the macro scan, so it decides which command ' +
-				'definitions the editor knows about across the project. get_editor_state reports the current ' +
-				'one. Omit path to clear it. Setting the file that is already main is a no-op, not a toggle. ' +
-				'Reach for this when compile fails because the wrong file is main, or none is set.',
+				'Point the project at the file that gets compiled: the .tex with \\documentclass and ' +
+				'\\begin{document}, or the entry .typ of a Typst project. This is also the root of the macro ' +
+				'scan, so it decides which command definitions the editor knows about across the project. With ' +
+				'the compile format on Auto, the extension also picks the typesetter: a .typ main compiles with ' +
+				'Typst, a .tex main with the LaTeX command (get_compile_config reports the format in effect). ' +
+				'get_editor_state reports the current main. Omit path to clear it. Setting the file that is ' +
+				'already main is a no-op, not a toggle. Reach for this when compile fails because the wrong ' +
+				'file is main, or none is set.',
 			inputSchema: {
-				path: z.string().optional().describe('workspace-relative .tex path; omit to clear'),
+				path: z.string().optional().describe('workspace-relative .tex or .typ path; omit to clear'),
 				root: z.string().optional().describe('workspace root; defaults to the focused window')
 			}
 		},
 		async ({ path: p, root }) => {
 			const t = target(root);
 			if (!t) return fail('no matching Texpile window');
-			// a request, not a command: a path outside the workspace or one that is not a .tex is refused,
-			// and a caller told it succeeded would compile the wrong thing and never learn why
+			// a request, not a command: a path outside the workspace or one that is not a .tex/.typ is
+			// refused, and a caller told it succeeded would compile the wrong thing and never learn why
 			const r = (await request(t.win, 'main_file', { path: p })) as { ok?: boolean; reason?: string } | null;
 			if (r === null) return fail('the editor did not respond in time');
 			if (!r.ok) return fail(r.reason ?? 'the editor refused to set the main file');
@@ -365,8 +369,8 @@ function buildServer(): McpServer {
 		{
 			title: 'Get the compile configuration',
 			description:
-				'The compile command, the engine, the output directory, and - the part worth having - the ' +
-				'RESOLVED paths the PDF pane and the log parser actually watch. In a monorepo those are ' +
+				'The compile command, its format (latex or typst), the engine, the output directory, and - the ' +
+				'part worth having - the RESOLVED paths the PDF pane and the log parser actually watch. In a monorepo those are ' +
 				'routinely not what the command implies, because a folder can override either one. Read this ' +
 				'before assuming where a build landed. canSetCommand tells you whether set_compile_command is ' +
 				'permitted here, so you can pick a route without provoking a refusal.',

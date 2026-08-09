@@ -36,10 +36,8 @@
 	import 'prosemirror-flat-list/dist/style.css';
 	import { placeholderPlugin } from './extensions/placeholderplugin';
 	import { tablePlaceholderPlugin } from './extensions/table/tablePlaceholderPlugin';
-	import { suggestionModePlugin, suggestionHoverPlugin, suggestionNodeDecoPlugin } from './extensions/suggestion-mode';
 	import { search } from 'prosemirror-search';
 	import 'prosemirror-search/style/search.css';
-	import { tableOfContentsPlugin } from './extensions/tableofcontent/tocplugin';
 	import CitationView from './extensions/citation/citationView.svelte';
 	import RefView from './extensions/ref/refView.svelte';
 	import { createRefUpdatePlugin } from './extensions/ref/refUpdatePlugin';
@@ -172,15 +170,8 @@
 			latexClipboardPlugin,
 			pasteUUIDFixPlugin,
 			search(),
-			tableOfContentsPlugin,
 			placeholderPlugin(placeholder),
 			tablePlaceholderPlugin(),
-			suggestionModePlugin({ inSuggestionMode: false }),
-			suggestionHoverPlugin({
-				onAllResolved: () => {},
-				description: 'Texpile AI'
-			}),
-			suggestionNodeDecoPlugin(),
 			createWordCountPlugin(),
 			createRefUpdatePlugin(),
 			createTocPlugin(),

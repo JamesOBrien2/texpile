@@ -1,10 +1,11 @@
 <script lang="ts">
-	// The right-hand preview pane (+ its drag splitter): the guest's pushed PDF, the live draft
-	// renderer, or the compiled PDF. Renders two grid siblings, so it must sit in a display:contents
-	// wrapper on the editor grid.
-	import { X } from '@lucide/svelte';
+	// The right-hand preview pane (+ its drag splitter): the guest's pushed PDF, the Typst live
+	// preview, the live draft renderer, or the compiled PDF. Renders two grid siblings, so it must
+	// sit in a display:contents wrapper on the editor grid.
+	import { LocateFixed, X } from '@lucide/svelte';
 	import PDFViewer from './PDFViewer.svelte';
 	import type DraftView from '$lib/draft/DraftView.svelte';
+	import type TypstPreview from '$lib/typst/preview/TypstPreview.svelte';
 	import { settings } from '$lib/settings';
 	import { m } from '$lib/paraglide/messages';
 
@@ -19,6 +20,18 @@
 		}
 	});
 
+	// The Typst preview carries a ~1.2MB wasm renderer; a LaTeX project must never pay for it, so
+	// the chunk is fetched only once a preview has actually been started.
+	let TypstPreviewComp = $state<typeof TypstPreview | null>(null);
+	$effect(() => {
+		if (typstPreviewWanted && !TypstPreviewComp) {
+			import('$lib/typst/preview/TypstPreview.svelte').then(
+				(mod) => (TypstPreviewComp = mod.default),
+				(e) => console.error('Failed to load Typst preview chunk:', e)
+			);
+		}
+	});
+
 	interface Props {
 		width: number;
 		dockShrunk: boolean;
@@ -28,6 +41,22 @@
 		draftRoot: string;
 		draftMainRel: string;
 		draftTrigger: number;
+		/** `host:port` of a running Typst preview, or null while one is still starting */
+		typstPreviewHost: string | null;
+		/**
+		 * A Typst preview is what this pane is FOR, even before it has an address.
+		 *
+		 * Kept separate from the host so the pane never briefly shows the compiled PDF while the
+		 * preview is being prepared - that flash is jarring and looks like a bug.
+		 */
+		typstPreviewWanted: boolean;
+		/** compile the previewed document to a PDF on disk (the preview itself never writes one) */
+		onSaveTypstPdf: () => Promise<void>;
+		/** one-shot scroll to the editor caret (SyncTeX forward / typst jump); null hides the button.
+		 * Lives on this pane, not the editor topbar: the button moves THIS pane. */
+		onSyncToCursor?: (() => void) | null;
+		/** a splitter is being dragged; the frame holds its size rather than reflowing every frame */
+		paneDragging: boolean;
 		pdfPaneRef?: { scrollToPosition: (page: number, x: number, y: number, w?: number, h?: number) => void };
 		draftRef?: DraftView | null;
 		onStartResize: (e: MouseEvent) => void;
@@ -48,6 +77,11 @@
 		draftRoot,
 		draftMainRel,
 		draftTrigger,
+		typstPreviewHost,
+		typstPreviewWanted,
+		onSaveTypstPdf,
+		onSyncToCursor = null,
+		paneDragging,
 		pdfPaneRef = $bindable(),
 		draftRef = $bindable(),
 		onStartResize,
@@ -76,20 +110,43 @@
 	class="border-surface-200-800 flex shrink-0 flex-col border-l"
 	style="width: {width}px; grid-column: 3; grid-row: {dockShrunk ? '2 / -1' : '2'}"
 >
-	<!-- h-9 matches the editor column's tab strip, so the two header borders draw one line -->
-	<div
-		class="bg-surface-100-900 text-surface-600-300 border-surface-200-800 flex h-9 shrink-0 items-center justify-between border-b px-3 text-xs"
-	>
-		<span class="font-medium">{!guest && $settings.draftMode ? m.wsview_live_preview_label() : m.wsview_pdf_preview_label()}</span>
-		<button
-			class="hover:preset-tonal rounded p-0.5"
-			onclick={onClose}
-			title={m.wsview_close_preview()}
-			aria-label={m.wsview_close_preview()}
+	{#if !(typstPreviewWanted && !guest)}
+		<!-- h-9 matches the editor column's tab strip, so the two header borders draw one line -->
+		<div
+			class="bg-surface-100-900 text-surface-600-300 border-surface-200-800 flex h-9 shrink-0 items-center justify-between border-b px-3 text-xs"
 		>
-			<X class="size-3.5" />
-		</button>
-	</div>
+			<span class="font-medium">
+				{#if !guest && $settings.draftMode}
+					{m.wsview_live_preview_label()}
+				{:else}
+					{m.wsview_pdf_preview_label()}
+				{/if}
+			</span>
+			<div class="flex items-center gap-1">
+				{#if onSyncToCursor}
+					<!-- forward sync sits on the pane it scrolls. preventDefault on mousedown: it acts
+					     on the editor CARET, so taking focus from it would defeat it -->
+					<button
+						class="hover:preset-tonal rounded p-1"
+						onmousedown={(e) => e.preventDefault()}
+						onclick={onSyncToCursor}
+						title={m.wsview_sync_to_pdf_title()}
+						aria-label={m.wsview_sync_to_pdf_aria()}
+					>
+						<LocateFixed class="size-4" />
+					</button>
+				{/if}
+				<button
+					class="hover:preset-tonal rounded p-0.5"
+					onclick={onClose}
+					title={m.wsview_close_preview()}
+					aria-label={m.wsview_close_preview()}
+				>
+					<X class="size-3.5" />
+				</button>
+			</div>
+		</div>
+	{/if}
 	<div class="min-h-0 flex-1">
 		{#if guest}
 			<!-- the host pushes its compiled PDF over the session; no local compile/synctex -->
@@ -99,6 +156,13 @@
 				<div class="text-surface-500 flex h-full items-center justify-center p-6 text-center text-sm">
 					{m.session_pdf_waiting()}
 				</div>
+			{/if}
+		{:else if typstPreviewWanted}
+			<!-- tinymist's document stream, rendered in-pane. Takes precedence over the compiled PDF:
+			     it is the same document and it is ahead of it, since it needs no save. Rendered on
+			     `wanted` rather than on the host so the PDF never flashes up while it starts. -->
+			{#if TypstPreviewComp}
+				<TypstPreviewComp host={typstPreviewHost} {paneDragging} {onSaveTypstPdf} {onSyncToCursor} {onClose} />
 			{/if}
 		{:else if $settings.draftMode}
 			{#if DraftViewComp}

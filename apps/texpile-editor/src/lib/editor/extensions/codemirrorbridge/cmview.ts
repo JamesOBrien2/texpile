@@ -73,7 +73,15 @@ class CodeBlockView {
 			const selectedLanguage = (event.target as HTMLSelectElement).value;
 			const selectedLanguageData = cmlangdata.find((lang) => lang.name === selectedLanguage);
 			if (!selectedLanguageData) return;
-			this.view.dispatch(this.view.state.tr.setNodeMarkup(this.getPos(), undefined, { lang: selectedLanguage }));
+			const pos = this.getPos();
+			const cur = pos !== undefined ? this.view.state.doc.nodeAt(pos) : null;
+			if (!cur) return;
+			// preserve the other attrs (a bare {lang} would reset env/args to defaults), and for
+			// fenced blocks keep the file's info string in sync - the typst and markdown
+			// serializers emit `args`, so lang alone would never reach the file
+			const attrs: Record<string, unknown> = { ...cur.attrs, lang: selectedLanguage };
+			if (cur.attrs.env === 'fence') attrs.args = selectedLanguage.toLowerCase();
+			this.view.dispatch(this.view.state.tr.setNodeMarkup(pos!, undefined, attrs));
 			// changing the language is an interaction, so the editor must exist to reconfigure
 			this.materialize();
 			this.cm?.dispatch({ effects: this.languageConf.reconfigure(await selectedLanguageData.load()) });
@@ -115,6 +123,8 @@ class CodeBlockView {
 				crosshairCursor(),
 				this.languageConf.of(markdown()),
 				cmSyntaxHighlight(),
+				// the card's own p-2 is the visual gap; drop CodeMirror's default 6px line inset
+				CodeMirrorView.theme({ '.cm-line': { padding: '0 2px' } }),
 				CodeMirrorView.updateListener.of((update) => this.forwardUpdate(update as never)),
 				CodeMirrorView.contentAttributes.of({ spellcheck: 'false' }),
 				CodeMirrorView.contentAttributes.of({ 'data-gramm': 'false' }), // disable grammarly

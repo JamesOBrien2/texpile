@@ -46,6 +46,10 @@ export interface PaletteActions {
 	newFile(ext?: string): void;
 	openFolder(): void;
 	refreshTree(): void;
+	/** open tinymist's incremental viewer for the current .typ, in its own window */
+	openTypstPreview(): void;
+	/** the compile target is Typst: New-file commands offer .typ instead of .tex */
+	isTypstProject(): boolean;
 }
 
 class CommandPaletteState {

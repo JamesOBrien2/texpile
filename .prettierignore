@@ -27,3 +27,8 @@ apps/texpile-editor/project.inlang/*
 !apps/texpile-editor/project.inlang/settings.json
 landing/project.inlang/*
 !landing/project.inlang/settings.json
+
+# Rust build output (wasm-pack/cargo); regenerated, and formatting its fingerprints breaks
+# incremental builds
+packages/*/target/
+packages/*/pkg/

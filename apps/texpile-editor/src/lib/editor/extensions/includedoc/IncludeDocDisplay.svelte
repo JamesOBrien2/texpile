@@ -8,13 +8,27 @@
 	const command = $derived(String(node.attrs.command ?? 'input'));
 </script>
 
-<button type="button" class="includedoc-chip" title={`Open \\${command}{${path}}`} onclick={onOpen} contenteditable="false">
+<button
+	type="button"
+	class="includedoc-chip"
+	title={command === 'typst' ? `Open #include "${path}"` : `Open \\${command}{${path}}`}
+	onclick={onOpen}
+	contenteditable="false"
+>
 	<FileSymlink class="size-3.5 shrink-0 opacity-55" />
-	<span class="includedoc-code"
-		><span class="includedoc-syntax">\{command}{'{'}</span><span class="includedoc-path">{path}</span><span class="includedoc-syntax"
-			>{'}'}</span
-		></span
-	>
+	{#if command === 'typst'}
+		<!-- reads like real typst, same as the latex form below reads like real latex -->
+		<span class="includedoc-code"
+			><span class="includedoc-syntax">#include "</span><span class="includedoc-path">{path}</span><span class="includedoc-syntax">"</span
+			></span
+		>
+	{:else}
+		<span class="includedoc-code"
+			><span class="includedoc-syntax">\{command}{'{'}</span><span class="includedoc-path">{path}</span><span class="includedoc-syntax"
+				>{'}'}</span
+			></span
+		>
+	{/if}
 </button>
 
 <style>

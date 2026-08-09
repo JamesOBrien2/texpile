@@ -32,6 +32,8 @@ export class PaneLayout {
 
 	pdfPaneOpen = $state(false);
 	pdfPaneWidth = $state(480);
+	/** a splitter is being dragged right now; panes that reflow expensively can freeze while it is true */
+	paneDragging = $state(false);
 
 	/** restore persisted geometry; call once at mount, after settings load */
 	restore(s: { sidebarWidth?: number; sidebarOpen?: boolean; tocFraction?: number; pdfPaneOpen?: boolean }) {
@@ -121,7 +123,12 @@ export class PaneLayout {
 		const startX = e.clientX;
 		const startW = this.pdfPaneWidth;
 		// drag left = wider
-		startDrag(e, { compute: (ev) => startW - (ev.clientX - startX), apply: this.setPdfWidth, commit: this.savePdfFraction });
+		startDrag(e, {
+			compute: (ev) => startW - (ev.clientX - startX),
+			apply: this.setPdfWidth,
+			commit: this.savePdfFraction,
+			onState: (d) => (this.paneDragging = d)
+		});
 	};
 
 	// left = wider, so ArrowRight is the one that shrinks

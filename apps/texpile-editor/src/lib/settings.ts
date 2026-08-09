@@ -61,6 +61,17 @@ export interface AppSettings {
 	/** widest the visual editor's text column may grow, in px. Past this the window pads with
 	 *  empty space rather than stretching the measure, which is why it is adjustable. */
 	visualMaxWidth: number;
+	/** absolute path to a tinymist binary. Empty = look on PATH, then at our downloaded copy.
+	 *  tinymist both compiles Typst documents and serves their language features. */
+	typstPath: string;
+	/** run tinymist as a language server for .typ files (completion, hover, diagnostics). */
+	typstIntellisense: boolean;
+	/** recompile a Typst document shortly after typing stops, rather than only on Compile.
+	 *  On by default: a warm Typst rebuild is ~230ms, so unlike LaTeX's live mode there is no
+	 *  cost that would justify making the user opt in. */
+	typstLiveMode: boolean;
+	/** the Typst preview scrolls to follow the caret. Off by default, as in tinymist */
+	typstPreviewFollow: boolean;
 	/** modal keybindings for the source editor and code blocks. */
 	editorKeymap: 'default' | 'vim' | 'emacs';
 	/** UI display language. Not the LaTeX document language (see DocumentLanguage). */
@@ -107,6 +118,10 @@ const DEFAULTS: AppSettings = {
 	sourceLineWrap: true,
 	// 768px = the max-w-3xl the editor column was pinned to before this became adjustable
 	visualMaxWidth: 768,
+	typstPath: '',
+	typstIntellisense: true,
+	typstLiveMode: true,
+	typstPreviewFollow: false,
 	editorKeymap: 'default',
 	uiLocale: 'en',
 	collabRelayUrl: DEFAULT_COLLAB_RELAY_URL,

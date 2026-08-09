@@ -6,7 +6,6 @@ import { refNodeSpec } from '$lib/editor/extensions/ref/refSchema';
 import { createListSpec } from 'prosemirror-flat-list';
 import { Schema, type NodeSpec, type MarkSpec, type DOMOutputSpec } from 'prosemirror-model';
 import { tableNodes, type TableNodesOptions } from 'prosemirror-tables';
-import { suggestionMarks } from '$lib/editor/extensions/suggestion-mode/schema';
 
 // built by hand instead of createDefaultSettings (which pulls in the DOM, fatal for the worker).
 // must stay in sync with the runtime plugin settings: omitting isBlock once silently flipped the
@@ -112,7 +111,6 @@ export const nodes = {
 		group: 'block',
 		attrs: {
 			lang: { default: 'Markdown' },
-			suggestion: { default: null },
 			// which verbatim-family environment this came from (verbatim/lstlisting/minted) and its
 			// verbatim args, so the serializer reconstructs the same environment
 			env: { default: 'verbatim' },
@@ -131,9 +129,6 @@ export const nodes = {
 		content: 'text*',
 		marks: '',
 		group: 'block',
-		attrs: {
-			suggestion: { default: null }
-		},
 		code: true,
 		defining: true,
 		parseDOM: [{ tag: 'div.raw-latex-block', preserveWhitespace: 'full' }],
@@ -228,8 +223,7 @@ export const nodes = {
 			label: { default: null },
 			numbered: { default: false },
 			environment: { default: null }, // 'align' | 'gather' | 'alignat' | null
-			lineLabels: { default: [] }, // per-line labels for multi-line environments
-			suggestion: { default: null }
+			lineLabels: { default: [] } // per-line labels for multi-line environments
 		},
 		toDOM: (node) => {
 			return [
@@ -347,9 +341,6 @@ export const nodes = {
 		code: true,
 		defining: true,
 		atom: true,
-		attrs: {
-			suggestion: { default: null }
-		},
 		toDOM: () => {
 			return [
 				'span',
@@ -378,9 +369,6 @@ export const nodes = {
 		code: true,
 		defining: true,
 		atom: false,
-		attrs: {
-			suggestion: { default: null }
-		},
 		toDOM: () => {
 			return [
 				'code',
@@ -652,9 +640,7 @@ export const marks = {
 		toDOM() {
 			return codeDOM;
 		}
-	} as MarkSpec,
-
-	...suggestionMarks
+	} as MarkSpec
 };
 
 // two-pass: updateImageNode needs the node present in an OrderedMap before it can replace it

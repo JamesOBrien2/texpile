@@ -2,6 +2,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import wasm from 'vite-plugin-wasm';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { readChangelog } from './scripts/changelog.mjs';
@@ -19,7 +20,11 @@ const NO_PREBUNDLE = new Set([
 	'harper.js', // ships its own WASM worker; kept external (see optimizeDeps.exclude)
 	'@tailwindcss/vite', // a Vite plugin, not a runtime dependency
 	'@inlang/paraglide-js', // compiler/vite plugin; app code imports the generated $lib/paraglide output, not this package
-	'y-protocols' // no root export (only y-protocols/awareness, /sync); prebundling the bare package fails
+	'y-protocols', // no root export (only y-protocols/awareness, /sync); prebundling the bare package fails
+	// wasm-pack `--target=bundler` output: its glue does a bare `import * as wasm from './x_bg.wasm'`,
+	// which esbuild's pre-bundler cannot resolve. vite-plugin-wasm handles it in the main pipeline
+	// instead, so these must stay out of the optimizer (see optimizeDeps.exclude).
+	'texpile-typst-syntax-wasm'
 ]);
 
 // y-protocols has no "." entry, so pre-bundle its subpaths instead of the bare package
@@ -28,6 +33,9 @@ const prebundle = [...Object.keys(pkg.dependencies ?? {}).filter((d) => !NO_PREB
 export default defineConfig(({ mode }) => ({
 	plugins: [
 		tailwindcss(),
+		// packages/typst-syntax-wasm is Typst's own parser built by wasm-pack; its glue imports the
+		// .wasm as an ES module, which Vite cannot do unaided
+		wasm(),
 		svelte(),
 		paraglideVitePlugin({
 			project: './project.inlang',
@@ -54,7 +62,10 @@ export default defineConfig(({ mode }) => ({
 	test: {
 		// unit tests live under tests/unit/ (mirroring src/); playwright's tests/integration/
 		// tree is deliberately outside this glob
-		include: ['tests/unit/**/*.{test,spec}.{js,ts}']
+		include: ['tests/unit/**/*.{test,spec}.{js,ts}'],
+		// vitest externalizes node_modules to Node's loader by default, which cannot import a
+		// .wasm ES module. Inlining routes it back through Vite (and so through vite-plugin-wasm).
+		server: { deps: { inline: ['texpile-typst-syntax-wasm'] } }
 		// node by default (most tests are pure logic); component tests opt in per file with
 		// a `// @vitest-environment jsdom` docblock
 	},
@@ -85,7 +96,7 @@ export default defineConfig(({ mode }) => ({
 			// the page, which white-screened the route-split views on the 504 the in-flight import got.
 			'pdfjs-dist/legacy/build/pdf.mjs'
 		],
-		exclude: ['harper.js'],
+		exclude: ['harper.js', 'texpile-typst-syntax-wasm'],
 		// never discover a dep lazily. Discovery re-optimizes mid-session and force-reloads the
 		// page, which white-screens the route-split views when an in-flight chunk import 504s. The
 		// include list above is generated from package.json, so everything imported directly is
@@ -112,6 +123,11 @@ export default defineConfig(({ mode }) => ({
 
 	build: {
 		sourcemap: false,
+		// This bundle only ever runs in the Electron Chromium we ship (33 = Chromium 130), never in
+		// a user's browser, so Vite's conservative default target buys nothing. It costs something:
+		// wasm-pack's glue initialises the module with a TOP-LEVEL AWAIT, which the default target
+		// rejects outright, and that is how the Typst parser loads.
+		target: 'esnext',
 		// Electron ships a modern Chromium with native modulepreload, so drop Vite's polyfill: it is
 		// the only inline <script> Vite injects, and removing it lets the packaged app's CSP use a
 		// strict script-src 'self' with no inline allowance

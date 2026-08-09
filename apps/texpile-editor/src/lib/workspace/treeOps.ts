@@ -39,6 +39,8 @@ export interface TreeOpsDeps {
 	loadRefs(root: string): unknown;
 	/** source-mode users write their own preamble (the ghost offers the skeleton); visual gets one up front. */
 	wantsStarter(): boolean;
+	/** the compile target is Typst: a New Include is a .typ fragment, not a .tex one */
+	isTypstProject(): boolean;
 	insertIncludeAtCursor(path: string): boolean;
 	/** offer to repoint \input/\includegraphics references after a rename/move. */
 	afterRename(oldPath: string, newPath: string): void;
@@ -64,9 +66,11 @@ export class TreeOps {
 
 	create = async (parentDir: string, name: string, type: 'file' | 'dir' | 'include') => {
 		try {
-			// an "include" is a .tex fragment: it gets \input into a host doc, so no \documentclass skeleton
+			// an "include" is a fragment that gets referenced from a host doc, so no document skeleton.
+			// Its extension follows the compile target: .typ for a Typst project (#include), else .tex (\input).
 			const isInclude = type === 'include';
-			if (isInclude && !name.toLowerCase().endsWith('.tex')) name += '.tex';
+			const includeExt = this.deps.isTypstProject() ? '.typ' : '.tex';
+			if (isInclude && !name.toLowerCase().endsWith(includeExt)) name += includeExt;
 			const fsType: 'file' | 'dir' = type === 'dir' ? 'dir' : 'file';
 			const path = joinPath(parentDir, name);
 			const isTex = fsType === 'file' && name.toLowerCase().endsWith('.tex');

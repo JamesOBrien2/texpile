@@ -19,6 +19,8 @@
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
+		/** typst hides every LaTeX-only control; see tableWrapperView's TableDialect */
+		dialect?: 'latex' | 'typst';
 		tableNumber: number;
 		sectionNumber: string | null;
 		node: Node;
@@ -36,6 +38,7 @@
 	}
 
 	let {
+		dialect = 'latex',
 		tableNumber,
 		// not yet consulted, reserved for hierarchical numbering (see the commented-out tableDisplay below)
 		sectionNumber: _sectionNumber,
@@ -98,8 +101,9 @@
 	}
 
 	const tableCaptionEnabled = $derived($templateFeaturesStore?.tableCaption ?? true);
-	const tableNotesEnabled = $derived($templateFeaturesStore?.tableNotes ?? true);
-	const columnSpanningEnabled = $derived($templateFeaturesStore?.columnSpanningFigures ?? false);
+	// notes and table* are LaTeX constructs; the typst serializer has nowhere to put them
+	const tableNotesEnabled = $derived(dialect === 'latex' && ($templateFeaturesStore?.tableNotes ?? true));
+	const columnSpanningEnabled = $derived(dialect === 'latex' && ($templateFeaturesStore?.columnSpanningFigures ?? false));
 
 	let settingsOpen = $state(false);
 	let showAdvanced = $state(false);
@@ -144,10 +148,12 @@
 		const captionNode = node.content.child(0); // table_caption is first child
 		if (!captionNode || captionNode.type.name !== 'table_caption') return false;
 
-		if (captionNode.content.size === 0) return true;
+		// typst numbers a #figure with or without a caption (the serializer just omits the
+		// argument), so an empty caption is legitimate there; LaTeX needs \caption to number
+		if (captionNode.content.size === 0) return dialect === 'latex';
 
 		const captionText = captionNode.textContent.trim();
-		return captionText === '' || captionText === 'Table caption';
+		return (captionText === '' && dialect === 'latex') || captionText === 'Table caption';
 	});
 
 	// FUTURE: Restore for hierarchical numbering (Table 1.1, 1.2, 2.1...)
@@ -220,7 +226,9 @@
 					<Tooltip.Trigger class="flex items-center">
 						<AlertCircle class="text-warning-500 h-4 w-4" />
 					</Tooltip.Trigger>
-					<Tooltip.Content class="card preset-filled p-2 text-sm">{m.tablewrap_caption_required_tooltip()}</Tooltip.Content>
+					<Tooltip.Content class="card preset-filled p-2 text-sm">
+						{dialect === 'typst' ? m.tablewrap_caption_placeholder_tooltip() : m.tablewrap_caption_required_tooltip()}
+					</Tooltip.Content>
 				</Tooltip>
 			{/if}
 		</div>
@@ -240,7 +248,7 @@
 				<Popover.Positioner class="z-floating-ui">
 					<Popover.Content class="card bg-surface-50-950 border-surface-300-700 min-w-[250px] border shadow-lg">
 						<div class="settings-content">
-							{#if colModel && colModel.columns.length > 0}
+							{#if dialect === 'latex' && colModel && colModel.columns.length > 0}
 								<div class="settings-row">
 									<div class="text-surface-700-300 mb-1.5 text-xs font-semibold">{m.tablewrap_columns_heading()}</div>
 									{#each colModel.columns as col, i (i)}
@@ -299,36 +307,38 @@
 									<hr class="border-surface-200-800 mt-3" />
 								</div>
 							{/if}
-							<div class="settings-row">
-								{#if tableNotesEnabled}
-									<Switch checked={showNotesInput} onCheckedChange={handleNotesToggle} class="flex items-center justify-between gap-3">
-										<Switch.Label>{m.tablewrap_show_notes()}</Switch.Label>
-										<Switch.Control class="preset-filled-surface-200-700 data-[state=checked]:preset-filled-primary-500">
-											<Switch.Thumb />
-										</Switch.Control>
-										<Switch.HiddenInput />
-									</Switch>
-								{:else}
-									<Tooltip positioning={{ placement: 'top' }} openDelay={200}>
-										<Tooltip.Trigger class="w-full">
-											<Switch checked={false} disabled class="flex cursor-not-allowed items-center justify-between gap-3 opacity-50">
-												<Switch.Label>{m.tablewrap_show_notes()}</Switch.Label>
-												<Switch.Control class="preset-filled-surface-200-700">
-													<Switch.Thumb />
-												</Switch.Control>
-												<Switch.HiddenInput />
-											</Switch>
-										</Tooltip.Trigger>
-										<Portal>
-											<Tooltip.Positioner class="z-floating-ui">
-												<Tooltip.Content class="card preset-filled p-2 text-sm">
-													{m.tablewrap_notes_disabled_tooltip()}
-												</Tooltip.Content>
-											</Tooltip.Positioner>
-										</Portal>
-									</Tooltip>
-								{/if}
-							</div>
+							{#if dialect === 'latex'}
+								<div class="settings-row">
+									{#if tableNotesEnabled}
+										<Switch checked={showNotesInput} onCheckedChange={handleNotesToggle} class="flex items-center justify-between gap-3">
+											<Switch.Label>{m.tablewrap_show_notes()}</Switch.Label>
+											<Switch.Control class="preset-filled-surface-200-700 data-[state=checked]:preset-filled-primary-500">
+												<Switch.Thumb />
+											</Switch.Control>
+											<Switch.HiddenInput />
+										</Switch>
+									{:else}
+										<Tooltip positioning={{ placement: 'top' }} openDelay={200}>
+											<Tooltip.Trigger class="w-full">
+												<Switch checked={false} disabled class="flex cursor-not-allowed items-center justify-between gap-3 opacity-50">
+													<Switch.Label>{m.tablewrap_show_notes()}</Switch.Label>
+													<Switch.Control class="preset-filled-surface-200-700">
+														<Switch.Thumb />
+													</Switch.Control>
+													<Switch.HiddenInput />
+												</Switch>
+											</Tooltip.Trigger>
+											<Portal>
+												<Tooltip.Positioner class="z-floating-ui">
+													<Tooltip.Content class="card preset-filled p-2 text-sm">
+														{m.tablewrap_notes_disabled_tooltip()}
+													</Tooltip.Content>
+												</Tooltip.Positioner>
+											</Portal>
+										</Tooltip>
+									{/if}
+								</div>
+							{/if}
 
 							{#if columnSpanningEnabled}
 								<div class="settings-row">
@@ -369,8 +379,10 @@
 								<div class="border-surface-300-700 mb-3 space-y-4 pl-6">
 									<label class="label">
 										<span>
-											{m.tablewrap_latex_label()}
-											<span class="text-surface-600-400 text-sm">{m.tablewrap_latex_label_hint()}</span>
+											{dialect === 'typst' ? m.tablewrap_typst_label() : m.tablewrap_latex_label()}
+											<span class="text-surface-600-400 text-sm">
+												{dialect === 'typst' ? m.tablewrap_typst_label_hint() : m.tablewrap_latex_label_hint()}
+											</span>
 										</span>
 										<input
 											id="table-label-input"
@@ -396,33 +408,35 @@
 									</label>
 
 									<!-- per-row rules (\hline, \toprule, ...); empty = no rule before that row -->
-									<div class="space-y-1.5">
-										<span class="text-surface-900-100 block text-sm font-medium">
-											{m.tablewrap_row_rules_heading()} <span class="text-surface-600-400 text-xs">{m.tablewrap_row_rules_hint()}</span>
-										</span>
-										{#each rowRules as rule, i (i)}
+									{#if dialect === 'latex'}
+										<div class="space-y-1.5">
+											<span class="text-surface-900-100 block text-sm font-medium">
+												{m.tablewrap_row_rules_heading()} <span class="text-surface-600-400 text-xs">{m.tablewrap_row_rules_hint()}</span>
+											</span>
+											{#each rowRules as rule, i (i)}
+												<div class="flex items-center gap-2">
+													<span class="text-surface-500-400 w-24 shrink-0 text-xs">{m.tablewrap_before_row({ index: i + 1 })}</span>
+													<input
+														type="text"
+														class="input flex-1 text-xs"
+														value={rule}
+														placeholder={m.tablewrap_rule_placeholder()}
+														onchange={(e) => setRowRule(i, (e.currentTarget as HTMLInputElement).value)}
+													/>
+												</div>
+											{/each}
 											<div class="flex items-center gap-2">
-												<span class="text-surface-500-400 w-24 shrink-0 text-xs">{m.tablewrap_before_row({ index: i + 1 })}</span>
+												<span class="text-surface-500-400 w-24 shrink-0 text-xs">{m.tablewrap_after_last_row()}</span>
 												<input
 													type="text"
 													class="input flex-1 text-xs"
-													value={rule}
+													value={bottomRule}
 													placeholder={m.tablewrap_rule_placeholder()}
-													onchange={(e) => setRowRule(i, (e.currentTarget as HTMLInputElement).value)}
+													onchange={(e) => setBottomRule((e.currentTarget as HTMLInputElement).value)}
 												/>
 											</div>
-										{/each}
-										<div class="flex items-center gap-2">
-											<span class="text-surface-500-400 w-24 shrink-0 text-xs">{m.tablewrap_after_last_row()}</span>
-											<input
-												type="text"
-												class="input flex-1 text-xs"
-												value={bottomRule}
-												placeholder={m.tablewrap_rule_placeholder()}
-												onchange={(e) => setBottomRule((e.currentTarget as HTMLInputElement).value)}
-											/>
 										</div>
-									</div>
+									{/if}
 								</div>
 							{/if}
 						</div>
@@ -569,14 +583,6 @@
 	:global(.table-wrapper-content table th) {
 		font-weight: 600;
 		background: var(--color-surface-100);
-	}
-
-	:global(.table-wrapper-content table tr:first-child th) {
-		border-bottom: 3px solid var(--color-primary-500);
-	}
-
-	:global(.table-wrapper-content table tr th:first-child) {
-		border-right: 3px solid var(--color-primary-500);
 	}
 
 	/* the surfaces above are hardcoded light, flip them under data-mode=dark */

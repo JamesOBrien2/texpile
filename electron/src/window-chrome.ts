@@ -19,6 +19,13 @@ import { app, BrowserWindow, Menu, MenuItemConstructorOptions, ipcMain } from 'e
 export interface MenuState {
 	/** no file open: the menus that act on a document are greyed out */
 	disabled: boolean;
+	/** the open file has a text buffer for Edit/Spelling (false for pdf/image/binary). Optional so
+	 *  a renderer predating the field falls back to !disabled. */
+	editable?: boolean;
+	/** the open file is a structured tex/md/typ document, so Insert/Format apply */
+	structured?: boolean;
+	/** which syntax Insert/Format write; hides the LaTeX-only items for md/typ */
+	dialect?: 'tex' | 'md' | 'typ';
 	/** the caret is inside a CodeMirror view, where Insert/Format do not apply */
 	cursorInCm: boolean;
 	spellcheck: boolean;
@@ -29,6 +36,8 @@ export interface MenuState {
 	canFormat: boolean;
 	/** the workspace takes tree writes: false for a guest, whose folder belongs to the host */
 	canNewFile: boolean;
+	/** the compile target is Typst: File > New offers .typ instead of .tex/.cls/.sty */
+	typstProject?: boolean;
 	/** there is a directory to write an image next to (a .tex on a host) */
 	canInsertImage: boolean;
 	/** the workspace may be swapped out. False for a guest: it would abandon the session unleft */
@@ -76,8 +85,9 @@ function recentItems(win: BrowserWindow, s: MenuState): MenuItemConstructorOptio
  * at a native View/Window menu is exactly how that went wrong.
  */
 function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[] {
-	const doc = { enabled: !s.disabled };
-	const pm = { enabled: !s.disabled && !s.cursorInCm }; // ProseMirror-only actions
+	const dialect = s.dialect ?? 'tex';
+	const doc = { enabled: s.editable ?? !s.disabled }; // needs a text buffer (undo/redo/find/spelling)
+	const pm = { enabled: (s.structured ?? !s.disabled) && !s.cursorInCm }; // needs a structured document
 	return [
 		// The app menu, built by hand rather than `role: 'appMenu'` so Preferences and Share session
 		// can sit in it - which is where a mac user reaches for them. Off macOS there is no such menu,
@@ -106,11 +116,20 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 					? [
 							{
 								label: label(s, 'new', 'New'),
+								// the compile target decides the document rows: .typ for a Typst project,
+								// .tex/.cls/.sty otherwise. .bib serves both and markdown is format-neutral.
 								submenu: [
-									{ label: label(s, 'newTex', 'LaTeX document'), click: () => fire(win, 'new:tex') },
+									...(s.typstProject
+										? [{ label: label(s, 'newTyp', 'Typst document'), click: () => fire(win, 'new:typ') }]
+										: [{ label: label(s, 'newTex', 'LaTeX document'), click: () => fire(win, 'new:tex') }]),
 									{ label: label(s, 'newBib', 'BibTeX bibliography'), click: () => fire(win, 'new:bib') },
-									{ label: label(s, 'newCls', 'Class file'), click: () => fire(win, 'new:cls') },
-									{ label: label(s, 'newSty', 'Package file'), click: () => fire(win, 'new:sty') }
+									{ label: label(s, 'newMd', 'Markdown file'), click: () => fire(win, 'new:md') },
+									...(s.typstProject
+										? []
+										: [
+												{ label: label(s, 'newCls', 'Class file'), click: () => fire(win, 'new:cls') },
+												{ label: label(s, 'newSty', 'Package file'), click: () => fire(win, 'new:sty') }
+											])
 								]
 							}
 						]
@@ -175,26 +194,36 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 							accelerator: 'Shift+CmdOrCtrl+M',
 							click: () => fire(win, 'math:display')
 						},
-						{ type: 'separator' },
-						...['align', 'aligned', 'gather', 'cases', 'multline', 'split'].map((env) => ({
-							label: env[0].toUpperCase() + env.slice(1),
-							click: () => fire(win, `math:${env}`)
-						})),
-						{ type: 'separator' as const },
-						{ label: label(s, 'matrixSquare', 'Matrix (brackets)'), click: () => fire(win, 'math:bmatrix') },
-						{ label: label(s, 'matrixParen', 'Matrix (parentheses)'), click: () => fire(win, 'math:pmatrix') }
+						// LaTeX environments; a typst/markdown document has nowhere to put \begin{align}
+						...(dialect === 'tex'
+							? [
+									{ type: 'separator' as const },
+									...['align', 'aligned', 'gather', 'cases', 'multline', 'split'].map((env) => ({
+										label: env[0].toUpperCase() + env.slice(1),
+										click: () => fire(win, `math:${env}`)
+									})),
+									{ type: 'separator' as const },
+									{ label: label(s, 'matrixSquare', 'Matrix (brackets)'), click: () => fire(win, 'math:bmatrix') },
+									{ label: label(s, 'matrixParen', 'Matrix (parentheses)'), click: () => fire(win, 'math:pmatrix') }
+								]
+							: [])
 					]
 				},
 				...(s.canInsertImage ? [{ ...pm, label: label(s, 'image', 'Image…'), click: () => fire(win, 'insert:image') }] : []),
 				{ ...pm, label: label(s, 'table', 'Table'), click: () => fire(win, 'insert:table') },
-				{ ...pm, label: label(s, 'citation', 'Citation'), click: () => fire(win, 'insert:citation') },
+				// markdown has no citation node; tex writes \autocite, typst an @ref chip
+				...(dialect !== 'md' ? [{ ...pm, label: label(s, 'citation', 'Citation'), click: () => fire(win, 'insert:citation') }] : []),
 				{ ...pm, label: label(s, 'link', 'Link…'), click: () => fire(win, 'insert:link') },
 				{ ...pm, label: label(s, 'codeBlock', 'Code block'), click: () => fire(win, 'insert:code') },
 				{ ...pm, label: label(s, 'hrule', 'Horizontal rule'), click: () => fire(win, 'insert:hrule') },
-				{ type: 'separator' },
-				{ ...pm, label: label(s, 'environment', 'Environment…'), click: () => fire(win, 'insert:environment') },
-				{ ...pm, label: label(s, 'rawLatex', 'Raw LaTeX block'), click: () => fire(win, 'insert:rawlatex') },
-				{ ...pm, label: label(s, 'inlineLatex', 'Inline LaTeX'), click: () => fire(win, 'insert:inlinelatex') }
+				...(dialect === 'tex'
+					? [
+							{ type: 'separator' as const },
+							{ ...pm, label: label(s, 'environment', 'Environment…'), click: () => fire(win, 'insert:environment') },
+							{ ...pm, label: label(s, 'rawLatex', 'Raw LaTeX block'), click: () => fire(win, 'insert:rawlatex') },
+							{ ...pm, label: label(s, 'inlineLatex', 'Inline LaTeX'), click: () => fire(win, 'insert:inlinelatex') }
+						]
+					: [])
 			]
 		},
 		{
@@ -202,7 +231,10 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 			submenu: [
 				{ ...pm, label: label(s, 'bold', 'Bold'), accelerator: 'CmdOrCtrl+B', click: () => fire(win, 'format:bold') },
 				{ ...pm, label: label(s, 'italic', 'Italic'), accelerator: 'CmdOrCtrl+I', click: () => fire(win, 'format:italic') },
-				{ ...pm, label: label(s, 'underline', 'Underline'), accelerator: 'CmdOrCtrl+U', click: () => fire(win, 'format:underline') },
+				// markdown has no underline mark and no underline syntax
+				...(dialect !== 'md'
+					? [{ ...pm, label: label(s, 'underline', 'Underline'), accelerator: 'CmdOrCtrl+U', click: () => fire(win, 'format:underline') }]
+					: []),
 				{ ...pm, label: label(s, 'inlineCode', 'Inline code'), click: () => fire(win, 'format:code') },
 				{ type: 'separator' },
 				{ ...pm, label: label(s, 'h1', 'Heading 1'), click: () => fire(win, 'format:h1') },

@@ -48,12 +48,16 @@
 		/** menu-bar inputs that are not workspace state */
 		menu: {
 			disabled: boolean;
+			/** kind of the open file; the menus adapt to what it supports (see WorkspaceMenuBar) */
+			fileKind: import('$lib/workspace/documentBuffer.svelte').FileKind;
 			imageDir: string | undefined;
 			shareable: boolean;
 			/** provider.caps.manageTree: the workspace takes tree writes */
 			hostMode: boolean;
 			canFormat: boolean;
 			uiZoomPercent: number;
+			/** the compile target is Typst; New-file menus offer .typ instead of .tex/.cls/.sty */
+			typstProject: boolean;
 		};
 		actions: Any;
 		fileTreeRef: Any;
@@ -79,8 +83,10 @@
 	{#snippet menus()}
 		<WorkspaceMenuBar
 			disabled={menu.disabled}
+			fileKind={menu.fileKind}
 			imageDir={menu.imageDir}
 			onNewFile={menu.hostMode ? actions.newFileOfType : undefined}
+			typstProject={menu.typstProject}
 			onOpenFolder={menu.hostMode ? actions.openFolder : undefined}
 			onCloseWorkspace={menu.hostMode ? actions.closeWorkspace : undefined}
 			onSave={actions.save}
@@ -125,6 +131,7 @@
 			onOpenFileAt={actions.openFileAt}
 			onOpenEntry={actions.openEntry}
 			onCreate={treeOps.create}
+			typstProject={menu.typstProject}
 			onRename={treeOps.rename}
 			onDelete={treeOps.deleteMany}
 			onMove={treeOps.moveMany}

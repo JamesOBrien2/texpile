@@ -34,7 +34,9 @@ function actions(caps: boolean): PaletteActions {
 		openPreferences: () => {},
 		newFile: () => {},
 		openFolder: () => {},
-		refreshTree: () => {}
+		refreshTree: () => {},
+		openTypstPreview: () => {},
+		isTypstProject: () => false
 	};
 }
 

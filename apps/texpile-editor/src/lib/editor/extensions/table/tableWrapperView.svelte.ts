@@ -3,6 +3,10 @@ import type { EditorView, NodeView } from 'prosemirror-view';
 import { mount, unmount } from 'svelte';
 import TableWrapperComponent from './TableWrapperComponent.svelte';
 
+/** which markup language the wrapper edits; typst hides every LaTeX-only control
+ * (notes, colspec model, row rules, spanning) and never writes tex concepts into the doc. */
+export type TableDialect = 'latex' | 'typst';
+
 function isLabelDuplicate(view: EditorView, label: string | null, currentPos: number): boolean {
 	if (!label) return false;
 
@@ -121,6 +125,15 @@ function collectRowRules(tableWrapperNode: Node): { rowRules: string[]; bottomRu
 }
 
 export default function tableWrapperView(node: Node, view: EditorView, getPos: () => number | undefined): NodeView {
+	return buildTableWrapperView('latex', node, view, getPos);
+}
+
+/** same view over typSchema's table_wrapper: shared header/caption/label UI, tex-only controls hidden. */
+export function typstTableWrapperView(node: Node, view: EditorView, getPos: () => number | undefined): NodeView {
+	return buildTableWrapperView('typst', node, view, getPos);
+}
+
+function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorView, getPos: () => number | undefined): NodeView {
 	let currentNode = node;
 
 	const dom = document.createElement('div');
@@ -155,6 +168,16 @@ export default function tableWrapperView(node: Node, view: EditorView, getPos: (
 				...currentNode.attrs,
 				...attrs
 			});
+			// typst: renaming the label follows every @ref chip pointing at it, in the same
+			// transaction (one undo step). All steps are attr-only, so positions stay valid.
+			const oldLabel = currentNode.attrs.label;
+			if (dialect === 'typst' && 'label' in attrs && attrs.label !== oldLabel && oldLabel && attrs.label) {
+				view.state.doc.descendants((n, p) => {
+					if (n.type.name === 'typ_ref' && n.attrs.target === String(oldLabel)) {
+						tr.setNodeMarkup(p, undefined, { target: String(attrs.label) });
+					}
+				});
+			}
 			view.dispatch(tr);
 		}
 	};
@@ -214,9 +237,16 @@ export default function tableWrapperView(node: Node, view: EditorView, getPos: (
 		const tableNode = tableAbs === null ? null : view.state.doc.nodeAt(tableAbs);
 		if (tableAbs === null || !tableNode) return;
 		// setting a spec also pins env (the serializer's faithful path needs both); an editor-created
-		// table with no env becomes a plain tabular carrying the user's spec
+		// table with no env becomes a plain tabular carrying the user's spec. typst has no env: its
+		// colspec is the verbatim `columns:` value, and the serializer count-guards it on its own
 		view.dispatch(
-			view.state.tr.setNodeMarkup(tableAbs, undefined, { ...tableNode.attrs, colspec: spec, env: tableNode.attrs.env ?? 'tabular' })
+			view.state.tr.setNodeMarkup(
+				tableAbs,
+				undefined,
+				dialect === 'latex'
+					? { ...tableNode.attrs, colspec: spec, env: tableNode.attrs.env ?? 'tabular' }
+					: { ...tableNode.attrs, colspec: spec }
+			)
 		);
 		const pos = getPos();
 		const updated = pos !== undefined ? view.state.doc.nodeAt(pos) : null;
@@ -246,6 +276,7 @@ export default function tableWrapperView(node: Node, view: EditorView, getPos: (
 	// $state so prop mutations reach the component (svelte 5)
 	const initialRules = collectRowRules(currentNode);
 	const componentProps = $state({
+		dialect,
 		tableNumber: initialData.tableNumber,
 		sectionNumber: initialData.sectionNumber,
 		node: currentNode,

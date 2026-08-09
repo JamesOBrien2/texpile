@@ -31,6 +31,8 @@
 		onOpenFileAt: (file: string, line: number, selectText?: string) => void;
 		onOpenEntry: (entry: TreeEntry) => void;
 		onCreate: (parentDir: string, name: string, type: 'file' | 'dir' | 'include') => void;
+		/** the compile target is Typst: the tree's New Include creates a .typ fragment */
+		typstProject?: boolean;
 		onRename: (entry: TreeEntry, newName: string) => void;
 		onDelete: (entries: TreeEntry[]) => void;
 		onMove: (entries: TreeEntry[], targetDir: string) => void;
@@ -68,6 +70,7 @@
 		onOpenFileAt,
 		onOpenEntry,
 		onCreate,
+		typstProject = false,
 		onRename,
 		onDelete,
 		onMove,
@@ -176,6 +179,7 @@
 					gitStatus={$gitStatusMap}
 					onOpen={onOpenEntry}
 					{onCreate}
+					{typstProject}
 					{onRename}
 					{onDelete}
 					{onMove}

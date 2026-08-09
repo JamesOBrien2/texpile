@@ -42,10 +42,12 @@ class RawLatexView {
 				cmSyntaxHighlight(),
 				// popup escapes the block's box; only latex content has completions to offer
 				...(String(node.attrs.lang ?? 'latex') === 'latex' ? [latexAutocomplete({ tooltipsInBody: true })] : []),
-				// transparent surface so the raw block blends into the document
+				// transparent surface so the raw block blends into the document; tight insets - the
+				// wrapper's own padding is the visual gap, not CodeMirror's default 6px line inset
 				CodeMirrorView.theme({
 					'&': { backgroundColor: 'transparent' },
-					'.cm-content': { backgroundColor: 'transparent', padding: '2px 4px' },
+					'.cm-content': { backgroundColor: 'transparent', padding: '2px 0' },
+					'.cm-line': { padding: '0 2px' },
 					'.cm-gutters': { backgroundColor: 'transparent', border: 'none' },
 					'.cm-activeLine': { backgroundColor: 'transparent' },
 					'.cm-activeLineGutter': { backgroundColor: 'transparent' },
@@ -61,19 +63,27 @@ class RawLatexView {
 
 		// thin outline, no card background
 		const wrapper = document.createElement('div');
-		wrapper.className = 'noautofocus raw-latex-wrapper border-surface-400-600 my-1 rounded-base border px-2 py-1';
+		wrapper.className = 'noautofocus raw-latex-wrapper border-surface-400-600 my-1 rounded-base border px-1 py-1';
 
 		wrapper.appendChild(this.cm.dom);
 		this.dom = wrapper;
 
-		const langName = LANG_NAMES[String(node.attrs.lang ?? 'latex')] ?? 'LaTeX';
-		const langData = cmlangdata.find((lang) => lang.name === langName);
-		if (langData) {
-			langData.load().then((lang) => {
-				this.cm.dispatch({
-					effects: this.languageConf.reconfigure(lang)
-				});
+		if (String(node.attrs.lang ?? 'latex') === 'typst') {
+			// typst isn't in @codemirror/language-data; the app ships its own wasm-backed language
+			// (island flavour: no fold gutter on a chip)
+			void import('$lib/typst/typstLanguage').then(({ typstIslandLanguage }) => {
+				this.cm.dispatch({ effects: this.languageConf.reconfigure(typstIslandLanguage()) });
 			});
+		} else {
+			const langName = LANG_NAMES[String(node.attrs.lang ?? 'latex')] ?? 'LaTeX';
+			const langData = cmlangdata.find((lang) => lang.name === langName);
+			if (langData) {
+				langData.load().then((lang) => {
+					this.cm.dispatch({
+						effects: this.languageConf.reconfigure(lang)
+					});
+				});
+			}
 		}
 
 		this.handleFocus = this.handleFocus.bind(this);

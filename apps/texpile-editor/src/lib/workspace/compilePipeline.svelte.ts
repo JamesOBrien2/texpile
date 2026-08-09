@@ -6,9 +6,18 @@ import { compileLog } from '$lib/stores/compileLogStore';
 import { parseCompileDiagnosticsInWorker } from '$lib/latex-log/parseInWorker';
 import { pdfStore } from '$lib/stores/pdfStore';
 import { projectIntelStore } from '$lib/stores/projectIntel';
-import { settings, loadSettings } from '$lib/settings';
-import { workspaceRoot, mainFile, texFiles, savedCompileCommand, savedCompileOutputs } from './workspaceStore';
+import { settings, loadSettings, DEFAULT_COMPILE_COMMAND } from '$lib/settings';
+import {
+	workspaceRoot,
+	mainFile,
+	texFiles,
+	effectiveCompileFormat,
+	savedFormatCommand,
+	savedFormatOutputs,
+	savedMainFile
+} from './workspaceStore';
 import * as cc from './compileCommand';
+import { buildTypstCommand, isTypstCommand } from './typstCommand';
 import { basename, joinPath } from './fileSystem';
 import type { EditSession } from '$lib/collab/editSession';
 import { toaster } from '$lib/modals/toaster-svelte';
@@ -21,8 +30,25 @@ export const relFromRoot = (p: string, root: string) =>
 		.replace(/^[\\/]+/, '')
 		.replace(/\\/g, '/');
 
-// per-folder command wins over the global default (the last one saved anywhere)
-export const resolveCompileCommand = (root: string | null, global: string) => (root && savedCompileCommand(root)) || global || '';
+/**
+ * The command this folder compiles with. The folder's EXPLICIT format switch decides the lane
+ * (latex or typst; Auto reads the main file's extension), and each lane resolves independently:
+ * its own saved command first, else that lane's default. No format is ever inferred from a
+ * command string - the switch is stored state (workspaceStore.CompileFormat).
+ */
+export const resolveFormatCommand = (root: string | null, format: 'latex' | 'typst', global: string, main?: string | null) => {
+	const saved = root ? savedFormatCommand(root, format) : null;
+	if (saved) return saved;
+	if (format === 'typst') return buildTypstCommand(main ?? null);
+	// the latex lane's default is the global setting - unless a Typst line got saved there by an
+	// old version, in which case the stock LaTeX command is the sane floor
+	if (global && isTypstCommand(global)) return DEFAULT_COMPILE_COMMAND;
+	return global || '';
+};
+
+export const resolveCompileCommand = (root: string | null, global: string, main?: string | null) => {
+	return resolveFormatCommand(root, effectiveCompileFormat(root, main ?? null), global, main);
+};
 
 // a TeX engine at its default errorstop interaction parks at the interactive ? prompt on the
 // first error. for known engine commands, inject -interaction=nonstopmode (plus -file-line-error
@@ -58,6 +84,8 @@ export interface CompileDeps {
 	openCompileModal(): void;
 	openMainConfirm(then?: () => void): void;
 	runDraftCompile(): Promise<void>;
+	/** open the Typst live preview pane (its own attach effect does the rest). */
+	openTypstPreview(): void;
 	/** publish the parsed compile products (aux numbers + diagnostics) to session guests. */
 	shareCompileState(): void;
 }
@@ -146,8 +174,18 @@ export class CompilePipeline {
 			this.deps.openMainConfirm(() => void this.runCompile());
 			return;
 		}
-		if (get(settings).draftMode) {
+		// Live mode IS the incremental lualatex pipeline, so it cannot serve a Typst project. The
+		// setting is global and the user may arrive here with it left on from a LaTeX folder, so
+		// ignore it rather than trapping them - the terminal command below is the correct build.
+		if (get(settings).draftMode && !isTypstCommand(this.deps.getCompileCommand())) {
 			await this.deps.runDraftCompile();
+			return;
+		}
+		// Preview is Typst's live path, exactly as draft mode is LaTeX's: it renders through the
+		// language server, so a shell run would only produce a PDF nobody is looking at. Compile
+		// therefore opens (or refreshes) the preview pane instead, and the modal says so.
+		if (get(settings).typstLiveMode !== false && isTypstCommand(this.deps.getCompileCommand())) {
+			this.deps.openTypstPreview();
 			return;
 		}
 		if (!this.deps.terminalAvailable()) return;
@@ -228,11 +266,19 @@ export class CompilePipeline {
 	// reactive root / main-file / per-folder overrides the pure functions take as arguments
 	expectedPdfPath = (cmd = this.deps.getCompileCommand()): string | null => {
 		const root = get(workspaceRoot);
-		return cc.expectedPdfPath(cmd, root, get(mainFile) ?? this.deps.getLoadedPath(), root ? savedCompileOutputs(root).pdf : undefined);
+		const main = get(mainFile) ?? this.deps.getLoadedPath();
+		return cc.expectedPdfPath(cmd, root, main, root ? savedFormatOutputs(root, effectiveCompileFormat(root, main)).pdf : undefined);
 	};
+
+	// A zero-byte log means "the engine never really ran" for TeX, so it is ignored — but for Typst
+	// it means the opposite: stderr was empty, i.e. the document compiled clean. Without this the
+	// Problems panel would keep showing the previous failing run's errors after a good compile.
+	private logMayBeEmpty = (cmd = this.deps.getCompileCommand()): boolean => isTypstCommand(cmd);
+
 	expectedLogPath = (cmd = this.deps.getCompileCommand()): string | null => {
 		const root = get(workspaceRoot);
-		return cc.expectedLogPath(cmd, root, get(mainFile) ?? this.deps.getLoadedPath(), root ? savedCompileOutputs(root) : undefined);
+		const main = get(mainFile) ?? this.deps.getLoadedPath();
+		return cc.expectedLogPath(cmd, root, main, root ? savedFormatOutputs(root, effectiveCompileFormat(root, main)) : undefined);
 	};
 
 	// read the .log plus the sibling .blg (it reflects the LAST bib run, which stays valid
@@ -289,7 +335,7 @@ export class CompilePipeline {
 		this.logWatchTimer = setTimeout(async () => {
 			if (gen !== this.compileGen) return; // superseded: a newer compile, finalize, or folder switch
 			const s = await this.deps.stat(logPath);
-			const changedSinceCompile = s.exists && s.size > 0 && s.mtimeMs > before;
+			const changedSinceCompile = s.exists && (s.size > 0 || this.logMayBeEmpty()) && s.mtimeMs > before;
 			const stable = prev !== null && s.mtimeMs === prev.mtimeMs && s.size === prev.size;
 			if (changedSinceCompile && stable && s.mtimeMs !== lastParsed) {
 				try {
@@ -329,7 +375,8 @@ export class CompilePipeline {
 			try {
 				if (logPath) {
 					const s = await this.deps.stat(logPath);
-					if (s.exists && s.size > 0 && s.mtimeMs > logBefore) await this.publishLogDiagnostics(logPath, s.mtimeMs);
+					if (s.exists && (s.size > 0 || this.logMayBeEmpty()) && s.mtimeMs > logBefore)
+						await this.publishLogDiagnostics(logPath, s.mtimeMs);
 				}
 				if (pdfPath) {
 					const s = await this.deps.stat(pdfPath);
@@ -421,7 +468,10 @@ export class CompilePipeline {
 		// read the persisted command directly: on first mount this can run before the
 		// reactive compileCommand is hydrated, and a stale '' would point at the wrong folder
 		const s0 = await loadSettings();
-		const pdfPath = this.expectedPdfPath(resolveCompileCommand(get(workspaceRoot), s0.compileCommand));
+		// the persisted main file, so an Auto folder resolves its real format even before the
+		// reactive mainFile store hydrates
+		const bootRoot = get(workspaceRoot);
+		const pdfPath = this.expectedPdfPath(resolveCompileCommand(bootRoot, s0.compileCommand, bootRoot ? savedMainFile(bootRoot) : null));
 		if (!pdfPath) {
 			pdfStore.set(null);
 			return;

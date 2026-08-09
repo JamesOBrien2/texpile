@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { get } from 'svelte/store';
 	import {
 		EditorView,
 		keymap,
@@ -26,6 +27,8 @@
 	import { synctexFlash, flashLineEffect } from '$lib/editor/extensions/synctex-flash/synctexFlash';
 	import { bindModalKeymap, modalKeymapCompartment } from '$lib/editor/extensions/keybindings/modalKeymap';
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
+	import { releaseTypstLsp, typstLspExtension } from '$lib/typst/lspClient';
+	import { workspaceRoot } from '$lib/workspace/workspaceStore';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { docText } from '$lib/editor/docText';
 	import { minimalEdit } from '$lib/editor/minimalEdit';
@@ -78,7 +81,8 @@
 		diagnostics = [],
 		onJumpToFile,
 		onOpenFileAt,
-		collab = null
+		collab = null,
+		onCaretMove
 	}: {
 		value?: string;
 		onInput?: (v: string) => void;
@@ -94,12 +98,27 @@
 		onJumpToFile?: (name: string) => void;
 		onOpenFileAt?: (file: string, line: number) => void;
 		collab?: CollabBinding | null;
+		/**
+		 * The caret moved here (ZERO-based line and column); lets the Typst preview follow along.
+		 *
+		 * The column matters as much as the line: tinymist's jump_from_cursor only resolves a
+		 * position whose syntax leaf is text, and the leaf it checks is the one BEFORE the cursor.
+		 * Column 0 therefore never resolves - so this fires on column changes too, and consumers
+		 * are expected to debounce.
+		 */
+		onCaretMove?: (line: number, character: number) => void;
 	} = $props();
+
+	/** last position reported to onCaretMove, so redundant selection updates do not spray requests */
+	let lastCaretLine = -1;
+	let lastCaretChar = -1;
 
 	// language/extension gating: EditorPane only passes docPath, so `filename` alone was always
 	// '' and EVERY file (md, bib) silently fell into the "no name -> assume LaTeX" branch —
 	// latex intellisense shortcuts and highlighting in markdown source mode included
 	const fileFor = $derived(filename || docPath || '');
+	// context-menu wording: a .typ jump lands in the live preview, not in a PDF
+	const isTypFile = $derived(/\.typ$/i.test(fileFor));
 
 	let ctxMenu = $state<{ x: number; y: number; line: number; hasSelection: boolean } | null>(null);
 	function onContextMenu(e: MouseEvent) {
@@ -197,6 +216,15 @@
 	// soft wrap is a compartment, not a mounted-once extension: toggling it in Preferences has to
 	// take effect in the editor already on screen, and remounting would lose the caret and scroll
 	const wrapConf = new Compartment();
+	// the LSP extension can only be built after the language server has started and answered, which
+	// is async and may never happen (tinymist not installed). A compartment lets the editor mount
+	// and be typed in immediately, and gain intellisense whenever the server is ready.
+	const lspConf = new Compartment();
+	// true once tinymist has attached to THIS editor; it then owns the lint state (see the
+	// diagnostics effect below). Plain `let`, not $state: the effect that reads it also depends on
+	// `diagnostics`, and a compile always follows the server attaching.
+	let typstLspActive = false;
+
 	// vim / emacs bindings, filled in after mount because the packages are dynamically imported
 	const keymapConf = modalKeymapCompartment();
 	let unbindKeymap: (() => void) | null = null;
@@ -273,7 +301,7 @@
 				...(restored ? { selection: { anchor: restored.cursor } } : {}),
 				extensions: [
 					// gutters render in extension order: lint goes before lineNumbers so it lands on their left
-					...(!fileFor || /\.tex$/i.test(fileFor) ? [lintGutter({ hoverTime: 0 })] : []),
+					...(!fileFor || /\.(tex|typ)$/i.test(fileFor) ? [lintGutter({ hoverTime: 0 })] : []),
 					lineNumbers(),
 					gutterTheme,
 					highlightActiveLine(),
@@ -303,7 +331,13 @@
 								[mdSourceShortcuts(), mdPathCompletion(), mathPreview(), cmSpellcheck()]
 							: /\.bib$/i.test(fileFor)
 								? [latexAutocomplete({ bib: true })]
-								: []),
+								: /\.typ$/i.test(fileFor)
+									? // Typst's completion/hover/diagnostics arrive over LSP from tinymist, filled
+										// into lspConf below once the server answers. Harper parses Typst natively,
+										// so it gets the source unmasked rather than through the LaTeX mask.
+										[cmSpellcheck('typst')]
+									: []),
+					lspConf.of([]),
 					synctexFlash(), // flash the line jumped to by SyncTeX inverse search / Find-in-Files
 					// compact find/replace widget, floated top-right (styles below)
 					texpileSearch(),
@@ -337,6 +371,19 @@
 							deferredDocCount(text); // word/char count is display-only, off the keystroke path
 						}
 						if (u.docChanged || u.selectionSet) deferredSelectionCount();
+						if (u.selectionSet && onCaretMove) {
+							const head = u.state.selection.main.head;
+							const docLine = u.state.doc.lineAt(head);
+							const line = docLine.number - 1;
+							// UTF-16 code units from the line start, which is what LSP positions want
+							// and what CodeMirror's offsets already are
+							const character = head - docLine.from;
+							if (line !== lastCaretLine || character !== lastCaretChar) {
+								lastCaretLine = line;
+								lastCaretChar = character;
+								onCaretMove(line, character);
+							}
+						}
 						if (u.selectionSet || u.docChanged || u.geometryChanged) deferredRememberPosition();
 					})
 				]
@@ -384,12 +431,39 @@
 		// instead of through matchFilename, which would leave them unhighlighted.
 		if (fileFor && /\.bib$/i.test(fileFor)) {
 			view?.dispatch({ effects: langConf.reconfigure(bibtex()) });
+		} else if (fileFor && /\.typ$/i.test(fileFor)) {
+			// language-data has no Typst entry. The parser is the official typst-syntax crate compiled
+			// to wasm, imported dynamically: ~310KB nothing else needs. typstLanguage() deliberately
+			// leaves the colours to cmSyntaxHighlight (see its own comment).
+			void import('$lib/typst/typstLanguage').then(({ typstLanguage }) =>
+				view?.dispatch({ effects: langConf.reconfigure(typstLanguage()) })
+			);
 		} else {
 			const desc =
 				!fileFor || /\.(tex|cls|sty)$/i.test(fileFor)
 					? cmlangdata.find((l) => l.name === 'LaTeX')
 					: LanguageDescription.matchFilename(cmlangdata, fileFor);
 			desc?.load().then((lang) => view?.dispatch({ effects: langConf.reconfigure(lang) }));
+		}
+
+		// intellisense for .typ: start (or reuse) tinymist and hand this file to it. Deliberately
+		// not awaited - a missing binary or a slow start must never delay the editor appearing,
+		// and if it never resolves the editor simply stays a plain highlighted source view.
+		// Started by the FILE, not by the project's compile command: that is how language servers
+		// activate everywhere else (VS Code's own tinymist extension is `onLanguage:typst`), and a
+		// build-config gate would deny intellisense to anyone driving Typst from a Makefile. The
+		// memory it costs is handled by releasing it when the last .typ editor closes, not by
+		// refusing to start it.
+		if (fileFor && /\.typ$/i.test(fileFor) && $settings.typstIntellisense !== false) {
+			void typstLspExtension(get(workspaceRoot), fileFor)
+				.then((ext) => {
+					if (!ext || !view) return;
+					typstLspActive = true;
+					view.dispatch({ effects: lspConf.reconfigure(ext) });
+				})
+				.catch(() => {
+					/* no intellisense; highlighting and compiling are unaffected */
+				});
 		}
 	});
 
@@ -482,6 +556,12 @@
 		const v = view;
 		void value; // re-anchor when the document is externally replaced
 		if (!v) return;
+		// Both this and the language server write through setDiagnostics, which REPLACES the whole
+		// lint state - so with tinymist attached the two would overwrite each other on every compile
+		// and every keystroke. The server's are live and more precise, so it owns the editor's
+		// squiggles for .typ and the compile log keeps the Problems panel. Without a server (not
+		// installed) this stays the only source, which is better than nothing.
+		if (typstLspActive) return;
 		const doc = v.state.doc;
 		const valid = list.filter((d) => Number.isInteger(d.line) && d.line >= 1);
 		if (valid.length === 0 && lastDiagEmpty) return;
@@ -545,6 +625,12 @@
 		// debounce below is about to be cancelled, so take the snapshot synchronously first
 		rememberPosition();
 		sourceCmView.set(null);
+		// the language server holds ~90MB with a project open; hand back our reference so it can be
+		// reclaimed once no .typ editor is left (it lingers briefly, so a file switch never restarts it)
+		if (typstLspActive) {
+			typstLspActive = false;
+			releaseTypstLsp();
+		}
 		unbindKeymap?.();
 		unbindKeymap = null;
 		// collab teardown: drop our cursor from awareness so peers don't see a ghost, and reap the
@@ -600,9 +686,10 @@
 		</button>
 		{#if onSyncToPdf}
 			<div class="border-surface-200-800 my-1 border-t"></div>
+			<!-- .typ goes to the live preview, not a PDF, and the label must not claim otherwise -->
 			<button class={itemClass} onclick={() => (onSyncToPdf?.(ctxMenu.line), closeMenu())}>
 				<LocateFixed class="size-4 opacity-70" />
-				{m.tbar_ctx_show_in_pdf()}
+				{isTypFile ? m.tbar_ctx_show_in_preview() : m.tbar_ctx_show_in_pdf()}
 			</button>
 		{/if}
 	</div>

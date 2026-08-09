@@ -63,11 +63,10 @@ const MARK_DELIMS: Record<string, (attrs: Record<string, unknown>) => MarkDelims
 
 // canonical nesting order (outermost first); code is innermost and handled inside run content
 const MARK_ORDER = ['link', 'strong', 'em', 's', 'u', 'sup', 'sub', 'textcolor', 'highlight'];
-const SUPPRESSED_MARKS = new Set(['suggestion_insert', 'suggestion_delete']);
 
 function orderedMarks(marks: readonly Mark[]): Mark[] {
 	return marks
-		.filter((m) => !SUPPRESSED_MARKS.has(m.type.name) && m.type.name !== 'code')
+		.filter((m) => m.type.name !== 'code')
 		.sort((a, b) => {
 			const ia = MARK_ORDER.indexOf(a.type.name);
 			const ib = MARK_ORDER.indexOf(b.type.name);
@@ -95,7 +94,6 @@ function buildRuns(parent: Node, startOfLine: boolean, inTableCell: boolean): In
 	let atLineStart = startOfLine;
 	parent.forEach((node) => {
 		if (node.isText) {
-			if (node.marks.some((m) => m.type.name === 'suggestion_insert')) return;
 			const bare = bareLinkRun(node);
 			if (bare != null) {
 				runs.push({ content: bare, marks: [], isText: false });

@@ -1,12 +1,21 @@
 // reactive state for the open workspace; the file path is the identity, no doc ids
 import { writable } from 'svelte/store';
 import { browser } from '$lib/runtime';
+import { isTypstCommand } from './typstCommand';
 import type { TexFile, TreeEntry } from './fileSystem';
 
 const RECENT_KEY = 'texpile:recentFolders';
-const MAIN_KEY = 'texpile:mainFiles'; // { [folderRoot]: relPathOfMainFile }
-const CMD_KEY = 'texpile:compileCommands'; // { [folderRoot]: compile command }
-const OUTPUTS_KEY = 'texpile:compileOutputs'; // { [folderRoot]: { pdf?, log? } }
+// ONE entry per workspace folder, everything the app remembers about it grouped together —
+// see WorkspaceEntry. (recentFolders stays its own ordered list: it is an MRU, not per-folder config.)
+const WORKSPACES_KEY = 'texpile:workspaces';
+// the four parallel per-folder maps this store grew historically; migrated into WORKSPACES_KEY
+// on first load and then removed
+const LEGACY_KEYS = {
+	main: 'texpile:mainFiles',
+	lastFile: 'texpile:lastFiles',
+	cmd: 'texpile:compileCommands',
+	outputs: 'texpile:compileOutputs'
+} as const;
 
 export const workspaceRoot = writable<string | null>(null);
 
@@ -69,97 +78,6 @@ function absInRoot(root: string, rel: string): string {
 	return norm(root).split('/').join(sep) + sep + rel.split('/').join(sep);
 }
 
-function loadMainMap(): Record<string, string> {
-	if (!browser) return {};
-	try {
-		const v = JSON.parse(localStorage.getItem(MAIN_KEY) || '{}');
-		return v && typeof v === 'object' ? v : {};
-	} catch {
-		return {};
-	}
-}
-
-// Windows hands out the same folder with varying drive-letter case (picker vs settings),
-// so the stored key must be matched case-insensitively or a saved choice goes invisible
-function mainKeyFor(map: Record<string, string>, root: string): string {
-	const k = norm(root);
-	if (map[k] !== undefined) return k;
-	const lower = k.toLowerCase();
-	return Object.keys(map).find((x) => x.toLowerCase() === lower) ?? k;
-}
-
-/** the persisted main-file path for a folder (absolute), or null if none was saved. */
-export function savedMainFile(root: string): string | null {
-	const map = loadMainMap();
-	const rel = map[mainKeyFor(map, root)];
-	return rel ? absInRoot(root, rel) : null;
-}
-
-/** remembers (or clears) the chosen main file for a folder, and updates the live store. */
-export function setMainFile(root: string, path: string | null): void {
-	mainFile.set(path);
-	if (!browser) return;
-	const map = loadMainMap();
-	const key = mainKeyFor(map, root);
-	if (path) map[key] = relInRoot(root, path);
-	else delete map[key];
-	localStorage.setItem(MAIN_KEY, JSON.stringify(map));
-}
-
-// last file the user had open per folder, so reopening a workspace restores it
-const LAST_FILE_KEY = 'texpile:lastFiles';
-
-function loadLastFileMap(): Record<string, string> {
-	if (!browser) return {};
-	try {
-		const v = JSON.parse(localStorage.getItem(LAST_FILE_KEY) || '{}');
-		return v && typeof v === 'object' ? v : {};
-	} catch {
-		return {};
-	}
-}
-
-/** the last file that was open in a folder (absolute), or null if none was recorded. */
-export function savedLastFile(root: string): string | null {
-	const map = loadLastFileMap();
-	const rel = map[mainKeyFor(map, root)];
-	return rel ? absInRoot(root, rel) : null;
-}
-
-/** records the file currently open in a folder (called on every active-file change). */
-export function setLastFile(root: string, path: string): void {
-	if (!browser) return;
-	const rel = relInRoot(root, path);
-	if (rel === norm(path)) return; // not under this root (mid folder-switch): never record cross-root
-	const map = loadLastFileMap();
-	map[mainKeyFor(map, root)] = rel;
-	localStorage.setItem(LAST_FILE_KEY, JSON.stringify(map));
-}
-
-function loadCmdMap(): Record<string, string> {
-	if (!browser) return {};
-	try {
-		const v = JSON.parse(localStorage.getItem(CMD_KEY) || '{}');
-		return v && typeof v === 'object' ? v : {};
-	} catch {
-		return {};
-	}
-}
-
-/** the folder's own compile command, or null to fall back to the global default. */
-export function savedCompileCommand(root: string): string | null {
-	return loadCmdMap()[norm(root)] ?? null;
-}
-
-/** remembers (or clears) a folder-specific compile command. */
-export function setFolderCompileCommand(root: string, cmd: string | null): void {
-	if (!browser) return;
-	const map = loadCmdMap();
-	if (cmd) map[norm(root)] = cmd;
-	else delete map[norm(root)];
-	localStorage.setItem(CMD_KEY, JSON.stringify(map));
-}
-
 /** manual overrides for where the compile writes its PDF/log, when auto-detection guesses wrong. */
 export interface CompileOutputs {
 	/** path to the compiled PDF (relative to root, or absolute); blank = auto-detect from command. */
@@ -168,29 +86,208 @@ export interface CompileOutputs {
 	log?: string;
 }
 
-function loadOutputsMap(): Record<string, CompileOutputs> {
-	if (!browser) return {};
+/** which typesetter Compile drives. 'auto' (the default for every new workspace) follows the
+ *  main file's extension. Stored EXPLICITLY - never inferred from the command string. */
+export type CompileFormat = 'latex' | 'typst' | 'auto';
+
+/** one format's own compile config; latex and typst each keep theirs, so switching the format
+ *  switch never throws the other side's command away. */
+interface FormatConfig {
+	command?: string;
+	outputs?: CompileOutputs;
+}
+
+/** everything the app remembers about one workspace folder, grouped under its root path. */
+interface WorkspaceEntry {
+	/** root-relative main file (compile target + macro-scan anchor) */
+	main?: string;
+	/** root-relative last-open file, restored on reopening the folder */
+	lastFile?: string;
+	/** the format switch; absent = 'auto' */
+	compile?: 'latex' | 'typst';
+	latex?: FormatConfig;
+	typst?: FormatConfig;
+	/** pre-format-split fields, migrated on load and never written again */
+	compileCommand?: string;
+	outputs?: CompileOutputs;
+}
+
+function readJsonObject<T extends object>(key: string): T | null {
 	try {
-		const v = JSON.parse(localStorage.getItem(OUTPUTS_KEY) || '{}');
-		return v && typeof v === 'object' ? v : {};
+		const v = JSON.parse(localStorage.getItem(key) || 'null');
+		return v && typeof v === 'object' && !Array.isArray(v) ? (v as T) : null;
 	} catch {
-		return {};
+		return null;
 	}
 }
 
-/** the folder's manual output-path overrides (empty object if none saved). */
-export function savedCompileOutputs(root: string): CompileOutputs {
-	return loadOutputsMap()[norm(root)] ?? {};
+/**
+ * A pre-format-split entry stored one flat compileCommand/outputs; sort those into the format
+ * slots. This is the ONLY place a format is ever inferred from a command string - one time, at
+ * migration - and an inferred pin is kept so migrated folders behave exactly as before.
+ */
+function normalizeEntry(e: WorkspaceEntry): boolean {
+	if (e.compileCommand === undefined && e.outputs === undefined) return false;
+	const fmt: 'latex' | 'typst' = e.compileCommand
+		? isTypstCommand(e.compileCommand)
+			? 'typst'
+			: 'latex'
+		: e.main && /\.typ$/i.test(e.main)
+			? 'typst'
+			: 'latex';
+	const cfg = e[fmt] ?? {};
+	if (e.compileCommand && !cfg.command) cfg.command = e.compileCommand;
+	if (e.outputs && !cfg.outputs) cfg.outputs = e.outputs;
+	if (cfg.command || cfg.outputs) e[fmt] = cfg;
+	if (e.compileCommand) e.compile = fmt;
+	delete e.compileCommand;
+	delete e.outputs;
+	return true;
 }
 
-/** persists folder-specific output overrides; an all-blank set removes the entry. */
-export function setCompileOutputs(root: string, outputs: CompileOutputs): void {
+/**
+ * The per-workspace map, migrating the four parallel legacy maps into it on first load. The
+ * migration runs at most once: as soon as WORKSPACES_KEY exists it is the only source of truth,
+ * and the legacy keys are deleted so stale copies can't shadow later edits.
+ */
+function loadWorkspaces(): Record<string, WorkspaceEntry> {
+	if (!browser) return {};
+	const current = readJsonObject<Record<string, WorkspaceEntry>>(WORKSPACES_KEY);
+	if (current) {
+		let changed = false;
+		for (const e of Object.values(current)) if (normalizeEntry(e)) changed = true;
+		if (changed) localStorage.setItem(WORKSPACES_KEY, JSON.stringify(current));
+		return current;
+	}
+	const merged: Record<string, WorkspaceEntry> = {};
+	const entry = (root: string) => (merged[root] ??= {});
+	for (const [root, v] of Object.entries(readJsonObject<Record<string, string>>(LEGACY_KEYS.main) ?? {})) {
+		if (typeof v === 'string' && v) entry(root).main = v;
+	}
+	for (const [root, v] of Object.entries(readJsonObject<Record<string, string>>(LEGACY_KEYS.lastFile) ?? {})) {
+		if (typeof v === 'string' && v) entry(root).lastFile = v;
+	}
+	for (const [root, v] of Object.entries(readJsonObject<Record<string, string>>(LEGACY_KEYS.cmd) ?? {})) {
+		if (typeof v === 'string' && v) entry(root).compileCommand = v;
+	}
+	for (const [root, v] of Object.entries(readJsonObject<Record<string, CompileOutputs>>(LEGACY_KEYS.outputs) ?? {})) {
+		if (v && typeof v === 'object') entry(root).outputs = v;
+	}
+	for (const e of Object.values(merged)) normalizeEntry(e);
+	if (Object.keys(merged).length > 0) {
+		localStorage.setItem(WORKSPACES_KEY, JSON.stringify(merged));
+		for (const key of Object.values(LEGACY_KEYS)) localStorage.removeItem(key);
+	}
+	return merged;
+}
+
+// Windows hands out the same folder with varying drive-letter case (picker vs settings),
+// so the stored key must be matched case-insensitively or a saved choice goes invisible
+function keyFor(map: Record<string, unknown>, root: string): string {
+	const k = norm(root);
+	if (map[k] !== undefined) return k;
+	const lower = k.toLowerCase();
+	return Object.keys(map).find((x) => x.toLowerCase() === lower) ?? k;
+}
+
+function workspaceEntry(root: string): WorkspaceEntry {
+	const map = loadWorkspaces();
+	return map[keyFor(map, root)] ?? {};
+}
+
+/** read-modify-write one folder's entry; an entry with nothing left in it disappears entirely. */
+function updateWorkspace(root: string, mutate: (entry: WorkspaceEntry) => void): void {
 	if (!browser) return;
+	const map = loadWorkspaces();
+	const key = keyFor(map, root);
+	const entry = map[key] ?? {};
+	mutate(entry);
+	if (Object.keys(entry).length > 0) map[key] = entry;
+	else delete map[key];
+	localStorage.setItem(WORKSPACES_KEY, JSON.stringify(map));
+}
+
+/** the persisted main-file path for a folder (absolute), or null if none was saved. */
+export function savedMainFile(root: string): string | null {
+	const rel = workspaceEntry(root).main;
+	return rel ? absInRoot(root, rel) : null;
+}
+
+/** remembers (or clears) the chosen main file for a folder, and updates the live store. */
+export function setMainFile(root: string, path: string | null): void {
+	mainFile.set(path);
+	updateWorkspace(root, (e) => {
+		if (path) e.main = relInRoot(root, path);
+		else delete e.main;
+	});
+}
+
+/** the last file that was open in a folder (absolute), or null if none was recorded. */
+export function savedLastFile(root: string): string | null {
+	const rel = workspaceEntry(root).lastFile;
+	return rel ? absInRoot(root, rel) : null;
+}
+
+/** records the file currently open in a folder (called on every active-file change). */
+export function setLastFile(root: string, path: string): void {
+	const rel = relInRoot(root, path);
+	if (rel === norm(path)) return; // not under this root (mid folder-switch): never record cross-root
+	updateWorkspace(root, (e) => {
+		e.lastFile = rel;
+	});
+}
+
+/** the folder's format switch; 'auto' when never set - every new workspace starts there. */
+export function savedCompileFormat(root: string): CompileFormat {
+	return workspaceEntry(root).compile ?? 'auto';
+}
+
+/** pins the format switch; 'auto' clears the field back to the default. */
+export function setCompileFormat(root: string, format: CompileFormat): void {
+	updateWorkspace(root, (e) => {
+		if (format === 'auto') delete e.compile;
+		else e.compile = format;
+	});
+}
+
+/** the CONCRETE format in effect: a pin wins, Auto follows the main file's extension. */
+export function effectiveCompileFormat(root: string | null, main: string | null): 'latex' | 'typst' {
+	const pinned = root ? savedCompileFormat(root) : 'auto';
+	if (pinned !== 'auto') return pinned;
+	return main && /\.typ$/i.test(main) ? 'typst' : 'latex';
+}
+
+/** the saved command for ONE format's slot, or null when that slot is empty. */
+export function savedFormatCommand(root: string, format: 'latex' | 'typst'): string | null {
+	return workspaceEntry(root)[format]?.command ?? null;
+}
+
+/** saves (or clears) one format's command without touching the other format's slot. */
+export function setFormatCommand(root: string, format: 'latex' | 'typst', cmd: string | null): void {
+	updateWorkspace(root, (e) => {
+		const cfg = e[format] ?? {};
+		if (cmd) cfg.command = cmd;
+		else delete cfg.command;
+		if (cfg.command || cfg.outputs) e[format] = cfg;
+		else delete e[format];
+	});
+}
+
+/** one format's manual output-path overrides (empty object if none saved). */
+export function savedFormatOutputs(root: string, format: 'latex' | 'typst'): CompileOutputs {
+	return workspaceEntry(root)[format]?.outputs ?? {};
+}
+
+/** persists one format's output overrides; an all-blank set removes them. */
+export function setFormatOutputs(root: string, format: 'latex' | 'typst', outputs: CompileOutputs): void {
 	const clean: CompileOutputs = {};
 	if (outputs.pdf) clean.pdf = outputs.pdf;
 	if (outputs.log) clean.log = outputs.log;
-	const map = loadOutputsMap();
-	if (clean.pdf || clean.log) map[norm(root)] = clean;
-	else delete map[norm(root)];
-	localStorage.setItem(OUTPUTS_KEY, JSON.stringify(map));
+	updateWorkspace(root, (e) => {
+		const cfg = e[format] ?? {};
+		if (clean.pdf || clean.log) cfg.outputs = clean;
+		else delete cfg.outputs;
+		if (cfg.command || cfg.outputs) e[format] = cfg;
+		else delete e[format];
+	});
 }

@@ -60,6 +60,8 @@
 <CompileCommandModal
 	bind:open={compileSettings.modalOpen}
 	bind:command={compileSettings.draft}
+	format={compileSettings.format}
+	onSelectFormat={(f) => compileSettings.selectFormat(f)}
 	bind:outputs={compileSettings.outputsDraft}
 	bind:advancedOpen={compileSettings.advancedOpen}
 	onSave={onSaveCompile}

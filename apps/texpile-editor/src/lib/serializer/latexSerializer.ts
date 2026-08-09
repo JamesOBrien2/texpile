@@ -51,13 +51,10 @@ const MARKS: Record<string, (attrs: Record<string, unknown>) => { open: string; 
 	highlight: (a) => ({ open: `{\\sethlcolor{${esc(String(a.color ?? 'yellow'))}}\\hl{`, close: '}}' })
 };
 
-const SUPPRESSED_MARKS = new Set(['suggestion_insert', 'suggestion_delete']);
-
 /** Wrap `result` in each mark's open/close pair, inner to outer. shared with non-text leaves
  * that carry marks (an unknown macro chip under \textbf has no text node to carry the bold). */
 function applyMarks(result: string, marks: readonly Mark[]): string {
 	for (const mark of marks) {
-		if (SUPPRESSED_MARKS.has(mark.type.name)) continue;
 		// a bare \url{href} parses to a link whose text IS the href; if unedited, round-trip
 		// \url back instead of widening to \href{href}{href} (a visible styling change under
 		// most hyperref setups). compare against the esc()'d href: `result` is already
@@ -88,7 +85,7 @@ function marksKey(marks: readonly Mark[]): string {
 
 /** A text/leaf node's content WITHOUT its own marks, for runs wrapped once by the caller. */
 function serializeBare(node: Node): string {
-	if (node.isText) return node.marks.some((m) => m.type.name === 'suggestion_insert') ? '' : bareText(node);
+	if (node.isText) return bareText(node);
 	const leafText = node.type.spec.leafText;
 	return leafText ? leafText(node) : '';
 }
@@ -254,8 +251,6 @@ const NODES: Record<string, NodeHandler> = {
 	},
 
 	text(node) {
-		// suggestion_insert suppresses the whole node
-		if (node.marks.some((m) => m.type.name === 'suggestion_insert')) return '';
 		return applyMarks(bareText(node), node.marks);
 	},
 

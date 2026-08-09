@@ -2,12 +2,15 @@
 // expected PDF/log paths the preview, log parser, and SyncTeX all rely on. Pure string logic.
 
 import { basename, joinPath } from './fileSystem';
+import { isTypstCommand, typstLogPath, typstOutDir, typstPdfPath } from './typstCommand';
 
 export type Engine = 'pdflatex' | 'lualatex' | 'xelatex';
 const ENGINE_FLAG: Record<Engine, string> = { pdflatex: '-pdf', lualatex: '-lualatex', xelatex: '-xelatex' };
 
 /** the command's -output-directory / -outdir value, or '.' if none. */
 export function compileOutDir(cmd: string): string {
+	// Typst has no output-directory flag; its build directory is implied by the output argument
+	if (isTypstCommand(cmd)) return typstOutDir(cmd);
 	const m = cmd.match(/-(?:output-directory|outdir)[=\s]+("[^"]*"|'[^']*'|\S+)/);
 	return m && m[1] ? m[1].replace(/^["']|["']$/g, '') : '.';
 }
@@ -84,6 +87,7 @@ export function resolveOutputPath(root: string, p: string): string {
 
 // DETECTED (not overridden) PDF path, from the command + main file: <root>/<outdir>/<main>.pdf
 export function detectedPdfPath(cmd: string, root: string | null, main: string | null): string | null {
+	if (isTypstCommand(cmd)) return typstPdfPath(cmd, root, main);
 	if (!root || !main) return null;
 	const pdf = basename(main).replace(/\.tex$/i, '') + '.pdf';
 	const dir = compileOutDir(cmd);
@@ -93,6 +97,9 @@ export function detectedPdfPath(cmd: string, root: string | null, main: string |
 // DETECTED log: <jobname>.log next to the actual PDF, unless an aux directory (latexmk -auxdir /
 // MiKTeX -aux-directory) redirects it
 export function detectedLogPath(cmd: string, root: string | null, main: string | null, pdfOverride?: string): string | null {
+	// Typst writes no log; the generated command redirects stderr into one, and that redirect is
+	// the only thing that names it. Without one there is genuinely no log to watch.
+	if (isTypstCommand(cmd)) return typstLogPath(cmd, root);
 	const pdf = expectedPdfPath(cmd, root, main, pdfOverride);
 	if (!pdf) return null;
 	const aux = cmd.match(/-(?:aux-directory|auxdir)[=\s]+("[^"]*"|'[^']*'|\S+)/);

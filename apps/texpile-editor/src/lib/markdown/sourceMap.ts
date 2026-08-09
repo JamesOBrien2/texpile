@@ -9,6 +9,7 @@
 // the reader never sees (link targets, reference definitions, HTML attributes) must NOT survive, or
 // it inflates the occurrence count and the caret lands on the wrong repeat of a word.
 import type { Dialect } from '$lib/editor/dialect';
+import { stripTypst } from '$lib/typst/visual/sourceMap';
 
 /** strip Markdown syntax so what's left resembles the rendered text the editor shows. */
 export function stripMarkdown(s: string): string {
@@ -47,8 +48,11 @@ export function stripMarkdown(s: string): string {
 /**
  * The stripper for a dialect, or undefined to take sourceMap's LaTeX default. Lives here rather
  * than in lib/editor so the dependency keeps pointing markdown -> editor; the composition roots
- * (VisualCollab, the mode switch) are what import it.
+ * (VisualCollab, the mode switch) are what import it. The typst import is a leaf util in the
+ * same direction (dialect module -> nothing), so no cycle.
  */
 export function stripFor(dialect: Dialect | string | null): ((s: string) => string) | undefined {
-	return dialect === 'markdown' || dialect === 'md' ? stripMarkdown : undefined;
+	if (dialect === 'markdown' || dialect === 'md') return stripMarkdown;
+	if (dialect === 'typst' || dialect === 'typ') return stripTypst;
+	return undefined;
 }

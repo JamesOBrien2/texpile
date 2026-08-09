@@ -11,13 +11,14 @@
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
 	const appVersion = __APP_VERSION__; // injected by Vite from package.json
 	import { toggleMark } from 'prosemirror-commands';
-	import { schema } from '$lib/schema/schema';
 	import { createMathField } from '$lib/editor/extensions/mathlivebridge/mlcommands';
 	import { computeMathAttrs } from '$lib/editor/extensions/mathlivebridge/mlview.svelte';
 	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
 	import { createTableNode } from '$lib/editor/utils/tableUtils';
+	import { typTableNode } from '$lib/typst/visual/blockInsertItems';
 	import { startImageUpload } from '$lib/editor/extensions/image';
 	import { createLocalImageSettings } from '$lib/editor/extensions/image/imageplugin.svelte';
+	import { hasVisualMode, isRawTextKind, formatOf, type FileKind } from '$lib/workspace/documentBuffer.svelte';
 	import { run, insertNode, activeCm, cmReplace, editSelect, formatSelect } from './menuBarCommands';
 	import { checkForUpdate, updateModalOpen, updateState } from '$lib/updates';
 	import { whatsNewOpen, hasUnseenWhatsNew } from '$lib/whatsNew';
@@ -32,6 +33,8 @@
 
 	interface Props {
 		disabled?: boolean;
+		/** what is open in the editor pane; decides which menus apply and which dialect they write */
+		fileKind?: FileKind;
 		imageDir?: string;
 		/**
 		 * Create a new file. `ext` (tex/bib/cls/sty) seeds the name + content; omitted = a plain new file.
@@ -42,6 +45,8 @@
 		 * than a callback plus a flag that can disagree.
 		 */
 		onNewFile?: (ext?: string) => void;
+		/** the compile target is Typst: New offers .typ instead of .tex/.cls/.sty (md either way) */
+		typstProject?: boolean;
 		onOpenFolder?: (path?: string) => void;
 		/** Close the current folder and return to the Start screen. */
 		onCloseWorkspace?: () => void;
@@ -67,8 +72,10 @@
 	}
 	let {
 		disabled = false,
+		fileKind = null,
 		imageDir,
 		onNewFile,
+		typstProject = false,
 		onOpenFolder,
 		onCloseWorkspace,
 		onSave,
@@ -86,6 +93,16 @@
 		onZoomOut,
 		onZoomReset
 	}: Props = $props();
+
+	// What the open file supports, not just whether one is open. A PDF or an image has no text
+	// buffer, so Edit's undo/redo would reach nothing; a .bib edits as raw text, so Insert/Format
+	// have no structured document to write into; and a .typ or .md must never be offered LaTeX.
+	/** there is a text buffer (visual or raw) for Edit/Spelling to act on */
+	const editable = $derived(!disabled && (hasVisualMode(fileKind) || isRawTextKind(fileKind)));
+	/** there is a structured (tex/md/typ) document for Insert/Format to act on */
+	const structured = $derived(!disabled && hasVisualMode(fileKind));
+	/** which syntax Insert/Format write; only meaningful while `structured` */
+	const dialect = $derived(formatOf(fileKind));
 
 	/**
 	 * Progressive overflow. The menus render inline left to right for as long as they fit, and the
@@ -126,7 +143,7 @@
 		input.value = '';
 		const v = $editorViewStore;
 		if (!file || !imageDir || !v) return;
-		startImageUpload(v, file, m.menubar_image_alt_default(), createLocalImageSettings(imageDir), schema);
+		startImageUpload(v, file, m.menubar_image_alt_default(), createLocalImageSettings(imageDir), v.state.schema);
 		v.focus();
 	}
 
@@ -230,57 +247,86 @@
 	function mathSelect(value: string) {
 		const cm = activeCm();
 		if (cm) {
+			// the env/matrix items only render for tex, so the non-tex branch is inline/display only
 			if (value === 'inline') cmReplace(cm, '$', '$');
-			else if (value === 'display') cmReplace(cm, '\\[\n', '\n\\]');
-			else if (MATH_ENVS[value]) cmReplace(cm, MATH_ENVS[value]);
+			else if (value === 'display') {
+				if (dialect === 'tex') cmReplace(cm, '\\[\n', '\n\\]');
+				else if (dialect === 'typ') cmReplace(cm, '$ ', ' $');
+				else cmReplace(cm, '$$\n', '\n$$');
+			} else if (dialect === 'tex' && MATH_ENVS[value]) cmReplace(cm, MATH_ENVS[value]);
 			return;
 		}
 		if (value === 'inline') run(createMathField());
 		else if (value === 'display') run(createMathField(true));
-		else if (MATH_ENVS[value]) insertMathEnvironment(MATH_ENVS[value]);
+		else if (dialect === 'tex' && MATH_ENVS[value]) insertMathEnvironment(MATH_ENVS[value]);
 	}
+
+	// what Insert writes into the source editor, per dialect (environment/citation/link handled
+	// below because they prompt or read state first)
+	const CM_INSERT: Record<'tex' | 'md' | 'typ', Partial<Record<string, [string, string?]>>> = {
+		tex: {
+			code: ['\\begin{verbatim}\n', '\n\\end{verbatim}'],
+			table: ['\\begin{tabular}{ccc}\n  a & b & c \\\\\n  d & e & f \\\\\n\\end{tabular}'],
+			image: ['\\includegraphics{', '}'],
+			hrule: ['\\rule{\\linewidth}{0.4pt}']
+		},
+		typ: {
+			code: ['```\n', '\n```'],
+			table: ['#table(\n  columns: 3,\n  [], [], [],\n  [], [], [],\n)'],
+			image: ['#image("', '")'],
+			hrule: ['#line(length: 100%)']
+		},
+		md: {
+			code: ['```\n', '\n```'],
+			table: ['| a | b | c |\n| --- | --- | --- |\n| d | e | f |'],
+			image: ['![](', ')'],
+			hrule: ['---']
+		}
+	};
 
 	async function insertSelect(value: string) {
 		const cm = activeCm();
 		if (cm) {
+			const snippet = CM_INSERT[dialect][value];
+			if (snippet) {
+				cmReplace(cm, snippet[0], snippet[1] ?? '');
+				return;
+			}
 			switch (value) {
-				case 'code':
-					cmReplace(cm, '\\begin{verbatim}\n', '\n\\end{verbatim}');
-					break;
-				case 'table':
-					cmReplace(cm, '\\begin{tabular}{ccc}\n  a & b & c \\\\\n  d & e & f \\\\\n\\end{tabular}');
-					break;
-				case 'image':
-					cmReplace(cm, '\\includegraphics{', '}');
-					break;
-				case 'hrule':
-					cmReplace(cm, '\\rule{\\linewidth}{0.4pt}');
-					break;
 				case 'link': {
 					const href = await askText(m.menubar_prompt_link_url(), 'https://');
-					if (href) cmReplace(cm, `\\href{${href}}{`, '}');
+					if (!href) break;
+					if (dialect === 'tex') cmReplace(cm, `\\href{${href}}{`, '}');
+					else if (dialect === 'typ') cmReplace(cm, `#link("${href}")[`, ']');
+					else cmReplace(cm, '[', `](${href})`);
 					break;
 				}
 				case 'citation': {
 					const key = get(referenceStore)?.[0]?.key ?? 'key';
-					cmReplace(cm, `\\autocite{${key}}`);
+					if (dialect === 'tex') cmReplace(cm, `\\autocite{${key}}`);
+					else if (dialect === 'typ') cmReplace(cm, `@${key}`);
 					break;
 				}
 				case 'environment': {
+					if (dialect !== 'tex') break; // tex-only item; unreachable elsewhere
 					const name = (await askText(m.menubar_prompt_environment_name(), 'center'))?.trim();
 					if (name) cmReplace(cm, `\\begin{${name}}\n`, `\n\\end{${name}}`);
 					break;
 				}
-				// rawlatex / inlinelatex are PM-only nodes; in CM you're already writing LaTeX
+				// rawlatex / inlinelatex are PM-only nodes; in CM you're already writing the raw syntax
 			}
 			return;
 		}
 		switch (value) {
 			case 'code':
-				run(createCodeBlock());
+				// typst code blocks are fences; the tex default env would serialize as \begin{verbatim}
+				if (dialect === 'typ') insertNode((state) => state.schema.nodes.code_block.createAndFill({ env: 'fence', args: '' }));
+				else run(createCodeBlock());
 				break;
 			case 'table':
-				insertNode((state) => createTableNode(state.schema, 3, 3) as unknown as PMNode);
+				insertNode((state) =>
+					dialect === 'typ' ? typTableNode(state.schema) : (createTableNode(state.schema, 3, 3) as unknown as PMNode)
+				);
 				break;
 			case 'image':
 				pickImage();
@@ -296,12 +342,17 @@
 				break;
 			case 'link': {
 				const href = await askText(m.menubar_prompt_link_url(), 'https://');
-				if (href) run(toggleMark(schema.marks.link, { href, title: null }));
+				// the open editor's own link mark: tex, md and typ are three different Schema objects
+				if (href) run((state, dispatch) => toggleMark(state.schema.marks.link, { href, title: null })(state, dispatch));
 				break;
 			}
 			case 'citation': {
 				const key = get(referenceStore)?.[0]?.key ?? 'key';
-				insertNode((state) => state.schema.nodes.citation.create({ variant: 'autocite' }, state.schema.text(key)));
+				insertNode((state) =>
+					state.schema.nodes.typ_ref
+						? state.schema.nodes.typ_ref.create({ target: key })
+						: state.schema.nodes.citation.create({ variant: 'autocite' }, state.schema.text(key))
+				);
 				break;
 			}
 			case 'environment': {
@@ -348,7 +399,7 @@
 			view: viewSelect,
 			insert: (v) => void insertSelect(v),
 			math: mathSelect,
-			format: (v) => (v === 'format-document' ? onFormatDocument?.() : formatSelect(v)),
+			format: (v) => (v === 'format-document' ? onFormatDocument?.() : formatSelect(v, dialect)),
 			spelling: spellcheckSelect,
 			terminal: terminalSelect,
 			help: (v) => (v === 'tutorial' ? onOpenTutorial?.() : helpSelect(v))
@@ -358,6 +409,9 @@
 	$effect(() =>
 		publishMenuState({
 			disabled,
+			editable,
+			structured,
+			dialect,
 			cursorInCm: $cursorInCm,
 			spellcheck: spellcheckOn,
 			terminalAvailable,
@@ -366,6 +420,7 @@
 			canCloseWorkspace: !!onCloseWorkspace,
 			canFormat: !!onFormatDocument,
 			canNewFile: !!onNewFile,
+			typstProject,
 			canInsertImage: !!imageDir,
 			canOpenFolder: !!onOpenFolder,
 			canTutorial: !!onOpenTutorial,
@@ -451,11 +506,21 @@
 								</Menu.TriggerItem>
 								<Portal>
 									<Menu.Positioner>
+										<!-- the compile target decides the document options: a Typst project is not
+										     served by .tex/.cls/.sty rows and vice versa. .bib works for both (Typst
+										     reads BibTeX directly) and markdown is format-neutral, so those stay. -->
 										<Menu.Content class={contentClass}>
-											<Menu.Item value="tex" class={itemClass}><Menu.ItemText>{m.menubar_new_tex()}</Menu.ItemText></Menu.Item>
+											{#if typstProject}
+												<Menu.Item value="typ" class={itemClass}><Menu.ItemText>{m.menubar_new_typ()}</Menu.ItemText></Menu.Item>
+											{:else}
+												<Menu.Item value="tex" class={itemClass}><Menu.ItemText>{m.menubar_new_tex()}</Menu.ItemText></Menu.Item>
+											{/if}
 											<Menu.Item value="bib" class={itemClass}><Menu.ItemText>{m.menubar_new_bib()}</Menu.ItemText></Menu.Item>
-											<Menu.Item value="cls" class={itemClass}><Menu.ItemText>{m.menubar_new_cls()}</Menu.ItemText></Menu.Item>
-											<Menu.Item value="sty" class={itemClass}><Menu.ItemText>{m.menubar_new_sty()}</Menu.ItemText></Menu.Item>
+											<Menu.Item value="md" class={itemClass}><Menu.ItemText>{m.menubar_new_md()}</Menu.ItemText></Menu.Item>
+											{#if !typstProject}
+												<Menu.Item value="cls" class={itemClass}><Menu.ItemText>{m.menubar_new_cls()}</Menu.ItemText></Menu.Item>
+												<Menu.Item value="sty" class={itemClass}><Menu.ItemText>{m.menubar_new_sty()}</Menu.ItemText></Menu.Item>
+											{/if}
 										</Menu.Content>
 									</Menu.Positioner>
 								</Portal>
@@ -528,7 +593,7 @@
 
 	{#if showAt(1, overflow)}
 		<Menu onSelect={(d) => (d.value === 'palette' ? commandPalette.show() : editSelect(d.value))}>
-			{@render topTrigger('edit', 1, m.menubar_menu_edit(), { disabled })}
+			{@render topTrigger('edit', 1, m.menubar_menu_edit(), { disabled: !editable })}
 			<Portal>
 				<Menu.Positioner>
 					<Menu.Content class={contentClass}>
@@ -578,7 +643,7 @@
 	{#if showAt(3, overflow)}
 		<Menu onSelect={(d) => void insertSelect(d.value)}>
 			{@render topTrigger('insert', 3, m.menubar_menu_insert(), {
-				disabled: disabled || $cursorInCm,
+				disabled: !structured || $cursorInCm,
 				title: $cursorInCm ? m.menubar_cursor_in_cm_hint() : ''
 			})}
 			<Portal>
@@ -593,16 +658,22 @@
 									<Menu.Content class={contentClass}>
 										<Menu.Item value="inline" class={itemClass}><Menu.ItemText>{m.menubar_inline_equation()}</Menu.ItemText></Menu.Item>
 										<Menu.Item value="display" class={itemClass}><Menu.ItemText>{m.menubar_display_equation()}</Menu.ItemText></Menu.Item>
-										<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-										<Menu.Item value="align" class={itemClass}><Menu.ItemText>Align</Menu.ItemText></Menu.Item>
-										<Menu.Item value="aligned" class={itemClass}><Menu.ItemText>Aligned</Menu.ItemText></Menu.Item>
-										<Menu.Item value="gather" class={itemClass}><Menu.ItemText>Gather</Menu.ItemText></Menu.Item>
-										<Menu.Item value="cases" class={itemClass}><Menu.ItemText>Cases</Menu.ItemText></Menu.Item>
-										<Menu.Item value="multline" class={itemClass}><Menu.ItemText>Multline</Menu.ItemText></Menu.Item>
-										<Menu.Item value="split" class={itemClass}><Menu.ItemText>Split</Menu.ItemText></Menu.Item>
-										<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-										<Menu.Item value="bmatrix" class={itemClass}><Menu.ItemText>{m.menubar_math_matrix_square()}</Menu.ItemText></Menu.Item>
-										<Menu.Item value="pmatrix" class={itemClass}><Menu.ItemText>{m.menubar_math_matrix_paren()}</Menu.ItemText></Menu.Item>
+										<!-- LaTeX environments; a typst/markdown document has nowhere to put \begin{align} -->
+										{#if dialect === 'tex'}
+											<Menu.Separator class="border-surface-200-800 my-1 border-t" />
+											<Menu.Item value="align" class={itemClass}><Menu.ItemText>Align</Menu.ItemText></Menu.Item>
+											<Menu.Item value="aligned" class={itemClass}><Menu.ItemText>Aligned</Menu.ItemText></Menu.Item>
+											<Menu.Item value="gather" class={itemClass}><Menu.ItemText>Gather</Menu.ItemText></Menu.Item>
+											<Menu.Item value="cases" class={itemClass}><Menu.ItemText>Cases</Menu.ItemText></Menu.Item>
+											<Menu.Item value="multline" class={itemClass}><Menu.ItemText>Multline</Menu.ItemText></Menu.Item>
+											<Menu.Item value="split" class={itemClass}><Menu.ItemText>Split</Menu.ItemText></Menu.Item>
+											<Menu.Separator class="border-surface-200-800 my-1 border-t" />
+											<Menu.Item value="bmatrix" class={itemClass}
+												><Menu.ItemText>{m.menubar_math_matrix_square()}</Menu.ItemText></Menu.Item
+											>
+											<Menu.Item value="pmatrix" class={itemClass}><Menu.ItemText>{m.menubar_math_matrix_paren()}</Menu.ItemText></Menu.Item
+											>
+										{/if}
 									</Menu.Content>
 								</Menu.Positioner>
 							</Portal>
@@ -614,14 +685,19 @@
 							<Menu.Item value="image" class={itemClass}><Menu.ItemText>{m.menubar_insert_image()}</Menu.ItemText></Menu.Item>
 						{/if}
 						<Menu.Item value="table" class={itemClass}><Menu.ItemText>{m.menubar_insert_table()}</Menu.ItemText></Menu.Item>
-						<Menu.Item value="citation" class={itemClass}><Menu.ItemText>{m.menubar_insert_citation()}</Menu.ItemText></Menu.Item>
+						<!-- markdown has no citation node; tex writes \autocite, typst an @ref chip -->
+						{#if dialect !== 'md'}
+							<Menu.Item value="citation" class={itemClass}><Menu.ItemText>{m.menubar_insert_citation()}</Menu.ItemText></Menu.Item>
+						{/if}
 						<Menu.Item value="link" class={itemClass}><Menu.ItemText>{m.menubar_insert_link()}</Menu.ItemText></Menu.Item>
 						<Menu.Item value="code" class={itemClass}><Menu.ItemText>{m.menubar_insert_code_block()}</Menu.ItemText></Menu.Item>
 						<Menu.Item value="hrule" class={itemClass}><Menu.ItemText>{m.menubar_insert_hrule()}</Menu.ItemText></Menu.Item>
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<Menu.Item value="environment" class={itemClass}><Menu.ItemText>{m.menubar_insert_environment()}</Menu.ItemText></Menu.Item>
-						<Menu.Item value="rawlatex" class={itemClass}><Menu.ItemText>{m.menubar_insert_raw_latex()}</Menu.ItemText></Menu.Item>
-						<Menu.Item value="inlinelatex" class={itemClass}><Menu.ItemText>{m.menubar_insert_inline_latex()}</Menu.ItemText></Menu.Item>
+						{#if dialect === 'tex'}
+							<Menu.Separator class="border-surface-200-800 my-1 border-t" />
+							<Menu.Item value="environment" class={itemClass}><Menu.ItemText>{m.menubar_insert_environment()}</Menu.ItemText></Menu.Item>
+							<Menu.Item value="rawlatex" class={itemClass}><Menu.ItemText>{m.menubar_insert_raw_latex()}</Menu.ItemText></Menu.Item>
+							<Menu.Item value="inlinelatex" class={itemClass}><Menu.ItemText>{m.menubar_insert_inline_latex()}</Menu.ItemText></Menu.Item>
+						{/if}
 					</Menu.Content>
 				</Menu.Positioner>
 			</Portal>
@@ -629,9 +705,9 @@
 	{/if}
 
 	{#if showAt(4, overflow)}
-		<Menu onSelect={(d) => (d.value === 'format-document' ? onFormatDocument?.() : formatSelect(d.value))}>
+		<Menu onSelect={(d) => (d.value === 'format-document' ? onFormatDocument?.() : formatSelect(d.value, dialect))}>
 			{@render topTrigger('format', 4, m.menubar_menu_format(), {
-				disabled: disabled || $cursorInCm,
+				disabled: !structured || $cursorInCm,
 				title: $cursorInCm ? m.menubar_cursor_in_cm_hint() : ''
 			})}
 			<Portal>
@@ -643,9 +719,12 @@
 						<Menu.Item value="italic" class={itemClass}
 							><Menu.ItemText>{m.menubar_format_italic()}</Menu.ItemText><span class="opacity-50">{combo('I')}</span></Menu.Item
 						>
-						<Menu.Item value="underline" class={itemClass}
-							><Menu.ItemText>{m.menubar_format_underline()}</Menu.ItemText><span class="opacity-50">{combo('U')}</span></Menu.Item
-						>
+						<!-- markdown has no underline mark and no underline syntax -->
+						{#if dialect !== 'md'}
+							<Menu.Item value="underline" class={itemClass}
+								><Menu.ItemText>{m.menubar_format_underline()}</Menu.ItemText><span class="opacity-50">{combo('U')}</span></Menu.Item
+							>
+						{/if}
 						<Menu.Item value="code" class={itemClass}><Menu.ItemText>{m.menubar_format_inline_code()}</Menu.ItemText></Menu.Item>
 						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
 						<Menu.Item value="h1" class={itemClass}><Menu.ItemText>{m.menubar_heading_1()}</Menu.ItemText></Menu.Item>
@@ -664,7 +743,7 @@
 
 	{#if showAt(5, overflow)}
 		<Menu onSelect={(d) => spellcheckSelect(d.value)}>
-			{@render topTrigger('spelling', 5, m.menubar_menu_spelling(), { disabled })}
+			{@render topTrigger('spelling', 5, m.menubar_menu_spelling(), { disabled: !editable })}
 			<Portal>
 				<Menu.Positioner>
 					<Menu.Content class={contentClass}>

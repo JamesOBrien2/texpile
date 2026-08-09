@@ -51,6 +51,7 @@ function makeFs(tooBigFor: (p: string) => boolean = () => false, hasRecycleBin =
 		refreshTree: async () => {},
 		loadRefs: () => {},
 		wantsStarter: () => false,
+		isTypstProject: () => false,
 		insertIncludeAtCursor: () => true,
 		afterRename: () => {},
 		retargetPendingSave: () => {},
