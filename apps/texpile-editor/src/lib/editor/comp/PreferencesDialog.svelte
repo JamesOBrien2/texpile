@@ -188,9 +188,11 @@
 	{#if probeFailed}
 		<p class="text-warning-700-300 pt-3 text-xs">{m.prefs_toolchain_probe_failed()}</p>
 	{/if}
-	<!-- two columns: one column of name-plus-verdict rows was half whitespace. The version rides
-	     along truncated (hover for the full line); the tool's purpose is the row tooltip -->
-	<div class="grid grid-cols-2 gap-x-6">
+	<!-- two columns for the LaTeX crowd: one column of name-plus-verdict rows was half whitespace.
+	     A group with a single tool (tinymist, git) keeps the full width, so its version line does
+	     not truncate for a column that isn't there. The version rides along truncated when needed
+	     (hover for the full line); the tool's purpose is the row tooltip -->
+	<div class="grid gap-x-6 {toolsInGroup(group).length > 1 ? 'grid-cols-2' : 'grid-cols-1'}">
 		{#each toolsInGroup(group) as tool (tool.id)}
 			{@const probe = probeFor(tool.id)}
 			<!-- tinymist resolves through its own path (configured / PATH / managed), so its row reads
