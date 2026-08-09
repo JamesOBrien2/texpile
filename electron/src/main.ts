@@ -2,12 +2,15 @@ import { app, BrowserWindow, ipcMain, dialog, shell, protocol } from 'electron';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { Readable } from 'node:stream';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fsService from './fs-service';
 import * as gitService from './git-service';
 import * as draftService from './draft-service';
 import * as draftDaemon from './draft-daemon';
+import * as typstService from './typst-service';
+import * as typstPreviewPage from './typst-preview-page';
+import * as toolchain from './toolchain';
 import * as updates from './updates';
 import { startWorkspaceWatch, stopWorkspaceWatch } from './fs-watch';
 import * as mcp from './mcp/server';
@@ -171,7 +174,11 @@ const RENDERER_CSP = [
 	"media-src 'self' blob: data:",
 	"object-src 'none'",
 	"base-uri 'self'",
-	"frame-src 'none'",
+	// The Typst preview page, which we serve ourselves on loopback (see typst:preview:prepare). It
+	// has to be an http://127.0.0.1 origin rather than a custom scheme, because tinymist's data
+	// plane rejects websocket handshakes from any other origin. Still a separate origin from
+	// app://bundle, so the framed page cannot reach this window's bridges.
+	'frame-src http://127.0.0.1:*',
 	"frame-ancestors 'none'",
 	"form-action 'self'"
 ].join('; ');
@@ -396,10 +403,15 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 		event.preventDefault();
 		if (/^https?:/i.test(target)) shell.openExternal(target);
 	});
-	// will-navigate covers only the top frame. The renderer CSP forbids frames outright, so any
-	// subframe navigation is unexpected — block it wholesale (defence in depth).
+	// will-navigate covers only the top frame. Subframes get exactly one destination: the Typst
+	// preview page we prepared and serve ourselves on loopback. Everything else is blocked
+	// wholesale, which backs up the renderer CSP's `frame-src http://127.0.0.1:*` rather than trusting it
+	// alone - and, unlike the CSP, this guard also applies in dev, where the renderer is served by
+	// Vite and carries no CSP of ours at all.
 	win.webContents.on('will-frame-navigate', (event) => {
-		if (!event.isMainFrame) event.preventDefault();
+		if (event.isMainFrame) return;
+		if (/^http:\/\/127\.0\.0\.1:\d+\//.test(event.url)) return;
+		event.preventDefault();
 	});
 	// hold the close so the renderer can flush (autosave's 1.5s debounce) or prompt for unsaved
 	// edits; the timeout guarantees a hung renderer can never make the window unclosable
@@ -611,6 +623,26 @@ handleFsE('draft:savePdf', async (e, body: { root: string; defaultName: string; 
 	fs.copyFileSync(src, dest);
 	return { saved: true, path: dest };
 });
+// Save an already-produced PDF where the user picks - the Typst preview's Save as PDF goes
+// through here. Generic on the SOURCE (draft:savePdf above hardcodes the draft engine's staging
+// file) but still PDF-only: the dialog is the user's consent to the destination, not the source.
+handleFsE('shell:savePdfAs', async (e, body: { src: string; defaultPath: string; to?: string }) => {
+	if (typeof body?.src !== 'string' || !/\.pdf$/i.test(body.src) || !fs.existsSync(body.src)) {
+		throw new Error('No compiled PDF yet.');
+	}
+	let dest = body.to;
+	if (!dest) {
+		const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender) ?? undefined!, {
+			title: 'Save PDF',
+			defaultPath: body.defaultPath,
+			filters: [{ name: 'PDF', extensions: ['pdf'] }]
+		});
+		if (res.canceled || !res.filePath) return { saved: false };
+		dest = res.filePath;
+	}
+	fs.copyFileSync(body.src, dest);
+	return { saved: true, path: dest };
+});
 handleFs('git:status', gitService.gitStatus);
 handleFs('git:show', gitService.gitShowHead);
 handleFs('git:init', gitService.gitInit);
@@ -641,6 +673,14 @@ const DEFAULT_SETTINGS = {
 	mathPreview: true, // live math preview tooltip in source mode
 	sourceLineWrap: true, // soft-wrap long lines in Source mode
 	visualMaxWidth: 768, // widest the visual editor's text column may grow, in px
+	// Absolute path to a tinymist binary. Empty = look on PATH, then at the copy we downloaded.
+	// tinymist both compiles Typst documents and serves their language features.
+	typstPath: '',
+	typstIntellisense: true, // run tinymist as a language server for .typ files
+	// Recompile a Typst document once typing settles. On by default: a warm rebuild is ~230ms, so
+	// unlike LaTeX's live mode there is no cost that would justify making the user ask for it.
+	typstLiveMode: true,
+	typstPreviewFollow: false,
 
 	editorKeymap: 'default', // modal keybindings for the source editor: 'default' | 'vim' | 'emacs'
 	uiLocale: 'en', // UI display language, not the LaTeX document language. Overridden per-read by
@@ -722,6 +762,158 @@ function writeSettings(partial: Record<string, unknown> | undefined): Record<str
 }
 ipcMain.handle('settings:get', () => readSettings());
 ipcMain.handle('settings:set', (_e, partial: Record<string, unknown>) => writeSettings(partial));
+
+// --- Typst / tinymist -------------------------------------------------------
+// One language server per window: each window has its own folder, and tinymist's project model is
+// rooted at one workspace. Keyed by webContents id so closing one window can't kill another's.
+const typstLsps = new Map<number, typstService.LspHandle>();
+
+ipcMain.handle('typst:resolve', () => typstService.resolveTinymist(String(readSettings().typstPath || ''), app.getPath('userData')));
+
+// "which of the programs we shell out to are actually here" - see toolchain.ts. tinymist is not in
+// that list because typst:resolve already answers for it, and with more detail (it reports the
+// embedded Typst version and which of the configured/PATH/managed locations won).
+ipcMain.handle('toolchain:probe', () => toolchain.probeToolchain());
+
+ipcMain.handle('typst:lsp:start', async (e, root: string | null) => {
+	const wcId = e.sender.id;
+	typstLsps.get(wcId)?.stop();
+	typstLsps.delete(wcId);
+	const info = await typstService.resolveTinymist(String(readSettings().typstPath || ''), app.getPath('userData'));
+	if (!info) return { ok: false, error: 'tinymist was not found on PATH.' };
+	try {
+		const handle = typstService.startLsp(info.command, root, {
+			message: (json) => {
+				if (!e.sender.isDestroyed()) e.sender.send('typst:lsp:message', json);
+			},
+			exit: (code) => {
+				typstLsps.delete(wcId);
+				if (!e.sender.isDestroyed()) e.sender.send('typst:lsp:exit', code);
+			}
+		});
+		typstLsps.set(wcId, handle);
+		// a closed window can no longer release its own server, and the process holds ~90MB
+		e.sender.once('destroyed', () => {
+			typstLsps.get(wcId)?.stop();
+			typstLsps.delete(wcId);
+		});
+		return { ok: true, info };
+	} catch (err) {
+		return { ok: false, error: String(err instanceof Error ? err.message : err) };
+	}
+});
+
+/**
+ * Run a Typst compile OUTSIDE the terminal dock.
+ *
+ * Live preview recompiles every time typing pauses, and routing that through the shell the user can
+ * see would fill it with a command per second. The command string is the same one the terminal
+ * would have run - it comes from the folder's own compile settings, which the user owns - and it
+ * goes through a shell so its `2>out/main.log` redirect still lands where the log watcher looks.
+ */
+// --- Typst live preview -----------------------------------------------------
+// The renderer starts the preview through the language server; here we fetch the page tinymist
+// serves for it, prepare it (see typst-preview-page.ts) and re-serve it, which the pane then frames.
+//
+// Why re-serve instead of framing tinymist's origin directly: served by us, we can theme the page
+// and open a postMessage bridge to it.
+// Served over LOOPBACK HTTP, not from a custom scheme, and that is forced on us rather than chosen.
+// tinymist's data plane validates the Origin header of every websocket handshake (its own
+// tool/preview/http.rs, guarding a localhost server against other pages on the machine). It accepts
+// its own origin, `vscode-webview://…`, and anything on `http://127.0.0.1` or `http://localhost`.
+// A page served from a custom scheme sends `typstpreview://…`, gets rejected, and the socket closes
+// with 1006 - so the ONE way to serve a modified copy of their page and still let it connect is to
+// serve it from a loopback http origin.
+//
+// Note this also rules out our own renderer connecting directly in a packaged build, where the
+// origin would be `app://bundle`.
+const preparedPages = new Map<number, string>();
+let pageServer: import('node:http').Server | null = null;
+let pageServerPort = 0;
+
+async function ensurePageServer(): Promise<number> {
+	if (pageServer && pageServerPort) return pageServerPort;
+	const http = await import('node:http');
+	return new Promise<number>((resolve, reject) => {
+		const server = http.createServer((req, res) => {
+			const id = Number((req.url ?? '').replace(/^\/+/, '').split('?')[0]);
+			const page = preparedPages.get(id);
+			if (!page) {
+				res.writeHead(404, { 'Content-Type': 'text/plain' });
+				res.end('No preview prepared');
+				return;
+			}
+			res.writeHead(200, {
+				'Content-Type': 'text/html; charset=utf-8',
+				'Cache-Control': 'no-store',
+				// the page needs its inlined wasm and a socket to tinymist, and nothing else
+				'Content-Security-Policy': [
+					"default-src 'none'",
+					"script-src 'unsafe-inline' 'wasm-unsafe-eval' data:",
+					"style-src 'unsafe-inline'",
+					'img-src data: blob:',
+					'font-src data:',
+					'connect-src ws://127.0.0.1:* http://127.0.0.1:* data: blob:',
+					"frame-src 'none'",
+					"object-src 'none'",
+					"base-uri 'none'",
+					"form-action 'none'"
+				].join('; ')
+			});
+			res.end(page);
+		});
+		server.on('error', reject);
+		// 127.0.0.1 explicitly, never 0.0.0.0: this must not be reachable from the network
+		server.listen(0, '127.0.0.1', () => {
+			pageServer = server;
+			pageServerPort = (server.address() as import('node:net').AddressInfo).port;
+			resolve(pageServerPort);
+		});
+	});
+}
+
+ipcMain.handle('typst:preview:prepare', async (e, body: { host: string; background: string; foreground: string }) => {
+	// only ever tinymist's loopback preview server, never an address from anywhere else
+	if (!/^127\.0\.0\.1:\d+$/.test(body?.host ?? '')) return { ok: false, error: 'refusing a non-loopback preview host' };
+	try {
+		const res = await fetch(`http://${body.host}/`, { signal: AbortSignal.timeout(15000) });
+		if (!res.ok) return { ok: false, error: `preview server answered ${res.status}` };
+		const page = typstPreviewPage.preparePreviewPage(await res.text(), {
+			dataPlaneHost: body.host,
+			background: cssColour(body.background),
+			foreground: cssColour(body.foreground)
+		});
+		preparedPages.set(e.sender.id, page);
+		e.sender.once('destroyed', () => preparedPages.delete(e.sender.id));
+		const port = await ensurePageServer();
+		// one page per window, so the id keeps windows from seeing each other's preview
+		return { ok: true, url: `http://127.0.0.1:${port}/${e.sender.id}` };
+	} catch (err) {
+		return { ok: false, error: String(err instanceof Error ? err.message : err) };
+	}
+});
+
+ipcMain.on('typst:preview:release', (e) => preparedPages.delete(e.sender.id));
+
+/**
+ * Colours reach us from the renderer's theme; this bounds them to a colour-shaped charset so they
+ * cannot break out of the style rule they are interpolated into (no quotes, braces, semicolons).
+ *
+ * Deliberately a charset, NOT an allowlist of colour functions: this used to accept only hex/rgb,
+ * and when the theme turned out to declare oklch(...) it silently substituted WHITE - which painted
+ * the preview's surround and its page edges invisible. A colour space this function has not heard
+ * of must still pass.
+ */
+function cssColour(v: unknown): string {
+	const s = String(v ?? '').trim();
+	return s.length <= 100 && /^[a-zA-Z#][a-zA-Z0-9#(),.%/\s-]*$/.test(s) ? s : '#ffffff';
+}
+
+ipcMain.on('typst:lsp:send', (e, json: string) => typstLsps.get(e.sender.id)?.send(json));
+ipcMain.on('typst:lsp:stop', (e) => {
+	typstLsps.get(e.sender.id)?.stop();
+	typstLsps.delete(e.sender.id);
+});
 
 // in-app updates; progress/downloaded/error stream back over update:* webContents events
 ipcMain.handle('update:check', (_e, manual: boolean) => updates.check(!!manual));
@@ -861,6 +1053,28 @@ function defaultShell(): string {
 	return process.env.SHELL || '/bin/bash';
 }
 
+/**
+ * The environment a terminal is spawned with: ours, plus wherever the configured tools live.
+ *
+ * Only directories are added, never a command - the shell still resolves `tinymist` (or `latexmk`,
+ * or anything else) by name, exactly as a user typing the same command by hand would. That keeps
+ * the compile command portable: it is the same string whether or not a path was configured.
+ */
+function terminalEnv(): NodeJS.ProcessEnv {
+	const dirs: string[] = [];
+	try {
+		const configured = String(readSettings().typstPath || '').trim();
+		// a configured path may be the binary itself or the folder holding it; accept either
+		if (configured) dirs.push(fs.existsSync(configured) && fs.statSync(configured).isDirectory() ? configured : path.dirname(configured));
+		// the copy we manage ourselves, if one was ever downloaded
+		const managed = typstService.managedTinymistPath(app.getPath('userData'));
+		if (fs.existsSync(managed)) dirs.push(path.dirname(managed));
+	} catch {
+		// a bad path in settings must never stop a terminal from opening
+	}
+	return toolchain.withPathDirs(process.env, dirs);
+}
+
 ipcMain.handle('terminal:available', () => pty != null);
 
 interface TerminalSpawnOpts {
@@ -889,7 +1103,10 @@ ipcMain.handle('terminal:spawn', (e, { id, cwd, cols, rows }: TerminalSpawnOpts 
 			cwd: cwd && fs.existsSync(cwd) ? cwd : app.getPath('home'),
 			cols: Math.max(1, cols! | 0) || 80,
 			rows: Math.max(1, rows! | 0) || 24,
-			env: process.env as Record<string, string>
+			// the shell must be able to find the tools Preferences says are installed; without this a
+			// configured tinymist works for intellisense and for the Toolchain tab, then fails at the
+			// compile command with "not recognized" (see withPathDirs)
+			env: terminalEnv() as Record<string, string>
 		});
 	} catch (err) {
 		return { ok: false, error: String(err instanceof Error ? err.message : err) };

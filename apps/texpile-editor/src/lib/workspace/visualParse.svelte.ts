@@ -48,7 +48,8 @@ export class VisualParser {
 
 	/** The failure is RETURNED rather than handled here: only the caller knows whether its parse is
 	 * still the current one, and a superseded parse must not yank the user out of visual mode. */
-	async parse(text: string, format: 'tex' | 'md' = 'tex'): Promise<ParseOutcome> {
+	async parse(text: string, format: 'tex' | 'md' | 'typ' = 'tex'): Promise<ParseOutcome> {
+		if (format === 'typ') return this.parseTypst(text);
 		try {
 			const timeoutMs = Math.min(MAX_TIMEOUT_MS, MIN_TIMEOUT_MS + Math.floor(text.length / 100));
 			this.progress = 'parsing';
@@ -63,6 +64,32 @@ export class VisualParser {
 			const timeout = msg === PARSE_TIMEOUT;
 			const tooComplex = msg.startsWith(`${PARSE_TOO_COMPLEX}:`) ? Number(msg.slice(PARSE_TOO_COMPLEX.length + 1)) : undefined;
 			return { failure: { timeout, tooComplex, message: msg } };
+		} finally {
+			this.progress = null;
+		}
+	}
+
+	/** Typst parses ON the main thread: its parser is Typst's own compiled incremental parser
+	 * (linear, milliseconds even on MB files) and its wasm is already loaded here for CodeMirror
+	 * highlighting. The worker exists to sandbox unified-latex's runaway recursive PEG, which has
+	 * no Typst analogue — and a worker build would need its own wasm pipeline for nothing. The
+	 * node-count ceiling still applies: it guards the RENDERER, which is dialect-blind. */
+	private async parseTypst(text: string): Promise<ParseOutcome> {
+		try {
+			this.progress = 'parsing';
+			const { parseTypstFile } = await import('$lib/typst/visual/roundtrip');
+			const parsed = parseTypstFile(text, this.getMacros());
+			let nodeCount = 0;
+			parsed.doc.descendants(() => {
+				nodeCount++;
+				return true;
+			});
+			if (nodeCount > MAX_VISUAL_NODES) {
+				return { failure: { timeout: false, tooComplex: nodeCount, message: `${PARSE_TOO_COMPLEX}:${nodeCount}` } };
+			}
+			return { parsed };
+		} catch (e) {
+			return { failure: { timeout: false, message: e instanceof Error ? e.message : String(e) } };
 		} finally {
 			this.progress = null;
 		}

@@ -3,6 +3,7 @@
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
 import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
+import { typSchema } from '$lib/typst/visual/schema';
 import { activeFilePath, workspaceRoot } from '$lib/workspace/workspaceStore';
 import { basename, dirname, joinPath, relativeTo, toLf, fromLf, type Eol } from '$lib/workspace/fileSystem';
 import { toaster } from '$lib/modals/toaster-svelte';
@@ -96,6 +97,29 @@ export function insertIncludeAtCursor(newFilePath: string, loadedPath: string | 
 	const rel = relativeTo(dirname(loadedPath), newFilePath).replace(/\.tex$/i, '');
 	v.dispatch(v.state.tr.replaceSelectionWith(type.create({ path: rel, command: 'input' })).scrollIntoView());
 	v.focus();
+	return true;
+}
+
+/** Insert a `#include "path"` for newFilePath at the cursor. Typst's include takes a quoted
+ * file-relative path WITH its extension, unlike \input. Visual mode gets the includedoc chip
+ * (only when the live view really is the typst editor — a chip stamped `command: 'typst'` must
+ * never land in a tex/md doc, whose serializers would mangle it); source mode gets the literal
+ * line in the CodeMirror view. False when neither editor is up. */
+export function insertTypstIncludeAtCursor(newFilePath: string, loadedPath: string | null): boolean {
+	if (!loadedPath) return false;
+	const rel = relativeTo(dirname(loadedPath), newFilePath).replace(/\\/g, '/');
+	const v = get(editorViewStore);
+	if (v?.dom.isConnected && v.state.schema === typSchema) {
+		v.dispatch(v.state.tr.replaceSelectionWith(typSchema.nodes.includedoc.create({ path: rel, command: 'typst' })).scrollIntoView());
+		v.focus();
+		return true;
+	}
+	const cm = get(sourceCmView);
+	if (!cm || !cm.dom.isConnected) return false;
+	const insert = `#include "${rel}"\n`;
+	const { from, to } = cm.state.selection.main;
+	cm.dispatch({ changes: { from, to, insert }, selection: { anchor: from + insert.length }, scrollIntoView: true });
+	cm.focus();
 	return true;
 }
 

@@ -206,14 +206,35 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 			run: () => a.save()
 		});
 	if (a.canManageTree()) {
-		push({
-			id: 'file.newTex',
-			label: m.menubar_new_tex(),
-			group: g.file,
-			keywords: 'create add document',
-			icon: FilePlus2,
-			run: () => a.newFile('tex')
-		});
+		// the compile target decides the document rows, exactly as in the File > New menus:
+		// .typ for a Typst project, .tex otherwise; .bib and markdown serve both
+		if (a.isTypstProject()) {
+			push({
+				id: 'file.newTyp',
+				label: m.menubar_new_typ(),
+				group: g.file,
+				keywords: 'create add document typst',
+				icon: FilePlus2,
+				run: () => a.newFile('typ')
+			});
+			push({
+				id: 'typst.preview',
+				label: m.typst_preview_open(),
+				group: g.file,
+				keywords: 'typst live preview watch tinymist',
+				icon: Play,
+				run: () => a.openTypstPreview()
+			});
+		} else {
+			push({
+				id: 'file.newTex',
+				label: m.menubar_new_tex(),
+				group: g.file,
+				keywords: 'create add document',
+				icon: FilePlus2,
+				run: () => a.newFile('tex')
+			});
+		}
 		push({
 			id: 'file.newBib',
 			label: m.menubar_new_bib(),
@@ -221,6 +242,14 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 			keywords: 'create add bibliography references',
 			icon: FilePlus2,
 			run: () => a.newFile('bib')
+		});
+		push({
+			id: 'file.newMd',
+			label: m.menubar_new_md(),
+			group: g.file,
+			keywords: 'create add document markdown notes',
+			icon: FilePlus2,
+			run: () => a.newFile('md')
 		});
 	}
 	push({

@@ -2,13 +2,25 @@
 // the same harper worker + dictionary the visual editor uses, underline with the same
 // proofread-* styles, and open the shared SuggestionBox on click.
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
-import { RangeSetBuilder } from '@codemirror/state';
+import { Facet, RangeSetBuilder } from '@codemirror/state';
 import { lintText } from '$lib/editor/extensions/harper/linter';
 import { createHarperSuggestionBox, type Problem } from '$lib/editor/extensions/harper/suggestionBoxFactory';
 import { editorConfigStore } from '$lib/stores/editorStore';
 import { docText } from '$lib/editor/docText';
 import { maskTex, overlapsMask, type TexMask } from './texMask';
 import './suggestion.css';
+
+/**
+ * Which markup Harper should parse the text as.
+ *
+ * 'plaintext' is the default because LaTeX has no Harper parser: texMask strips the markup first
+ * and hands over the prose that survives. Harper DOES parse Typst natively, so a .typ file passes
+ * 'typst' instead and skips the mask entirely — masking Typst with LaTeX rules would leave `#let`,
+ * `$...$` and `@refs` in the text for the grammar checker to complain about.
+ */
+export const spellLanguage = Facet.define<'plaintext' | 'typst', 'plaintext' | 'typst'>({
+	combine: (values) => values[0] ?? 'plaintext'
+});
 
 const DEBOUNCE_MS = 500;
 // stale paragraphs are joined into worker calls of at most this many chars, so even a first lint
@@ -136,9 +148,12 @@ class SpellPlugin {
 		if (!this.enabled) return;
 		const gen = ++this.gen;
 		const src = docText(this.view.state.doc);
+		const language = this.view.state.facet(spellLanguage);
 		// docText returns the same string for an unchanged doc, so this is a reference compare
 		if (this.maskedFor !== src) {
-			this.masked = maskTex(src);
+			// Harper parses Typst itself, so hand it the source untouched. Running texMask over it
+			// would blank out constructs by LaTeX's rules and leave Typst's own markup behind.
+			this.masked = language === 'typst' ? { text: src, spans: [] } : maskTex(src);
 			this.maskedFor = src;
 		}
 		const { text, spans } = this.masked!;
@@ -160,7 +175,7 @@ class SpellPlugin {
 				size += stale[i].text.length + 2;
 				batch.push(stale[i++]);
 			} while (i < stale.length && size + stale[i].text.length + 2 <= CHUNK_CHARS);
-			const res = await lintText(batch.map((p) => p.text).join('\n\n'), { language: 'plaintext', isStale });
+			const res = await lintText(batch.map((p) => p.text).join('\n\n'), { language, isStale });
 			// a newer edit or a disable landed while the worker ran
 			if (isStale()) return;
 			// transient worker failure: abort without caching, or these paragraphs would be
@@ -254,6 +269,7 @@ const spellPlugin = ViewPlugin.fromClass(SpellPlugin, {
 });
 
 /** harper proofreading for LaTeX source mode; obeys the shared spell-check setting. */
-export function cmSpellcheck() {
-	return spellPlugin;
+/** `language` selects Harper's parser; omit it for LaTeX/plain prose (see spellLanguage). */
+export function cmSpellcheck(language?: 'plaintext' | 'typst') {
+	return language ? [spellPlugin, spellLanguage.of(language)] : spellPlugin;
 }

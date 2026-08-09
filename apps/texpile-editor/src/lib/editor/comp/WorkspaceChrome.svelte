@@ -54,6 +54,8 @@
 			hostMode: boolean;
 			canFormat: boolean;
 			uiZoomPercent: number;
+			/** the compile target is Typst; New-file menus offer .typ instead of .tex/.cls/.sty */
+			typstProject: boolean;
 		};
 		actions: Any;
 		fileTreeRef: Any;
@@ -81,6 +83,7 @@
 			disabled={menu.disabled}
 			imageDir={menu.imageDir}
 			onNewFile={menu.hostMode ? actions.newFileOfType : undefined}
+			typstProject={menu.typstProject}
 			onOpenFolder={menu.hostMode ? actions.openFolder : undefined}
 			onCloseWorkspace={menu.hostMode ? actions.closeWorkspace : undefined}
 			onSave={actions.save}
@@ -125,6 +128,7 @@
 			onOpenFileAt={actions.openFileAt}
 			onOpenEntry={actions.openEntry}
 			onCreate={treeOps.create}
+			typstProject={menu.typstProject}
 			onRename={treeOps.rename}
 			onDelete={treeOps.deleteMany}
 			onMove={treeOps.moveMany}

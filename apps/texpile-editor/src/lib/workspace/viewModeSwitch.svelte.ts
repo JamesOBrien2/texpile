@@ -96,7 +96,7 @@ export class ViewModeSwitch {
 			return;
 		}
 		const kind = d.getKind();
-		const structured = kind === 'tex' || kind === 'md';
+		const structured = kind === 'tex' || kind === 'md' || kind === 'typ';
 		if (!structured && kind !== 'bib') return;
 		if (structured) {
 			this.history.capture(d.getSource()); // flush the pre-switch state into the cross-mode history
@@ -116,7 +116,7 @@ export class ViewModeSwitch {
 	exitDiff(): void {
 		this.mode = this.lastEditMode;
 		const kind = this.deps.getKind();
-		if ((kind === 'tex' || kind === 'md') && this.lastEditMode === 'visual') this.deps.rebuildVisual();
+		if ((kind === 'tex' || kind === 'md' || kind === 'typ') && this.lastEditMode === 'visual') this.deps.rebuildVisual();
 	}
 
 	/** step the workspace history; false at the stack edge lets the key fall through */
@@ -124,7 +124,7 @@ export class ViewModeSwitch {
 		const d = this.deps;
 		const path = d.getLoadedPath();
 		const kind = d.getKind();
-		if ((kind !== 'tex' && kind !== 'md') || !path) return false;
+		if ((kind !== 'tex' && kind !== 'md' && kind !== 'typ') || !path) return false;
 		const target = this.history.step(dir, d.getSource());
 		if (target == null) return false;
 		d.setSource(target);

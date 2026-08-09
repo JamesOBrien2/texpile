@@ -32,4 +32,8 @@ jobs:
       - run: pnpm --filter texpile-editor check
       - run: pnpm --filter texpile-editor lint
       - run: pnpm --filter texpile-editor testonce
+      # The Typst parser package. NO Rust toolchain is needed: its wasm-pack output (pkg/) is
+      # committed, and its build script is deliberately named `build:wasm` so the root
+      # `pnpm build` (-r run build) does not try to invoke wasm-pack here.
+      - run: pnpm --filter texpile-typst-syntax-wasm test
       - run: npx tsc -p electron --noEmit

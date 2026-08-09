@@ -49,8 +49,11 @@ export interface SearchFileResult {
 	matches: { line: number; text: string }[];
 }
 
+// 'typ' rides along with 'tex' so a Typst project gets a main file detected and offered in the
+// main-file picker; the LaTeX-only consumers of this list (label/citation intel, reference
+// rewriting) simply find nothing in a .typ.
 function parseExts(extsCsv?: string): string[] {
-	return (extsCsv || 'tex')
+	return (extsCsv || 'tex,typ')
 		.split(',')
 		.map((s) => s.trim().toLowerCase())
 		.filter(Boolean);

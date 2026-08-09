@@ -7,11 +7,12 @@ import IncludeDocDisplay from './IncludeDocDisplay.svelte';
 
 /**
  * resolves an \input/\include argument against the current file's dir. latex appends .tex
- * when there's no extension; returns a forward-slash path (the fs API takes those everywhere).
+ * when there's no extension (typst chips pass '.typ'); returns a forward-slash path (the fs
+ * API takes those everywhere).
  */
-export function resolveIncludePath(baseDir: string, rawPath: string): string {
+export function resolveIncludePath(baseDir: string, rawPath: string, defaultExt = '.tex'): string {
 	let rel = rawPath.replace(/\\/g, '/').trim();
-	if (!/\.[A-Za-z0-9]+$/.test(rel)) rel += '.tex';
+	if (!/\.[A-Za-z0-9]+$/.test(rel)) rel += defaultExt;
 	const base = (baseDir || '').replace(/\\/g, '/').replace(/\/+$/, '');
 	const segs = base ? base.split('/') : [];
 	for (const part of rel.split('/')) {
@@ -53,7 +54,7 @@ export default class IncludeDocView implements NodeView {
 	private open() {
 		const rawPath = String(this.node.attrs.path ?? '').trim();
 		if (!rawPath) return;
-		const resolved = resolveIncludePath(this.baseDir, rawPath);
+		const resolved = resolveIncludePath(this.baseDir, rawPath, this.node.attrs.command === 'typst' ? '.typ' : '.tex');
 		// prefer the workspace's canonical path (keeps the file-tree highlight in sync);
 		// fall back to the resolved path so a not-yet-scanned file still opens
 		const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase();

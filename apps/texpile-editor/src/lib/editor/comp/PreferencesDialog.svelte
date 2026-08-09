@@ -5,6 +5,7 @@
 	import { settings, updateSettings, updateSettingsLive, applyUiLocale, setMcpEnabled, type AppSettings } from '$lib/settings';
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
+	import { installHint, toolsInGroup } from '$lib/workspace/toolchainCatalog';
 	import McpSetupModal from './McpSetupModal.svelte';
 	// dark wordmark for light backgrounds, white one for dark mode - the pair StartView uses
 	import logoOnLight from '$lib/assets/logo/Logo-dark.svg';
@@ -48,7 +49,7 @@
 	// One category on screen at a time, rather than every setting in one scroll. The list had grown
 	// past the point where "wrap long lines" and "editor width" could be told apart at a glance -
 	// which editor, and which of them, was only answerable by reading the hint under each.
-	type Category = 'appearance' | 'editing' | 'source' | 'visual' | 'preview' | 'startup' | 'ai';
+	type Category = 'appearance' | 'editing' | 'source' | 'visual' | 'preview' | 'latex' | 'typst' | 'vcs' | 'startup' | 'ai';
 	let category = $state<Category>('appearance');
 	const categories: { id: Category; label: string }[] = [
 		{ id: 'appearance', label: m.prefs_appearance() },
@@ -56,9 +57,49 @@
 		{ id: 'source', label: m.prefs_group_source() },
 		{ id: 'visual', label: m.prefs_group_visual() },
 		{ id: 'preview', label: m.prefs_group_preview() },
+		{ id: 'latex', label: m.prefs_group_latex() },
+		{ id: 'typst', label: m.prefs_group_typst() },
+		{ id: 'vcs', label: m.prefs_group_vcs() },
 		{ id: 'startup', label: m.prefs_group_startup() },
 		{ id: 'ai', label: m.prefs_group_ai() }
 	];
+
+	// Nothing in the Toolchain panel is bundled, so the only honest thing it can show is what was
+	// actually found. Probed on demand rather than on mount: it spawns ten processes, and most
+	// users never open the category.
+	let tinymist = $state<TinymistInfo | null | 'unchecked'>('unchecked');
+	let probes = $state<ToolProbe[]>([]);
+	let probing = $state(false);
+	/** the probe itself could not run - an old main process, or no desktop bridge at all */
+	let probeFailed = $state(false);
+	async function probeToolchain() {
+		probing = true;
+		probeFailed = false;
+		try {
+			const bridge = window.texpileTypst;
+			if (!bridge?.probeToolchain) throw new Error('no toolchain bridge');
+			// in parallel: latexindent alone can take a second, and tinymist resolves separately
+			// because it reports more (embedded Typst version, and which location won)
+			const [tools, tm] = await Promise.all([bridge.probeToolchain(), bridge.resolve()]);
+			probes = tools;
+			tinymist = tm;
+		} catch {
+			// A FAILED probe is not the same as "nothing is installed", and reporting it as such is
+			// how a stale main process made a full TeX Live install look absent. Say we don't know.
+			probeFailed = true;
+			probes = [];
+			tinymist = null;
+		} finally {
+			probing = false;
+		}
+	}
+	const probeFor = (id: string) => probes.find((p) => p.id === id);
+
+	// every tab that lists tool rows probes when it opens
+	const NEEDS_PROBE: Category[] = ['latex', 'typst', 'vcs'];
+	$effect(() => {
+		if (open && NEEDS_PROBE.includes(category) && tinymist === 'unchecked' && !probing) void probeToolchain();
+	});
 
 	/** every row is the same shape: name and explanation on the left, the control on the right */
 	const ROW = 'border-surface-200-800 flex items-start justify-between gap-6 border-b py-4 last:border-b-0';
@@ -123,6 +164,57 @@
 		<div class="text-sm font-medium {disabled ? 'text-surface-400' : ''}">{text}</div>
 		{#if hint}<p class="text-surface-500 mt-1 text-xs leading-relaxed">{hint}</p>{/if}
 	</div>
+{/snippet}
+
+<!-- The external programs a tab's features depend on: one row each, showing whether it was found,
+     the tool's own version line, and how to install it when it wasn't. Lives next to the settings
+     that need it rather than in one combined list, so "Typst intelligence" and "is tinymist here"
+     are answered in the same place. -->
+{#snippet toolRows(group: 'latex' | 'typst' | 'general')}
+	<div class="border-surface-200-800 flex items-center justify-between gap-3 border-b pt-1 pb-3">
+		<p class="text-surface-500 text-xs">{m.prefs_toolchain_intro()}</p>
+		<button class="btn preset-tonal shrink-0 text-xs" onclick={probeToolchain} disabled={probing}>
+			{m.prefs_toolchain_recheck()}
+		</button>
+	</div>
+	{#if probeFailed}
+		<p class="text-warning-700-300 pt-3 text-xs">{m.prefs_toolchain_probe_failed()}</p>
+	{/if}
+	{#each toolsInGroup(group) as tool (tool.id)}
+		{@const probe = probeFor(tool.id)}
+		<!-- tinymist resolves through its own path (configured / PATH / managed), so its row reads
+		     that result rather than the generic probe -->
+		{@const found = tool.id === 'tinymist' ? tinymist !== null && tinymist !== 'unchecked' : !!probe?.found}
+		{@const detail =
+			tool.id === 'tinymist'
+				? tinymist && tinymist !== 'unchecked'
+					? `${tinymist.version} (Typst ${tinymist.typstVersion}, ${tinymist.source})`
+					: undefined
+				: probe?.detail}
+		<div class={ROW}>
+			<div class="min-w-0">
+				<div class="flex items-center gap-2 text-sm font-medium">
+					<span class="font-mono">{tool.name}</span>
+					{#if probing || probeFailed}
+						<span class="text-surface-400 text-xs">…</span>
+					{:else}
+						<span class="text-xs {found ? 'text-success-600-400' : 'text-surface-400'}">
+							{found ? m.prefs_toolchain_found() : m.prefs_toolchain_missing()}
+						</span>
+					{/if}
+				</div>
+				<div class="text-surface-500 mt-0.5 text-xs">{tool.purpose}</div>
+				{#if !probing && !probeFailed && found && detail}
+					<div class="text-surface-400 mt-1 font-mono text-xs break-all">{detail}</div>
+				{:else if !probing && !probeFailed && !found}
+					<div class="text-surface-400 mt-1 text-xs">
+						{m.prefs_toolchain_install_hint()}
+						<code class="bg-surface-200-800 ml-1 rounded px-1 break-all">{installHint(tool)}</code>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/each}
 {/snippet}
 
 {#snippet toggleRow(text: string, hint: string, checked: boolean, onChange: (v: boolean) => void, disabled = false, title = '')}
@@ -246,6 +338,51 @@
 						{@render toggleRow(m.prefs_math_preview(), m.prefs_math_preview_note(), $settings.mathPreview !== false, (v) =>
 							updateSettings({ mathPreview: v })
 						)}
+					{:else if category === 'latex'}
+						<!-- both of these are otherwise reachable only through the compile-command modal,
+						     which is where you go to change the command, not to find a setting -->
+						{@render toggleRow(
+							m.prefs_latex_live_mode(),
+							collabHost.active ? m.wsview_live_mode_collab_note() : m.prefs_latex_live_mode_note(),
+							$settings.draftMode,
+							(v) => updateSettings({ draftMode: v }),
+							collabHost.active
+						)}
+						{@render toggleRow(m.wsview_completion_marker_label(), m.wsview_completion_marker_desc(), $settings.compileSentinel, (v) =>
+							updateSettings({ compileSentinel: v })
+						)}
+						{@render toolRows('latex')}
+					{:else if category === 'typst'}
+						{@render toggleRow(
+							m.prefs_typst_intellisense(),
+							m.prefs_typst_intellisense_note(),
+							$settings.typstIntellisense !== false,
+							(v) => updateSettings({ typstIntellisense: v })
+						)}
+						<!-- The preview switch is NOT here: it lives in the compile-command modal, in the slot
+						     LaTeX's live mode occupies, because that is the dialog where Typst gets chosen in the
+						     first place. Two switches writing one setting is worse than one in the right place. -->
+						{@render toolRows('typst')}
+						<div class={ROW}>
+							{@render label(m.prefs_typst_path(), m.prefs_typst_path_note())}
+							<div class="w-72 shrink-0">
+								<input
+									class="border-surface-300-700 bg-surface-50-950 w-full rounded border px-2 py-1 text-sm"
+									type="text"
+									spellcheck="false"
+									placeholder="tinymist"
+									value={$settings.typstPath ?? ''}
+									onchange={(e) => {
+										updateSettings({ typstPath: (e.currentTarget as HTMLInputElement).value.trim() });
+										tinymist = 'unchecked'; // the row above is about the OLD path
+										void probeToolchain();
+									}}
+									aria-label={m.prefs_typst_path()}
+								/>
+							</div>
+						</div>
+					{:else if category === 'vcs'}
+						{@render toolRows('general')}
 					{:else if category === 'visual'}
 						<div class={ROW}>
 							{@render label(m.prefs_visual_width(), m.prefs_visual_width_note())}

@@ -94,6 +94,7 @@ interface TexpileNative {
 	draftTakeover?: (body: { root: string }) => Promise<{ ok: boolean }>;
 	onDraftPreempted?: (cb: (info: { root: string }) => void) => () => void;
 	draftSavePdf: (body: { root: string; defaultName: string; to?: string }) => Promise<{ saved: boolean; path?: string }>;
+	savePdfAs?: (body: { src: string; defaultPath: string; to?: string }) => Promise<{ saved: boolean; path?: string }>;
 	gitStatus: (root: string) => Promise<GitStatusResult>;
 	gitShow: (path: string) => Promise<GitShowResult>;
 	gitInit: (dir: string) => Promise<GitOpResult>;
@@ -221,6 +222,14 @@ export async function purgeUndoBackups(root: string): Promise<void> {
 /** select the file in the OS file manager. A no-op outside the desktop shell. */
 export async function revealItem(path: string): Promise<void> {
 	await native()?.revealItem?.(path);
+}
+
+/**
+ * Offer `src` (a PDF already on disk) through a native save dialog. `{saved: false}` covers both
+ * a cancelled dialog and a non-desktop shell, so callers treat them the same: say nothing.
+ */
+export async function savePdfAs(src: string, defaultPath: string): Promise<{ saved: boolean; path?: string }> {
+	return (await native()?.savePdfAs?.({ src, defaultPath })) ?? { saved: false };
 }
 
 export async function readTextFile(path: string): Promise<string> {

@@ -8,11 +8,12 @@ import { get } from 'svelte/store';
 import { isDirty } from '$lib/workspace/workspaceStore';
 import { serializeLatexFile, type ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
 import { serializeMarkdownFile } from '$lib/markdown/roundtrip';
+import { serializeTypstFile } from '$lib/typst/visual/roundtrip';
 import { replacePreambleFrontmatter } from '$lib/editor/extensions/raw-latex/frontmatterView';
 import { basename, relativeTo, type Eol } from '$lib/workspace/fileSystem';
 import type { Node as PMNode } from 'prosemirror-model';
 
-export type FileKind = 'tex' | 'md' | 'bib' | 'pdf' | 'image' | 'binary' | 'text' | null;
+export type FileKind = 'tex' | 'md' | 'typ' | 'bib' | 'pdf' | 'image' | 'binary' | 'text' | null;
 export type DocMeta = Pick<ParsedLatexFile, 'preamble' | 'postamble' | 'hadDocumentEnv'> | null;
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i;
@@ -22,6 +23,7 @@ export function fileKind(path: string | null): FileKind {
 	if (!path) return null;
 	if (/\.tex$/i.test(path)) return 'tex';
 	if (/\.(md|markdown)$/i.test(path)) return 'md';
+	if (/\.typ$/i.test(path)) return 'typ';
 	if (/\.bib$/i.test(path)) return 'bib';
 	if (/\.pdf$/i.test(path)) return 'pdf';
 	if (IMAGE_EXT.test(path)) return 'image';
@@ -30,13 +32,18 @@ export function fileKind(path: string | null): FileKind {
 }
 
 /** kinds that parse into the visual (ProseMirror) editor and hold their source in texSource. */
-export function hasVisualMode(kind: FileKind): kind is 'tex' | 'md' {
-	return kind === 'tex' || kind === 'md';
+export function hasVisualMode(kind: FileKind): kind is 'tex' | 'md' | 'typ' {
+	return kind === 'tex' || kind === 'md' || kind === 'typ';
 }
 
-/** the dialect the parser worker / serializer should use for a structured kind. */
-export function formatOf(kind: FileKind): 'tex' | 'md' {
-	return kind === 'md' ? 'md' : 'tex';
+/** the dialect the parser / serializer should use for a structured kind. */
+export function formatOf(kind: FileKind): 'tex' | 'md' | 'typ' {
+	return kind === 'md' ? 'md' : kind === 'typ' ? 'typ' : 'tex';
+}
+
+/** kinds edited as raw text in the source editor, with no visual representation. */
+export function isRawTextKind(kind: FileKind): kind is 'text' | 'bib' {
+	return kind === 'text' || kind === 'bib';
 }
 
 export interface DocumentBufferDeps {
@@ -86,7 +93,9 @@ export class DocumentBuffer {
 	/** serialize the visual doc back to source in the open file's dialect */
 	private serializeFile(doc: PMNode): string {
 		if (!this.docMeta) return this.texSource;
-		return this.kind === 'md' ? serializeMarkdownFile(this.docMeta, doc) : serializeLatexFile(this.docMeta, doc);
+		if (this.kind === 'md') return serializeMarkdownFile(this.docMeta, doc);
+		if (this.kind === 'typ') return serializeTypstFile(this.docMeta, doc);
+		return serializeLatexFile(this.docMeta, doc);
 	}
 
 	/** display name: root-relative when we have a root, else just the basename */
@@ -197,6 +206,6 @@ export class DocumentBuffer {
 		this.deps.discardQueuedSave(); // drop the queued debounce; we're writing the current content now
 		if (!this.path) return;
 		if (hasVisualMode(this.kind)) this.deps.writeNow(this.path, this.texSource, force);
-		else if (this.kind === 'text' || this.kind === 'bib') this.deps.writeNow(this.path, this.rawContent, force);
+		else if (isRawTextKind(this.kind)) this.deps.writeNow(this.path, this.rawContent, force);
 	}
 }

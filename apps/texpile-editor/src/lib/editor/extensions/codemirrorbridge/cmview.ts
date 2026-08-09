@@ -115,6 +115,8 @@ class CodeBlockView {
 				crosshairCursor(),
 				this.languageConf.of(markdown()),
 				cmSyntaxHighlight(),
+				// the card's own p-2 is the visual gap; drop CodeMirror's default 6px line inset
+				CodeMirrorView.theme({ '.cm-line': { padding: '0 2px' } }),
 				CodeMirrorView.updateListener.of((update) => this.forwardUpdate(update as never)),
 				CodeMirrorView.contentAttributes.of({ spellcheck: 'false' }),
 				CodeMirrorView.contentAttributes.of({ 'data-gramm': 'false' }), // disable grammarly

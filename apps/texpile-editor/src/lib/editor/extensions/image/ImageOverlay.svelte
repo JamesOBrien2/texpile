@@ -94,6 +94,26 @@
 		return 1;
 	}
 
+	// typst sizing: the `options` attr is the verbatim extra-args slice of image(...); this field
+	// edits ONLY its width: entry and re-emits everything else untouched. Comma-splitting is fine
+	// for the flat arg lists image() takes; a call complex enough to break it never became an
+	// image node in the first place.
+	const typstWidth = $derived.by(() => {
+		const w = String(node.attrs.options ?? '').match(/(?:^|,)\s*width:\s*([^,]+)/);
+		return w ? w[1].trim() : '';
+	});
+	function setTypstWidth(raw: string) {
+		const val = raw.trim();
+		// a Typst length or 'auto'; anything else would be spliced into the call and break it
+		if (val && !/^([0-9]*\.?[0-9]+(%|pt|mm|cm|in|em|fr)|auto)$/.test(val)) return;
+		const rest = String(node.attrs.options ?? '')
+			.split(',')
+			.map((s) => s.trim())
+			.filter((s) => s && !/^width:/.test(s));
+		const next = [...(val ? [`width: ${val}`] : []), ...rest].join(', ');
+		updateAttrs({ options: next || null });
+	}
+
 	function imgEl(): HTMLImageElement | null {
 		return overlayElement?.parentElement?.querySelector('img') ?? null;
 	}
@@ -177,6 +197,22 @@
 										value={sizePercent}
 										oninput={(e) => setSizePercent(Number((e.currentTarget as HTMLInputElement).value))}
 									/>
+								</div>
+							{/if}
+
+							{#if dialect === 'typst'}
+								<div class="settings-row">
+									<div class="mb-1 flex items-center justify-between">
+										<span class="text-sm">{m.imageoverlay_size_label()}</span>
+									</div>
+									<input
+										class="input w-full px-2 py-1 font-mono text-sm"
+										value={typstWidth}
+										placeholder="70%"
+										spellcheck="false"
+										onchange={(e) => setTypstWidth((e.currentTarget as HTMLInputElement).value)}
+									/>
+									<p class="text-surface-500 mt-1 text-xs">{m.imageoverlay_typst_width_note()}</p>
 								</div>
 							{/if}
 

@@ -29,6 +29,8 @@ export interface MenuState {
 	canFormat: boolean;
 	/** the workspace takes tree writes: false for a guest, whose folder belongs to the host */
 	canNewFile: boolean;
+	/** the compile target is Typst: File > New offers .typ instead of .tex/.cls/.sty */
+	typstProject?: boolean;
 	/** there is a directory to write an image next to (a .tex on a host) */
 	canInsertImage: boolean;
 	/** the workspace may be swapped out. False for a guest: it would abandon the session unleft */
@@ -106,11 +108,20 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 					? [
 							{
 								label: label(s, 'new', 'New'),
+								// the compile target decides the document rows: .typ for a Typst project,
+								// .tex/.cls/.sty otherwise. .bib serves both and markdown is format-neutral.
 								submenu: [
-									{ label: label(s, 'newTex', 'LaTeX document'), click: () => fire(win, 'new:tex') },
+									...(s.typstProject
+										? [{ label: label(s, 'newTyp', 'Typst document'), click: () => fire(win, 'new:typ') }]
+										: [{ label: label(s, 'newTex', 'LaTeX document'), click: () => fire(win, 'new:tex') }]),
 									{ label: label(s, 'newBib', 'BibTeX bibliography'), click: () => fire(win, 'new:bib') },
-									{ label: label(s, 'newCls', 'Class file'), click: () => fire(win, 'new:cls') },
-									{ label: label(s, 'newSty', 'Package file'), click: () => fire(win, 'new:sty') }
+									{ label: label(s, 'newMd', 'Markdown file'), click: () => fire(win, 'new:md') },
+									...(s.typstProject
+										? []
+										: [
+												{ label: label(s, 'newCls', 'Class file'), click: () => fire(win, 'new:cls') },
+												{ label: label(s, 'newSty', 'Package file'), click: () => fire(win, 'new:sty') }
+											])
 								]
 							}
 						]

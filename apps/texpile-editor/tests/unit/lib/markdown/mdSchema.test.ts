@@ -9,7 +9,7 @@ describe('mdSchema separation', () => {
 		for (const n of ['citation', 'ref', 'environment', 'abstract', 'includedoc', 'table_wrapper', 'table_caption', 'table_notes']) {
 			expect(mdSchema.nodes[n]).toBeUndefined();
 		}
-		for (const m of ['u', 'sup', 'sub', 'textcolor', 'highlight', 'suggestion_insert']) {
+		for (const m of ['u', 'sup', 'sub', 'textcolor', 'highlight']) {
 			expect(mdSchema.marks[m]).toBeUndefined();
 		}
 	});

@@ -105,7 +105,8 @@ function iconHtml(Icon: Component): string {
 	return html;
 }
 
-function foldMarkerDOM(open: boolean): HTMLElement {
+/** shared with the Typst folding setup, so every source pane folds with the same chevrons */
+export function foldMarkerDOM(open: boolean): HTMLElement {
 	const span = document.createElement('span');
 	span.className = 'cm-foldMarker';
 	// markerDOM opts out of CodeMirror's own title, so carry it ourselves
@@ -114,7 +115,7 @@ function foldMarkerDOM(open: boolean): HTMLElement {
 	return span;
 }
 
-const foldMarkerTheme = EditorView.baseTheme({
+export const foldMarkerTheme = EditorView.baseTheme({
 	'.cm-foldGutter .cm-foldMarker': {
 		display: 'flex',
 		alignItems: 'center',

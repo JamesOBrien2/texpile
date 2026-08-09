@@ -366,69 +366,27 @@ function handleReferenceSelection(item: ReferenceItem) {
 
 	const state = currentView.state;
 	const tr = state.tr;
+	const { schema } = state;
 
-	if (item.type === 'bibliography') {
-		const attrs = {
-			prenote: '',
-			postnote: '',
-			variant: 'autocite'
-		};
-		const citationNode = state.schema.nodes.citation.create(attrs, state.schema.text(item.id));
+	// the typst editor's single ref atom covers citations and cross-refs alike; the tex editor
+	// keeps its citation/ref split. The check keys off the mounted schema, so tex nodes can
+	// never land in a typst doc or vice versa.
+	const refNode = schema.nodes.typ_ref
+		? schema.nodes.typ_ref.create({ target: item.id })
+		: item.type === 'bibliography'
+			? schema.nodes.citation.create({ prenote: '', postnote: '', variant: 'autocite' }, schema.text(item.id))
+			: schema.nodes.ref.create({ refType: item.type }, schema.text(item.id));
 
-		// insert first (shifts positions), then walk back to find and delete the @query text
-		tr.insert(state.selection.from, citationNode);
+	// insert first (shifts positions), then walk back to find and delete the @query text
+	tr.insert(state.selection.from, refNode);
 
-		const $from = state.selection.$from;
-		let atPosition = $from.pos;
-		while (atPosition > $from.start() && state.doc.textBetween(atPosition - 1, atPosition) !== '@') {
-			atPosition--;
-		}
-
-		if (state.doc.textBetween(atPosition - 1, atPosition) === '@') {
-			tr.delete(atPosition - 1, $from.pos);
-		}
-	} else if (item.type === 'table') {
-		const refNode = state.schema.nodes.ref.create({ refType: 'table' }, state.schema.text(item.id));
-
-		tr.insert(state.selection.from, refNode);
-
-		const $from = state.selection.$from;
-		let atPosition = $from.pos;
-		while (atPosition > $from.start() && state.doc.textBetween(atPosition - 1, atPosition) !== '@') {
-			atPosition--;
-		}
-
-		if (state.doc.textBetween(atPosition - 1, atPosition) === '@') {
-			tr.delete(atPosition - 1, $from.pos);
-		}
-	} else if (item.type === 'figure') {
-		const refNode = state.schema.nodes.ref.create({ refType: 'figure' }, state.schema.text(item.id));
-
-		tr.insert(state.selection.from, refNode);
-
-		const $from = state.selection.$from;
-		let atPosition = $from.pos;
-		while (atPosition > $from.start() && state.doc.textBetween(atPosition - 1, atPosition) !== '@') {
-			atPosition--;
-		}
-
-		if (state.doc.textBetween(atPosition - 1, atPosition) === '@') {
-			tr.delete(atPosition - 1, $from.pos);
-		}
-	} else if (item.type === 'equation') {
-		const refNode = state.schema.nodes.ref.create({ refType: 'equation' }, state.schema.text(item.id));
-
-		tr.insert(state.selection.from, refNode);
-
-		const $from = state.selection.$from;
-		let atPosition = $from.pos;
-		while (atPosition > $from.start() && state.doc.textBetween(atPosition - 1, atPosition) !== '@') {
-			atPosition--;
-		}
-
-		if (state.doc.textBetween(atPosition - 1, atPosition) === '@') {
-			tr.delete(atPosition - 1, $from.pos);
-		}
+	const $from = state.selection.$from;
+	let atPosition = $from.pos;
+	while (atPosition > $from.start() && state.doc.textBetween(atPosition - 1, atPosition) !== '@') {
+		atPosition--;
+	}
+	if (state.doc.textBetween(atPosition - 1, atPosition) === '@') {
+		tr.delete(atPosition - 1, $from.pos);
 	}
 
 	currentView.dispatch(tr);

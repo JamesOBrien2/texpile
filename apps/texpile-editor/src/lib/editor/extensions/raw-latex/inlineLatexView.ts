@@ -94,9 +94,17 @@ class InlineLatexView {
 
 		const cm = this.cm;
 		// attrs.lang picks the mode, same contract as the block RawLatexView (md html/markdown chips)
-		const langName = { latex: 'LaTeX', html: 'HTML', markdown: 'Markdown' }[String(this.node.attrs.lang ?? 'latex')] ?? 'LaTeX';
-		const langData = cmlangdata.find((lang) => lang.name === langName);
-		langData?.load().then((lang) => cm.dispatch({ effects: this.languageConf.reconfigure(lang) }));
+		if (String(this.node.attrs.lang ?? 'latex') === 'typst') {
+			// typst isn't in @codemirror/language-data; the app ships its own wasm-backed language
+			// (island flavour: no fold gutter on a chip)
+			void import('$lib/typst/typstLanguage').then(({ typstIslandLanguage }) =>
+				cm.dispatch({ effects: this.languageConf.reconfigure(typstIslandLanguage()) })
+			);
+		} else {
+			const langName = { latex: 'LaTeX', html: 'HTML', markdown: 'Markdown' }[String(this.node.attrs.lang ?? 'latex')] ?? 'LaTeX';
+			const langData = cmlangdata.find((lang) => lang.name === langName);
+			langData?.load().then((lang) => cm.dispatch({ effects: this.languageConf.reconfigure(lang) }));
+		}
 
 		cm.dom.addEventListener('blur', this.handleBlur, true);
 	};

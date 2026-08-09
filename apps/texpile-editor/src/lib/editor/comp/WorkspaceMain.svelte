@@ -34,6 +34,8 @@
 		modLabel,
 		dockShrunk,
 		draft,
+		typstPreviewHost,
+		typstPreviewWanted,
 		panes,
 		actions,
 		dockView = $bindable(),
@@ -57,6 +59,10 @@
 		dockShrunk: boolean;
 		/** live-preview inputs: root, main file, recompile trigger, paused flag */
 		draft: { root: string; mainRel: string; trigger: number; paused: boolean };
+		/** `host:port` of a running Typst preview, null while one is still starting */
+		typstPreviewHost: string | null;
+		/** this pane is for a Typst preview, even before it has an address */
+		typstPreviewWanted: boolean;
 		/** editor inputs that are not workspace state: tabs, references, jump targets */
 		panes: Any;
 		actions: Any;
@@ -84,7 +90,6 @@
 		{modLabel}
 		onToggleSidebar={layout.toggleSidebar}
 		onSetViewMode={actions.setViewMode}
-		onSyncForward={actions.syncForward}
 		onStopCompile={compiler.stopCompile}
 		onPauseDraft={actions.pauseDraft}
 		onResumeDraft={actions.resumeDraft}
@@ -141,6 +146,7 @@
 			onHistoryBoundary={actions.historyStep}
 			onJumpToFile={actions.jumpToFile}
 			onOpenFileAt={actions.openFileAt}
+			onCaretMove={actions.onCaretMove}
 			onToggleDiffLayout={() => diff.toggleLayout()}
 			onRefreshDiff={actions.refreshDiff}
 			onExitDiff={actions.exitDiff}
@@ -155,6 +161,19 @@
 				draftRoot={draft.root}
 				draftMainRel={draft.mainRel}
 				draftTrigger={draft.trigger}
+				{typstPreviewHost}
+				{typstPreviewWanted}
+				onSaveTypstPdf={actions.onSaveTypstPdf}
+				onSyncToCursor={(
+					guest
+						? kind === 'tex'
+						: // both dialects resolve the visual caret through the block map now, so the
+							// button works in source AND visual mode; diff has no caret to sync
+							(kind === 'tex' || kind === 'typ') && modes.mode !== 'diff'
+				)
+					? actions.syncForward
+					: null}
+				paneDragging={layout.paneDragging}
 				bind:pdfPaneRef
 				bind:draftRef
 				onStartResize={layout.startPdfResize}

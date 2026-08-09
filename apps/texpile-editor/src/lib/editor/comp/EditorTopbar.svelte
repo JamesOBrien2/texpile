@@ -13,7 +13,6 @@
 		FileText,
 		Eye,
 		Code,
-		LocateFixed,
 		Square,
 		Play,
 		ChevronDown,
@@ -38,7 +37,6 @@
 		modLabel: string;
 		onToggleSidebar: () => void;
 		onSetViewMode: (m: 'visual' | 'source') => void;
-		onSyncForward: () => void;
 		onStopCompile: () => void;
 		onPauseDraft: () => void;
 		onResumeDraft: () => void;
@@ -64,7 +62,6 @@
 		modLabel,
 		onToggleSidebar,
 		onSetViewMode,
-		onSyncForward,
 		onStopCompile,
 		onPauseDraft,
 		onResumeDraft,
@@ -77,6 +74,10 @@
 	}: Props = $props();
 
 	let compileMenuOpen = $state(false);
+
+	// Typst's Preview replaces Compile the way LaTeX's live mode does: same slot, same states.
+	// Keyed on the OPEN file's kind, matching what the preview pane itself attaches on.
+	const typstLive = $derived(kind === 'typ' && $settings.typstLiveMode !== false);
 </script>
 
 <header class="border-surface-200-800 col-span-full flex h-12 items-center justify-between gap-3 border-b px-4">
@@ -93,12 +94,12 @@
 			<FileText class="text-surface-400 size-4 shrink-0" />
 			<span class="truncate text-sm font-medium">{m.wsview_no_file()}</span>
 		{/if}
-		{#if loadedPath && (kind === 'tex' || kind === 'md') && (viewMode === 'visual' || viewMode === 'source')}
+		{#if loadedPath && (kind === 'tex' || kind === 'md' || kind === 'typ') && (viewMode === 'visual' || viewMode === 'source')}
 			<span class="shrink-0"><WordCount /></span>
 		{/if}
 	</div>
 	<div class="flex items-center gap-2">
-		{#if loadedPath && (kind === 'tex' || kind === 'md' || (kind === 'bib' && !guest))}
+		{#if loadedPath && (kind === 'tex' || kind === 'md' || kind === 'typ' || (kind === 'bib' && !guest))}
 			<!-- visual/source toggle; for .bib it's the reference editor vs raw BibTeX (BibManager
 			     stays host-only: it isn't wired to the shared doc yet) -->
 			<div class="border-surface-300-700 inline-flex shrink-0 overflow-hidden rounded-md border text-xs">
@@ -113,23 +114,12 @@
 				<button
 					class="flex items-center gap-1 px-2.5 py-1 {viewMode === 'source' ? 'preset-filled-primary-500' : 'hover:preset-tonal'}"
 					onclick={() => onSetViewMode('source')}
-					title={m.wsview_latex_source_title()}
+					title={kind === 'typ' ? m.wsview_typst_source_title() : m.wsview_latex_source_title()}
 				>
 					<Code class="size-3.5" />
 					{m.wsview_source_label()}
 				</button>
 			</div>
-		{/if}
-		{#if guest && loadedPath && kind === 'tex'}
-			<!-- forward SyncTeX: the host resolves the position and we scroll our PDF copy -->
-			<button
-				class="btn-icon btn-icon-sm hover:preset-tonal"
-				onclick={onSyncForward}
-				title={m.wsview_sync_to_pdf_title()}
-				aria-label={m.wsview_sync_to_pdf_aria()}
-			>
-				<LocateFixed class="size-4" />
-			</button>
 		{/if}
 		{#if $compileLog && ($compileLog.errors.length > 0 || $compileLog.warnings.length > 0)}
 			<button
@@ -146,16 +136,8 @@
 			</button>
 		{/if}
 		{#if terminalAvailable}
-			{#if viewMode === 'source' && kind === 'tex'}
-				<button
-					class="btn-icon btn-icon-sm hover:preset-tonal"
-					onclick={onSyncForward}
-					title={m.wsview_sync_to_pdf_title()}
-					aria-label={m.wsview_sync_to_pdf_aria()}
-				>
-					<LocateFixed class="size-4" />
-				</button>
-			{/if}
+			<!-- the one-shot sync-to-cursor button used to sit here; it lives on the preview pane's
+			     own header now (PreviewPane / TypstPreview) - the button moves THAT pane -->
 			<div class="relative flex items-center">
 				{#if compiling}
 					<button
@@ -166,7 +148,18 @@
 						<Square class="size-4" />
 						{m.wsview_stop_label()}
 					</button>
-				{:else if $settings.draftMode && pdfPaneOpen && !draftPaused}
+				{:else if typstLive && pdfPaneOpen}
+					<!-- the preview is attached; closing the pane is its stop (the pane detaches the
+					     server task on close), so this is both indicator and off switch -->
+					<button
+						class="btn btn-sm preset-tonal-success min-w-24 justify-center gap-1.5 rounded-r-none whitespace-nowrap"
+						onclick={onTogglePdf}
+						title={m.wsview_typst_preview_live_title()}
+					>
+						<span class="bg-success-500 size-2 rounded-full"></span>
+						{m.wsview_live_label()}
+					</button>
+				{:else if $settings.draftMode && !typstLive && pdfPaneOpen && !draftPaused}
 					<button
 						class="btn btn-sm preset-tonal-success min-w-24 justify-center gap-1.5 rounded-r-none whitespace-nowrap"
 						onclick={onPauseDraft}
@@ -188,20 +181,24 @@
 					<button
 						class="btn btn-sm preset-tonal-primary w-24 justify-center gap-1.5 rounded-r-none"
 						onclick={onCompile}
-						title={$settings.draftMode ? m.wsview_open_live_preview_title() : m.wsview_compile_title({ combo: `${modLabel}+Alt+Enter` })}
+						title={typstLive || $settings.draftMode
+							? m.wsview_open_live_preview_title()
+							: m.wsview_compile_title({ combo: `${modLabel}+Alt+Enter` })}
 					>
 						<Play class="size-4" />
-						{$settings.draftMode ? m.wsview_preview_label() : m.wsview_compile_label()}
+						{typstLive || $settings.draftMode ? m.wsview_preview_label() : m.wsview_compile_label()}
 					</button>
 				{/if}
 				<button
 					class="btn btn-sm {compiling
 						? 'preset-tonal-error'
-						: $settings.draftMode && pdfPaneOpen
-							? draftPaused
-								? 'preset-tonal-warning'
-								: 'preset-tonal-success'
-							: 'preset-tonal-primary'} rounded-l-none border-l border-black/10 px-1"
+						: typstLive && pdfPaneOpen
+							? 'preset-tonal-success'
+							: $settings.draftMode && pdfPaneOpen
+								? draftPaused
+									? 'preset-tonal-warning'
+									: 'preset-tonal-success'
+								: 'preset-tonal-primary'} rounded-l-none border-l border-black/10 px-1"
 					onclick={() => (compileMenuOpen = !compileMenuOpen)}
 					title={m.wsview_compile_options()}
 					aria-label={m.wsview_compile_options()}

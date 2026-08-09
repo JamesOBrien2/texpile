@@ -43,6 +43,7 @@ const BY_EXT: Record<string, string> = {
 	ltx: 'tex',
 	cls: 'tex',
 	sty: 'tex',
+	typ: 'typst',
 	md: 'markdown',
 	markdown: 'markdown',
 	mdx: 'markdown',

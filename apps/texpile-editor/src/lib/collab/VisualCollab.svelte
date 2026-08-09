@@ -42,9 +42,9 @@
 	}
 	let { session, path, kind, viewMode, api }: Props = $props();
 
-	// both visual dialects share this machinery: the orig stamps, the block map and the block patch
+	// all visual dialects share this machinery: the orig stamps, the block map and the block patch
 	// are format-neutral, so only the markup stripper below is chosen per dialect
-	const active = () => session.active && (kind === 'tex' || kind === 'md') && viewMode === 'visual';
+	const active = () => session.active && (kind === 'tex' || kind === 'md' || kind === 'typ') && viewMode === 'visual';
 	const bodyOffset = () => (api.docMeta ? bodyOffsetOf(api.docMeta) : 0);
 	const strip = () => stripFor(kind);
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { schema } from '$lib/schema/schema';
 	import type { Dialect } from '$lib/editor/dialect';
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import { DOMSerializer } from 'prosemirror-model';
@@ -18,6 +17,7 @@
 	} from 'prosemirror-tables';
 	import { toaster } from '$lib/modals/toaster-svelte';
 	import { sliceToLatex, pasteLatexText } from '$lib/editor/extensions/latexClipboard';
+	import { sliceToTypst } from '$lib/typst/visual/clipboard';
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal } from '@lucide/svelte';
 	import Kbd from '$lib/components/Kbd.svelte';
@@ -71,17 +71,19 @@
 				const slice = state.doc.slice(from, to);
 				const fragment = slice.content;
 
-				const serializer = DOMSerializer.fromSchema(schema);
+				// the VIEW's schema, not the tex one: the fragment's nodes belong to whichever
+				// dialect this editor runs, and nodes must never meet a foreign Schema object
+				const serializer = DOMSerializer.fromSchema(state.schema);
 
 				const div = document.createElement('div');
 				div.appendChild(serializer.serializeFragment(fragment));
 				const html = div.innerHTML;
 
-				// both flavors: HTML for rich internal paste, LaTeX as the plain-text form so
-				// pasting into source mode / another app yields markup, not an empty clipboard
+				// both flavors: HTML for rich internal paste, plus a plain-text form in the
+				// EDITOR'S OWN markup - typst selections copy as typst, tex/md as LaTeX
 				let latex: string;
 				try {
-					latex = sliceToLatex(slice);
+					latex = dialect === 'typst' ? sliceToTypst(slice) : sliceToLatex(slice);
 				} catch {
 					latex = state.doc.textBetween(from, to, '\n\n');
 				}
@@ -116,8 +118,9 @@
 						} else if (item.types.includes('text/plain')) {
 							const blob = await item.getType('text/plain');
 							const text = await blob.text();
-							// LaTeX text pastes as rich nodes, same as the Ctrl+V path
-							if (!pasteLatexText($editorViewStore, text)) $editorViewStore.pasteText(text);
+							// LaTeX text pastes as rich nodes, same as the Ctrl+V path — except in the
+							// typst editor, where the latex parser's tex-schema nodes must never land
+							if (dialect === 'typst' || !pasteLatexText($editorViewStore, text)) $editorViewStore.pasteText(text);
 						} else {
 							toaster.warning({
 								title: m.ctxmenu_paste_images_hint_toast(),

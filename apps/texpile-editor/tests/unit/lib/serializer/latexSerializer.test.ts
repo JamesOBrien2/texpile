@@ -19,10 +19,7 @@ function sig(n: Node): unknown {
 	if (n.isText) {
 		const text = (n.text ?? '').replace(/\s+/g, ' ').trim();
 		if (!text) return null;
-		const marks = n.marks
-			.map((m) => m.type.name)
-			.filter((x) => !x.startsWith('suggestion'))
-			.sort();
+		const marks = n.marks.map((m) => m.type.name).sort();
 		return { text, marks };
 	}
 	// math content is raw passthrough; unified-latex is not idempotent on math whitespace

@@ -33,8 +33,11 @@
 		/** Per-file git status badges, keyed by gitKey(path). Empty when not a repo. */
 		gitStatus?: Record<string, GitBadge>;
 		onOpen: (entry: TreeEntry) => void;
-		/** type 'include' creates a .tex fragment AND inserts an \input for it at the cursor. */
+		/** type 'include' creates a fragment (.tex or .typ per the compile target) AND inserts a
+		 * reference for it at the cursor. */
 		onCreate: (parentDir: string, name: string, type: 'file' | 'dir' | 'include') => void;
+		/** the compile target is Typst: the New Include hint speaks #include, not \input */
+		typstProject?: boolean;
 		onRename: (entry: TreeEntry, newName: string) => void;
 		/** several entries at once when a multi-selection is deleted/dragged. */
 		onDelete: (entries: TreeEntry[]) => void;
@@ -61,6 +64,7 @@
 		gitStatus = {},
 		onOpen,
 		onCreate,
+		typstProject = false,
 		onRename,
 		onDelete,
 		onMove,
@@ -84,7 +88,8 @@
 	// mixed-separator, matching no entry and leaving the open file unhighlighted.
 	const isActive = (e: TreeEntry) => !!activePath && samePath(activePath, e.path);
 
-	const isTex = (e: TreeEntry) => e.type === 'file' && e.name.toLowerCase().endsWith('.tex');
+	// .typ can be a main file too: the typst preview and PDF export both target mainFile ?? open file
+	const isMainable = (e: TreeEntry) => e.type === 'file' && /\.(tex|typ)$/i.test(e.name);
 	const isMain = (e: TreeEntry) => !!mainPath && e.path.replace(/\\/g, '/').toLowerCase() === mainPath.replace(/\\/g, '/').toLowerCase();
 
 	// Git status badge (VS Code convention: a single colored letter). Only files carry one.
@@ -772,13 +777,13 @@
 					closeCtx();
 					startCreate(d, 'include');
 				}}
-				title={m.filetree_new_include_hint()}
+				title={typstProject ? m.filetree_new_include_hint_typst() : m.filetree_new_include_hint()}
 			>
 				<FileSymlink class="text-surface-500 size-4" />
 				{m.filetree_menu_new_include()}
 			</button>
 		{/if}
-		{#if ctxMenu.entry && deleteCount(ctxMenu.entry) === 1 && isTex(ctxMenu.entry) && onSetMain}
+		{#if ctxMenu.entry && deleteCount(ctxMenu.entry) === 1 && isMainable(ctxMenu.entry) && onSetMain}
 			<button
 				class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
 				onclick={() => {

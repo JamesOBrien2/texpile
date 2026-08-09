@@ -28,6 +28,22 @@ export async function detectMainFile(files: TexFile[], read: ReadFn = readTextFi
 
 	const FAVOURITES = ['main.tex', 'paper.tex', 'root.tex', 'ms.tex', 'manuscript.tex', 'article.tex', 'thesis.tex'];
 
+	// Typst has no \begin{document} equivalent - any .typ compiles - so the marker scan below can
+	// never identify a root among them. Handle them by name/depth instead, and only when the folder
+	// has no .tex at all, so a LaTeX project with a stray .typ still resolves the LaTeX way.
+	const typ = files.filter((f) => /\.typ$/i.test(f.path));
+	if (typ.length > 0 && typ.length === files.length) {
+		const TYP_FAVOURITES = ['main.typ', 'paper.typ', 'thesis.typ', 'report.typ'];
+		for (const fav of TYP_FAVOURITES) {
+			const hit = typ.find((f) => f.name.toLowerCase() === fav);
+			if (hit) return hit.path;
+		}
+		const sorted = [...typ].sort(
+			(a, b) => a.relPath.split(/[\\/]/).length - b.relPath.split(/[\\/]/).length || a.relPath.length - b.relPath.length
+		);
+		return sorted[0].path;
+	}
+
 	// read every file once, project folders are small
 	const scanned = await Promise.all(
 		files.map(async (f) => {

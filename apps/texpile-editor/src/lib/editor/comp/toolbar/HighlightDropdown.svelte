@@ -2,10 +2,13 @@
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { Highlighter, AlertTriangle } from '@lucide/svelte';
 	import { editorViewStore, templateFeaturesStore } from '$lib/stores/editorStore';
-	import { schema } from '$lib/schema/schema';
+	import { schema as texSchema } from '$lib/schema/schema';
+	import type { Schema } from 'prosemirror-model';
 	import { m } from '$lib/paraglide/messages';
 
-	let { activeHighlightColor = null }: { activeHighlightColor?: string | null } = $props();
+	// markSchema must be the schema of the mounted editor - marks from a foreign Schema object
+	// must never enter a document (the typst toolbar passes typSchema)
+	let { activeHighlightColor = null, markSchema = texSchema }: { activeHighlightColor?: string | null; markSchema?: Schema } = $props();
 
 	let open = $state(false);
 
@@ -29,9 +32,9 @@
 			const { from, to } = state.selection;
 
 			if (color === 'none') {
-				dispatch(state.tr.removeMark(from, to, schema.marks.highlight));
+				dispatch(state.tr.removeMark(from, to, markSchema.marks.highlight));
 			} else {
-				const mark = schema.marks.highlight.create({ color });
+				const mark = markSchema.marks.highlight.create({ color });
 				dispatch(state.tr.addMark(from, to, mark));
 			}
 			view.focus();

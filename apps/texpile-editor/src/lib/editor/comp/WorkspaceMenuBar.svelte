@@ -42,6 +42,8 @@
 		 * than a callback plus a flag that can disagree.
 		 */
 		onNewFile?: (ext?: string) => void;
+		/** the compile target is Typst: New offers .typ instead of .tex/.cls/.sty (md either way) */
+		typstProject?: boolean;
 		onOpenFolder?: (path?: string) => void;
 		/** Close the current folder and return to the Start screen. */
 		onCloseWorkspace?: () => void;
@@ -69,6 +71,7 @@
 		disabled = false,
 		imageDir,
 		onNewFile,
+		typstProject = false,
 		onOpenFolder,
 		onCloseWorkspace,
 		onSave,
@@ -366,6 +369,7 @@
 			canCloseWorkspace: !!onCloseWorkspace,
 			canFormat: !!onFormatDocument,
 			canNewFile: !!onNewFile,
+			typstProject,
 			canInsertImage: !!imageDir,
 			canOpenFolder: !!onOpenFolder,
 			canTutorial: !!onOpenTutorial,
@@ -451,11 +455,21 @@
 								</Menu.TriggerItem>
 								<Portal>
 									<Menu.Positioner>
+										<!-- the compile target decides the document options: a Typst project is not
+										     served by .tex/.cls/.sty rows and vice versa. .bib works for both (Typst
+										     reads BibTeX directly) and markdown is format-neutral, so those stay. -->
 										<Menu.Content class={contentClass}>
-											<Menu.Item value="tex" class={itemClass}><Menu.ItemText>{m.menubar_new_tex()}</Menu.ItemText></Menu.Item>
+											{#if typstProject}
+												<Menu.Item value="typ" class={itemClass}><Menu.ItemText>{m.menubar_new_typ()}</Menu.ItemText></Menu.Item>
+											{:else}
+												<Menu.Item value="tex" class={itemClass}><Menu.ItemText>{m.menubar_new_tex()}</Menu.ItemText></Menu.Item>
+											{/if}
 											<Menu.Item value="bib" class={itemClass}><Menu.ItemText>{m.menubar_new_bib()}</Menu.ItemText></Menu.Item>
-											<Menu.Item value="cls" class={itemClass}><Menu.ItemText>{m.menubar_new_cls()}</Menu.ItemText></Menu.Item>
-											<Menu.Item value="sty" class={itemClass}><Menu.ItemText>{m.menubar_new_sty()}</Menu.ItemText></Menu.Item>
+											<Menu.Item value="md" class={itemClass}><Menu.ItemText>{m.menubar_new_md()}</Menu.ItemText></Menu.Item>
+											{#if !typstProject}
+												<Menu.Item value="cls" class={itemClass}><Menu.ItemText>{m.menubar_new_cls()}</Menu.ItemText></Menu.Item>
+												<Menu.Item value="sty" class={itemClass}><Menu.ItemText>{m.menubar_new_sty()}</Menu.ItemText></Menu.Item>
+											{/if}
 										</Menu.Content>
 									</Menu.Positioner>
 								</Portal>

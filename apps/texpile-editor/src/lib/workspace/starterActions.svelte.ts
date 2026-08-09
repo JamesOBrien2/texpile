@@ -10,7 +10,9 @@ import { m } from '$lib/paraglide/messages';
 
 const NEW_FILE_NAMES: Record<string, string> = {
 	tex: 'untitled.tex',
+	typ: 'untitled.typ',
 	bib: 'references.bib',
+	md: 'untitled.md',
 	cls: 'untitled.cls',
 	sty: 'mystyle.sty'
 };
