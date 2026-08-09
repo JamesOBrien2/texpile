@@ -58,6 +58,9 @@ export const typstHighlight = styleTags({
 	'As In': tags.operatorKeyword,
 
 	Code: tags.monospace,
+	// the called name, not every ident: #image(..) colours like a LaTeX \command does, while a
+	// plain variable stays uncoloured the way other languages leave variables
+	'FuncCall/Ident': tags.function(tags.variableName),
 	Ident: tags.variableName,
 	Bool: tags.bool,
 	Int: tags.integer,

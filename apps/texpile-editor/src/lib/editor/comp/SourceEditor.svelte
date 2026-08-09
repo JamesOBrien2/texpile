@@ -27,6 +27,7 @@
 	import { synctexFlash, flashLineEffect } from '$lib/editor/extensions/synctex-flash/synctexFlash';
 	import { bindModalKeymap, modalKeymapCompartment } from '$lib/editor/extensions/keybindings/modalKeymap';
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
+	import { latex } from '$lib/editor/extensions/latex/latex';
 	import { releaseTypstLsp, typstLspExtension } from '$lib/typst/lspClient';
 	import { workspaceRoot } from '$lib/workspace/workspaceStore';
 	import { sourceCmView } from '$lib/stores/editorStore';
@@ -438,11 +439,13 @@
 			void import('$lib/typst/typstLanguage').then(({ typstLanguage }) =>
 				view?.dispatch({ effects: langConf.reconfigure(typstLanguage()) })
 			);
+		} else if (!fileFor || /\.(tex|cls|sty)$/i.test(fileFor)) {
+			// our own LaTeX mode, not language-data's stex: stex files nearly everything under a tag
+			// the shared style leaves uncoloured, while this one speaks the same tag vocabulary as
+			// the Typst and Markdown modes (heading/math/label/function), so all three match
+			view?.dispatch({ effects: langConf.reconfigure(latex()) });
 		} else {
-			const desc =
-				!fileFor || /\.(tex|cls|sty)$/i.test(fileFor)
-					? cmlangdata.find((l) => l.name === 'LaTeX')
-					: LanguageDescription.matchFilename(cmlangdata, fileFor);
+			const desc = LanguageDescription.matchFilename(cmlangdata, fileFor);
 			desc?.load().then((lang) => view?.dispatch({ effects: langConf.reconfigure(lang) }));
 		}
 

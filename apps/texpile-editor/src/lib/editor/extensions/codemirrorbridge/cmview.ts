@@ -11,6 +11,20 @@ import { languages as cmlangdata } from '@codemirror/language-data';
 import { markdown } from '@codemirror/lang-markdown';
 import { renderStaticCodeBlock, setStaticCode } from './cmStatic';
 import { upgradeWhenNear, cancelUpgrade } from '$lib/editor/extensions/mathlivebridge/mathViewport';
+import type { Extension } from '@codemirror/state';
+
+/** resolve a language by its (display) name. LaTeX routes to the app's own mode rather than
+ *  language-data's stex, so a latex code block matches the source editor's colours. */
+async function loadLanguageByName(name: string | null | undefined): Promise<{ name: string; support: Extension } | null> {
+	if (!name) return null;
+	if (/^(latex|tex|stex)$/i.test(name)) {
+		const { latex } = await import('$lib/editor/extensions/latex/latex');
+		return { name: 'LaTeX', support: latex() };
+	}
+	const data = cmlangdata.find((l) => l.name.toLowerCase() === name.toLowerCase());
+	if (!data) return null;
+	return { name: data.name, support: await data.load() };
+}
 
 class CodeBlockView {
 	node: Node;
@@ -71,8 +85,8 @@ class CodeBlockView {
 
 		dropdown.addEventListener('change', async (event) => {
 			const selectedLanguage = (event.target as HTMLSelectElement).value;
-			const selectedLanguageData = cmlangdata.find((lang) => lang.name === selectedLanguage);
-			if (!selectedLanguageData) return;
+			const selected = await loadLanguageByName(selectedLanguage);
+			if (!selected) return;
 			const pos = this.getPos();
 			const cur = pos !== undefined ? this.view.state.doc.nodeAt(pos) : null;
 			if (!cur) return;
@@ -84,7 +98,7 @@ class CodeBlockView {
 			this.view.dispatch(this.view.state.tr.setNodeMarkup(pos!, undefined, attrs));
 			// changing the language is an interaction, so the editor must exist to reconfigure
 			this.materialize();
-			this.cm?.dispatch({ effects: this.languageConf.reconfigure(await selectedLanguageData.load()) });
+			this.cm?.dispatch({ effects: this.languageConf.reconfigure(selected.support) });
 		});
 		return dropdown;
 	}
@@ -142,15 +156,13 @@ class CodeBlockView {
 		}
 
 		const currentlang = this.node.attrs.lang;
-		const langData = cmlangdata.find((lang) => lang.name.toLowerCase() === currentlang?.toLowerCase());
-		if (langData) {
-			langData.load().then((lang) => {
-				if (this.dropdown) this.dropdown.value = langData.name;
-				cm.dispatch({
-					effects: this.languageConf.reconfigure(lang)
-				});
+		void loadLanguageByName(currentlang).then((lang) => {
+			if (!lang) return;
+			if (this.dropdown) this.dropdown.value = lang.name;
+			cm.dispatch({
+				effects: this.languageConf.reconfigure(lang.support)
 			});
-		}
+		});
 
 		cm.dom.addEventListener('focus', this.handleFocus, true);
 		cm.dom.addEventListener('blur', this.handleBlur, true);

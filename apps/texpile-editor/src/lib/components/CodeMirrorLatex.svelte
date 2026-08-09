@@ -57,13 +57,10 @@
 					languageExtension = [languageCompartment.of(langSupport)];
 				}
 			} else {
-				const latexLanguage = languages.find(
-					(lang) => lang.name.toLowerCase().includes('latex') || lang.name.toLowerCase().includes('tex')
-				);
-				if (latexLanguage) {
-					const langSupport = await latexLanguage.load();
-					languageExtension = [languageCompartment.of(langSupport)];
-				}
+				// the app's own LaTeX mode (same tags and colours as the source editor), not
+				// language-data's stex, which paints commands in a tag the shared style ignores
+				const { latex } = await import('$lib/editor/extensions/latex/latex');
+				languageExtension = [languageCompartment.of(latex())];
 			}
 		} catch {
 			console.warn(`${language} language support not available, using plain text`);

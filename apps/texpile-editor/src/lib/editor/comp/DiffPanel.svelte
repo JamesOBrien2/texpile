@@ -9,6 +9,7 @@
 	import { unifiedMergeView, MergeView } from '@codemirror/merge';
 	import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
+	import { latex } from '$lib/editor/extensions/latex/latex';
 
 	let {
 		filename = '',
@@ -34,13 +35,26 @@
 			langExt = bibtex();
 			return;
 		}
-		const desc =
-			!f || /\.(tex|cls|sty)$/i.test(f) ? cmlangdata.find((l) => l.name === 'LaTeX') : LanguageDescription.matchFilename(cmlangdata, f);
+		if (!f || /\.(tex|cls|sty)$/i.test(f)) {
+			// the app's own LaTeX mode, same tags and colours as the source editor
+			langExt = latex();
+			return;
+		}
+		let cancelled = false;
+		if (/\.typ$/i.test(f)) {
+			// island flavour: highlighting only, no fold gutter in a read-only diff
+			void import('$lib/typst/typstLanguage').then(({ typstIslandLanguage }) => {
+				if (!cancelled) langExt = typstIslandLanguage();
+			});
+			return () => {
+				cancelled = true;
+			};
+		}
+		const desc = LanguageDescription.matchFilename(cmlangdata, f);
 		if (!desc) {
 			langExt = [];
 			return;
 		}
-		let cancelled = false;
 		desc.load().then((lang) => {
 			if (!cancelled) langExt = lang;
 		});

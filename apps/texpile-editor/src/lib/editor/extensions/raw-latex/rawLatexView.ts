@@ -10,6 +10,7 @@ import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 import { languages as cmlangdata } from '@codemirror/language-data';
 import { rawEditorActiveStore } from '$lib/stores/editorStore';
 import { latexAutocomplete } from '$lib/editor/extensions/intellisense/intellisense';
+import { latex } from '$lib/editor/extensions/latex/latex';
 
 // codemirror-backed NodeView for raw source blocks; content reaches the serializer unprocessed.
 // attrs.lang picks the CodeMirror mode: 'latex' (default, with autocomplete), or 'html' /
@@ -74,6 +75,9 @@ class RawLatexView {
 			void import('$lib/typst/typstLanguage').then(({ typstIslandLanguage }) => {
 				this.cm.dispatch({ effects: this.languageConf.reconfigure(typstIslandLanguage()) });
 			});
+		} else if (String(node.attrs.lang ?? 'latex') === 'latex') {
+			// the app's own LaTeX mode, same tags and colours as the source editor
+			this.cm.dispatch({ effects: this.languageConf.reconfigure(latex()) });
 		} else {
 			const langName = LANG_NAMES[String(node.attrs.lang ?? 'latex')] ?? 'LaTeX';
 			const langData = cmlangdata.find((lang) => lang.name === langName);

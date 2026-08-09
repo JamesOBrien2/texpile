@@ -8,6 +8,7 @@ import type { Node } from 'prosemirror-model';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 import { languages as cmlangdata } from '@codemirror/language-data';
 import { latexAutocomplete } from '$lib/editor/extensions/intellisense/intellisense';
+import { latex } from '$lib/editor/extensions/latex/latex';
 import { renderStaticInlineCode, setStaticCode } from '$lib/editor/extensions/codemirrorbridge/cmStatic';
 import { upgradeWhenNear, cancelUpgrade } from '$lib/editor/extensions/mathlivebridge/mathViewport';
 
@@ -100,8 +101,11 @@ class InlineLatexView {
 			void import('$lib/typst/typstLanguage').then(({ typstIslandLanguage }) =>
 				cm.dispatch({ effects: this.languageConf.reconfigure(typstIslandLanguage()) })
 			);
+		} else if (String(this.node.attrs.lang ?? 'latex') === 'latex') {
+			// the app's own LaTeX mode, same tags and colours as the source editor
+			cm.dispatch({ effects: this.languageConf.reconfigure(latex()) });
 		} else {
-			const langName = { latex: 'LaTeX', html: 'HTML', markdown: 'Markdown' }[String(this.node.attrs.lang ?? 'latex')] ?? 'LaTeX';
+			const langName = { html: 'HTML', markdown: 'Markdown' }[String(this.node.attrs.lang ?? 'latex')] ?? 'HTML';
 			const langData = cmlangdata.find((lang) => lang.name === langName);
 			langData?.load().then((lang) => cm.dispatch({ effects: this.languageConf.reconfigure(lang) }));
 		}

@@ -1,8 +1,11 @@
-// CodeMirror's defaultHighlightStyle is tuned for a white background, so dark mode gets a
-// brightened same-hue variant, swapped via a Compartment when the resolved mode changes.
+// The one highlight style every CodeMirror in the app shares - source editor, raw islands, code
+// blocks, diff panel - so LaTeX, Markdown and Typst colour the same construct the same way.
+// CodeMirror's defaultHighlightStyle is the base; dark mode gets a brightened same-hue variant,
+// swapped via a Compartment when the resolved mode changes.
 import { Compartment, type Extension } from '@codemirror/state';
 import { EditorView, ViewPlugin } from '@codemirror/view';
 import { syntaxHighlighting, defaultHighlightStyle, HighlightStyle } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 import { get } from 'svelte/store';
 import { resolvedMode } from '$lib/theme';
 
@@ -43,15 +46,27 @@ function brighten(color: string): string {
 	return `hsl(${Math.round(h)} ${Math.round(sat * 100)}% 72%)`;
 }
 
+// defaultHighlightStyle plus the tags our dialects lean on that it leaves unstyled: LaTeX
+// commands and Typst function calls (function-of-variableName), inline code / verbatim / raw
+// blocks (monospace), and list markers (\item, -, +). Colours stay in the default palette's
+// families so the additions read as part of the same theme.
+const unifiedSpecs = [
+	...defaultHighlightStyle.specs,
+	{ tag: tags.function(tags.variableName), color: '#00c' },
+	{ tag: tags.monospace, color: '#164' },
+	{ tag: tags.list, color: '#219' }
+];
+
+const lightHighlightStyle = HighlightStyle.define(unifiedSpecs);
 const darkHighlightStyle = HighlightStyle.define(
-	defaultHighlightStyle.specs.map((spec) => {
+	unifiedSpecs.map((spec) => {
 		const color = (spec as { color?: string }).color;
 		return color ? { ...spec, color: brighten(color) } : spec;
 	})
 );
 
 const compartment = new Compartment();
-const styleFor = (mode: 'light' | 'dark'): Extension => syntaxHighlighting(mode === 'dark' ? darkHighlightStyle : defaultHighlightStyle);
+const styleFor = (mode: 'light' | 'dark'): Extension => syntaxHighlighting(mode === 'dark' ? darkHighlightStyle : lightHighlightStyle);
 
 // editors that opt in register here; a mode change reconfigures all of them
 const views = new Set<EditorView>();
