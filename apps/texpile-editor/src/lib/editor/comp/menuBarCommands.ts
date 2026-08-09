@@ -1,20 +1,37 @@
 // menu-bar editor commands. visual mode always targets the PM doc (a raw CM block is still a
 // PM node); only source mode targets the SourceEditor's CodeMirror.
+//
+// Dialect-aware on both paths: the CM wraps write the open file's own syntax, and the PM commands
+// read the mark/node off the view's OWN schema - the tex, md and typ editors are three different
+// Schema objects, and a MarkType from one must never be dispatched into another.
 import { get } from 'svelte/store';
 import { EditorView as CMView } from '@codemirror/view';
+import { undo as cmUndo, redo as cmRedo } from '@codemirror/commands';
+import { openSearchPanel } from '@codemirror/search';
 import { undo, redo } from 'prosemirror-history';
 import { toggleMark } from 'prosemirror-commands';
 import { toggleHeading, toggleBlockQuote } from '$lib/editor/helperCommands';
-import { schema } from '$lib/schema/schema';
 import { editorViewStore, displaySearchBarStore, viewMode, sourceCmView } from '$lib/stores/editorStore';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
+
+export type MenuDialect = 'tex' | 'md' | 'typ';
 
 /** runs a PM command against the main editor, then refocuses it. */
 export function run(cmd: Command) {
 	const v = get(editorViewStore);
 	if (!v) return;
 	cmd(v.state, v.dispatch);
+	v.focus();
+}
+
+/** toggles a mark by name, skipping silently when the open editor's schema lacks it. */
+export function runMark(name: string, attrs?: Record<string, unknown>) {
+	const v = get(editorViewStore);
+	if (!v) return;
+	const mark = v.state.schema.marks[name];
+	if (!mark) return;
+	toggleMark(mark, attrs)(v.state, v.dispatch);
 	v.focus();
 }
 
@@ -49,39 +66,77 @@ export function cmReplace(cm: CMView, before: string, after = '') {
 }
 
 export function editSelect(value: string) {
+	// source mode: the document history and the search UI are CodeMirror's, not ProseMirror's
+	const cm = activeCm();
+	if (cm) {
+		if (value === 'undo') cmUndo(cm);
+		else if (value === 'redo') cmRedo(cm);
+		else if (value === 'find') {
+			openSearchPanel(cm); // takes focus itself
+			return;
+		}
+		cm.focus();
+		return;
+	}
 	if (value === 'undo') run(undo);
 	else if (value === 'redo') run(redo);
 	else if (value === 'find') displaySearchBarStore.update((v) => !v);
 }
 
-export function formatSelect(value: string) {
+// what Format writes into the source editor, per dialect. Headings and quotes are line-start
+// markers in typst/markdown, so those entries prefix rather than wrap.
+const CM_FORMAT: Record<MenuDialect, Partial<Record<string, [string, string]>>> = {
+	tex: {
+		bold: ['\\textbf{', '}'],
+		italic: ['\\textit{', '}'],
+		underline: ['\\underline{', '}'],
+		code: ['\\texttt{', '}'],
+		h1: ['\\section{', '}'],
+		h2: ['\\subsection{', '}'],
+		h3: ['\\subsubsection{', '}'],
+		quote: ['\\begin{quote}\n', '\n\\end{quote}']
+	},
+	typ: {
+		bold: ['*', '*'],
+		italic: ['_', '_'],
+		underline: ['#underline[', ']'],
+		code: ['`', '`'],
+		h1: ['= ', ''],
+		h2: ['== ', ''],
+		h3: ['=== ', ''],
+		quote: ['#quote(block: true)[', ']']
+	},
+	// markdown has no underline; the menu hides the item
+	md: {
+		bold: ['**', '**'],
+		italic: ['*', '*'],
+		code: ['`', '`'],
+		h1: ['# ', ''],
+		h2: ['## ', ''],
+		h3: ['### ', ''],
+		quote: ['> ', '']
+	}
+};
+
+export function formatSelect(value: string, dialect: MenuDialect = 'tex') {
 	const cm = activeCm();
 	if (cm) {
-		const wrap: Record<string, [string, string]> = {
-			bold: ['\\textbf{', '}'],
-			italic: ['\\textit{', '}'],
-			underline: ['\\underline{', '}'],
-			code: ['\\texttt{', '}'],
-			h1: ['\\section{', '}'],
-			h2: ['\\subsection{', '}'],
-			h3: ['\\subsubsection{', '}'],
-			quote: ['\\begin{quote}\n', '\n\\end{quote}']
-		};
-		if (wrap[value]) cmReplace(cm, wrap[value][0], wrap[value][1]);
+		const wrap = CM_FORMAT[dialect][value];
+		if (wrap) cmReplace(cm, wrap[0], wrap[1]);
 		return;
 	}
 	switch (value) {
 		case 'bold':
-			run(toggleMark(schema.marks.strong));
+			runMark('strong');
 			break;
 		case 'italic':
-			run(toggleMark(schema.marks.em));
+			runMark('em');
 			break;
 		case 'underline':
-			run(toggleMark(schema.marks.u));
+			runMark('u');
 			break;
 		case 'code':
-			run(toggleMark(schema.marks.code));
+			runMark('code');
 			break;
 		case 'h1':
 			run(toggleHeading(1));

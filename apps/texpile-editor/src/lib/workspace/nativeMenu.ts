@@ -44,6 +44,12 @@ export interface NativeMenuHandlers {
 /** the flags main needs; the labels are added here */
 export interface MenuStateInput {
 	disabled: boolean;
+	/** the open file has a text buffer for Edit/Spelling to act on (false for pdf/image/binary) */
+	editable: boolean;
+	/** the open file is a structured tex/md/typ document, so Insert/Format apply */
+	structured: boolean;
+	/** which syntax Insert/Format write; decides the LaTeX-only items' visibility */
+	dialect: 'tex' | 'md' | 'typ';
 	cursorInCm: boolean;
 	spellcheck: boolean;
 	terminalAvailable: boolean;

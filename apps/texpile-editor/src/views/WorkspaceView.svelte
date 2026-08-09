@@ -1597,7 +1597,7 @@
 			hasFile: () => !!doc.path,
 			canManageTree: () => provider.caps.manageTree,
 			canSearch: () => provider.caps.search,
-			canFormat: () => provider.caps.format,
+			canFormat: () => provider.caps.format && kind === 'tex', // latexindent formats .tex only
 			canGit: () => provider.caps.git,
 			openFile: (abs) => activeFilePath.set(abs),
 			toggleSidebar: () => layout.toggleSidebar(),
@@ -1656,13 +1656,14 @@
 		{showToc}
 		menu={{
 			disabled: !doc.path,
+			fileKind: kind,
 			// an image is written next to the document, so a workspace that takes no tree writes has
 			// nowhere to put one however good the path looks
 			imageDir: hostMode && doc.path && hasVisualMode(kind) ? dirname(doc.path) : undefined,
 			// never a guest: a guest is IN someone's session, not in a position to open one
 			shareable: isDesktop() && !guest,
 			hostMode,
-			canFormat: provider.caps.format,
+			canFormat: provider.caps.format && kind === 'tex', // latexindent formats .tex only
 			uiZoomPercent,
 			typstProject
 		}}

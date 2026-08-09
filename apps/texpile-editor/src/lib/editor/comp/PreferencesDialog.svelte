@@ -191,28 +191,32 @@
 					? `${tinymist.version} (Typst ${tinymist.typstVersion}, ${tinymist.source})`
 					: undefined
 				: probe?.detail}
-		<div class={ROW}>
-			<div class="min-w-0">
-				<div class="flex items-center gap-2 text-sm font-medium">
-					<span class="font-mono">{tool.name}</span>
-					{#if probing || probeFailed}
-						<span class="text-surface-400 text-xs">…</span>
-					{:else}
-						<span class="text-xs {found ? 'text-success-600-400' : 'text-surface-400'}">
-							{found ? m.prefs_toolchain_found() : m.prefs_toolchain_missing()}
-						</span>
+		<!-- one line per tool (the purpose reads from the tooltip), so the eight LaTeX rows fit on
+		     one screen. A missing tool grows a second line: the install command, and the docs -
+		     nothing installs these automatically yet, so a link is the honest offer. -->
+		<div class="border-surface-200-800 border-b py-2 last:border-b-0" title={tool.purpose}>
+			<div class="flex min-w-0 items-baseline gap-2">
+				<span class="shrink-0 font-mono text-sm font-medium">{tool.name}</span>
+				{#if probing || probeFailed}
+					<span class="text-surface-400 text-xs">…</span>
+				{:else}
+					<span class="shrink-0 text-xs {found ? 'text-success-600-400' : 'text-surface-400'}">
+						{found ? m.prefs_toolchain_found() : m.prefs_toolchain_missing()}
+					</span>
+					{#if found && detail}
+						<span class="text-surface-400 min-w-0 truncate font-mono text-xs" title={detail}>{detail}</span>
 					{/if}
-				</div>
-				<div class="text-surface-500 mt-0.5 text-xs">{tool.purpose}</div>
-				{#if !probing && !probeFailed && found && detail}
-					<div class="text-surface-400 mt-1 font-mono text-xs break-all">{detail}</div>
-				{:else if !probing && !probeFailed && !found}
-					<div class="text-surface-400 mt-1 text-xs">
-						{m.prefs_toolchain_install_hint()}
-						<code class="bg-surface-200-800 ml-1 rounded px-1 break-all">{installHint(tool)}</code>
-					</div>
 				{/if}
 			</div>
+			{#if !probing && !probeFailed && !found}
+				<div class="text-surface-400 mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-xs">
+					<span class="shrink-0">{m.prefs_toolchain_install_hint()}</span>
+					<code class="bg-surface-200-800 rounded px-1 break-all">{installHint(tool)}</code>
+					<a class="anchor shrink-0" href="https://texpile.com/docs/installation" target="_blank" rel="noopener noreferrer"
+						>{m.prefs_toolchain_install_guide()}</a
+					>
+				</div>
+			{/if}
 		</div>
 	{/each}
 {/snippet}

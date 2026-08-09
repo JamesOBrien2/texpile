@@ -1,4 +1,3 @@
-import { schema } from '$lib/schema/schema';
 import type { Command, EditorState, Transaction } from 'prosemirror-state';
 
 export function toggleHeading(level: number): Command {
@@ -56,7 +55,8 @@ export function setHeadingLevel(level: number, numbered = true): Command {
 
 export function toggleBlockQuote() {
 	return (state: EditorState, dispatch: (tr: Transaction) => void) => {
-		const blockquoteType = schema.nodes.blockquote;
+		// state.schema, not the tex import: the menu bar runs this against whichever editor is open
+		const blockquoteType = state.schema.nodes.blockquote;
 		const { from, to } = state.selection;
 		let transactionDispatched = false;
 

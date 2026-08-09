@@ -48,6 +48,8 @@
 		/** menu-bar inputs that are not workspace state */
 		menu: {
 			disabled: boolean;
+			/** kind of the open file; the menus adapt to what it supports (see WorkspaceMenuBar) */
+			fileKind: import('$lib/workspace/documentBuffer.svelte').FileKind;
 			imageDir: string | undefined;
 			shareable: boolean;
 			/** provider.caps.manageTree: the workspace takes tree writes */
@@ -81,6 +83,7 @@
 	{#snippet menus()}
 		<WorkspaceMenuBar
 			disabled={menu.disabled}
+			fileKind={menu.fileKind}
 			imageDir={menu.imageDir}
 			onNewFile={menu.hostMode ? actions.newFileOfType : undefined}
 			typstProject={menu.typstProject}

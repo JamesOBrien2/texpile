@@ -1016,6 +1016,7 @@
 	"prefs_toolchain_missing": "Nicht gefunden",
 	"prefs_toolchain_recheck": "Erneut prüfen",
 	"prefs_toolchain_install_hint": "Installieren mit:",
+	"prefs_toolchain_install_guide": "Installationsanleitung",
 	"prefs_group_latex": "LaTeX",
 	"prefs_latex_live_mode_note": "Vorschau mit der integrierten inkrementellen lualatex-Engine statt mit dem Compile-Befehl.",
 	"prefs_group_vcs": "Versionsverwaltung",
