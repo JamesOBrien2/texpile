@@ -141,8 +141,8 @@ function translate(node: SyntaxNode, src: string): string | null {
 		case 'MathShorthand':
 			return SHORTHANDS[slice] ?? null;
 		case 'MathAttach': {
-			// base then any of (_ sub) / (^ sup), in source order
-			const parts = kids(node);
+			// base then any of (_ sub) / (^ sup), in source order; whitespace is layout, not content
+			const parts = kids(node).filter((k) => k.name !== 'Space');
 			if (parts.length === 0) return null;
 			const base = translate(parts[0], src);
 			if (base == null) return null;
@@ -158,7 +158,8 @@ function translate(node: SyntaxNode, src: string): string | null {
 			return out;
 		}
 		case 'MathFrac': {
-			const parts = kids(node).filter((k) => k.name !== 'Slash');
+			// `x / y` carries Space nodes around the slash; they are layout, not content
+			const parts = kids(node).filter((k) => k.name !== 'Slash' && k.name !== 'Space');
 			if (parts.length !== 2) return null;
 			const a = operand(parts[0], src);
 			const b = operand(parts[1], src);

@@ -260,6 +260,13 @@ describe('converted document shape', () => {
 		expect(block.attrs.typst).toBe('integral_0^1 f(x) dif x');
 	});
 
+	it('spaced fractions translate: the Space nodes around the slash are layout', () => {
+		const doc = docOf('$ (a + b) / 2 $\n\n$ sum_(k=1)^n k = (n (n + 1)) / 2 $\n');
+		expect(doc.child(0).type.name).toBe('block_math');
+		expect(doc.child(0).textContent).toBe('\\frac{a + b}{2}');
+		expect(doc.child(1).type.name).toBe('block_math');
+	});
+
 	it('untranslatable equations stay raw islands', () => {
 		const doc = docOf('has $mat(1, 0; 0, 1)$ and $sqrt(x)$ and $theta.alt$ inline\n\n$ f = cases(1, 0) $\n');
 		const para = doc.child(0);
