@@ -188,22 +188,35 @@
 	{#if probeFailed}
 		<p class="text-warning-700-300 pt-3 text-xs">{m.prefs_toolchain_probe_failed()}</p>
 	{/if}
-	{#each toolsInGroup(group) as tool (tool.id)}
-		{@const probe = probeFor(tool.id)}
-		<!-- tinymist resolves through its own path (configured / PATH / managed), so its row reads
-		     that result rather than the generic probe -->
-		{@const found = tool.id === 'tinymist' ? tinymist !== null && tinymist !== 'unchecked' : !!probe?.found}
-		<div class="border-surface-200-800 flex items-baseline gap-2 border-b py-2 last:border-b-0" title={tool.purpose}>
-			<span class="shrink-0 font-mono text-sm font-medium">{tool.name}</span>
-			{#if probing || probeFailed}
-				<span class="text-surface-400 text-xs">…</span>
-			{:else}
-				<span class="text-xs {found ? 'text-success-600-400' : 'text-surface-400'}">
-					{found ? m.prefs_toolchain_found() : m.prefs_toolchain_missing()}
-				</span>
-			{/if}
-		</div>
-	{/each}
+	<!-- two columns: one column of name-plus-verdict rows was half whitespace. The version rides
+	     along truncated (hover for the full line); the tool's purpose is the row tooltip -->
+	<div class="grid grid-cols-2 gap-x-6">
+		{#each toolsInGroup(group) as tool (tool.id)}
+			{@const probe = probeFor(tool.id)}
+			<!-- tinymist resolves through its own path (configured / PATH / managed), so its row reads
+			     that result rather than the generic probe -->
+			{@const found = tool.id === 'tinymist' ? tinymist !== null && tinymist !== 'unchecked' : !!probe?.found}
+			{@const detail =
+				tool.id === 'tinymist'
+					? tinymist && tinymist !== 'unchecked'
+						? `${tinymist.version} (Typst ${tinymist.typstVersion}, ${tinymist.source})`
+						: undefined
+					: probe?.detail}
+			<div class="border-surface-200-800 flex min-w-0 items-baseline gap-2 border-b py-2" title={tool.purpose}>
+				<span class="shrink-0 font-mono text-sm font-medium">{tool.name}</span>
+				{#if probing || probeFailed}
+					<span class="text-surface-400 text-xs">…</span>
+				{:else}
+					<span class="shrink-0 text-xs {found ? 'text-success-600-400' : 'text-surface-400'}">
+						{found ? m.prefs_toolchain_found() : m.prefs_toolchain_missing()}
+					</span>
+					{#if found && detail}
+						<span class="text-surface-400 min-w-0 truncate font-mono text-xs" title={detail}>{detail}</span>
+					{/if}
+				{/if}
+			</div>
+		{/each}
+	</div>
 {/snippet}
 
 {#snippet toggleRow(text: string, hint: string, checked: boolean, onChange: (v: boolean) => void, disabled = false, title = '')}
