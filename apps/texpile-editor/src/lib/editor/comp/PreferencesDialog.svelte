@@ -5,7 +5,7 @@
 	import { settings, updateSettings, updateSettingsLive, applyUiLocale, setMcpEnabled, type AppSettings } from '$lib/settings';
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
-	import { installHint, toolsInGroup } from '$lib/workspace/toolchainCatalog';
+	import { toolsInGroup } from '$lib/workspace/toolchainCatalog';
 	import McpSetupModal from './McpSetupModal.svelte';
 	// dark wordmark for light backgrounds, white one for dark mode - the pair StartView uses
 	import logoOnLight from '$lib/assets/logo/Logo-dark.svg';
@@ -166,13 +166,21 @@
 	</div>
 {/snippet}
 
-<!-- The external programs a tab's features depend on: one row each, showing whether it was found,
-     the tool's own version line, and how to install it when it wasn't. Lives next to the settings
-     that need it rather than in one combined list, so "Typst intelligence" and "is tinymist here"
-     are answered in the same place. -->
+<!-- The external programs a tab's features depend on: one row each, saying only found / not found
+     (the purpose sits in the tooltip). Anything more - versions, install commands - belongs in the
+     docs, which the header links no matter what. Lives next to the settings that need it rather
+     than in one combined list, so "Typst intelligence" and "is tinymist here" are answered in the
+     same place. -->
 {#snippet toolRows(group: 'latex' | 'typst' | 'general')}
 	<div class="border-surface-200-800 flex items-center justify-between gap-3 border-b pt-1 pb-3">
-		<p class="text-surface-500 text-xs">{m.prefs_toolchain_intro()}</p>
+		<p class="text-surface-500 text-xs">
+			{m.prefs_toolchain_intro()}
+			<!-- always shown, not only when something is missing: one place to go, stated up front -->
+			{m.prefs_toolchain_docs_hint()}
+			<a class="anchor" href="https://texpile.com/docs/installation" target="_blank" rel="noopener noreferrer"
+				>{m.prefs_toolchain_install_guide()}</a
+			>
+		</p>
 		<button class="btn preset-tonal shrink-0 text-xs" onclick={probeToolchain} disabled={probing}>
 			{m.prefs_toolchain_recheck()}
 		</button>
@@ -185,37 +193,14 @@
 		<!-- tinymist resolves through its own path (configured / PATH / managed), so its row reads
 		     that result rather than the generic probe -->
 		{@const found = tool.id === 'tinymist' ? tinymist !== null && tinymist !== 'unchecked' : !!probe?.found}
-		{@const detail =
-			tool.id === 'tinymist'
-				? tinymist && tinymist !== 'unchecked'
-					? `${tinymist.version} (Typst ${tinymist.typstVersion}, ${tinymist.source})`
-					: undefined
-				: probe?.detail}
-		<!-- one line per tool (the purpose reads from the tooltip), so the eight LaTeX rows fit on
-		     one screen. A missing tool grows a second line: the install command, and the docs -
-		     nothing installs these automatically yet, so a link is the honest offer. -->
-		<div class="border-surface-200-800 border-b py-2 last:border-b-0" title={tool.purpose}>
-			<div class="flex min-w-0 items-baseline gap-2">
-				<span class="shrink-0 font-mono text-sm font-medium">{tool.name}</span>
-				{#if probing || probeFailed}
-					<span class="text-surface-400 text-xs">…</span>
-				{:else}
-					<span class="shrink-0 text-xs {found ? 'text-success-600-400' : 'text-surface-400'}">
-						{found ? m.prefs_toolchain_found() : m.prefs_toolchain_missing()}
-					</span>
-					{#if found && detail}
-						<span class="text-surface-400 min-w-0 truncate font-mono text-xs" title={detail}>{detail}</span>
-					{/if}
-				{/if}
-			</div>
-			{#if !probing && !probeFailed && !found}
-				<div class="text-surface-400 mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 text-xs">
-					<span class="shrink-0">{m.prefs_toolchain_install_hint()}</span>
-					<code class="bg-surface-200-800 rounded px-1 break-all">{installHint(tool)}</code>
-					<a class="anchor shrink-0" href="https://texpile.com/docs/installation" target="_blank" rel="noopener noreferrer"
-						>{m.prefs_toolchain_install_guide()}</a
-					>
-				</div>
+		<div class="border-surface-200-800 flex items-baseline gap-2 border-b py-2 last:border-b-0" title={tool.purpose}>
+			<span class="shrink-0 font-mono text-sm font-medium">{tool.name}</span>
+			{#if probing || probeFailed}
+				<span class="text-surface-400 text-xs">…</span>
+			{:else}
+				<span class="text-xs {found ? 'text-success-600-400' : 'text-surface-400'}">
+					{found ? m.prefs_toolchain_found() : m.prefs_toolchain_missing()}
+				</span>
 			{/if}
 		</div>
 	{/each}
