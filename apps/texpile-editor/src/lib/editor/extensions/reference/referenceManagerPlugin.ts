@@ -149,9 +149,9 @@ function extractFigureReferences(view: EditorView): ReferenceItem[] {
 
 function extractEquationReferences(view: EditorView): ReferenceItem[] {
 	const equations: ReferenceItem[] = [];
-	// typst equations carry no serializable label yet, so offering them would insert an @ref
-	// pointing at a label the file never contains - invalid typst
-	if (view.state.schema.nodes.typ_ref) return equations;
+	// typst: an equation is referenceable iff it carries a <label> (the numbered attr is LaTeX
+	// machinery; typst numbering is a document-level #set rule the editor doesn't track)
+	const typst = !!view.state.schema.nodes.typ_ref;
 	let equationCount = 0;
 
 	let currentSection = '';
@@ -159,6 +159,22 @@ function extractEquationReferences(view: EditorView): ReferenceItem[] {
 	view.state.doc.descendants((node, pos) => {
 		if (node.type.name === 'heading') {
 			currentSection = node.textContent || '';
+		}
+
+		if (typst) {
+			if (node.type.name === 'block_math' && node.attrs.label) {
+				equationCount++;
+				const content = (node.attrs.typst as string) || node.textContent || '';
+				const preview = content.length > 50 ? content.substring(0, 50) + '...' : content;
+				equations.push({
+					type: 'equation',
+					id: node.attrs.label,
+					displayText: `Equation ${equationCount}`,
+					subtitle: [currentSection, preview].filter(Boolean).join(' • ') || node.attrs.label,
+					data: { label: node.attrs.label, number: equationCount, position: pos, section: currentSection, content }
+				});
+			}
+			return;
 		}
 
 		if (node.type.name === 'block_math' && node.attrs.numbered) {

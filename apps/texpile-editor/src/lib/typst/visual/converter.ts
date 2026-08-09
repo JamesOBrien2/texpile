@@ -497,16 +497,23 @@ function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 					buf.push(k);
 				}
 				break;
-			case 'Equation':
-				if (buf.length === 0 && restOnlySpace(kids, i + 1)) {
+			case 'Equation': {
+				// an optional trailing <label> belongs to the equation (typst attaches it to the
+				// preceding block); it becomes the node's label attr so @refs can point at it
+				let j = i + 1;
+				while (kids[j]?.name === 'Space') j++;
+				const labelNode = kids[j]?.name === 'Label' ? kids[j] : null;
+				const after = labelNode ? j + 1 : i + 1;
+				if (buf.length === 0 && restOnlySpace(kids, after)) {
 					const latex = typstMathToLatex(k, src);
+					const to = (labelNode ?? k).to;
 					if (latex != null) {
 						segs.push({
 							blocks: [
 								el(
 									'block_math',
 									{
-										label: null,
+										label: labelNode ? src.slice(labelNode.from + 1, labelNode.to - 1) : null,
 										numbered: false,
 										environment: null,
 										lineLabels: [],
@@ -517,15 +524,18 @@ function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 								)
 							],
 							from: k.from,
-							to: k.to
+							to
 						});
 					} else {
-						segs.push({ blocks: [rawBlock(src.slice(k.from, k.to))], from: k.from, to: k.to });
+						// untranslatable: the label rides inside the raw island, still byte-exact
+						segs.push({ blocks: [rawBlock(src.slice(k.from, to))], from: k.from, to });
 					}
+					i = after - 1;
 				} else {
 					buf.push(k);
 				}
 				break;
+			}
 			default:
 				buf.push(k);
 		}

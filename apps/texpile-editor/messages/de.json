@@ -767,6 +767,7 @@
 	"tablewrap_latex_label_hint": "(für \\ref-Befehle)",
 	"tablewrap_typst_label": "Label",
 	"tablewrap_typst_label_hint": "(für @-Referenzen)",
+	"mathsettings_typst_numbering_note": "Für Referenzen auf eine Gleichung muss die Nummerierung aktiv sein, z. B. #set math.equation(numbering: \"(1)\") in der Vorlage.",
 	"tablewrap_label_placeholder": "Benutzerdefiniertes Label (z. B. results-table)",
 	"tablewrap_label_auto_generated_hint": "Automatisch erzeugte eindeutige Kennung. Sie können sie hier anpassen.",
 	"tablewrap_label_duplicate": "Dieses Label wird bereits verwendet",

@@ -114,7 +114,7 @@ describe('block_math settings popover', () => {
 		expect(mountSpy).not.toHaveBeenCalled();
 	});
 
-	it('never mounts in the typst editor: numbering and labels have no typst serialization', async () => {
+	it('mounts in the typst editor too, where the popover offers only the <label> field', async () => {
 		const { typSchema } = await import('$lib/typst/visual/schema');
 		const node = typSchema.nodes.block_math.create({ numbered: false, lineLabels: [] }, typSchema.text('x^2'));
 		const pmView = {
@@ -126,7 +126,6 @@ describe('block_math settings popover', () => {
 		const view = new MathLiveView(node, pmView, () => 0, {}, true);
 		document.body.appendChild(view.dom);
 		view.dom.dispatchEvent(new Event('pointerenter'));
-		view.dom.dispatchEvent(new Event('focusin', { bubbles: true }));
-		expect(mountSpy).not.toHaveBeenCalled();
+		expect(mountSpy).toHaveBeenCalledTimes(1);
 	});
 });

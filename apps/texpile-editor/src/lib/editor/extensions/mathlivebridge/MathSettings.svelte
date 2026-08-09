@@ -17,6 +17,10 @@
 
 	let { node, view, getPos }: Props = $props();
 
+	// the typst editor: no numbering toggle or environments (numbering is a document-level
+	// #set rule the template owns), just the <label> that @refs point at
+	const isTypst = $derived(!!view.state.schema.nodes.typ_ref);
+
 	let settingsOpen = $state(false);
 	let showAdvanced = $state(false);
 	// form fields are seeded from the node once, by design
@@ -80,6 +84,16 @@
 				...node.attrs,
 				...attrs
 			});
+			// typst: renaming the label follows every @ref chip pointing at it, in the same
+			// transaction (one undo step) - the same behavior the table wrapper has
+			const oldLabel = node.attrs.label;
+			if (isTypst && 'label' in attrs && attrs.label !== oldLabel && oldLabel && attrs.label) {
+				view.state.doc.descendants((n, p) => {
+					if (n.type.name === 'typ_ref' && n.attrs.target === String(oldLabel)) {
+						tr.setNodeMarkup(p, undefined, { target: String(attrs.label) });
+					}
+				});
+			}
 			view.dispatch(tr);
 		}
 	}
@@ -159,8 +173,15 @@
 		}
 	}
 	function handleLabelBlur() {
-		const currentLabel = labelInput.trim().replace(/[^a-zA-Z0-9-_]/g, '');
+		// typst labels keep their conventional colon (eq:mass); an emptied field CLEARS the
+		// label there, since a typst equation without one is simply unreferenced
+		const currentLabel = isTypst ? sanitizeLabel(labelInput) : labelInput.trim().replace(/[^a-zA-Z0-9-_]/g, '');
 
+		if (isTypst && !currentLabel) {
+			labelInput = '';
+			updateAttrs({ label: null });
+			return;
+		}
 		if (!currentLabel || isLabelDuplicate(currentLabel)) {
 			labelInput = originalTexpileLabel;
 			updateAttrs({ label: originalTexpileLabel });
@@ -194,124 +215,152 @@
 			<Popover.Positioner class="z-floating-ui">
 				<Popover.Content class="card bg-surface-50-950 border-surface-300-700 w-[280px] border shadow-lg">
 					<div class="settings-content">
-						<div class="settings-row">
-							<Switch checked={numberedInput} onCheckedChange={handleNumberedToggle} class="flex w-full items-center justify-between gap-3">
-								<Switch.Label class="flex items-center gap-2">
-									<span>{m.mathsettings_numbered_label()}</span>
-									<Tooltip positioning={{ placement: 'top' }} openDelay={200}>
-										<Tooltip.Trigger class="inline-flex items-center">
-											<Info class="text-surface-500 h-3.5 w-3.5" />
-										</Tooltip.Trigger>
-										<Portal>
-											<Tooltip.Positioner class="z-floating-ui">
-												<Tooltip.Content class="card preset-filled p-2 text-sm">{m.mathsettings_numbered_tooltip()}</Tooltip.Content>
-											</Tooltip.Positioner>
-										</Portal>
-									</Tooltip>
-								</Switch.Label>
-								<Switch.Control class="preset-filled-surface-200-700 data-[state=checked]:preset-filled-primary-500">
-									<Switch.Thumb />
-								</Switch.Control>
-								<Switch.HiddenInput />
-							</Switch>
-						</div>
-
-						{#if numberedInput}
-							{#if hasSpecialEnvironment}
-								<div class="settings-row">
-									<div class="flex items-center gap-2">
-										<span class="text-surface-600-400 text-sm">{m.mathsettings_environment_label()}</span>
-										<span class="preset-tonal-primary rounded px-2 py-0.5 text-sm font-medium capitalize">{environmentInput}</span>
+						{#if isTypst}
+							<div class="settings-row">
+								<label class="label">
+									<span>
+										{m.tablewrap_typst_label()}
+										<span class="text-surface-600-400 text-sm">{m.tablewrap_typst_label_hint()}</span>
+									</span>
+									<input
+										type="text"
+										class="input text-sm"
+										class:input-error={isDuplicate}
+										value={labelInput}
+										oninput={handleLabelInput}
+										onblur={handleLabelBlur}
+										placeholder="eq:mass"
+									/>
+									{#if isDuplicate}
+										<p class="text-error-600 mt-1 text-xs">{m.mathsettings_label_duplicate_error()}</p>
+									{/if}
+									<p class="text-surface-500 mt-1 text-xs">{m.mathsettings_typst_numbering_note()}</p>
+								</label>
+							</div>
+						{:else}
+							<div class="settings-row">
+								<Switch
+									checked={numberedInput}
+									onCheckedChange={handleNumberedToggle}
+									class="flex w-full items-center justify-between gap-3"
+								>
+									<Switch.Label class="flex items-center gap-2">
+										<span>{m.mathsettings_numbered_label()}</span>
 										<Tooltip positioning={{ placement: 'top' }} openDelay={200}>
 											<Tooltip.Trigger class="inline-flex items-center">
 												<Info class="text-surface-500 h-3.5 w-3.5" />
 											</Tooltip.Trigger>
 											<Portal>
 												<Tooltip.Positioner class="z-floating-ui">
-													<Tooltip.Content class="card preset-filled max-w-[220px] p-2 text-sm">
-														{#if isPerLineLabelMode}
-															{m.mathsettings_environment_tooltip_perline()}
-														{:else}
-															{m.mathsettings_environment_tooltip_single()}
-														{/if}
-													</Tooltip.Content>
+													<Tooltip.Content class="card preset-filled p-2 text-sm">{m.mathsettings_numbered_tooltip()}</Tooltip.Content>
 												</Tooltip.Positioner>
 											</Portal>
 										</Tooltip>
-									</div>
-								</div>
-							{/if}
+									</Switch.Label>
+									<Switch.Control class="preset-filled-surface-200-700 data-[state=checked]:preset-filled-primary-500">
+										<Switch.Thumb />
+									</Switch.Control>
+									<Switch.HiddenInput />
+								</Switch>
+							</div>
 
-							{#if isPerLineLabelMode}
-								<div class="border-surface-300-700 mt-3 border-t pt-3">
-									<span class="text-surface-700-300 mb-2 block text-sm font-medium">{m.mathsettings_line_labels_heading()}</span>
-									<p class="text-surface-500 mb-2 text-xs">
-										{m.mathsettings_line_labels_hint({ refSyntax: '\\ref{label}' })}
-									</p>
-									{#each { length: detectedLineCount() } as _, i}
-										<div class="mb-2 flex items-center gap-2">
-											<span class="text-surface-500 w-12 text-xs">{m.mathsettings_line_number_label({ number: i + 1 })}</span>
-											<input
-												type="text"
-												class="input flex-1 text-sm"
-												value={lineLabelsInput[i] || ''}
-												oninput={(e) => handleLineLabelChange(i, (e.target as HTMLInputElement).value)}
-												placeholder={m.mathsettings_line_label_placeholder({ index: i + 1 })}
-											/>
-											{#if lineLabelsInput[i]}
-												<button
-													type="button"
-													class="preset-tonal-surface hover:preset-tonal-error btn-icon btn-icon-sm"
-													onclick={() => clearLineLabel(i)}
-													title={m.mathsettings_clear_label_title()}
-												>
-													<Trash2 class="h-3 w-3" />
-												</button>
-											{:else}
-												<button type="button" class="btn btn-sm preset-tonal" onclick={() => generateLineLabel(i)}>
-													{m.mathsettings_auto_button()}
-												</button>
-											{/if}
+							{#if numberedInput}
+								{#if hasSpecialEnvironment}
+									<div class="settings-row">
+										<div class="flex items-center gap-2">
+											<span class="text-surface-600-400 text-sm">{m.mathsettings_environment_label()}</span>
+											<span class="preset-tonal-primary rounded px-2 py-0.5 text-sm font-medium capitalize">{environmentInput}</span>
+											<Tooltip positioning={{ placement: 'top' }} openDelay={200}>
+												<Tooltip.Trigger class="inline-flex items-center">
+													<Info class="text-surface-500 h-3.5 w-3.5" />
+												</Tooltip.Trigger>
+												<Portal>
+													<Tooltip.Positioner class="z-floating-ui">
+														<Tooltip.Content class="card preset-filled max-w-[220px] p-2 text-sm">
+															{#if isPerLineLabelMode}
+																{m.mathsettings_environment_tooltip_perline()}
+															{:else}
+																{m.mathsettings_environment_tooltip_single()}
+															{/if}
+														</Tooltip.Content>
+													</Tooltip.Positioner>
+												</Portal>
+											</Tooltip>
 										</div>
-									{/each}
-									{#if detectedLineCount() === 1}
-										<p class="text-surface-500 mt-2 text-xs italic">{m.mathsettings_multiline_tip()}</p>
-									{/if}
-								</div>
-							{/if}
-
-							{#if !isPerLineLabelMode}
-								<button
-									type="button"
-									class="text-surface-600-400 hover:text-surface-900-100 my-3 flex w-full items-center gap-2 text-sm transition-colors"
-									onclick={() => (showAdvanced = !showAdvanced)}
-								>
-									<ChevronDown class="h-4 w-4 transition-transform {showAdvanced ? 'rotate-180' : ''}" />
-									<span>{m.mathsettings_advanced_options()}</span>
-								</button>
-
-								{#if showAdvanced}
-									<div class="border-surface-300-700 mb-3 space-y-4 pl-6">
-										<label class="label">
-											<span>
-												{m.mathsettings_label_field_label()}
-												<span class="text-surface-600-400 text-sm">{m.mathsettings_label_field_hint()}</span>
-											</span>
-											<input
-												type="text"
-												class="input text-sm"
-												class:input-error={isDuplicate}
-												value={labelInput}
-												oninput={handleLabelInput}
-												onblur={handleLabelBlur}
-												placeholder={m.mathsettings_label_placeholder()}
-											/>
-											{#if isDuplicate}
-												<p class="text-error-600 mt-1 text-xs">{m.mathsettings_label_duplicate_error()}</p>
-											{/if}
-											<p class="text-surface-500 mt-1 text-xs">{m.mathsettings_label_field_note()}</p>
-										</label>
 									</div>
+								{/if}
+
+								{#if isPerLineLabelMode}
+									<div class="border-surface-300-700 mt-3 border-t pt-3">
+										<span class="text-surface-700-300 mb-2 block text-sm font-medium">{m.mathsettings_line_labels_heading()}</span>
+										<p class="text-surface-500 mb-2 text-xs">
+											{m.mathsettings_line_labels_hint({ refSyntax: '\\ref{label}' })}
+										</p>
+										{#each { length: detectedLineCount() } as _, i}
+											<div class="mb-2 flex items-center gap-2">
+												<span class="text-surface-500 w-12 text-xs">{m.mathsettings_line_number_label({ number: i + 1 })}</span>
+												<input
+													type="text"
+													class="input flex-1 text-sm"
+													value={lineLabelsInput[i] || ''}
+													oninput={(e) => handleLineLabelChange(i, (e.target as HTMLInputElement).value)}
+													placeholder={m.mathsettings_line_label_placeholder({ index: i + 1 })}
+												/>
+												{#if lineLabelsInput[i]}
+													<button
+														type="button"
+														class="preset-tonal-surface hover:preset-tonal-error btn-icon btn-icon-sm"
+														onclick={() => clearLineLabel(i)}
+														title={m.mathsettings_clear_label_title()}
+													>
+														<Trash2 class="h-3 w-3" />
+													</button>
+												{:else}
+													<button type="button" class="btn btn-sm preset-tonal" onclick={() => generateLineLabel(i)}>
+														{m.mathsettings_auto_button()}
+													</button>
+												{/if}
+											</div>
+										{/each}
+										{#if detectedLineCount() === 1}
+											<p class="text-surface-500 mt-2 text-xs italic">{m.mathsettings_multiline_tip()}</p>
+										{/if}
+									</div>
+								{/if}
+
+								{#if !isPerLineLabelMode}
+									<button
+										type="button"
+										class="text-surface-600-400 hover:text-surface-900-100 my-3 flex w-full items-center gap-2 text-sm transition-colors"
+										onclick={() => (showAdvanced = !showAdvanced)}
+									>
+										<ChevronDown class="h-4 w-4 transition-transform {showAdvanced ? 'rotate-180' : ''}" />
+										<span>{m.mathsettings_advanced_options()}</span>
+									</button>
+
+									{#if showAdvanced}
+										<div class="border-surface-300-700 mb-3 space-y-4 pl-6">
+											<label class="label">
+												<span>
+													{m.mathsettings_label_field_label()}
+													<span class="text-surface-600-400 text-sm">{m.mathsettings_label_field_hint()}</span>
+												</span>
+												<input
+													type="text"
+													class="input text-sm"
+													class:input-error={isDuplicate}
+													value={labelInput}
+													oninput={handleLabelInput}
+													onblur={handleLabelBlur}
+													placeholder={m.mathsettings_label_placeholder()}
+												/>
+												{#if isDuplicate}
+													<p class="text-error-600 mt-1 text-xs">{m.mathsettings_label_duplicate_error()}</p>
+												{/if}
+												<p class="text-surface-500 mt-1 text-xs">{m.mathsettings_label_field_note()}</p>
+											</label>
+										</div>
+									{/if}
 								{/if}
 							{/if}
 						{/if}

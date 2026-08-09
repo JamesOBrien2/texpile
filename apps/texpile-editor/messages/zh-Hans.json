@@ -767,6 +767,7 @@
 	"tablewrap_latex_label_hint": "（用于 \\ref 命令）",
 	"tablewrap_typst_label": "标签",
 	"tablewrap_typst_label_hint": "（用于 @ 引用）",
+	"mathsettings_typst_numbering_note": "引用公式需要启用编号，例如在模板中使用 #set math.equation(numbering: \"(1)\")。",
 	"tablewrap_label_placeholder": "自定义标签（例如 results-table）",
 	"tablewrap_label_auto_generated_hint": "自动生成的唯一标识符，您可以在此自定义。",
 	"tablewrap_label_duplicate": "此标签已被使用",

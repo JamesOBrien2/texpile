@@ -400,7 +400,10 @@ const NODES: Record<string, NodeHandler> = {
 
 	block_math(node) {
 		const inner = mathTypstOf(node).trim();
-		return inner ? `$ ${inner} $\n\n` : '';
+		if (!inner) return '';
+		// the label rides after the closing dollar, where typst attaches it to the equation
+		const label = node.attrs.label ? ` <${String(node.attrs.label)}>` : '';
+		return `$ ${inner} $${label}\n\n`;
 	},
 
 	blockquote(node) {

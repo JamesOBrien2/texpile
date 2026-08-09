@@ -48,6 +48,7 @@ const CORPUS: Record<string, string> = {
 		'#table(\n  columns: 3,\n  table.header([A], [B], [C]),\n  [a], [b *bold*], [c],\n  [d], [e], [f],\n)\n\n#table(columns: (auto, 1fr), align: (left, right), [x], [y])\n\n#table(\n  columns: 2,\n  stroke: none,\n  [kept], [raw],\n)\n',
 	quotes2: '#quote(block: true)[\n  Two roads diverged in a wood.\n]\n\n#quote[inline stays raw]\n',
 	hr: 'above\n\n#line(length: 100%)\n\nbelow\n\n#line(length: 50%)\n',
+	eqLabels: '$ E = m c^2 $ <eq:mass>\n\nSee @eq:mass.\n\n$ mat(1, 0; 0, 1) $ <eq:id>\n',
 	figures:
 		'#figure(image("plots/a.png"), caption: [A *bold* caption]) <fig:a>\n\n#figure(image("b.png", width: 70%))\n\n#image("c.svg")\n\n#figure(rect(), caption: [not an image])\n',
 	realWorld:
@@ -350,6 +351,20 @@ describe('converted document shape', () => {
 		});
 		expect(cool).toBe('#00ffff');
 		expect(chips).toEqual(['#text(fill: eastern)[unshared]', '#underline(stroke: red)[fancy]']);
+	});
+
+	it('a labeled equation carries its label; untranslatable ones keep it inside the raw island', () => {
+		const doc = docOf(CORPUS.eqLabels);
+		expect(doc.child(0).type.name).toBe('block_math');
+		expect(doc.child(0).attrs.label).toBe('eq:mass');
+		// the raw island absorbs the label bytes so nothing is lost
+		expect(doc.child(2).type.name).toBe('raw_latex');
+		expect(doc.child(2).textContent).toBe('$ mat(1, 0; 0, 1) $ <eq:id>');
+		// serializer re-emits the label after the closing dollar (stored typst, latex untouched)
+		const out = serializeToTypst(
+			typSchema.nodes.doc.create(null, [doc.child(0).type.create({ ...doc.child(0).attrs, orig: null }, doc.child(0).content)])
+		);
+		expect(out).toBe('$ E = m c^2 $ <eq:mass>');
 	});
 
 	it('the canonical full-width line is a divider; other lengths stay raw', () => {

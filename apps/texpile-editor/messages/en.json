@@ -767,6 +767,7 @@
 	"tablewrap_latex_label_hint": "(for \\ref commands)",
 	"tablewrap_typst_label": "Label",
 	"tablewrap_typst_label_hint": "(for @ references)",
+	"mathsettings_typst_numbering_note": "Referencing an equation needs numbering enabled, e.g. #set math.equation(numbering: \"(1)\") in your template.",
 	"tablewrap_label_placeholder": "Custom label (e.g., results-table)",
 	"tablewrap_label_auto_generated_hint": "Auto-generated unique identifier. You can customize it here.",
 	"tablewrap_label_duplicate": "This label is already used",
