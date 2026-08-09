@@ -286,10 +286,11 @@ function buildServer(): McpServer {
 		{
 			title: 'Show a source line in the PDF',
 			description:
-				'Forward SyncTeX: scroll the PDF pane to where a line of the open file renders, and open the ' +
+				'Forward sync: scroll the output pane to where a line of the open file renders, and open the ' +
 				'pane if it is closed. This is the good way to point at something, because the user keeps ' +
-				'reading their document while seeing the typeset result. Needs a compiled PDF with SyncTeX ' +
-				'data; if the file has changed since the last compile the position will be approximate.',
+				'reading their document while seeing the typeset result. LaTeX files need a compiled PDF with ' +
+				'SyncTeX data (approximate if the file changed since the last compile); Typst files jump the ' +
+				'live Preview pane instead, which must be running - Typst has no SyncTeX.',
 			inputSchema: {
 				line: z.number().int().positive().describe('1-based line in the currently open file'),
 				root: z.string().optional().describe('workspace root; defaults to the focused window')
