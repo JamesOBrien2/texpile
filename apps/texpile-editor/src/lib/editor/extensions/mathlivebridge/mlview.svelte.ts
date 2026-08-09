@@ -274,6 +274,10 @@ export default class MathLiveView implements NodeView {
 	 * fires focusin on the container, mounting the button before Tab can move to it. */
 	private mountSettings = (): void => {
 		if (this.settingsComponent || !this.settingsContainer) return;
+		// the settings are LaTeX equation machinery (numbering, \label, align/gather); the typst
+		// serializer has no slot for any of it, so the gear must not exist there - a numbered
+		// attr set here would never reach the .typ and its label would dangle in every @ref
+		if (this.view.state.schema.nodes.typ_ref) return;
 
 		const componentProps = $state({
 			node: this.node,

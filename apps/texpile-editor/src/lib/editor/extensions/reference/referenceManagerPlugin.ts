@@ -149,6 +149,9 @@ function extractFigureReferences(view: EditorView): ReferenceItem[] {
 
 function extractEquationReferences(view: EditorView): ReferenceItem[] {
 	const equations: ReferenceItem[] = [];
+	// typst equations carry no serializable label yet, so offering them would insert an @ref
+	// pointing at a label the file never contains - invalid typst
+	if (view.state.schema.nodes.typ_ref) return equations;
 	let equationCount = 0;
 
 	let currentSection = '';

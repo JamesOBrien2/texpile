@@ -44,7 +44,8 @@ function makeView(isBlock: boolean) {
 	const node = type.create(isBlock ? { numbered: false, lineLabels: [] } : null, schema.text('x^2'));
 	const pmView = {
 		editable: true,
-		state: { doc: { descendants() {} }, tr: {} },
+		// the real tex schema: mountSettings checks it for typ_ref to keep the gear out of typst
+		state: { doc: { descendants() {} }, tr: {}, schema },
 		dispatch() {},
 		focus() {}
 	} as unknown as ProseMirrorView;
@@ -110,6 +111,22 @@ describe('block_math settings popover', () => {
 	it('never mounts for inline math, which has no settings at all', () => {
 		const view = makeView(false);
 		view.dom.dispatchEvent(new Event('pointerenter'));
+		expect(mountSpy).not.toHaveBeenCalled();
+	});
+
+	it('never mounts in the typst editor: numbering and labels have no typst serialization', async () => {
+		const { typSchema } = await import('$lib/typst/visual/schema');
+		const node = typSchema.nodes.block_math.create({ numbered: false, lineLabels: [] }, typSchema.text('x^2'));
+		const pmView = {
+			editable: true,
+			state: { doc: { descendants() {} }, tr: {}, schema: typSchema },
+			dispatch() {},
+			focus() {}
+		} as unknown as ProseMirrorView;
+		const view = new MathLiveView(node, pmView, () => 0, {}, true);
+		document.body.appendChild(view.dom);
+		view.dom.dispatchEvent(new Event('pointerenter'));
+		view.dom.dispatchEvent(new Event('focusin', { bubbles: true }));
 		expect(mountSpy).not.toHaveBeenCalled();
 	});
 });
