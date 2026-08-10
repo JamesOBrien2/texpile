@@ -6,6 +6,8 @@
 	import { isDirty } from '$lib/workspace/workspaceStore';
 	import { compileLog } from '$lib/stores/compileLogStore';
 	import WordCount from './WordCount.svelte';
+	import CompileButton, { COMPILE_TONE } from './CompileButton.svelte';
+	import type { ComponentProps } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		PanelLeft,
@@ -82,6 +84,54 @@
 	// Driven by the same flag the preview pane branches on - sticky across tabs - so the green
 	// Live button does not flip back to Compile when a .bib or an image has focus.
 	const typstLive = $derived(typstPreviewWanted);
+
+	/**
+	 * What the compile slot is right now: colour, icon, label and click, in one place.
+	 *
+	 * The state used to be a five-branch chain of near-identical <button> blocks, with the
+	 * conditions repeated a sixth time to colour the chevron - so the two could disagree, and did.
+	 * One descriptor drives both.
+	 */
+	const compile = $derived.by((): ComponentProps<typeof CompileButton> => {
+		if (compiling)
+			return {
+				tone: 'error',
+				icon: Square,
+				narrow: true,
+				label: m.wsview_stop_label(),
+				title: m.wsview_stop_compile_title({ combo: `${modLabel}+Alt+Enter` }),
+				onclick: onStopCompile
+			};
+		// the preview is attached; closing the pane is its stop (the pane detaches the server task
+		// on close), so this is both indicator and off switch
+		if (typstLive && pdfPaneOpen)
+			return { tone: 'success', dot: true, label: m.wsview_live_label(), title: m.wsview_typst_preview_live_title(), onclick: onTogglePdf };
+		if ($settings.draftMode && pdfPaneOpen) {
+			if (draftPaused)
+				return {
+					tone: 'warning',
+					icon: Play,
+					label: m.wsview_paused_label(),
+					title: m.wsview_engine_stopped_title(),
+					onclick: onResumeDraft
+				};
+			return {
+				tone: 'success',
+				dot: true,
+				label: m.wsview_live_label(),
+				title: m.wsview_live_preview_running_title(),
+				onclick: onPauseDraft
+			};
+		}
+		const live = typstLive || $settings.draftMode;
+		return {
+			tone: 'primary',
+			icon: Play,
+			label: live ? m.wsview_preview_label() : m.wsview_compile_label(),
+			title: live ? m.wsview_open_live_preview_title() : m.wsview_compile_title({ combo: `${modLabel}+Alt+Enter` }),
+			onclick: onCompile
+		};
+	});
 </script>
 
 <header class="border-surface-200-800 col-span-full flex h-12 items-center justify-between gap-3 border-b px-4">
@@ -143,66 +193,9 @@
 			<!-- the one-shot sync-to-cursor button used to sit here; it lives on the preview pane's
 			     own header now (PreviewPane / TypstPreview) - the button moves THAT pane -->
 			<div class="relative flex items-center">
-				{#if compiling}
-					<button
-						class="btn btn-sm preset-tonal-error w-20 justify-center gap-1.5 rounded-r-none"
-						onclick={onStopCompile}
-						title={m.wsview_stop_compile_title({ combo: `${modLabel}+Alt+Enter` })}
-					>
-						<Square class="size-4" />
-						{m.wsview_stop_label()}
-					</button>
-				{:else if typstLive && pdfPaneOpen}
-					<!-- the preview is attached; closing the pane is its stop (the pane detaches the
-					     server task on close), so this is both indicator and off switch -->
-					<button
-						class="btn btn-sm preset-tonal-success min-w-24 justify-center gap-1.5 rounded-r-none whitespace-nowrap"
-						onclick={onTogglePdf}
-						title={m.wsview_typst_preview_live_title()}
-					>
-						<span class="bg-success-500 size-2 rounded-full"></span>
-						{m.wsview_live_label()}
-					</button>
-				{:else if $settings.draftMode && !typstLive && pdfPaneOpen && !draftPaused}
-					<button
-						class="btn btn-sm preset-tonal-success min-w-24 justify-center gap-1.5 rounded-r-none whitespace-nowrap"
-						onclick={onPauseDraft}
-						title={m.wsview_live_preview_running_title()}
-					>
-						<span class="bg-success-500 size-2 rounded-full"></span>
-						{m.wsview_live_label()}
-					</button>
-				{:else if $settings.draftMode && pdfPaneOpen && draftPaused}
-					<button
-						class="btn btn-sm preset-tonal-warning min-w-24 justify-center gap-1.5 rounded-r-none whitespace-nowrap"
-						onclick={onResumeDraft}
-						title={m.wsview_engine_stopped_title()}
-					>
-						<Play class="size-4" />
-						{m.wsview_paused_label()}
-					</button>
-				{:else}
-					<button
-						class="btn btn-sm preset-tonal-primary w-24 justify-center gap-1.5 rounded-r-none"
-						onclick={onCompile}
-						title={typstLive || $settings.draftMode
-							? m.wsview_open_live_preview_title()
-							: m.wsview_compile_title({ combo: `${modLabel}+Alt+Enter` })}
-					>
-						<Play class="size-4" />
-						{typstLive || $settings.draftMode ? m.wsview_preview_label() : m.wsview_compile_label()}
-					</button>
-				{/if}
+				<CompileButton {...compile} />
 				<button
-					class="btn btn-sm {compiling
-						? 'preset-tonal-error'
-						: typstLive && pdfPaneOpen
-							? 'preset-tonal-success'
-							: $settings.draftMode && pdfPaneOpen
-								? draftPaused
-									? 'preset-tonal-warning'
-									: 'preset-tonal-success'
-								: 'preset-tonal-primary'} rounded-l-none border-l border-black/10 px-1"
+					class="btn btn-sm {COMPILE_TONE[compile.tone]} rounded-l-none self-stretch border-l border-black/10 px-1"
 					onclick={() => (compileMenuOpen = !compileMenuOpen)}
 					title={m.wsview_compile_options()}
 					aria-label={m.wsview_compile_options()}
