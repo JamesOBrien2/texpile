@@ -9,13 +9,19 @@
 	 * The hairline is the button's OWN hue at 30%, not a solid one: a full-strength outline round
 	 * a pale fill reads as a highlight ring rather than an edge. At 30% it is enough to separate
 	 * the button from the toolbar behind it and nothing more.
+	 *
+	 * `filter-none` on hover overrides Skeleton's own `.btn` hover, which is
+	 * `filter: brightness(125%)` in light mode (and 75% in dark). Brightening a tonal preset whose
+	 * light-mode fill is already the 50 shade pushes it to white and takes the label and the
+	 * hairline up with it, since a filter applies to the whole element - that is the glow. One
+	 * step deeper in the same hue is what a hover should do at both ends.
 	 */
 	export type CompileTone = 'primary' | 'success' | 'warning' | 'error';
 	export const COMPILE_TONE: Record<CompileTone, string> = {
-		primary: 'preset-tonal-primary text-primary-800-200 border border-primary-500/30',
-		success: 'preset-tonal-success text-success-800-200 border border-success-500/30',
-		warning: 'preset-tonal-warning text-warning-800-200 border border-warning-500/30',
-		error: 'preset-tonal-error text-error-800-200 border border-error-500/30'
+		primary: 'preset-tonal-primary text-primary-800-200 border border-primary-500/30 hover:filter-none hover:bg-primary-100-900',
+		success: 'preset-tonal-success text-success-800-200 border border-success-500/30 hover:filter-none hover:bg-success-100-900',
+		warning: 'preset-tonal-warning text-warning-800-200 border border-warning-500/30 hover:filter-none hover:bg-warning-100-900',
+		error: 'preset-tonal-error text-error-800-200 border border-error-500/30 hover:filter-none hover:bg-error-100-900'
 	};
 </script>
 
