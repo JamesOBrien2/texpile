@@ -1,11 +1,17 @@
 <script lang="ts" module>
-	/** the four states the compile slot can be in, and the tonal preset each wears */
+	/**
+	 * The four states the compile slot can be in, and the tonal preset each wears.
+	 *
+	 * The label is pinned a step darker than the preset's own (800 in light, 200 in dark) because
+	 * a tonal preset puts its text on its own tint - the same hue at both ends - which reads as
+	 * washed out. Only the text moves: the fill, the border and the hover stay stock.
+	 */
 	export type CompileTone = 'primary' | 'success' | 'warning' | 'error';
 	export const COMPILE_TONE: Record<CompileTone, string> = {
-		primary: 'preset-tonal-primary',
-		success: 'preset-tonal-success',
-		warning: 'preset-tonal-warning',
-		error: 'preset-tonal-error'
+		primary: 'preset-tonal-primary text-primary-800-200',
+		success: 'preset-tonal-success text-success-800-200',
+		warning: 'preset-tonal-warning text-warning-800-200',
+		error: 'preset-tonal-error text-error-800-200'
 	};
 </script>
 
