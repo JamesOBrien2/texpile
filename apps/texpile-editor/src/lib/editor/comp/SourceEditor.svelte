@@ -12,12 +12,13 @@
 	} from '@codemirror/view';
 	import { EditorState, Compartment, Text, Transaction } from '@codemirror/state';
 	import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-	import { bracketMatching, indentOnInput, LanguageDescription } from '@codemirror/language';
+	import { bracketMatching, indentOnInput, foldGutter, LanguageDescription } from '@codemirror/language';
 	import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
 	import { languages as cmlangdata } from '@codemirror/language-data';
 	import { searchKeymap, openSearchPanel } from '@codemirror/search';
 	import { texpileSearch } from '$lib/editor/extensions/search-panel/searchPanel';
 	import { latexAutocomplete, latexIntellisense } from '$lib/editor/extensions/intellisense/intellisense';
+	import { foldMarkerDOM, foldMarkerTheme } from '$lib/editor/extensions/intellisense/fold';
 	import { mdSourceShortcuts } from '$lib/markdown/sourceExtensions';
 	import { mdPathCompletion } from '$lib/markdown/pathCompletion';
 	import { cmSpellcheck } from '$lib/editor/extensions/spellcheck/cmSpellcheck';
@@ -188,12 +189,19 @@
 	const gutterTheme = EditorView.theme({
 		// gutters aren't content: without this, double-clicking a line number or a fold arrow selects it
 		'.cm-gutters': { userSelect: 'none', WebkitUserSelect: 'none' },
+		// tight padding: this cell sits BETWEEN the lint rail and the fold rail, which carry their
+		// own, so a roomy number cell reads as a gap on both sides rather than as breathing room
 		'.cm-lineNumbers .cm-gutterElement': {
-			padding: '0 3px 0 5px',
-			minWidth: 'calc(3ch + 3px + 5px)',
+			padding: '0 2px 0 3px',
+			minWidth: 'calc(3ch + 2px + 3px)',
 			textAlign: 'center'
 		},
 		'.cm-gutter-lint': { width: '1em' },
+		// a gutter is as wide as its widest marker, so an EMPTY fold rail is narrower than one with
+		// chevrons - the text would slide sideways the moment the first parse produced fold ranges.
+		// Pinning it (12px lucide icon + CodeMirror's own 1px cell padding) keeps the rail the same
+		// width before and after, which is what makes the .typ open stop jumping.
+		'.cm-foldGutter': { width: '14px' },
 		// flex-centre the marker: stock CM leaves it inline (vertical-align: middle), which sits
 		// visibly above the line-number baseline
 		'.cm-gutter-lint .cm-gutterElement': { padding: '0 1px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
@@ -346,7 +354,13 @@
 									? // Typst's completion/hover/diagnostics arrive over LSP from tinymist, filled
 										// into lspConf below once the server answers. Harper parses Typst natively,
 										// so it gets the source unmasked rather than through the LaTeX mask.
-										[cmSpellcheck('typst')]
+										//
+										// The fold RAIL is mounted here, not with the language: the Typst parser is a
+										// dynamic import, so a gutter travelling with it appears a second late and
+										// shoves the text sideways on every .typ open. Mounted now it is there from
+										// the first frame, empty until the parse supplies ranges (the fold service
+										// itself does travel with the language, which is where the ranges live).
+										[cmSpellcheck('typst'), foldGutter({ markerDOM: foldMarkerDOM }), foldMarkerTheme]
 									: []),
 					lspConf.of([]),
 					synctexFlash(), // flash the line jumped to by SyncTeX inverse search / Find-in-Files

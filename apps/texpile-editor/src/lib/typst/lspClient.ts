@@ -205,14 +205,18 @@ export async function scrollTypstPreview(
  */
 export async function killTypstPreview(root: string | null, taskId: string): Promise<void> {
 	const client = await typstClient(root);
-	if (!client) return;
+	// the reference startTypstPreview took goes back either way: if the client is already gone the
+	// preview is gone with it, and holding a count for it would pin a dead server
 	try {
-		await client.request<{ command: string; arguments: unknown[] }, unknown>('workspace/executeCommand', {
-			command: 'tinymist.doKillPreview',
-			arguments: [taskId]
-		});
+		if (client)
+			await client.request<{ command: string; arguments: unknown[] }, unknown>('workspace/executeCommand', {
+				command: 'tinymist.doKillPreview',
+				arguments: [taskId]
+			});
 	} catch {
 		// the server may have dropped the task already (folder switch, server restart); nothing to do
+	} finally {
+		releaseTypstLsp();
 	}
 }
 
@@ -230,18 +234,38 @@ export async function killTypstPreview(root: string | null, taskId: string): Pro
  * accepted here).
  */
 export async function startTypstPreview(root: string | null, file: string): Promise<TypstPreviewTarget | null> {
+	// A live preview KEEPS THE SERVER ALIVE. Without this the count only ever tracked open .typ
+	// source editors, so leaving source mode (a tab switch, or switching to the visual editor)
+	// dropped it to zero and reaped tinymist 30s later - out from under a preview still on screen.
+	// The viewer then sat on its last render, retrying a refused socket forever, and every jump
+	// died with "WebSocket is already in CLOSING or CLOSED state". Released in killTypstPreview.
+	holders++;
+	cancelIdleStop();
 	const client = await typstClient(root);
-	if (!client) return null;
+	if (!client) {
+		releaseTypstLsp();
+		return null;
+	}
 	// The task id is ours to invent - the server just records it - and it is the handle every later
 	// command needs, so a preview started without one can be watched but never steered.
 	const taskId = `texpile-${Math.random().toString(36).slice(2, 9)}`;
-	const res = await client.request<{ command: string; arguments: unknown[] }, StartPreviewResponse>('workspace/executeCommand', {
-		command: 'tinymist.doStartPreview',
-		arguments: [['--task-id', taskId, '--data-plane-host', '127.0.0.1:0', '--no-open', file]]
-	});
-	const host = res?.staticServerAddr ?? (res?.dataPlanePort ? `127.0.0.1:${res.dataPlanePort}` : null);
-	if (!host) return null;
-	return { host, taskId };
+	try {
+		const res = await client.request<{ command: string; arguments: unknown[] }, StartPreviewResponse>('workspace/executeCommand', {
+			command: 'tinymist.doStartPreview',
+			arguments: [['--task-id', taskId, '--data-plane-host', '127.0.0.1:0', '--no-open', file]]
+		});
+		const host = res?.staticServerAddr ?? (res?.dataPlanePort ? `127.0.0.1:${res.dataPlanePort}` : null);
+		// only a preview that actually started keeps its reference; every other exit hands it back,
+		// or a failed start would pin the server for the rest of the session
+		if (!host) {
+			releaseTypstLsp();
+			return null;
+		}
+		return { host, taskId };
+	} catch (e) {
+		releaseTypstLsp();
+		throw e;
+	}
 }
 
 /**

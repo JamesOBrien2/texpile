@@ -13,16 +13,22 @@
 // Its `typstHighlight` tag map IS reused, with thanks, but vendored into our own package rather
 // than imported: that package's entry point re-exports its parser, so importing even one constant
 // from it shipped a second 320KB wasm alongside ours.
-import { Language, LanguageSupport, defineLanguageFacet, foldGutter, foldKeymap, languageDataProp } from '@codemirror/language';
+import { Language, LanguageSupport, defineLanguageFacet, foldKeymap, languageDataProp } from '@codemirror/language';
 import { keymap } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 import { TypstParser, typstHighlight } from 'texpile-typst-syntax-wasm';
-import { foldMarkerDOM, foldMarkerTheme } from '$lib/editor/extensions/intellisense/fold';
 import { typstFold, typstFoldSections } from './typstFold';
 
-/** folding UI, matching what .tex gets from intellisense/fold.ts — same lucide chevrons, not
- *  CodeMirror's default text markers */
-const typstFolding = (): Extension => [typstFoldSections, foldGutter({ markerDOM: foldMarkerDOM }), foldMarkerTheme, keymap.of(foldKeymap)];
+/**
+ * Fold RANGES and the fold keymap - deliberately NOT the gutter.
+ *
+ * This module is a dynamic import (it carries the wasm parser), so anything that takes up layout
+ * space in here lands a second after the editor paints: a gutter shipped alongside would appear
+ * late and shove the text sideways on every .typ open. The rail is therefore mounted by the host
+ * editor at creation time (see SourceEditor), and what arrives with the parser is only what needs
+ * the parser - the ranges.
+ */
+const typstFolding = (): Extension => [typstFoldSections, keymap.of(foldKeymap)];
 
 // Typst's comment delimiters. `line` is what Mod-/ (toggleComment) actually uses: without it the
 // command falls back to wrapping every line in /* */, which reads as "comment is broken" - .tex

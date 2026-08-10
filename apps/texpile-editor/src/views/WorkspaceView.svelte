@@ -42,7 +42,7 @@
 	import { filePathStore } from '$lib/stores/editorStore';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { trailingDebounce } from '$lib/trailingDebounce';
-	import { buildBlockMap, pmPosToSourceOffset } from '$lib/editor/sourceMap';
+	import { buildBlockMap, pmPosToSourceOffset, firstWordEndOnLine } from '$lib/editor/sourceMap';
 	import {
 		startTypstPreview,
 		killTypstPreview,
@@ -849,7 +849,7 @@
 	const visBodyOffset = () => (doc.docMeta ? bodyOffsetOf(doc.docMeta) : 0);
 	/** the visual caret as a zero-based source line/character, through the orig block map -
 	 *  dialect-agnostic (the stamps carry absolute file offsets once bodyOffset is applied).
-	 *  Typst callers must skip character 0, which jump_from_cursor never matches. */
+	 *  Never returns column 0: it resolves to the line's first word end instead, or null. */
 	function visualCaretSourcePos(): { line: number; character: number } | null {
 		const v = get(editorViewStore);
 		if (!v) return null;
@@ -859,7 +859,11 @@
 		const upto = doc.texSource.slice(0, Math.min(off, doc.texSource.length));
 		const nl = upto.lastIndexOf('\n');
 		const character = upto.length - nl - 1;
-		return { line: (upto.match(/\n/g) ?? []).length, character };
+		const line = (upto.match(/\n/g) ?? []).length;
+		if (character > 0) return { line, character };
+		// column 0: `off` is the line start, so rescue the jump onto the same line's first word
+		const rescued = firstWordEndOnLine(doc.texSource, off);
+		return rescued == null ? null : { line, character: rescued };
 	}
 	const sendVisualCaretScroll = trailingDebounce(150, (_: null) => {
 		if (typstPreviewHost === null || !typstPreviewTask) return;
@@ -867,7 +871,7 @@
 		const file = doc.path;
 		if (!file) return;
 		const pos = visualCaretSourcePos();
-		if (!pos || pos.character === 0) return; // column 0 never resolves; see sendCaretScroll
+		if (!pos) return; // no resolvable position on that line at all
 		noteFollowScroll();
 		void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, pos.line, pos.character);
 	});
@@ -1119,7 +1123,7 @@
 		return true;
 	}
 
-	function syncTypstForward(): void {
+	async function syncTypstForward(): Promise<void> {
 		if (typstSyncUnavailable()) return;
 		const file = doc.path;
 		if (!file) return;
@@ -1130,14 +1134,21 @@
 			void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, docLine.number - 1, head - docLine.from);
 			return;
 		}
-		// visual mode: the PM caret through the block map, one shot (no follow bookkeeping)
+		// Visual mode: the PM caret through the block map, one shot (no follow bookkeeping).
+		//
+		// Flush pending saves first. In source mode the LSP client streams didChange, so the
+		// server's copy IS what the caret was measured against; the visual editor has no such
+		// stream, and the server falls back to the file on disk - so an unsaved edit shifts every
+		// offset after it and the jump lands on the wrong line or nowhere. One save closes that
+		// gap, and it is a deliberate click, so paying for it here is cheap.
+		await saver.flushAndWait();
 		const pos = visualCaretSourcePos();
-		if (!pos || pos.character === 0) return;
+		if (!pos) return;
 		void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, pos.line, pos.character);
 	}
 	const syncForward = () => {
 		if (kind === 'typ') {
-			syncTypstForward();
+			void syncTypstForward();
 			return;
 		}
 		// SyncTeX from the visual editor: the PM caret's block-map line feeds the line-based

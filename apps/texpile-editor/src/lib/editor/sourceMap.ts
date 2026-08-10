@@ -34,6 +34,24 @@ export function buildBlockMap(doc: Node, bodyOffset: number): BlockSpan[] {
 	return out;
 }
 
+/**
+ * Column of the end of the first word on the line starting at `lineStart`, or null for a line
+ * with no word on it (blank, or pure markup like `#pagebreak()`).
+ *
+ * For jump targets that must sit ON TEXT. tinymist's jump_from_cursor resolves the syntax leaf
+ * ENDING at the position, so column 0 - which has no leaf before it - never resolves, and a
+ * position inside markup resolves to nothing either. The visual caret maps to column 0 whenever
+ * its block carries no parse stamp (anything typed since the last reparse resolves to its block
+ * START), so without this those jumps are silently dropped. Landing just past the line's first
+ * word keeps the right line and gives the server something it can actually resolve.
+ */
+export function firstWordEndOnLine(src: string, lineStart: number): number | null {
+	const nl = src.indexOf('\n', lineStart);
+	const line = src.slice(lineStart, nl === -1 ? src.length : nl);
+	const m = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/u.exec(line);
+	return m ? m.index + m[0].length : null;
+}
+
 /** the block containing a doc position. */
 export function blockAtPm(map: BlockSpan[], pmPos: number): BlockSpan | null {
 	for (const b of map) if (pmPos >= b.pmPos && pmPos < b.pmEnd) return b;
