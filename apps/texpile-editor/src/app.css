@@ -335,6 +335,23 @@ html[data-mode='dark'] {
 	scrollbar-width: none;
 }
 
+/* Hold a scroll container's scrollbar 3px in from its right edge, for panes that sit against a
+   divider: the collapse lozenge straddles the rule and overhangs 3px into each side, and what lives
+   hard against a pane's inner edge is exactly its scrollbar. 3px is the whole overhang and not a
+   pixel more - the two end up flush, which is as close as they can be without overlapping again.
+   A transparent BORDER rather than margin or padding, because the border box keeps its full width -
+   so any border-top or border-bottom the same element draws still runs all the way to the divider.
+   Reserving space between the panes instead would have meant every horizontal rule that meets the
+   divider - tab strip, format toolbar, TOC split, terminal dock, PDF toolbar - reaching across a
+   gap, at heights that move with the view mode and the TOC fraction. */
+.scroll-inset-r {
+	border-right: 3px solid transparent;
+}
+/* CodeMirror builds its own DOM, so its scroller cannot be given the class in markup */
+.cm-scroller {
+	border-right: 3px solid transparent;
+}
+
 @theme {
 	--line-height-2: 0.5rem;
 

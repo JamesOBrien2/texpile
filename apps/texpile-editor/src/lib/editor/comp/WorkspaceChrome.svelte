@@ -8,6 +8,8 @@
 	import WorkspaceSidebar from '$lib/editor/comp/WorkspaceSidebar.svelte';
 	import GuestPresence from '$lib/collab/GuestPresence.svelte';
 	import WorkspaceDialogs from '$lib/editor/comp/WorkspaceDialogs.svelte';
+	import PaneSplitter from '$lib/editor/comp/PaneSplitter.svelte';
+	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
 	import type GlobalSearch from '$lib/editor/comp/GlobalSearch.svelte';
 	import type { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 	import type { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
@@ -150,19 +152,36 @@
 			scmCommit={scm.commit}
 			scmOpenDiff={scm.openDiff}
 		/>
-
-		<!-- same WAI-ARIA window-splitter pattern as the other panes; svelte's a11y rule doesn't special-case it -->
-		<!-- eslint-disable-next-line svelte/valid-compile -->
-		<div
-			class="hover:bg-primary-500/40 active:bg-primary-500/60 relative z-20 -mx-[3px] w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors"
-			onmousedown={layout.startSidebarResize}
-			onkeydown={layout.resizeSidebarByKey}
-			role="separator"
-			aria-orientation="vertical"
-			aria-label={m.wsview_resize_sidebar_aria()}
-			tabindex="0"
-		></div>
 	{/if}
+
+	<!-- kept outside the branch: with the sidebar shut this is the editor's left edge and the way
+	     back in, since the toolbar toggle is gone. It stays draggable while shut - pulling it into
+	     the window reopens the sidebar, the other half of drag-to-close - and the chevron turns
+	     round.
+
+	     topInset 48 = EditorTopbar's h-12. This column runs the full height of the window while the
+	     preview's divider starts below that toolbar, so without it the drag zone would reach up
+	     beside the toolbar and the two toggles would sit at different heights.
+
+	     ml-[7px] only once the sidebar is shut, when this becomes the first item in the row and its
+	     rule lands on the window edge: the lozenge is 7px but its chevron is 14px, so the glyph
+	     needs 7px of clearance or the edge cuts it in half. Open, it has panes on both sides and
+	     needs none. The preview says the same thing with a plain mr-[7px] because its closed state
+	     is a second instance that only ever exists at the edge. -->
+	<PaneSplitter
+		topInset={48}
+		resizable
+		resizeLabel={m.wsview_resize_sidebar_aria()}
+		onStartResize={layout.startSidebarResize}
+		onResizeByKey={layout.resizeSidebarByKey}
+		toggle={{
+			icon: layout.sidebarOpen ? ChevronLeft : ChevronRight,
+			onclick: layout.toggleSidebar,
+			title: layout.sidebarOpen ? m.wsview_hide_file_explorer() : m.wsview_show_file_explorer(),
+			ariaLabel: m.wsview_toggle_file_explorer_aria()
+		}}
+		class="z-20 {layout.sidebarOpen ? '' : 'ml-[7px]'}"
+	/>
 
 	{@render children()}
 </div>

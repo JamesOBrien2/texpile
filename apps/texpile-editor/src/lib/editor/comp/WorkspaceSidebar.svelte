@@ -105,7 +105,8 @@
 	}}
 />
 
-<aside class="border-surface-200-800 bg-surface-50-950 flex shrink-0 flex-col border-r" style="width: {width}px">
+<!-- no border-r: the splitter beside it draws its own 1px, and a border as well read as two -->
+<aside class="bg-surface-50-950 flex shrink-0 flex-col" style="width: {width}px">
 	<div class="border-surface-200-800 flex h-12 items-center justify-between gap-2 border-b px-3">
 		<span class="truncate text-sm font-semibold" title={$workspaceRoot ?? ''}>
 			{$workspaceRoot ? basename($workspaceRoot) : m.wsview_no_folder()}
@@ -151,7 +152,7 @@
 	{#if view === 'search'}
 		<GlobalSearch bind:this={globalSearchRef} root={$workspaceRoot ?? ''} onOpen={onOpenFileAt} onClose={onCloseGlobalSearch} />
 	{:else if view === 'scm'}
-		<div class="min-h-0 flex-1 overflow-y-auto">
+		<div class="scroll-inset-r min-h-0 flex-1 overflow-y-auto">
 			<SourceControlPanel
 				root={$workspaceRoot ?? ''}
 				isRepo={$isGitRepo}
@@ -169,7 +170,7 @@
 		</div>
 	{:else}
 		<div class="flex min-h-0 flex-1 flex-col" bind:this={splitEl}>
-			<div class="min-h-0 overflow-y-auto p-1.5" style={showToc ? `flex: ${1 - tocFraction} 1 0%` : 'flex: 1 1 0%'}>
+			<div class="scroll-inset-r min-h-0 overflow-y-auto p-1.5" style={showToc ? `flex: ${1 - tocFraction} 1 0%` : 'flex: 1 1 0%'}>
 				<FileTree
 					bind:this={fileTreeRef}
 					tree={$fileTree}
@@ -202,7 +203,8 @@
 					aria-label={m.wsview_resize_toc_aria()}
 					tabindex="0"
 				></div>
-				<div class="border-surface-200-800 min-h-0 overflow-y-auto border-t p-2" style="flex: {tocFraction} 1 0%">
+				<!-- scroll-inset-r moves the scrollbar in, not the box: the border-t still reaches the divider -->
+				<div class="border-surface-200-800 scroll-inset-r min-h-0 overflow-y-auto border-t p-2" style="flex: {tocFraction} 1 0%">
 					<TableOfContents mode={viewMode === 'source' ? 'source' : 'visual'} onOpenFile={onOpenFileAt} />
 				</div>
 			{/if}

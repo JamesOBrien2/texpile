@@ -55,3 +55,14 @@ export function nudgeOnKey(e: KeyboardEvent, { keys, step, current, apply, commi
 }
 
 export const clampTo = (min: number, max: number) => (v: number) => Math.min(max, Math.max(min, v));
+
+/**
+ * How far past its minimum a pane must be dragged before it snaps shut - and, from shut, how far
+ * back out before it reopens. One threshold for both directions, so the boundary is in the same
+ * place whichever way you are dragging and the pane cannot flicker around it.
+ *
+ * Below this the pointer is asking for a pane smaller than the pane can be, which in every editor
+ * with this gesture means "close it", not "clamp it". Shared so the sidebar, the preview and the
+ * dock all give way at the same distance.
+ */
+export const SNAP_SLACK = 80;

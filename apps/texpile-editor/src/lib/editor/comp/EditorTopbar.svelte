@@ -9,21 +9,7 @@
 	import CompileButton, { COMPILE_TONE } from './CompileButton.svelte';
 	import type { ComponentProps } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
-	import {
-		PanelLeft,
-		PanelRight,
-		FileText,
-		Eye,
-		Code,
-		Square,
-		Play,
-		ChevronDown,
-		Settings2,
-		CircleAlert,
-		TriangleAlert,
-		Save,
-		Loader2
-	} from '@lucide/svelte';
+	import { FileText, Eye, Code, Square, Play, ChevronDown, Settings2, CircleAlert, TriangleAlert, Save, Loader2 } from '@lucide/svelte';
 
 	interface Props {
 		loadedPath: string | null;
@@ -37,9 +23,7 @@
 		pdfPaneOpen: boolean;
 		draftPaused: boolean;
 		saving: boolean;
-		sidebarOpen: boolean;
 		modLabel: string;
-		onToggleSidebar: () => void;
 		onSetViewMode: (m: 'visual' | 'source') => void;
 		onStopCompile: () => void;
 		onPauseDraft: () => void;
@@ -63,9 +47,7 @@
 		pdfPaneOpen,
 		draftPaused,
 		saving,
-		sidebarOpen,
 		modLabel,
-		onToggleSidebar,
 		onSetViewMode,
 		onStopCompile,
 		onPauseDraft,
@@ -97,7 +79,6 @@
 			return {
 				tone: 'error',
 				icon: Square,
-				narrow: true,
 				label: m.wsview_stop_label(),
 				title: m.wsview_stop_compile_title({ combo: `${modLabel}+Alt+Enter` }),
 				onclick: onStopCompile
@@ -135,15 +116,10 @@
 </script>
 
 <header class="border-surface-200-800 col-span-full flex h-12 items-center justify-between gap-3 border-b px-4">
+	<!-- the sidebar and preview toggles used to bracket this row. Both moved onto the divider of the
+	     pane they open (WorkspaceChrome / PreviewPane), where the control sits on the boundary it
+	     moves - so this row is only about the document -->
 	<div class="flex min-w-0 items-center gap-2">
-		<button
-			class="btn-icon btn-icon-xs hover:preset-tonal shrink-0"
-			onclick={onToggleSidebar}
-			title={sidebarOpen ? m.wsview_hide_file_explorer() : m.wsview_show_file_explorer()}
-			aria-label={m.wsview_toggle_file_explorer_aria()}
-		>
-			<PanelLeft class="size-4" />
-		</button>
 		{#if !loadedPath}
 			<FileText class="text-surface-400 size-4 shrink-0" />
 			<span class="truncate text-sm font-medium">{m.wsview_no_file()}</span>
@@ -224,32 +200,16 @@
 					</div>
 				{/if}
 			</div>
-			<button
-				class="btn-icon btn-icon-xs hover:preset-tonal {pdfPaneOpen ? 'text-primary-500' : ''}"
-				onclick={onTogglePdf}
-				title={m.wsview_toggle_pdf_preview()}
-				aria-label={m.wsview_toggle_pdf_preview()}
-			>
-				<PanelRight class="size-4" />
-			</button>
 		{/if}
 		{#if guest}
-			<!-- guest: ask the host to compile (its toolchain) and toggle the shared PDF, in the same
-			     spot and style as the host's Compile so the bar reads the same on both sides -->
+			<!-- guest: ask the host to compile (its toolchain), in the same spot and style as the
+			     host's Compile so the bar reads the same on both sides -->
 			{#if loadedPath && kind === 'tex'}
 				<button class="btn btn-xs preset-tonal-primary gap-1.5" onclick={onRequestCompile} title={m.session_request_compile()}>
 					<Play class="size-4" />
 					{m.session_request_compile()}
 				</button>
 			{/if}
-			<button
-				class="btn-icon btn-icon-xs hover:preset-tonal {pdfPaneOpen ? 'text-primary-500' : ''}"
-				onclick={onTogglePdf}
-				title={m.wsview_toggle_pdf_preview()}
-				aria-label={m.wsview_toggle_pdf_preview()}
-			>
-				<PanelRight class="size-4" />
-			</button>
 		{/if}
 		{#if !guest}
 			<!-- guests have nothing to save: their edits sync live through the shared doc -->

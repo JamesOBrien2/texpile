@@ -5,7 +5,10 @@
 	import EditorTopbar from '$lib/editor/comp/EditorTopbar.svelte';
 	import EditorPane from '$lib/editor/comp/EditorPane.svelte';
 	import PreviewPane from '$lib/editor/comp/PreviewPane.svelte';
+	import PaneSplitter from '$lib/editor/comp/PaneSplitter.svelte';
 	import TerminalDock from '$lib/editor/comp/TerminalDock.svelte';
+	import { ChevronLeft } from '@lucide/svelte';
+	import { m } from '$lib/paraglide/messages';
 	import type DraftView from '$lib/draft/DraftView.svelte';
 	import type { DocumentBuffer, FileKind } from '$lib/workspace/documentBuffer.svelte';
 	import type { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
@@ -87,9 +90,7 @@
 		pdfPaneOpen={layout.pdfPaneOpen}
 		draftPaused={draft.paused}
 		saving={saver.saving}
-		sidebarOpen={layout.sidebarOpen}
 		{modLabel}
-		onToggleSidebar={layout.toggleSidebar}
 		onSetViewMode={actions.setViewMode}
 		onStopCompile={compiler.stopCompile}
 		onPauseDraft={actions.pauseDraft}
@@ -185,6 +186,42 @@
 				onSettled={actions.onPreviewSettled}
 				onDiagnostics={actions.onPreviewDiagnostics}
 			/>
+		{:else if termDock.available || guest}
+			<!-- the pane is gone but its divider stays, on the editor's right edge with the chevron
+			     flipped: that is the way back, now that the toolbar has no toggle. Not resizable -
+			     there is nothing to size - so it loses the drag cursor too.
+
+			     mr-[7px] holds the rule off the window edge. The lozenge is centred on it like every
+			     other one, and its chevron is 14px against a 7px lozenge, so the glyph needs 7px of
+			     clearance or the window edge cuts it in half - there is no pane out there to
+			     overhang into.
+
+			     It spans every row so the rule reaches the bottom of the window: with the preview shut
+			     the dock stops at the editor column (see dockShrunk), and a rail that stopped at the
+			     editor would leave a notch beside it.
+
+			     bottomInset then holds the toggle level with the one it took over from. PreviewPane's
+			     divider spans past the dock only when shrink is on; when it is off that divider ends
+			     above the dock, so this one has to discount the same height or the lozenge slides
+			     down the screen the moment you close the pane. -->
+			<!-- resizable while shut on purpose: dragging it back into the window is the other half of
+			     the drag-to-close gesture, so the rail has to accept the same drag the real divider
+			     does. PaneLayout measures from the edge in this state. -->
+			<PaneSplitter
+				resizable
+				resizeLabel={m.wsview_resize_pdf_preview_aria()}
+				onStartResize={layout.startPdfResize}
+				onResizeByKey={layout.resizePdfByKey}
+				toggle={{
+					icon: ChevronLeft,
+					onclick: layout.togglePdfPane,
+					title: m.wsview_toggle_pdf_preview(),
+					ariaLabel: m.wsview_toggle_pdf_preview()
+				}}
+				bottomInset={termDock.shrink || !termDock.visible ? 0 : termDock.height}
+				class="z-20 mr-[7px]"
+				style="grid-column: 3; grid-row: 2 / -1"
+			/>
 		{/if}
 	</div>
 
@@ -205,5 +242,29 @@
 			onClose={actions.toggleTerminal}
 			onProblemJump={actions.openFileAt}
 		/>
+	{/if}
+
+	{#if (termDock.available || guest) && !termDock.visible}
+		<!-- the dock's divider, left behind at the foot of the window when the dock is put away, so
+		     dragging it back up reopens it. Outside the `mounted` gate above on purpose: the rail is
+		     the way in, and it has to be there before the dock has ever been built.
+
+		     No lozenge, unlike the side rails. Those carry a collapse toggle because their panes lost
+		     the toolbar buttons that used to open them; the dock kept both its toolbar button and its
+		     menu item, so a control here would only be a third copy. -->
+		<!-- eslint-disable-next-line svelte/valid-compile -->
+		<div class="bg-surface-200-800 relative z-20 h-px shrink-0" style="grid-row: 4; grid-column: {dockShrunk ? '1' : '1 / -1'}">
+			<!-- the grab zone overhangs the rule by 3px, and can only overhang upwards here: below it
+			     is the window's edge -->
+			<div
+				class="hover:bg-primary-500/30 active:bg-primary-500/50 absolute inset-x-0 -inset-y-[3px] cursor-row-resize transition-colors"
+				onmousedown={termDock.startResize}
+				onkeydown={termDock.resizeByKey}
+				role="separator"
+				aria-orientation="horizontal"
+				aria-label={m.wsview_resize_terminal_aria()}
+				tabindex="0"
+			></div>
+		</div>
 	{/if}
 </main>

@@ -2,7 +2,9 @@
 	// The right-hand preview pane (+ its drag splitter): the guest's pushed PDF, the Typst live
 	// preview, the live draft renderer, or the compiled PDF. Renders two grid siblings, so it must
 	// sit in a display:contents wrapper on the editor grid.
-	import { ArrowRight, X } from '@lucide/svelte';
+	import { ArrowRight, ChevronRight, X } from '@lucide/svelte';
+	import PaneHandle from './PaneHandle.svelte';
+	import PaneSplitter from './PaneSplitter.svelte';
 	import PDFViewer from './PDFViewer.svelte';
 	import type DraftView from '$lib/draft/DraftView.svelte';
 	import type TypstPreview from '$lib/typst/preview/TypstPreview.svelte';
@@ -93,38 +95,36 @@
 	}: Props = $props();
 </script>
 
-<!-- the WAI-ARIA window-splitter pattern (role=separator + tabindex); svelte's a11y rule doesn't special-case it -->
-<!-- eslint-disable-next-line svelte/valid-compile -->
-<div
-	class="hover:bg-primary-500/40 active:bg-primary-500/60 relative z-20 -mx-[3px] w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors"
+<PaneSplitter
+	resizable
+	resizeLabel={m.wsview_resize_pdf_preview_aria()}
+	{onStartResize}
+	{onResizeByKey}
+	toggle={{ icon: ChevronRight, onclick: onClose, title: m.wsview_toggle_pdf_preview(), ariaLabel: m.wsview_toggle_pdf_preview() }}
+	class="z-20"
 	style="grid-column: 2; grid-row: {dockShrunk ? '2 / -1' : '2'}"
-	onmousedown={onStartResize}
-	onkeydown={onResizeByKey}
-	role="separator"
-	aria-orientation="vertical"
-	aria-label={m.wsview_resize_pdf_preview_aria()}
-	tabindex="0"
-></div>
-<aside
-	class="border-surface-200-800 relative flex shrink-0 flex-col border-l"
-	style="width: {width}px; grid-column: 3; grid-row: {dockShrunk ? '2 / -1' : '2'}"
->
+/>
+<!-- no border-l: the splitter's own 1px IS the rule now, and a border beside it read as two -->
+<aside class="relative flex shrink-0 flex-col" style="width: {width}px; grid-column: 3; grid-row: {dockShrunk ? '2 / -1' : '2'}">
 	{#if onSyncToCursor}
-		<!-- forward sync floats on the splitter. Below the header rows (top-28),
-		     so it doesn't sit on the intersection of the two header borders. A SIBLING of the
-		     separator, not a child: nesting it made hovering the button light the whole drag
-		     strip (and a role=separator should not contain a button anyway). preventDefault
-		     keeps focus on the editor, whose CARET is what the jump reads. The reverse
-		     direction needs no button: a click in the preview is the inverse jump. -->
-		<button
-			class="bg-surface-700-300 hover:bg-primary-500 absolute top-28 -left-[13px] z-30 cursor-pointer rounded-full p-1.5 text-white dark:text-black shadow-md"
-			onmousedown={(e) => e.preventDefault()}
+		<!-- forward sync rides the same divider, high and clear of the collapse lozenge. -12.5px
+		     centres a 24px chip on the rule, matching the lozenge below it. This one is wider than
+		     the 3px the panes hold clear, so it does cross the scrollbar - it is also the one you
+		     press once and forget, rather than something parked on the line.
+
+		     top-28, not Overleaf's own 68px: their toolbars are not ours. Here the editor's tab
+		     strip (h-9) and format toolbar (min-h-10) put a horizontal rule at 76px, and a chip at
+		     68 spans 68-92 - so that rule ran straight through it. 112px clears the toolbar
+		     entirely, which is where this sat before and why. Round rather than a
+		     lozenge because it acts on the document, not on the boundary. The reverse direction
+		     needs no button: a click in the preview is the inverse jump. -->
+		<PaneHandle
+			icon={ArrowRight}
+			class="top-28 -left-[12.5px]"
 			onclick={onSyncToCursor}
 			title={typstPreviewWanted && !guest ? m.wsview_sync_to_preview_title() : m.wsview_sync_to_pdf_title()}
-			aria-label={typstPreviewWanted && !guest ? m.wsview_sync_to_preview_aria() : m.wsview_sync_to_pdf_aria()}
-		>
-			<ArrowRight class="size-3.5" />
-		</button>
+			ariaLabel={typstPreviewWanted && !guest ? m.wsview_sync_to_preview_aria() : m.wsview_sync_to_pdf_aria()}
+		/>
 	{/if}
 	{#if !(typstPreviewWanted && !guest)}
 		<!-- h-9 matches the editor column's tab strip, so the two header borders draw one line -->

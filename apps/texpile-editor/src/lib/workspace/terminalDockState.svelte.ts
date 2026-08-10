@@ -3,7 +3,7 @@
 // visibility flips. A guest has no shells of its own, so its toggles are never persisted.
 import { browser } from '$lib/runtime';
 import { updateSettings } from '$lib/settings';
-import { startDrag, nudgeOnKey, clampTo } from '$lib/workspace/paneResize';
+import { startDrag, nudgeOnKey, clampTo, SNAP_SLACK } from '$lib/workspace/paneResize';
 
 const SHRINK_KEY = 'texpile:terminalShrink';
 const MIN_HEIGHT = 120;
@@ -59,11 +59,16 @@ export class TerminalDockState {
 		setTimeout(() => this.dock?.refit(), 0);
 	}
 
+	/** put the dock away, keeping its shells: mounted stays true so they survive the next open */
+	hide() {
+		this.visible = false;
+		if (!this.isGuest()) updateSettings({ terminalVisible: false });
+	}
+
 	/** the Terminal toggle: this one IS a request for a terminal, so it makes sure one exists */
 	toggle() {
 		if (this.visible) {
-			this.visible = false;
-			if (!this.isGuest()) updateSettings({ terminalVisible: false });
+			this.hide();
 		} else {
 			this.show();
 			setTimeout(() => {
@@ -97,8 +102,22 @@ export class TerminalDockState {
 		}, 0);
 	}
 
+	/**
+	 * Raw, unclamped, like the side panes: the clamp is what would hide the drag having gone past
+	 * the minimum, and past the minimum is the request to close.
+	 *
+	 * Reopening goes through show(), not toggle(): dragging the rail out is a request for the DOCK,
+	 * not for a shell, the same as a compile revealing its output. The empty pane offers one.
+	 *
+	 * The height is left alone on the way out, so reopening restores the size you had.
+	 */
 	// the xterm canvas has to re-measure on every step, not just at the end of the gesture
 	private setHeight = (h: number) => {
+		if (h < MIN_HEIGHT - SNAP_SLACK) {
+			if (this.visible) this.hide();
+			return;
+		}
+		if (!this.visible) this.show();
 		this.height = clampHeight(h);
 		this.dock?.refit();
 	};
@@ -106,11 +125,20 @@ export class TerminalDockState {
 
 	startResize = (e: MouseEvent) => {
 		const startY = e.clientY;
-		const startH = this.height;
+		// hidden, the drag measures up from the rail at the window's foot, so pulling it into the
+		// window reopens the dock; starting from the remembered height would snap it open at once
+		const startH = this.visible ? this.height : 0;
 		// drag up = taller
 		startDrag(e, { compute: (ev) => startH + (startY - ev.clientY), apply: this.setHeight, commit: this.commit });
 	};
 
 	resizeByKey = (e: KeyboardEvent) =>
-		nudgeOnKey(e, { keys: ['ArrowDown', 'ArrowUp'], step: 16, current: () => this.height, apply: this.setHeight, commit: this.commit });
+		nudgeOnKey(e, {
+			keys: ['ArrowDown', 'ArrowUp'],
+			step: 16,
+			// hidden, the rail sits one step below the snap point, so one press upward opens it
+			current: () => (this.visible ? this.height : MIN_HEIGHT - SNAP_SLACK),
+			apply: this.setHeight,
+			commit: this.commit
+		});
 }

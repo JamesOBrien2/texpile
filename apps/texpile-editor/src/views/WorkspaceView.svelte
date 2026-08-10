@@ -573,8 +573,15 @@
 	const typstProject = $derived(isTypstCommand(compileCommand));
 	let formatModalOpen = $state(false);
 	let formatting = $state(false);
-	// PDF preview pane; opens automatically once a compile writes a fresh PDF
-	const dockShrunk = $derived(termDock.shrink && layout.pdfPaneOpen);
+	/**
+	 * The bottom dock is confined to the editor column rather than spanning every column.
+	 *
+	 * True when the user asked for it (shrink, which only means anything beside an open preview),
+	 * and true whenever the preview is CLOSED - because the column its divider left behind is no
+	 * longer zero-width. It holds the rail that reopens the pane, so a dock spanning to the last
+	 * column now runs straight past that rail to the window edge.
+	 */
+	const dockShrunk = $derived(termDock.shrink || !layout.pdfPaneOpen);
 	// bottom dock body: the terminal shells (always mounted) or the Problems list
 	let dockView = $state<'terminal' | 'problems'>('terminal');
 	// Draft mode: bump to trigger a DraftView recompile; the derived root/main feed it.

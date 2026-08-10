@@ -42,17 +42,13 @@
 		icon?: Component | null;
 		/** the filled status dot the live/running states use in place of an icon */
 		dot?: boolean;
-		/** Stop's fixed narrow width; the other labels need the roomier minimum */
-		narrow?: boolean;
 	}
-	let { tone, label, title, onclick, icon = null, dot = false, narrow = false }: Props = $props();
+	let { tone, label, title, onclick, icon = null, dot = false }: Props = $props();
 </script>
 
-<button
-	class="btn btn-xs {COMPILE_TONE[tone]} {narrow ? 'w-20' : 'min-w-24'} justify-center gap-1.5 rounded-r-none whitespace-nowrap"
-	{onclick}
-	{title}
->
+<!-- one fixed width for every state: Compile, Preview, Live, Paused and Stop occupy the same
+     slot, and a button that resized as the state changed made the whole group jump -->
+<button class="btn btn-xs {COMPILE_TONE[tone]} w-24 justify-center gap-1.5 rounded-r-none whitespace-nowrap" {onclick} {title}>
 	{#if dot}
 		<span class="bg-success-500 size-2 rounded-full"></span>
 	{:else if icon}

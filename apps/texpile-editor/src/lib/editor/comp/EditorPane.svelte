@@ -212,7 +212,8 @@
 		{#if loadedPath && structured && viewMode === 'visual' && visualDoc}
 			<SearchBar />
 		{/if}
-		<div class="h-full w-full overflow-auto">
+		<!-- scroll-inset-r keeps this scrollbar clear of the lozenge on the preview divider -->
+		<div class="scroll-inset-r h-full w-full overflow-auto">
 			{#if folderEmpty && !$activeFilePath}
 				<div class="mx-auto mt-16 max-w-xl px-6">
 					<div class="text-center">

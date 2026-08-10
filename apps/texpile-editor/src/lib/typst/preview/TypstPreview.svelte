@@ -215,7 +215,9 @@
 	     rather than sitting under the pane's, which otherwise left two near-empty strips stacked.
 	     Zoom is the only control here: tinymist's viewer ships no toolbar and its users scroll, so
 	     zoom is the one thing with no keyboard-free equivalent. -->
-	<div class="bg-surface-100-900 border-surface-300-700 text-surface-600-300 flex h-9 shrink-0 items-center gap-1 border-b px-3 text-xs">
+	<!-- border-surface-200-800, not 300-700: this header, the editor's tab strip and the channel
+	     between them draw one line, and a darker step here made the preview's stretch of it stand out -->
+	<div class="bg-surface-100-900 border-surface-200-800 text-surface-600-300 flex h-9 shrink-0 items-center gap-1 border-b px-3 text-xs">
 		<span class="shrink-0 font-medium">{m.typst_preview_label()}</span>
 		<span class="bg-surface-300-700 mx-1 h-4 w-px shrink-0"></span>
 		{#if error}

@@ -5,6 +5,11 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-08-10
+
+- feat: added Typst support
+- feat: added visual Markdown support
+
 ## [0.16.1] - 2026-08-02
 
 - feat: the editor remembers where you left off in each file, across tab switches and restarts

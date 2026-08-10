@@ -7,7 +7,7 @@
 // saved on a wide screen must not squeeze the editor out in a small window.
 import { browser } from '$lib/runtime';
 import { updateSettings } from '$lib/settings';
-import { startDrag, nudgeOnKey, clampTo } from '$lib/workspace/paneResize';
+import { startDrag, nudgeOnKey, clampTo, SNAP_SLACK } from '$lib/workspace/paneResize';
 
 const PDF_FRACTION_KEY = 'texpile:pdfPaneFraction';
 const SIDEBAR_MIN = 180;
@@ -49,17 +49,35 @@ export class PaneLayout {
 
 	// --- sidebar ---
 
-	toggleSidebar = () => {
-		this.sidebarOpen = !this.sidebarOpen;
-		updateSettings({ sidebarOpen: this.sidebarOpen });
+	setSidebarOpen = (open: boolean) => {
+		this.sidebarOpen = open;
+		updateSettings({ sidebarOpen: open });
 	};
 
-	private setSidebar = (w: number) => (this.sidebarWidth = clampSidebar(w));
+	toggleSidebar = () => this.setSidebarOpen(!this.sidebarOpen);
+
+	/**
+	 * Takes the RAW width the pointer is asking for, not a clamped one: the clamp is what would
+	 * hide the pane having been dragged past its minimum, which is the whole signal here.
+	 *
+	 * The stored width is left alone while shut, so reopening restores the size you last chose
+	 * rather than the minimum you happened to drag through.
+	 */
+	private setSidebar = (w: number) => {
+		if (w < SIDEBAR_MIN - SNAP_SLACK) {
+			if (this.sidebarOpen) this.setSidebarOpen(false);
+			return;
+		}
+		if (!this.sidebarOpen) this.setSidebarOpen(true);
+		this.sidebarWidth = clampSidebar(w);
+	};
 	private commitSidebar = () => updateSettings({ sidebarWidth: this.sidebarWidth });
 
 	startSidebarResize = (e: MouseEvent) => {
 		const startX = e.clientX;
-		const startW = this.sidebarWidth;
+		// from shut, the drag measures out from the edge, so pulling the handle back into the window
+		// is what reopens it - starting from the remembered width would snap it open on the first px
+		const startW = this.sidebarOpen ? this.sidebarWidth : 0;
 		startDrag(e, { compute: (ev) => startW + ev.clientX - startX, apply: this.setSidebar, commit: this.commitSidebar });
 	};
 
@@ -67,7 +85,8 @@ export class PaneLayout {
 		nudgeOnKey(e, {
 			keys: ['ArrowLeft', 'ArrowRight'],
 			step: 16,
-			current: () => this.sidebarWidth,
+			// shut, the handle sits one step below the snap point, so one press outward opens it
+			current: () => (this.sidebarOpen ? this.sidebarWidth : SIDEBAR_MIN - SNAP_SLACK),
 			apply: this.setSidebar,
 			commit: this.commitSidebar
 		});
@@ -109,7 +128,15 @@ export class PaneLayout {
 
 	togglePdfPane = () => this.setPdfPaneOpen(!this.pdfPaneOpen);
 
-	private setPdfWidth = (w: number) => (this.pdfPaneWidth = this.clampPdf(w));
+	/** raw, unclamped - see setSidebar; the two panes snap on the same rule */
+	private setPdfWidth = (w: number) => {
+		if (w < PDF_MIN - SNAP_SLACK) {
+			if (this.pdfPaneOpen) this.setPdfPaneOpen(false);
+			return;
+		}
+		if (!this.pdfPaneOpen) this.setPdfPaneOpen(true);
+		this.pdfPaneWidth = this.clampPdf(w);
+	};
 	private savePdfFraction = () => {
 		if (browser && typeof window !== 'undefined') localStorage.setItem(PDF_FRACTION_KEY, String(this.pdfPaneWidth / window.innerWidth));
 	};
@@ -121,7 +148,8 @@ export class PaneLayout {
 
 	startPdfResize = (e: MouseEvent) => {
 		const startX = e.clientX;
-		const startW = this.pdfPaneWidth;
+		// shut, measure out from the window edge so dragging the rail inwards is what reopens it
+		const startW = this.pdfPaneOpen ? this.pdfPaneWidth : 0;
 		// drag left = wider
 		startDrag(e, {
 			compute: (ev) => startW - (ev.clientX - startX),
@@ -136,7 +164,7 @@ export class PaneLayout {
 		nudgeOnKey(e, {
 			keys: ['ArrowRight', 'ArrowLeft'],
 			step: 16,
-			current: () => this.pdfPaneWidth,
+			current: () => (this.pdfPaneOpen ? this.pdfPaneWidth : PDF_MIN - SNAP_SLACK),
 			apply: this.setPdfWidth,
 			commit: this.savePdfFraction
 		});
