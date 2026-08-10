@@ -8,7 +8,7 @@
 	// The frame is a SEPARATE ORIGIN, so the page cannot reach this window's bridges. The only
 	// channel between us is postMessage, and the bridge on the far side is one we injected. That is
 	// what lets the zoom control below drive a viewer we cannot otherwise touch.
-	import { ZoomIn, ZoomOut, Crosshair, LocateFixed, FileDown, Loader2, X } from '@lucide/svelte';
+	import { ZoomIn, ZoomOut, Crosshair, FileDown, Loader2, X } from '@lucide/svelte';
 	import { resolvedMode } from '$lib/theme';
 	import { settings, updateSettings } from '$lib/settings';
 	import { followScrollTick } from './followSignal';
@@ -21,11 +21,9 @@
 		paneDragging: boolean;
 		/** compile the previewed document to a PDF on disk (the preview itself never writes one) */
 		onSaveTypstPdf: () => Promise<void>;
-		/** one-shot scroll to the editor caret; null hides the button (visual mode has no caret line) */
-		onSyncToCursor?: (() => void) | null;
 		onClose: () => void;
 	}
-	let { host, paneDragging, onSaveTypstPdf, onSyncToCursor = null, onClose }: Props = $props();
+	let { host, paneDragging, onSaveTypstPdf, onClose }: Props = $props();
 
 	/** an export is in flight; the button shows it and refuses a second one */
 	let savingPdf = $state(false);
@@ -174,6 +172,13 @@
 		return null;
 	});
 
+	// Everything is connected and still no document: that is what a failed compile looks like from
+	// here (tinymist only pushes renders that succeeded), so the blank frame says where the errors
+	// went instead of just sitting white.
+	const noDocument = $derived(
+		!!frameUrl && !error && !!status && status.pages === 0 && status.viewer && status.socket === 1 && !status.initialized
+	);
+
 	/** the raw numbers behind `stall`, for the tooltip - enough to tell the faults apart */
 	const stallDetail = $derived(
 		status
@@ -215,7 +220,9 @@
 		<span class="bg-surface-300-700 mx-1 h-4 w-px shrink-0"></span>
 		{#if error}
 			<span class="text-error-500 truncate" title={error}>{error}</span>
-		{:else if stall}
+		{:else if stall && !noDocument}
+			<!-- the no-document stall is NOT repeated here: the frame overlay below already says it -->
+
 			<span class="text-warning-700-300 truncate" title="{stall}&#10;{stallDetail}">{stall}</span>
 			<span class="text-surface-500 truncate font-mono text-[10px]">{stallDetail}</span>
 		{:else}
@@ -242,21 +249,7 @@
 			<ZoomIn class="size-4" />
 		</button>
 		<span class="bg-surface-300-700 mx-1 h-4 w-px shrink-0"></span>
-		<!-- the two locate controls side by side: jump-once next to follow-always. Both live HERE,
-		     on the pane they move, not in the editor topbar. preventDefault on mousedown: the
-		     one-shot acts on the editor CARET, so taking focus from it would defeat it -->
-		{#if onSyncToCursor}
-			<button
-				class="hover:preset-tonal rounded p-1 disabled:opacity-40"
-				onmousedown={(e) => e.preventDefault()}
-				onclick={onSyncToCursor}
-				disabled={!frameUrl}
-				title={m.wsview_sync_to_preview_title()}
-				aria-label={m.wsview_sync_to_preview_aria()}
-			>
-				<LocateFixed class="size-4" />
-			</button>
-		{/if}
+		<!-- follow-always lives here; its one-shot sibling rides the pane splitter (PreviewPane) -->
 		<button
 			class="hover:preset-tonal rounded p-1 disabled:opacity-40"
 			class:preset-tonal={$settings.typstPreviewFollow === true}
@@ -280,20 +273,20 @@
 			title={m.typst_preview_save_pdf()}
 			aria-label={m.typst_preview_save_pdf()}
 		>
-			{#if savingPdf}<Loader2 class="size-4 animate-spin" />{:else}<FileDown class="size-4" />{/if}
+			{#if savingPdf}<Loader2 class="size-3.5 animate-spin" />{:else}<FileDown class="size-3.5" />{/if}
 		</button>
 		<span class="bg-surface-300-700 mx-1 h-4 w-px shrink-0"></span>
 		<button
-			class="hover:preset-tonal shrink-0 rounded p-0.5"
+			class="hover:preset-tonal shrink-0 rounded p-1"
 			onclick={onClose}
 			title={m.wsview_close_preview()}
 			aria-label={m.wsview_close_preview()}
 		>
-			<X class="size-3.5" />
+			<X class="size-4" />
 		</button>
 	</div>
 
-	<div bind:this={frameBox} class="min-h-0 flex-1 overflow-hidden">
+	<div bind:this={frameBox} class="relative min-h-0 flex-1 overflow-hidden">
 		{#if frameUrl}
 			<!-- sandboxed by origin, not by the sandbox attribute: the page needs scripts and its own
 			     wasm, and its CSP (set where it is served) is what actually bounds it -->
@@ -307,6 +300,17 @@
 				style:width={frozenWidth !== null ? `${frozenWidth}px` : '100%'}
 				onerror={() => (error = m.typst_preview_frame_failed())}
 			></iframe>
+			{#if noDocument}
+				<!-- a card, not bare text: the surround behind it is mid-grey in both themes, so bare
+				     muted text was barely legible on it -->
+				<div class="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+					<div
+						class="bg-surface-100-900 text-surface-700-200 border-surface-300-700 max-w-sm rounded-lg border px-4 py-3 text-center text-sm shadow-sm"
+					>
+						{m.typst_preview_no_document_hint()}
+					</div>
+				</div>
+			{/if}
 		{:else if !error}
 			<div class="text-surface-500 flex h-full items-center justify-center text-center text-sm">
 				{m.typst_preview_waiting()}

@@ -83,6 +83,7 @@
 		{guest}
 		terminalAvailable={termDock.available}
 		compiling={compiler.compiling}
+		{typstPreviewWanted}
 		pdfPaneOpen={layout.pdfPaneOpen}
 		draftPaused={draft.paused}
 		saving={saver.saving}

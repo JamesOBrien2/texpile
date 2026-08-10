@@ -109,8 +109,10 @@ export const latexLanguage = StreamLanguage.define<LatexState>({
 			}
 			if (!state.math) {
 				if (stream.match(HEADING_CMD)) {
+					// the MACRO colours like any command; only the argument text is 'heading'
+					// (bold, default colour) - the title is document text, not syntax
 					state.pendingArg = 'heading';
-					return 'heading';
+					return 'command';
 				}
 				if (stream.match(URL_CMD)) {
 					state.pendingArg = 'url';
@@ -210,9 +212,9 @@ export const latexLanguage = StreamLanguage.define<LatexState>({
 		return null;
 	},
 
-	// custom token names that map to modified tags string lookup can't reach; the plain names
-	// (comment, keyword, heading, labelName, url, escape, brace, bracket, operator, monospace,
-	// list) resolve through tags[name] on their own
+	// custom token names that map to tags string lookup can't (or must not) reach; the plain
+	// names (comment, keyword, heading, labelName, url, escape, brace, bracket, operator,
+	// monospace) resolve through tags[name] on their own
 	tokenTable: {
 		command: tags.function(tags.variableName),
 		module: tags.moduleKeyword,
@@ -220,7 +222,10 @@ export const latexLanguage = StreamLanguage.define<LatexState>({
 		mathDelim: tags.controlKeyword,
 		mathText: tags.special(tags.string),
 		mathCommand: tags.special(tags.variableName),
-		linebreak: tags.contentSeparator
+		linebreak: tags.contentSeparator,
+		// the marker tag, NOT tags.list: the theme colours markers, and leaves tags.list alone
+		// because md's list rule spans whole list subtrees (see cmHighlight)
+		list: tags.processingInstruction
 	}
 });
 

@@ -731,7 +731,7 @@
 
 	async function openTypstPreview() {
 		const root = get(workspaceRoot);
-		const file = get(mainFile) ?? doc.path;
+		const file = typstPreviewFile();
 		if (!root || !file) return;
 		try {
 			// Started through the LANGUAGE SERVER, so it previews the server's in-memory document and
@@ -758,7 +758,7 @@
 	 */
 	async function saveTypstPdf(): Promise<void> {
 		const root = get(workspaceRoot);
-		const file = get(mainFile) ?? doc.path;
+		const file = typstPreviewFile();
 		if (!root || !file) return;
 		try {
 			const outDir = isTypstCommand(compileCommand) ? typstOutDir(compileCommand) : 'output';
@@ -768,7 +768,12 @@
 			const res = await savePdfAs(staged, staged);
 			if (res.saved && res.path) toaster.success({ title: m.typst_pdf_saved_title(), description: res.path, duration: 4000 });
 		} catch (err) {
-			toaster.error({ title: m.typst_pdf_save_failed(), description: err instanceof Error ? err.message : String(err) });
+			// The reject is tinymist's JSON-RPC error OBJECT, not an Error - String() on it prints
+			// [object Object]. Every failure on this path means the same thing to the user (the
+			// document did not produce a PDF), so the toast says that; the raw error goes to the
+			// console for whoever needs it.
+			console.error('typst pdf export failed:', err);
+			toaster.error({ title: m.typst_pdf_save_failed(), description: m.typst_pdf_save_no_pdf() });
 		}
 	}
 
@@ -912,8 +917,29 @@
 	 *
 	 * The pane branches on this rather than on the host, so the compiled PDF never flashes up for the
 	 * moment it takes doStartPreview to answer.
+	 *
+	 * STICKY across tabs: the preview shows the MAIN document, so focusing a .bib or an image next
+	 * to it must not tear it down and swap the stale compiled PDF in. The latch remembers the last
+	 * previewed .typ (per workspace - another root invalidates it) and keeps the pane a preview
+	 * until the switch goes off or the workspace changes. A .typ MAIN file counts on its own -
+	 * the latch is session state, so restoring a workspace onto a .bib tab would otherwise open
+	 * the pane as a PDF viewer until a .typ tab was clicked.
 	 */
-	const typstPreviewWanted = $derived(doc.kind === 'typ' && $settings.typstLiveMode !== false && !!$workspaceRoot && !guest);
+	let typstSticky = $state<{ root: string; file: string } | null>(null);
+	$effect(() => {
+		if (doc.kind === 'typ' && doc.path && $workspaceRoot && !guest) typstSticky = { root: $workspaceRoot, file: doc.path };
+	});
+	const typstPreviewWanted = $derived(
+		(doc.kind === 'typ' || $mainFile?.toLowerCase().endsWith('.typ') === true || typstSticky?.root === $workspaceRoot) &&
+			$settings.typstLiveMode !== false &&
+			!!$workspaceRoot &&
+			!guest
+	);
+
+	/** the previewed document: the main file, else the focused .typ, else the latch's memory of it */
+	function typstPreviewFile(): string | null {
+		return get(mainFile) ?? (doc.kind === 'typ' ? doc.path : null) ?? typstSticky?.file ?? null;
+	}
 
 	$effect(() => {
 		const want = typstPreviewWanted && layout.pdfPaneOpen;

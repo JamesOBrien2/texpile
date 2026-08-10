@@ -30,6 +30,8 @@
 		guest: boolean;
 		terminalAvailable: boolean;
 		compiling: boolean;
+		/** the preview pane is (or is about to be) a Typst live preview; see WorkspaceView */
+		typstPreviewWanted: boolean;
 		pdfPaneOpen: boolean;
 		draftPaused: boolean;
 		saving: boolean;
@@ -55,6 +57,7 @@
 		guest,
 		terminalAvailable,
 		compiling,
+		typstPreviewWanted,
 		pdfPaneOpen,
 		draftPaused,
 		saving,
@@ -76,8 +79,9 @@
 	let compileMenuOpen = $state(false);
 
 	// Typst's Preview replaces Compile the way LaTeX's live mode does: same slot, same states.
-	// Keyed on the OPEN file's kind, matching what the preview pane itself attaches on.
-	const typstLive = $derived(kind === 'typ' && $settings.typstLiveMode !== false);
+	// Driven by the same flag the preview pane branches on - sticky across tabs - so the green
+	// Live button does not flip back to Compile when a .bib or an image has focus.
+	const typstLive = $derived(typstPreviewWanted);
 </script>
 
 <header class="border-surface-200-800 col-span-full flex h-12 items-center justify-between gap-3 border-b px-4">

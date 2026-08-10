@@ -45,7 +45,7 @@
 
 	// full-file CodeMirror editor. source-mode edits are written back verbatim, never through the
 	// parse/serialize round-trip. filename picks the syntax mode, defaulting to LaTeX.
-	import { LocateFixed, Scissors, Copy, ClipboardPaste, Search } from '@lucide/svelte';
+	import { ArrowRight, Scissors, Copy, ClipboardPaste, Search } from '@lucide/svelte';
 
 	// gotoLine: token makes repeat jumps to the same line re-fire; selectText anchors against line drift.
 	// initialScrollPos: one-shot mode-switch sync applied at mount.
@@ -180,6 +180,11 @@
 	let view: EditorView | null = null;
 	// three digits so the text stops shifting every power of ten. the element is border-box, so the
 	// padding has to be inside the floor or it eats a digit.
+	/** a flat, single-colour marker; CM's stock ones are gradient-shaded blobs that don't read as
+	 *  status icons. Colours are baked in (data: URIs can't reach CSS vars); both work on light
+	 *  and dark line-number gutters. */
+	const lintMarker = (svg: string) =>
+		`url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${svg}</svg>`)}')`;
 	const gutterTheme = EditorView.theme({
 		// gutters aren't content: without this, double-clicking a line number or a fold arrow selects it
 		'.cm-gutters': { userSelect: 'none', WebkitUserSelect: 'none' },
@@ -189,8 +194,13 @@
 			textAlign: 'center'
 		},
 		'.cm-gutter-lint': { width: '1em' },
-		'.cm-gutter-lint .cm-gutterElement': { padding: '0 1px' },
-		'.cm-lint-marker': { width: '0.8em', height: '0.8em' }
+		// flex-centre the marker: stock CM leaves it inline (vertical-align: middle), which sits
+		// visibly above the line-number baseline
+		'.cm-gutter-lint .cm-gutterElement': { padding: '0 1px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+		'.cm-lint-marker': { width: '0.7em', height: '0.7em' },
+		'.cm-lint-marker-error': { content: lintMarker('<circle cx="20" cy="20" r="15" fill="#ef4444"/>') },
+		'.cm-lint-marker-warning': { content: lintMarker('<circle cx="20" cy="20" r="15" fill="#f59e0b"/>') },
+		'.cm-lint-marker-info': { content: lintMarker('<circle cx="20" cy="20" r="15" fill="#3b82f6"/>') }
 	});
 	// y-codemirror.next's stock theme moves text: full-line selections ZERO the line's own padding
 	// and "compensate" with 4px/2px margins (net shift), and the caret draws as 2px of inline
@@ -691,7 +701,8 @@
 			<div class="border-surface-200-800 my-1 border-t"></div>
 			<!-- .typ goes to the live preview, not a PDF, and the label must not claim otherwise -->
 			<button class={itemClass} onclick={() => (onSyncToPdf?.(ctxMenu.line), closeMenu())}>
-				<LocateFixed class="size-4 opacity-70" />
+				<!-- same arrow as the splitter's sync button: same jump, same icon -->
+				<ArrowRight class="size-4 opacity-70" />
 				{isTypFile ? m.tbar_ctx_show_in_preview() : m.tbar_ctx_show_in_pdf()}
 			</button>
 		{/if}

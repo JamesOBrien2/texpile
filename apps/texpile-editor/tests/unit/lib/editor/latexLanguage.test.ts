@@ -48,7 +48,7 @@ const named = tagHighlighter([
 	{ tag: tags.monospace, class: 'mono' },
 	{ tag: tags.url, class: 'url' },
 	{ tag: tags.contentSeparator, class: 'linebreak' },
-	{ tag: tags.list, class: 'list' },
+	{ tag: tags.processingInstruction, class: 'marker' },
 	{ tag: tags.escape, class: 'escape' }
 ]);
 
@@ -74,8 +74,8 @@ describe('latex language', () => {
 		expect(clsOf(toks, 'a comment')).toBe('comment');
 	});
 
-	it('tags sectioning like typst/markdown headings: command and title both', () => {
-		expect(clsOf(toks, '\\section')).toBe('heading');
+	it('tags sectioning: the macro as a command, the title as a heading', () => {
+		expect(clsOf(toks, '\\section')).toBe('command');
 		expect(clsOf(toks, 'Introduction')).toBe('heading');
 	});
 
@@ -114,7 +114,9 @@ describe('latex language', () => {
 	});
 
 	it('leaves verbatim at its own \\end, so the rest of the file still highlights', () => {
-		expect(clsOf(toks, '\\item')).toBe('list');
+		// the marker tag, not tags.list - the theme colours markers and leaves tags.list alone
+		// (md's list rule spans whole subtrees; see cmHighlight)
+		expect(clsOf(toks, '\\item')).toBe('marker');
 	});
 
 	it('tags \\\\ as a line break and \\url content as a url', () => {

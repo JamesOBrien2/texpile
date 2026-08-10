@@ -367,6 +367,16 @@ describe('converted document shape', () => {
 		expect(out).toBe('$ E = m c^2 $ <eq:mass>');
 	});
 
+	it('a label ADDED through the gear reaches the file (attrs-only edit, orig still present)', () => {
+		// the gear's setNodeMarkup changes attrs and nothing else, so orig survives on the node;
+		// the label must still beat the emit-orig-verbatim shortcut
+		const doc = docOf('$ E = m c^2 $\n');
+		const eq = doc.child(0);
+		expect(eq.attrs.label).toBeNull();
+		const labeled = typSchema.nodes.doc.create(null, [eq.type.create({ ...eq.attrs, label: 'eq:mass' }, eq.content)]);
+		expect(serializeToTypst(labeled)).toBe('$ E = m c^2 $ <eq:mass>');
+	});
+
 	it('the canonical full-width line is a divider; other lengths stay raw', () => {
 		const doc = docOf(CORPUS.hr);
 		expect(doc.child(1).type.name).toBe('horizontal_rule');

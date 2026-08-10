@@ -79,7 +79,9 @@ function findSuggestion(state: EditorState, suggester: TexpileSuggester): Sugges
 
 	if (triggerPos === -1) return null;
 
-	const supportedChars = suggester.supportedCharacters || /[a-zA-Z0-9\s_]*/;
+	// single-char class, no quantifier: the template below adds the `*` (a starred default here
+	// produced `**`, an invalid regexp, for any suggester that omitted supportedCharacters)
+	const supportedChars = suggester.supportedCharacters || /[a-zA-Z0-9\s_]/;
 	const match = queryText.match(new RegExp(`^(${supportedChars.source}*)$`));
 
 	if (!match) return null;
@@ -190,6 +192,11 @@ export function createTexpileSuggest(suggester: TexpileSuggester) {
 					if (suggester.onExit && prevActive && !currentActive) {
 						suggester.onExit({ view });
 					}
+				},
+				// the editor being torn down (tab/file/mode switch) is an exit too: the dropdown
+				// lives on document.body, so without this it outlives the editor that opened it
+				destroy() {
+					suggester.onExit?.({ view: _editorView });
 				}
 			};
 		}

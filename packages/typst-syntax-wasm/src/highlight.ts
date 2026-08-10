@@ -1,6 +1,6 @@
 // Which Typst syntax kind gets which highlight tag.
 //
-// Adapted from codemirror-lang-typst (Apache-2.0, © Levi Zim) — see ../README.md. It is vendored
+// Adapted from codemirror-lang-typst (Apache-2.0, © Levi Zim). It is vendored
 // rather than imported because that package's entry point re-exports its own wasm-backed parser,
 // so importing anything from it pulled a SECOND 320KB parser into the bundle alongside ours. This
 // file is pure data; the parser it describes is the one in ../src/lib.rs.
@@ -19,15 +19,24 @@ export const typstHighlight = styleTags({
 	SmartQuote: tags.quote,
 	'Strong/...': tags.strong,
 	'Emph/...': tags.emphasis,
-	RawLang: tags.annotation,
-	RawDelim: tags.controlKeyword,
+	// raw blocks line up with md fenced code: ``` delims are markers, the info string is a
+	// labelName (md tags CodeInfo the same way), the content is monospace
+	RawLang: tags.labelName,
+	RawDelim: tags.processingInstruction,
 	Raw: tags.monospace,
-	Link: tags.link,
+	// url, not link: a typst Link node is a bare autolink (https://..), i.e. the URL itself -
+	// tags.link is underline-only in the theme because md applies it to whole [text](url) subtrees
+	Link: tags.url,
 	Label: tags.labelName,
 	'Ref/...': tags.labelName,
 	'Heading/...': tags.heading,
-	ListMarker: tags.list,
-	EnumMarker: tags.list,
+	// direct assignment beats the Heading/... rule: the `=` marker colours like md's `#` and a
+	// LaTeX \section command, while the title text keeps the heading style (bold, plain)
+	HeadingMarker: tags.processingInstruction,
+	// marker tags, not tags.list: md's list rule spans the whole list SUBTREE, so a colour on
+	// tags.list painted md item text - the theme colours only marker/command tags
+	ListMarker: tags.processingInstruction,
+	EnumMarker: tags.processingInstruction,
 	TermMarker: tags.definitionOperator,
 
 	MathText: tags.special(tags.string),
@@ -36,7 +45,9 @@ export const typstHighlight = styleTags({
 
 	Error: tags.invalid,
 
-	Hash: tags.controlKeyword,
+	// the hash is typst's syntax carrier the way the backslash starts a LaTeX command: it colours
+	// with the markers/commands, not with control-flow keywords
+	Hash: tags.processingInstruction,
 	'LeftBrace RightBrace': tags.brace,
 	'LeftBracket RightBracket': tags.bracket,
 	'LeftParen RightParen': tags.paren,
@@ -57,7 +68,9 @@ export const typstHighlight = styleTags({
 	'Let Set Show Context': tags.definitionKeyword,
 	'As In': tags.operatorKeyword,
 
-	Code: tags.monospace,
+	// Code (a `{..}` code block) is deliberately untagged: it is live syntax whose tokens carry
+	// their own tags, and a blanket monospace colour bled onto every plain ident inside it.
+	// Raw above keeps the colour - that is the verbatim analogue of md fenced code.
 	// the called name, not every ident: #image(..) colours like a LaTeX \command does, while a
 	// plain variable stays uncoloured the way other languages leave variables
 	'FuncCall/Ident': tags.function(tags.variableName),

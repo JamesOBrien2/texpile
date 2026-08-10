@@ -2,7 +2,7 @@
 	// The right-hand preview pane (+ its drag splitter): the guest's pushed PDF, the Typst live
 	// preview, the live draft renderer, or the compiled PDF. Renders two grid siblings, so it must
 	// sit in a display:contents wrapper on the editor grid.
-	import { LocateFixed, X } from '@lucide/svelte';
+	import { ArrowRight, X } from '@lucide/svelte';
 	import PDFViewer from './PDFViewer.svelte';
 	import type DraftView from '$lib/draft/DraftView.svelte';
 	import type TypstPreview from '$lib/typst/preview/TypstPreview.svelte';
@@ -52,8 +52,7 @@
 		typstPreviewWanted: boolean;
 		/** compile the previewed document to a PDF on disk (the preview itself never writes one) */
 		onSaveTypstPdf: () => Promise<void>;
-		/** one-shot scroll to the editor caret (SyncTeX forward / typst jump); null hides the button.
-		 * Lives on this pane, not the editor topbar: the button moves THIS pane. */
+		/** one-shot jump of the preview to the editor caret; null hides the floating sync button */
 		onSyncToCursor?: (() => void) | null;
 		/** a splitter is being dragged; the frame holds its size rather than reflowing every frame */
 		paneDragging: boolean;
@@ -107,9 +106,26 @@
 	tabindex="0"
 ></div>
 <aside
-	class="border-surface-200-800 flex shrink-0 flex-col border-l"
+	class="border-surface-200-800 relative flex shrink-0 flex-col border-l"
 	style="width: {width}px; grid-column: 3; grid-row: {dockShrunk ? '2 / -1' : '2'}"
 >
+	{#if onSyncToCursor}
+		<!-- forward sync floats on the splitter. Below the header rows (top-28),
+		     so it doesn't sit on the intersection of the two header borders. A SIBLING of the
+		     separator, not a child: nesting it made hovering the button light the whole drag
+		     strip (and a role=separator should not contain a button anyway). preventDefault
+		     keeps focus on the editor, whose CARET is what the jump reads. The reverse
+		     direction needs no button: a click in the preview is the inverse jump. -->
+		<button
+			class="bg-surface-700-300 hover:bg-primary-500 absolute top-28 -left-[13px] z-30 cursor-pointer rounded-full p-1.5 text-white dark:text-black shadow-md"
+			onmousedown={(e) => e.preventDefault()}
+			onclick={onSyncToCursor}
+			title={typstPreviewWanted && !guest ? m.wsview_sync_to_preview_title() : m.wsview_sync_to_pdf_title()}
+			aria-label={typstPreviewWanted && !guest ? m.wsview_sync_to_preview_aria() : m.wsview_sync_to_pdf_aria()}
+		>
+			<ArrowRight class="size-3.5" />
+		</button>
+	{/if}
 	{#if !(typstPreviewWanted && !guest)}
 		<!-- h-9 matches the editor column's tab strip, so the two header borders draw one line -->
 		<div
@@ -123,26 +139,13 @@
 				{/if}
 			</span>
 			<div class="flex items-center gap-1">
-				{#if onSyncToCursor}
-					<!-- forward sync sits on the pane it scrolls. preventDefault on mousedown: it acts
-					     on the editor CARET, so taking focus from it would defeat it -->
-					<button
-						class="hover:preset-tonal rounded p-1"
-						onmousedown={(e) => e.preventDefault()}
-						onclick={onSyncToCursor}
-						title={m.wsview_sync_to_pdf_title()}
-						aria-label={m.wsview_sync_to_pdf_aria()}
-					>
-						<LocateFixed class="size-4" />
-					</button>
-				{/if}
 				<button
-					class="hover:preset-tonal rounded p-0.5"
+					class="hover:preset-tonal rounded p-1"
 					onclick={onClose}
 					title={m.wsview_close_preview()}
 					aria-label={m.wsview_close_preview()}
 				>
-					<X class="size-3.5" />
+					<X class="size-4" />
 				</button>
 			</div>
 		</div>
@@ -162,7 +165,7 @@
 			     it is the same document and it is ahead of it, since it needs no save. Rendered on
 			     `wanted` rather than on the host so the PDF never flashes up while it starts. -->
 			{#if TypstPreviewComp}
-				<TypstPreviewComp host={typstPreviewHost} {paneDragging} {onSaveTypstPdf} {onSyncToCursor} {onClose} />
+				<TypstPreviewComp host={typstPreviewHost} {paneDragging} {onSaveTypstPdf} {onClose} />
 			{/if}
 		{:else if $settings.draftMode}
 			{#if DraftViewComp}

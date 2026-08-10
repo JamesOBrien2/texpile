@@ -70,8 +70,8 @@
 		</div>
 		<div class="min-h-0 flex-1 overflow-y-auto">
 			{#if rows.length === 0}
-				<div class="text-surface-500-400 flex items-center gap-2 p-4">
-					<FileCheck2 class="size-4" />
+				<!-- no icon: the header row above already carries the check next to "Compiled clean" -->
+				<div class="text-surface-500-400 p-4">
 					{m.problems_no_problems()}
 				</div>
 			{:else}

@@ -250,7 +250,7 @@
 				// the shared table wrapper chrome (Table N header, gear with label + verbatim columns)
 				// in typst mode: every LaTeX-only control is gated off inside
 				table_wrapper: (node, view, getPos) => typstTableWrapperView(node, view, getPos as () => number),
-				typ_ref: (node) => new TypstRefView(node)
+				typ_ref: (node, view) => new TypstRefView(node, view)
 			},
 			editable: () => true,
 			dispatchTransaction(transaction: Transaction) {
@@ -344,6 +344,26 @@
 	}
 
 	/* raw-island insets are tightened in RawLatexView itself (all dialects), nothing typst-specific */
+
+	/* A labeled equation shows its <label> where LaTeX shows "(1)": the editor cannot know the
+	   real number (numbering is the template's #set math.equation rule), but the label proves the
+	   equation is referenceable and is exactly what the @ picker offers. mlview sets the attr. */
+	:global(.TypstEditor .block-math-container[data-typst-label]:not([data-typst-label=''])::after) {
+		content: '<' attr(data-typst-label) '>';
+		position: absolute;
+		right: 1rem;
+		top: 50%;
+		transform: translateY(-50%);
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		font-size: 0.8em;
+		color: var(--color-surface-500);
+		user-select: none;
+		pointer-events: none;
+	}
+	/* keep the hover gear clear of the chip, the way the LaTeX number pushes it left */
+	:global(.TypstEditor .block-math-container[data-typst-label]:not([data-typst-label='']) .math-settings-container) {
+		right: 5rem;
+	}
 
 	/* @target chips: citation tint when the key resolves in the bibliography, neutral otherwise */
 	:global(.TypstEditor .typ-ref) {

@@ -171,6 +171,9 @@
 		if (value !== sanitized) {
 			target.value = sanitized;
 		}
+		// `value={labelInput}` is one-way, so without this the typed text never left the DOM:
+		// blur then read the OLD label and (in typst) took the empty state as "clear the label"
+		labelInput = sanitized;
 	}
 	function handleLabelBlur() {
 		// typst labels keep their conventional colon (eq:mass); an emptied field CLEARS the

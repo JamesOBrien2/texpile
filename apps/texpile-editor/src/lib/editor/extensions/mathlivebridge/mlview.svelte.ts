@@ -160,6 +160,11 @@ export default class MathLiveView implements NodeView {
 			this.dom.setAttribute('data-environment', node.attrs.environment || '');
 			const lineCount = (node.attrs.lineLabels as string[])?.length || 1;
 			this.dom.setAttribute('data-line-count', String(lineCount));
+			// typst has no live "(1)" (numbering is the template's #set rule), so a labeled
+			// equation shows its <label> where LaTeX shows the number - visible proof that it
+			// exists and is what @ offers (CSS in TypstEditorView). Optional chain: test fakes
+			// construct this view without a full state.
+			if (view.state?.schema?.nodes.typ_ref) this.dom.setAttribute('data-typst-label', node.attrs.label || '');
 
 			this.equationNumbersContainer = document.createElement('div');
 			this.equationNumbersContainer.className = 'equation-numbers';
@@ -537,6 +542,7 @@ export default class MathLiveView implements NodeView {
 			this.dom.setAttribute('data-environment', node.attrs.environment || '');
 			const lineCount = (node.attrs.lineLabels as string[])?.length || 1;
 			this.dom.setAttribute('data-line-count', String(lineCount));
+			if (this.view.state?.schema?.nodes.typ_ref) this.dom.setAttribute('data-typst-label', node.attrs.label || '');
 			this.updateEquationNumbers();
 		}
 

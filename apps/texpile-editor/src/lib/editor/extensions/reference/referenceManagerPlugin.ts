@@ -169,7 +169,10 @@ function extractEquationReferences(view: EditorView): ReferenceItem[] {
 				equations.push({
 					type: 'equation',
 					id: node.attrs.label,
-					displayText: `Equation ${equationCount}`,
+					// the label, not "Equation N": the editor shows no equation numbers in typst
+					// (numbering is the template's #set rule), and the label is what the block
+					// itself displays, so the menu offers exactly what the user sees
+					displayText: `<${node.attrs.label}>`,
 					subtitle: [currentSection, preview].filter(Boolean).join(' • ') || node.attrs.label,
 					data: { label: node.attrs.label, number: equationCount, position: pos, section: currentSection, content }
 				});
