@@ -4,14 +4,18 @@
 	 *
 	 * The label is pinned a step darker than the preset's own (800 in light, 200 in dark) because
 	 * a tonal preset puts its text on its own tint - the same hue at both ends - which reads as
-	 * washed out. Only the text moves: the fill, the border and the hover stay stock.
+	 * washed out.
+	 *
+	 * The hairline is the button's OWN hue at 30%, not a solid one: a full-strength outline round
+	 * a pale fill reads as a highlight ring rather than an edge. At 30% it is enough to separate
+	 * the button from the toolbar behind it and nothing more.
 	 */
 	export type CompileTone = 'primary' | 'success' | 'warning' | 'error';
 	export const COMPILE_TONE: Record<CompileTone, string> = {
-		primary: 'preset-tonal-primary text-primary-800-200',
-		success: 'preset-tonal-success text-success-800-200',
-		warning: 'preset-tonal-warning text-warning-800-200',
-		error: 'preset-tonal-error text-error-800-200'
+		primary: 'preset-tonal-primary text-primary-800-200 border border-primary-500/30',
+		success: 'preset-tonal-success text-success-800-200 border border-success-500/30',
+		warning: 'preset-tonal-warning text-warning-800-200 border border-warning-500/30',
+		error: 'preset-tonal-error text-error-800-200 border border-error-500/30'
 	};
 </script>
 

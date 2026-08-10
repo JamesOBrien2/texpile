@@ -194,8 +194,10 @@
 			     own header now (PreviewPane / TypstPreview) - the button moves THAT pane -->
 			<div class="relative flex items-center">
 				<CompileButton {...compile} />
+				<!-- border-l-0: the button's right edge already draws the seam, and two hairlines
+				     meeting there would read as a heavier line than the outline itself -->
 				<button
-					class="btn btn-sm {COMPILE_TONE[compile.tone]} rounded-l-none self-stretch border-l border-black/10 px-1"
+					class="btn btn-sm {COMPILE_TONE[compile.tone]} rounded-l-none self-stretch border-l-0 px-1"
 					onclick={() => (compileMenuOpen = !compileMenuOpen)}
 					title={m.wsview_compile_options()}
 					aria-label={m.wsview_compile_options()}
