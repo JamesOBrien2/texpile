@@ -90,7 +90,7 @@
 							class="flex cursor-pointer items-center justify-between gap-6 text-sm"
 						>
 							<Switch.Label>{m.tbar_caption_and_label()}</Switch.Label>
-							<Switch.Control class="preset-filled-surface-200-700 data-[state=checked]:preset-filled-primary-500">
+							<Switch.Control class="preset-filled-surface-200-800 data-[state=checked]:preset-filled-primary-500">
 								<Switch.Thumb />
 							</Switch.Control>
 							<Switch.HiddenInput />
@@ -102,7 +102,7 @@
 							class="flex cursor-pointer items-center justify-between gap-6 text-sm"
 						>
 							<Switch.Label>{m.tbar_horizontal_rules()}</Switch.Label>
-							<Switch.Control class="preset-filled-surface-200-700 data-[state=checked]:preset-filled-primary-500">
+							<Switch.Control class="preset-filled-surface-200-800 data-[state=checked]:preset-filled-primary-500">
 								<Switch.Thumb />
 							</Switch.Control>
 							<Switch.HiddenInput />
@@ -115,7 +115,7 @@
 							class="flex items-center justify-between gap-6 text-sm {rules ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}"
 						>
 							<Switch.Label>{m.tbar_header_row()}</Switch.Label>
-							<Switch.Control class="preset-filled-surface-200-700 data-[state=checked]:preset-filled-primary-500">
+							<Switch.Control class="preset-filled-surface-200-800 data-[state=checked]:preset-filled-primary-500">
 								<Switch.Thumb />
 							</Switch.Control>
 							<Switch.HiddenInput />

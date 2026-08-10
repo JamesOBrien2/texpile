@@ -21,7 +21,7 @@
 	>
 		<DisabledFeature enabled={citationsEnabled}>
 			<button
-				class="btn btn-sm preset-tonal-surface flex h-12 flex-col items-center gap-1 text-xs"
+				class="btn btn-xs preset-tonal-surface flex h-12 flex-col items-center gap-1 text-xs"
 				onclick={preventDefault(() => emit('open-citations'))}
 				aria-label={m.tbar_citations()}
 			>
@@ -32,7 +32,7 @@
 
 		{#if !$isReadOnly}
 			<button
-				class="btn btn-sm preset-tonal-surface flex h-12 flex-col items-center gap-1 text-xs"
+				class="btn btn-xs preset-tonal-surface flex h-12 flex-col items-center gap-1 text-xs"
 				onclick={preventDefault(() => emit('open-settings'))}
 				aria-label={m.tbar_settings()}
 				data-tour="mobile-settings-button"
@@ -43,7 +43,7 @@
 		{/if}
 
 		<button
-			class="btn btn-sm preset-tonal-surface flex h-12 flex-col items-center gap-1 text-xs"
+			class="btn btn-xs preset-tonal-surface flex h-12 flex-col items-center gap-1 text-xs"
 			onclick={preventDefault(() => emit('open-export'))}
 			aria-label={m.tbar_export()}
 			data-tour="mobile-export-button"

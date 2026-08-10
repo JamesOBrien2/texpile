@@ -681,17 +681,17 @@
 				<div class="flex shrink-0 items-center gap-0.5 pr-1 opacity-0 group-hover:opacity-100">
 					{#if entry.type === 'dir'}
 						<button
-							class="btn-icon btn-icon-sm hover:preset-tonal"
+							class="btn-icon btn-icon-xs hover:preset-tonal"
 							title={m.filetree_new_file_title()}
 							onclick={() => startCreate(entry.path, 'file')}
 						>
 							<FilePlus class="size-3.5" />
 						</button>
 					{/if}
-					<button class="btn-icon btn-icon-sm hover:preset-tonal" title={m.filetree_rename()} onclick={() => startRename(entry)}>
+					<button class="btn-icon btn-icon-xs hover:preset-tonal" title={m.filetree_rename()} onclick={() => startRename(entry)}>
 						<Pencil class="size-3.5" />
 					</button>
-					<button class="btn-icon btn-icon-sm hover:preset-tonal-error" title={m.filetree_delete()} onclick={() => confirmDelete(entry)}>
+					<button class="btn-icon btn-icon-xs hover:preset-tonal-error" title={m.filetree_delete()} onclick={() => confirmDelete(entry)}>
 						<Trash2 class="size-3.5" />
 					</button>
 				</div>

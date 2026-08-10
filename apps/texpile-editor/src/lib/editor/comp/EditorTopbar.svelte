@@ -137,7 +137,7 @@
 <header class="border-surface-200-800 col-span-full flex h-12 items-center justify-between gap-3 border-b px-4">
 	<div class="flex min-w-0 items-center gap-2">
 		<button
-			class="btn-icon btn-icon-sm hover:preset-tonal shrink-0"
+			class="btn-icon btn-icon-xs hover:preset-tonal shrink-0"
 			onclick={onToggleSidebar}
 			title={sidebarOpen ? m.wsview_hide_file_explorer() : m.wsview_show_file_explorer()}
 			aria-label={m.wsview_toggle_file_explorer_aria()}
@@ -177,7 +177,7 @@
 		{/if}
 		{#if $compileLog && ($compileLog.errors.length > 0 || $compileLog.warnings.length > 0)}
 			<button
-				class="btn btn-sm gap-1 {$compileLog.errors.length > 0 ? 'preset-tonal-error' : 'preset-tonal-warning'}"
+				class="btn btn-xs gap-1 {$compileLog.errors.length > 0 ? 'preset-tonal-error' : 'preset-tonal-warning'}"
 				onclick={onShowProblems}
 				title={m.wsview_show_problems_title()}
 			>
@@ -197,7 +197,7 @@
 				<!-- border-l-0: the button's right edge already draws the seam, and two hairlines
 				     meeting there would read as a heavier line than the outline itself -->
 				<button
-					class="btn btn-sm {COMPILE_TONE[compile.tone]} rounded-l-none self-stretch border-l-0 px-1"
+					class="btn btn-xs {COMPILE_TONE[compile.tone]} rounded-l-none self-stretch border-l-0 px-1"
 					onclick={() => (compileMenuOpen = !compileMenuOpen)}
 					title={m.wsview_compile_options()}
 					aria-label={m.wsview_compile_options()}
@@ -225,7 +225,7 @@
 				{/if}
 			</div>
 			<button
-				class="btn-icon btn-icon-sm hover:preset-tonal {pdfPaneOpen ? 'text-primary-500' : ''}"
+				class="btn-icon btn-icon-xs hover:preset-tonal {pdfPaneOpen ? 'text-primary-500' : ''}"
 				onclick={onTogglePdf}
 				title={m.wsview_toggle_pdf_preview()}
 				aria-label={m.wsview_toggle_pdf_preview()}
@@ -237,13 +237,13 @@
 			<!-- guest: ask the host to compile (its toolchain) and toggle the shared PDF, in the same
 			     spot and style as the host's Compile so the bar reads the same on both sides -->
 			{#if loadedPath && kind === 'tex'}
-				<button class="btn btn-sm preset-tonal-primary gap-1.5" onclick={onRequestCompile} title={m.session_request_compile()}>
+				<button class="btn btn-xs preset-tonal-primary gap-1.5" onclick={onRequestCompile} title={m.session_request_compile()}>
 					<Play class="size-4" />
 					{m.session_request_compile()}
 				</button>
 			{/if}
 			<button
-				class="btn-icon btn-icon-sm hover:preset-tonal {pdfPaneOpen ? 'text-primary-500' : ''}"
+				class="btn-icon btn-icon-xs hover:preset-tonal {pdfPaneOpen ? 'text-primary-500' : ''}"
 				onclick={onTogglePdf}
 				title={m.wsview_toggle_pdf_preview()}
 				aria-label={m.wsview_toggle_pdf_preview()}
@@ -253,7 +253,7 @@
 		{/if}
 		{#if !guest}
 			<!-- guests have nothing to save: their edits sync live through the shared doc -->
-			<button class="btn btn-sm preset-filled-primary-500 gap-1.5" onclick={onSave} disabled={!loadedPath || saving || !$isDirty}>
+			<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={onSave} disabled={!loadedPath || saving || !$isDirty}>
 				{#if saving}<Loader2 class="size-4 animate-spin" />{:else}<Save class="size-4" />{/if}
 				{m.wsview_save_label()}
 			</button>

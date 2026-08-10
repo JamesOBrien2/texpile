@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // The inline name input is driven by focus, and focus bugs are invisible to the node-environment
 // tests the rest of the suite uses. These cover the two ways the naming step used to break.
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { mount, unmount, flushSync } from 'svelte';
 import FileTree from '../../../../../src/lib/editor/comp/FileTree.svelte';
 import type { TreeEntry } from '../../../../../src/lib/workspace/fileSystem';
@@ -12,10 +12,15 @@ const tree: TreeEntry[] = [
 	{ name: 'chapters', path: '/ws/chapters', type: 'dir', children: [] }
 ];
 
+// the two props whose calls the assertions inspect, typed as the component declares them: a bare
+// vi.fn() is Mock<Procedure | Constructable>, which satisfies no specific signature
+type CreateFn = (parentDir: string, name: string, type: 'dir' | 'file' | 'include') => void;
+type CopyInFn = (paths: string[], targetDir: string) => void;
+
 let host: HTMLDivElement;
 let app: Record<string, unknown> | null = null;
-let onCreate: ReturnType<typeof vi.fn>;
-let onCopyIn: ReturnType<typeof vi.fn>;
+let onCreate: Mock<CreateFn>;
+let onCopyIn: Mock<CopyInFn>;
 let history: {
 	canUndo: boolean;
 	canRedo: boolean;
@@ -49,8 +54,8 @@ function type(input: HTMLInputElement, value: string) {
 beforeEach(() => {
 	host = document.createElement('div');
 	document.body.appendChild(host);
-	onCreate = vi.fn();
-	onCopyIn = vi.fn();
+	onCreate = vi.fn<CreateFn>();
+	onCopyIn = vi.fn<CopyInFn>();
 	history = { canUndo: true, canRedo: true, undoLabel: 'Move a.tex', redoLabel: 'Delete b.tex', undo: vi.fn(), redo: vi.fn() };
 	app = mount(FileTree, {
 		target: host,

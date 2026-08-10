@@ -45,7 +45,7 @@
 				class="bg-surface-200-800 rounded-base text-surface-900-100 min-w-0 flex-1 p-2 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap"
 				>{text}</code
 			>
-			<button class="btn btn-sm preset-tonal shrink-0 text-xs" onclick={() => copy(key, text)} aria-label={m.prefs_mcp_copy()}>
+			<button class="btn btn-xs preset-tonal shrink-0 text-xs" onclick={() => copy(key, text)} aria-label={m.prefs_mcp_copy()}>
 				{#if copied === key}<Check class="size-3.5" />{:else}<Copy class="size-3.5" />{/if}
 			</button>
 		</div>
@@ -61,7 +61,7 @@
 		<div class="card bg-surface-50-950 border-surface-300-700 flex max-h-full w-full max-w-lg flex-col border p-5 shadow-2xl">
 			<div class="mb-3 flex items-center justify-between gap-4">
 				<h2 class="text-base font-semibold">{m.mcpsetup_title()}</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" aria-label={m.mcpsetup_close()} onclick={() => (open = false)}>
+				<button class="btn-icon btn-icon-xs hover:preset-tonal" aria-label={m.mcpsetup_close()} onclick={() => (open = false)}>
 					<X class="size-4" />
 				</button>
 			</div>

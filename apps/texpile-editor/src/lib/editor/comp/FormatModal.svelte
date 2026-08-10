@@ -26,7 +26,7 @@
 					<TriangleAlert class="text-warning-500 size-5" />
 					{m.wsview_format_modal_title()}
 				</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={() => (open = false)} aria-label={m.wsview_close_aria()}>
+				<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={() => (open = false)} aria-label={m.wsview_close_aria()}>
 					<X class="size-4" />
 				</button>
 			</div>
@@ -34,8 +34,8 @@
 				{m.wsview_format_desc_pre()} <code class="bg-surface-200-800 rounded px-1">latexindent</code>{m.wsview_format_desc_post()}
 			</p>
 			<div class="flex justify-end gap-2">
-				<button class="btn btn-sm hover:preset-tonal" onclick={() => (open = false)}>{m.wsview_cancel_label()}</button>
-				<button class="btn btn-sm preset-filled-primary-500 gap-1.5" onclick={onFormat} disabled={formatting}>
+				<button class="btn btn-xs hover:preset-tonal" onclick={() => (open = false)}>{m.wsview_cancel_label()}</button>
+				<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={onFormat} disabled={formatting}>
 					{#if formatting}<Loader2 class="size-4 animate-spin" />{/if}
 					{m.wsview_format_button()}
 				</button>

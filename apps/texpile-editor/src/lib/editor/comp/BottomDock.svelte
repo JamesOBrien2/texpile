@@ -287,7 +287,7 @@
 	{#if terminalEnabled && view === 'terminal' && terminals.length === 0}
 		<!-- the dock reopens without shells (a compile or a Problems jump is what left it visible) -->
 		<div class="absolute inset-0 flex items-center justify-center">
-			<button class="btn btn-sm preset-tonal flex items-center gap-1.5 text-xs" onclick={add}>
+			<button class="btn btn-xs preset-tonal flex items-center gap-1.5 text-xs" onclick={add}>
 				<Plus class="size-3.5" />
 				{m.wsview_new_terminal()}
 			</button>

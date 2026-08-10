@@ -307,7 +307,7 @@
 							</div>
 							<button
 								type="button"
-								class="btn-icon btn-icon-sm hover:preset-tonal-error shrink-0"
+								class="btn-icon btn-icon-xs hover:preset-tonal-error shrink-0"
 								onclick={(e) => {
 									e.stopPropagation();
 									deleteReference(ref.key);
@@ -434,7 +434,7 @@
 						</div>
 					{/if}
 					<div class="mt-2 flex justify-end">
-						<button class="btn btn-sm preset-outlined-primary-500 hover:preset-tonal" type="button" onclick={importBibTeX}
+						<button class="btn btn-xs preset-outlined-primary-500 hover:preset-tonal" type="button" onclick={importBibTeX}
 							>{m.bib_import_button()}</button
 						>
 					</div>

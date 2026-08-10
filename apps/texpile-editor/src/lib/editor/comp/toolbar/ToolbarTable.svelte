@@ -86,7 +86,7 @@
 						class="flex cursor-pointer items-center justify-between text-sm"
 					>
 						<Switch.Label>{m.tbar_numbered_table()}</Switch.Label>
-						<Switch.Control class="preset-filled-surface-200-700 data-[state=checked]:preset-filled-primary-500">
+						<Switch.Control class="preset-filled-surface-200-800 data-[state=checked]:preset-filled-primary-500">
 							<Switch.Thumb />
 						</Switch.Control>
 						<Switch.HiddenInput />
@@ -101,7 +101,7 @@
 								class="flex cursor-not-allowed items-center justify-between text-sm opacity-50"
 							>
 								<Switch.Label>{m.tbar_numbered_table()}</Switch.Label>
-								<Switch.Control class="preset-filled-surface-200-700">
+								<Switch.Control class="preset-filled-surface-200-800">
 									<Switch.Thumb />
 								</Switch.Control>
 								<Switch.HiddenInput />

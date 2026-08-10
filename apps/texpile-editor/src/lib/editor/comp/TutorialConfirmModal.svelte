@@ -55,7 +55,7 @@
 					<FolderSearch class="text-primary-500 size-5" />
 					{m.tutorial_confirm_title()}
 				</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={close} aria-label={m.tutorial_close_aria()}>
+				<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={close} aria-label={m.tutorial_close_aria()}>
 					<X class="size-4" />
 				</button>
 			</div>
@@ -73,8 +73,8 @@
 					</span>
 				</p>
 				<div class="flex justify-end gap-2">
-					<button class="btn btn-sm hover:preset-tonal" onclick={close}>{m.tutorial_cancel()}</button>
-					<button class="btn btn-sm preset-filled-primary-500 gap-1.5" onclick={chooseFolder}>
+					<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.tutorial_cancel()}</button>
+					<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={chooseFolder}>
 						<FolderSearch class="size-4" />
 						{m.tutorial_choose_folder()}
 					</button>
@@ -84,30 +84,30 @@
 					{m.tutorial_reopen_desc({ root: root ?? '' })}
 				</p>
 				<div class="flex justify-end gap-2">
-					<button class="btn btn-sm hover:preset-tonal" onclick={close}>{m.tutorial_cancel()}</button>
-					<button class="btn btn-sm hover:preset-tonal gap-1.5" onclick={chooseFolder}>
+					<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.tutorial_cancel()}</button>
+					<button class="btn btn-xs hover:preset-tonal gap-1.5" onclick={chooseFolder}>
 						<FolderSearch class="size-4" />
 						{m.tutorial_choose_different_folder()}
 					</button>
-					<button class="btn btn-sm preset-filled-primary-500" onclick={confirm}>{m.tutorial_open()}</button>
+					<button class="btn btn-xs preset-filled-primary-500" onclick={confirm}>{m.tutorial_open()}</button>
 				</div>
 			{:else if folderState === 'empty'}
 				<p class="text-surface-600-300 mb-4 text-sm">
 					{m.tutorial_create_desc({ root: root ?? '' })}
 				</p>
 				<div class="flex justify-end gap-2">
-					<button class="btn btn-sm hover:preset-tonal" onclick={close}>{m.tutorial_cancel()}</button>
-					<button class="btn btn-sm hover:preset-tonal gap-1.5" onclick={chooseFolder}>
+					<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.tutorial_cancel()}</button>
+					<button class="btn btn-xs hover:preset-tonal gap-1.5" onclick={chooseFolder}>
 						<FolderSearch class="size-4" />
 						{m.tutorial_choose_different_folder()}
 					</button>
-					<button class="btn btn-sm preset-filled-primary-500" onclick={confirm}>{m.tutorial_create()}</button>
+					<button class="btn btn-xs preset-filled-primary-500" onclick={confirm}>{m.tutorial_create()}</button>
 				</div>
 			{:else}
 				<p class="text-surface-600-300 mb-4 text-sm">{m.tutorial_pick_empty_desc()}</p>
 				<div class="flex justify-end gap-2">
-					<button class="btn btn-sm hover:preset-tonal" onclick={close}>{m.tutorial_cancel()}</button>
-					<button class="btn btn-sm preset-filled-primary-500 gap-1.5" onclick={chooseFolder}>
+					<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.tutorial_cancel()}</button>
+					<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={chooseFolder}>
 						<FolderSearch class="size-4" />
 						{m.tutorial_choose_folder()}
 					</button>

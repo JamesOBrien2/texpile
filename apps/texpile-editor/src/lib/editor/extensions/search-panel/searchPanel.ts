@@ -70,7 +70,7 @@ class TexpileSearchPanel implements Panel {
 		const btn = (icon: string, label: string, onClick: () => void) => {
 			const b = document.createElement('button');
 			b.type = 'button';
-			b.className = 'btn-icon btn-icon-sm hover:preset-tonal';
+			b.className = 'btn-icon btn-icon-xs hover:preset-tonal';
 			b.setAttribute('aria-label', label);
 			b.title = label;
 			b.innerHTML = icon;
@@ -121,7 +121,7 @@ class TexpileSearchPanel implements Panel {
 		const textBtn = (label: string, title: string, onClick: () => void) => {
 			const b = document.createElement('button');
 			b.type = 'button';
-			b.className = 'btn btn-sm hover:preset-tonal';
+			b.className = 'btn btn-xs hover:preset-tonal';
 			b.textContent = label;
 			b.title = title;
 			b.addEventListener('mousedown', (e) => e.preventDefault());

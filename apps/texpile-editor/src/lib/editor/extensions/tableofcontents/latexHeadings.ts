@@ -48,9 +48,7 @@ function inComment(src: string, i: number): boolean {
 
 /** raw outline atoms: TocItems plus the structural markers numbering/merging consume. */
 export type RawOutlineItem =
-	| (TocItem & { starred?: boolean })
-	| { kind: 'input'; pos: number; target: string }
-	| { kind: 'appendix'; pos: number };
+	(TocItem & { starred?: boolean }) | { kind: 'input'; pos: number; target: string } | { kind: 'appendix'; pos: number };
 
 const SCAN_RE =
 	/\\(part|chapter|section|subsection|subsubsection|paragraph|subparagraph)\*?\s*(?:\[[^\]]*\])?\s*\{|\\begin\{(figure|table)\*?\}|\\begin\{frame\}|\\appendix\b|\\(?:input|include|subfile)\s*\{([^}]+)\}/g;

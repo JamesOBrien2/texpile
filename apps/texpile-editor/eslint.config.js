@@ -17,7 +17,7 @@ export default ts.config(
 	{ ignores: ['src/lib/paraglide/**'] },
 	js.configs.recommended,
 	...ts.configs.recommended,
-	// eslint-plugin-svelte 2.x: flat-config presets live under 'flat/*'; 'recommended' is the
+	// eslint-plugin-svelte: flat-config presets live under 'flat/*'; 'recommended' is the
 	// legacy-eslintrc object and is not spreadable
 	...svelte.configs['flat/recommended'],
 	prettier,
@@ -28,6 +28,17 @@ export default ts.config(
 		},
 		rules: {
 			'no-undef': 'off',
+			// Arrived with eslint 10 / eslint-plugin-svelte 3, all firing on code that predates
+			// them: 73 hits across the app. Warnings rather than errors, so the upgrade does not
+			// hide behind a mass rewrite - prefer-svelte-reactivity in particular swaps plain
+			// Map/Set for reactive ones, which is a runtime change and wants its own pass.
+			'svelte/prefer-svelte-reactivity': 'warn',
+			'svelte/require-each-key': 'warn',
+			'svelte/no-unused-props': 'warn',
+			'svelte/no-useless-mustaches': 'warn',
+			'svelte/no-dom-manipulating': 'warn',
+			'no-useless-assignment': 'warn',
+			'preserve-caught-error': 'warn',
 			// underscore prefix = intentionally unused
 			'@typescript-eslint/no-unused-vars': [
 				'error',

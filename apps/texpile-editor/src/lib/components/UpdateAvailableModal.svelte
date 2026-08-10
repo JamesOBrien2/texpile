@@ -44,7 +44,7 @@
 					<Download class="text-primary-500 size-5" />
 					{title}
 				</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={close} aria-label={m.updatemodal_close_aria()}>
+				<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={close} aria-label={m.updatemodal_close_aria()}>
 					<X class="size-4" />
 				</button>
 			</div>
@@ -66,8 +66,8 @@
 					</Switch>
 				</div>
 				<div class="flex justify-end gap-2">
-					<button class="btn btn-sm hover:preset-tonal" onclick={close}>{m.updatemodal_dismiss()}</button>
-					<button class="btn btn-sm preset-filled-primary-500 gap-1.5" onclick={() => startDownload()}>
+					<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.updatemodal_dismiss()}</button>
+					<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={() => startDownload()}>
 						<Download class="size-4" />
 						{m.updatemodal_download_update()}
 					</button>
@@ -89,7 +89,7 @@
 				</p>
 				<p class="text-surface-500 mb-4 text-sm">{m.updatemodal_background_download_notice()}</p>
 				<div class="flex justify-end">
-					<button class="btn btn-sm hover:preset-tonal" onclick={close}>{m.updatemodal_hide()}</button>
+					<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.updatemodal_hide()}</button>
 				</div>
 			{:else if u.phase === 'downloaded'}
 				{#if pkexec}
@@ -97,8 +97,8 @@
 						{m.updatemodal_downloaded_pkexec({ version: u.version })}
 					</p>
 					<div class="flex justify-end gap-2">
-						<button class="btn btn-sm hover:preset-tonal" onclick={close}>{m.updatemodal_later()}</button>
-						<button class="btn btn-sm preset-filled-primary-500 gap-1.5" onclick={installNow}>
+						<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.updatemodal_later()}</button>
+						<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={installNow}>
 							<RefreshCw class="size-4" />
 							{m.updatemodal_install_now()}
 						</button>
@@ -106,8 +106,8 @@
 				{:else}
 					<p class="text-surface-600-300 mb-4 text-sm">{m.updatemodal_downloaded_ready({ version: u.version })}</p>
 					<div class="flex justify-end gap-2">
-						<button class="btn btn-sm hover:preset-tonal" onclick={close}>{m.updatemodal_later()}</button>
-						<button class="btn btn-sm preset-filled-primary-500 gap-1.5" onclick={installNow}>
+						<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.updatemodal_later()}</button>
+						<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={installNow}>
 							<RefreshCw class="size-4" />
 							{m.updatemodal_restart_and_install()}
 						</button>
@@ -121,8 +121,8 @@
 					<p class="text-surface-500 mb-4 text-xs break-words">{u.error}</p>
 				{/if}
 				<div class="flex justify-end gap-2">
-					<button class="btn btn-sm hover:preset-tonal" onclick={close}>{m.updatemodal_close()}</button>
-					<button class="btn btn-sm preset-filled-primary-500 gap-1.5" onclick={openDownloadPage}>
+					<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.updatemodal_close()}</button>
+					<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={openDownloadPage}>
 						<ExternalLink class="size-4" />
 						{m.updatemodal_open_download_page()}
 					</button>

@@ -205,7 +205,7 @@
 
 <div
 	bind:this={boxElement}
-	class="card preset-tonal-surface-100-900 border-surface-300-700 bg-surface-50-950 pointer-events-auto fixed z-[999999] min-w-[200px] max-w-[280px] space-y-1.5 border p-2 shadow-2xl"
+	class="card border-surface-300-700 bg-surface-50-950 pointer-events-auto fixed z-[999999] min-w-[200px] max-w-[280px] space-y-1.5 border p-2 shadow-2xl"
 	onclick={handleClick}
 	onkeydown={handleKeydown}
 	role="dialog"
@@ -233,7 +233,7 @@
 				{sanitizedType()}
 			</span>
 		</div>
-		<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={onClose} aria-label={m.harper_close_button_aria_label()}>
+		<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={onClose} aria-label={m.harper_close_button_aria_label()}>
 			<IconX size={14} />
 		</button>
 	</div>
@@ -273,7 +273,7 @@
 					<div class="space-y-1">
 						{#each error.replacements.slice(1) as replacement}
 							<button
-								class="btn btn-sm preset-tonal hover:preset-filled-primary-500 w-full justify-start font-mono text-xs"
+								class="btn btn-xs preset-tonal hover:preset-filled-primary-500 w-full justify-start font-mono text-xs"
 								onclick={() => handleReplace(replacement)}
 							>
 								{formatReplacement(replacement)}
@@ -288,7 +288,7 @@
 	<div class="border-surface-200-800 flex items-center gap-1.5 border-t pt-1.5">
 		{#if canAddToDictionary()}
 			<button
-				class="btn btn-sm preset-tonal-primary hover:preset-filled-primary-500 flex-1 justify-center gap-1 text-xs"
+				class="btn btn-xs preset-tonal-primary hover:preset-filled-primary-500 flex-1 justify-center gap-1 text-xs"
 				onclick={handleAddToDictionary}
 				title={m.harper_add_to_dictionary_title({ word: error.text })}
 			>
@@ -296,7 +296,7 @@
 				<span>{m.harper_add_to_dictionary_button()}</span>
 			</button>
 		{/if}
-		<button class="btn btn-sm preset-tonal hover:preset-filled flex-1 text-xs" onclick={handleIgnore}>
+		<button class="btn btn-xs preset-tonal hover:preset-filled flex-1 text-xs" onclick={handleIgnore}>
 			{m.harper_ignore_button()}
 		</button>
 	</div>

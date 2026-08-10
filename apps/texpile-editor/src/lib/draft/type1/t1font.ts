@@ -64,7 +64,7 @@ function pfbToProgram(bytes: Uint8Array): { header: Uint8Array; eexec: Uint8Arra
 	if (bytes[0] !== 0x80) return null; // PFA and bare formats: not handled, glyphs stay absent
 	const ascii: Uint8Array[] = [];
 	const binary: Uint8Array[] = [];
-	for (let off = 0; off < bytes.length; ) {
+	for (let off = 0; off < bytes.length;) {
 		if (bytes[off] !== 0x80) break;
 		const type = bytes[off + 1];
 		if (type === 3) break;

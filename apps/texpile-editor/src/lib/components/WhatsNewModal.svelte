@@ -34,7 +34,7 @@
 		<div class="card bg-surface-50-950 border-surface-300-700 flex max-h-full w-full max-w-2xl flex-col border p-5 shadow-2xl">
 			<div class="mb-3 flex items-center justify-between">
 				<h2 class="text-base font-semibold">{m.whatsnew_title({ version: newest.version })}</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={close} aria-label={m.whatsnew_close_aria()}>
+				<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={close} aria-label={m.whatsnew_close_aria()}>
 					<X class="size-4" />
 				</button>
 			</div>
@@ -58,7 +58,7 @@
 				</div>
 			</div>
 			<div class="flex justify-end">
-				<button class="btn btn-sm preset-filled-primary-500" onclick={close}>{m.whatsnew_got_it()}</button>
+				<button class="btn btn-xs preset-filled-primary-500" onclick={close}>{m.whatsnew_got_it()}</button>
 			</div>
 		</div>
 	</div>

@@ -27,7 +27,7 @@
 	>
 		<div class="mb-2 flex items-center justify-between">
 			<h2 class="text-lg font-semibold">{m.wsview_unsaved_title()}</h2>
-			<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={() => onResolve('cancel')} aria-label={m.menubar_prompt_cancel()}>
+			<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={() => onResolve('cancel')} aria-label={m.menubar_prompt_cancel()}>
 				<X class="size-4" />
 			</button>
 		</div>

@@ -114,10 +114,16 @@ function fixShellPath(): void {
 fixShellPath();
 
 // must run before app.whenReady(). `standard` gives real origin semantics (module workers
-// need this), `supportFetchAPI` lets pdf.js fetch, `stream` avoids buffering whole PDFs
+// need this), `supportFetchAPI` lets pdf.js fetch, `stream` avoids buffering whole PDFs.
+//
+// texfile:// also needs `corsEnabled`, because it is always a DIFFERENT ORIGIN from the page that
+// fetches it - app://bundle when packaged, the vite server in dev. Older Chromium let the
+// handler's Access-Control-Allow-Origin stand on its own; from Chromium 150 (Electron 43) a
+// scheme that has not opted into CORS has its response headers ignored and the fetch rejects
+// outright, which is the "Failed to fetch" the PDF pane shows in place of the document.
 protocol.registerSchemesAsPrivileged([
 	{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
-	{ scheme: 'texfile', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
+	{ scheme: 'texfile', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true } }
 ]);
 
 // a `standard` scheme enforces strict MIME checks on module scripts and worker imports,

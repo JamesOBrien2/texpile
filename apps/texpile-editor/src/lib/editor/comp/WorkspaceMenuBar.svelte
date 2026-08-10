@@ -859,8 +859,8 @@
 				}}
 			/>
 			<div class="mt-4 flex justify-end gap-2">
-				<button class="btn btn-sm hover:preset-tonal" type="button" onclick={() => closePrompt(false)}>{m.menubar_prompt_cancel()}</button>
-				<button class="btn btn-sm preset-filled-primary-500" type="button" onclick={() => closePrompt(true)}>{m.menubar_prompt_ok()}</button
+				<button class="btn btn-xs hover:preset-tonal" type="button" onclick={() => closePrompt(false)}>{m.menubar_prompt_cancel()}</button>
+				<button class="btn btn-xs preset-filled-primary-500" type="button" onclick={() => closePrompt(true)}>{m.menubar_prompt_ok()}</button
 				>
 			</div>
 		</div>
@@ -879,14 +879,14 @@
 		<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-sm border p-5 shadow-2xl">
 			<div class="mb-3 flex items-center justify-between gap-4">
 				<h2 class="text-base font-semibold">{m.menubar_contact_support()}</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" aria-label={m.menubar_close_aria()} onclick={() => (supportOpen = false)}
+				<button class="btn-icon btn-icon-xs hover:preset-tonal" aria-label={m.menubar_close_aria()} onclick={() => (supportOpen = false)}
 					><X class="size-4" /></button
 				>
 			</div>
 			<p class="text-surface-600-400 mb-2 text-sm">{m.menubar_support_email_intro()}</p>
 			<div class="border-surface-300-700 bg-surface-100-900 flex items-center justify-between gap-3 rounded border px-3 py-2">
 				<code class="text-sm select-all">{SUPPORT_EMAIL}</code>
-				<button class="btn btn-sm preset-tonal-primary shrink-0" onclick={copyEmail}
+				<button class="btn btn-xs preset-tonal-primary shrink-0" onclick={copyEmail}
 					>{copied ? m.menubar_copied() : m.menubar_copy()}</button
 				>
 			</div>

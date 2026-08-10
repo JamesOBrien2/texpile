@@ -100,19 +100,19 @@
 			/>
 		</div>
 		<button
-			class="btn-icon btn-icon-sm {caseSensitive ? 'preset-tonal-primary' : 'hover:preset-tonal'}"
+			class="btn-icon btn-icon-xs {caseSensitive ? 'preset-tonal-primary' : 'hover:preset-tonal'}"
 			title={m.globalsearch_match_case()}
 			aria-label={m.globalsearch_match_case()}
 			onclick={() => (caseSensitive = !caseSensitive)}><CaseSensitive class="size-4" /></button
 		>
 		<button
-			class="btn-icon btn-icon-sm {useRegex ? 'preset-tonal-primary' : 'hover:preset-tonal'}"
+			class="btn-icon btn-icon-xs {useRegex ? 'preset-tonal-primary' : 'hover:preset-tonal'}"
 			title={m.globalsearch_use_regex()}
 			aria-label={m.globalsearch_use_regex()}
 			onclick={() => (useRegex = !useRegex)}><Regex class="size-4" /></button
 		>
 		<button
-			class="btn-icon btn-icon-sm hover:preset-tonal"
+			class="btn-icon btn-icon-xs hover:preset-tonal"
 			title={m.globalsearch_close_search()}
 			aria-label={m.globalsearch_close_search()}
 			onclick={onClose}><X class="size-4" /></button

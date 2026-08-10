@@ -26,7 +26,10 @@ buildSync({
 	bundle: true,
 	platform: 'node',
 	format: 'cjs',
-	target: 'es2022',
+	// the exact Node inside the Electron we ship (43 bundles 24.18.1), not a year-based guess:
+	// nothing here ever runs anywhere else, so every syntax lowering esbuild would do for an older
+	// runtime is dead weight
+	target: 'node24',
 	minify: !dev,
 	// keep third-party @license/@preserve comments; ordinary comments are stripped
 	legalComments: 'inline',

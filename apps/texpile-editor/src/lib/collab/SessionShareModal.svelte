@@ -77,7 +77,7 @@
 		<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-md border p-5 shadow-2xl">
 			<div class="mb-3 flex items-center justify-between">
 				<h2 class="text-base font-semibold">{m.share_title()}</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={() => (open = false)} aria-label={m.session_cancel()}
+				<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={() => (open = false)} aria-label={m.session_cancel()}
 					><X class="size-4" /></button
 				>
 			</div>
@@ -106,7 +106,7 @@
 						<input class="input flex-1 text-sm" bind:value={relayDraft} oninput={() => (relayTouched = true)} />
 						<button
 							type="button"
-							class="btn-icon btn-icon-sm hover:preset-tonal shrink-0"
+							class="btn-icon btn-icon-xs hover:preset-tonal shrink-0"
 							onclick={resetRelay}
 							disabled={relayIsDefault}
 							title={m.collab_relay_reset_title()}

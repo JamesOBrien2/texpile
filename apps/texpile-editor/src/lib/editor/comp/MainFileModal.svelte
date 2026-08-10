@@ -23,7 +23,7 @@
 	<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-lg border p-5 shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="text-base font-semibold">{m.wsview_mainconfirm_title()}</h2>
-			<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={onDismiss} aria-label={m.wsview_close_aria()}>
+			<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={onDismiss} aria-label={m.wsview_close_aria()}>
 				<X class="size-4" />
 			</button>
 		</div>
@@ -55,7 +55,7 @@
 			{/each}
 		</div>
 		<div class="flex justify-end">
-			<button class="btn btn-sm preset-filled-primary-500" onclick={onConfirm} disabled={!choice}>{m.wsview_use_this_file()}</button>
+			<button class="btn btn-xs preset-filled-primary-500" onclick={onConfirm} disabled={!choice}>{m.wsview_use_this_file()}</button>
 		</div>
 	</div>
 </div>

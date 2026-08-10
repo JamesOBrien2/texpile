@@ -660,7 +660,7 @@
 		}
 		const uniq = [...leftCount.keys()].sort((a, b) => a - b);
 		const cands: number[] = [];
-		for (let i = 0; i < uniq.length; ) {
+		for (let i = 0; i < uniq.length;) {
 			let j = i,
 				rep = uniq[i],
 				rc = leftCount.get(uniq[i]) as number;
@@ -694,7 +694,7 @@
 		}
 		const rawYs = [...yc.keys()].sort((a, b) => a - b);
 		const out: { y: number; cs: number[]; xs: number[]; left: number }[] = [];
-		for (let i = 0; i < rawYs.length; ) {
+		for (let i = 0; i < rawYs.length;) {
 			let j = i,
 				rep = rawYs[i];
 			let all = yc.get(rawYs[i])!.slice();
@@ -821,7 +821,7 @@
 		// text, not a super/subscript). So a math paragraph counts one baseline per visual
 		// line instead of extra ones from `_i`/`^n`/fraction bars.
 		const colBase: number[] = [];
-		for (let i = 0; i < rawYs.length; ) {
+		for (let i = 0; i < rawYs.length;) {
 			let j = i,
 				rep = rawYs[i],
 				repC = yCount.get(rawYs[i]) as number;
@@ -1094,7 +1094,7 @@
 			const base: number[] = [],
 				cnt: number[] = [],
 				left: number[] = [];
-			for (let i = 0; i < rawYs.length; ) {
+			for (let i = 0; i < rawYs.length;) {
 				let j = i,
 					rep = rawYs[i],
 					rc = yc.get(rawYs[i]) as number;
@@ -1137,7 +1137,7 @@
 					return ex.line as number;
 				})
 			);
-			for (let i = 0; i < base.length; ) {
+			for (let i = 0; i < base.length;) {
 				const inRange = (k: number) => src[k] != null && (src[k] as number) >= line && (src[k] as number) <= endLine + 1;
 				if (!inRange(i)) {
 					i++;
@@ -2503,7 +2503,7 @@
 	{#if busyElsewhere}
 		<div class="border-surface-300-700 bg-surface-50-950 m-3 flex shrink-0 items-center justify-between gap-3 rounded border p-3 text-sm">
 			<span class="text-surface-600-300">{m.draft_busy_other_window()}</span>
-			<button class="btn btn-sm preset-filled-primary-500 shrink-0" onclick={takeoverEngine}>{m.draft_busy_takeover()}</button>
+			<button class="btn btn-xs preset-filled-primary-500 shrink-0" onclick={takeoverEngine}>{m.draft_busy_takeover()}</button>
 		</div>
 	{/if}
 	{#if error}

@@ -126,7 +126,7 @@
 	<div class="flex flex-col items-center gap-3 p-6 text-center">
 		<GitBranch class="text-surface-400 size-8" />
 		<p class="text-surface-500 text-sm">{m.vcs_not_a_repo()}</p>
-		<button class="btn btn-sm preset-filled-primary-500 gap-1.5" onclick={onInit} disabled={busy}>
+		<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={onInit} disabled={busy}>
 			<GitBranch class="size-4" />
 			{m.vcs_init_repo()}
 		</button>
@@ -154,7 +154,7 @@
 				bind:value={commitMessage}
 				onkeydown={commitKeydown}></textarea>
 			<button
-				class="btn btn-sm preset-filled-primary-500 w-full gap-1.5"
+				class="btn btn-xs preset-filled-primary-500 w-full gap-1.5"
 				onclick={doCommit}
 				disabled={busy || !commitMessage.trim() || (staged.length === 0 && unstaged.length === 0)}
 				title={staged.length ? m.vcs_commit_staged_title() : m.vcs_commit_all_title()}

@@ -168,7 +168,7 @@ class SpellPlugin {
 			stale.push(p);
 		}
 		const isStale = () => gen !== this.gen || !this.enabled;
-		for (let i = 0; i < stale.length; ) {
+		for (let i = 0; i < stale.length;) {
 			const batch: Paragraph[] = [];
 			let size = 0;
 			do {

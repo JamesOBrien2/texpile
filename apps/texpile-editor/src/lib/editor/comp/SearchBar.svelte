@@ -112,13 +112,13 @@
 		<span class="badge preset-filled-surface-200-800 min-w-[3.5rem] text-center"
 			>{match ? m.searchbar_match_count({ current, total: match }) : m.searchbar_match_count({ current: 0, total: 0 })}</span
 		>
-		<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={gotoPrev} aria-label={m.searchbar_aria_previous()}
+		<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={gotoPrev} aria-label={m.searchbar_aria_previous()}
 			><ArrowLeft class="size-4" /></button
 		>
-		<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={gotoNext} aria-label={m.searchbar_aria_next()}
+		<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={gotoNext} aria-label={m.searchbar_aria_next()}
 			><ArrowRight class="size-4" /></button
 		>
-		<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={closeBar} aria-label={m.searchbar_aria_close()}
+		<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={closeBar} aria-label={m.searchbar_aria_close()}
 			><X class="size-4" /></button
 		>
 	</div>

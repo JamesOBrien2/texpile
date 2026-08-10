@@ -135,9 +135,9 @@
 			<div>
 				<span class="text-surface-900-100 mb-1.5 block text-sm font-medium">{m.citation_add_prefix_label()}</span>
 				<div class="mb-2 flex flex-wrap gap-2">
-					<button type="button" class="btn btn-sm preset-outlined-primary-500" onclick={() => (prenote = 'see')}> see </button>
-					<button type="button" class="btn btn-sm preset-outlined-primary-500" onclick={() => (prenote = 'cf.')}> cf. </button>
-					<button type="button" class="btn btn-sm preset-outlined-primary-500" onclick={() => (prenote = 'compare')}> compare </button>
+					<button type="button" class="btn btn-xs preset-outlined-primary-500" onclick={() => (prenote = 'see')}> see </button>
+					<button type="button" class="btn btn-xs preset-outlined-primary-500" onclick={() => (prenote = 'cf.')}> cf. </button>
+					<button type="button" class="btn btn-xs preset-outlined-primary-500" onclick={() => (prenote = 'compare')}> compare </button>
 				</div>
 				<input type="text" bind:value={prenote} placeholder={m.citation_prefix_placeholder()} class="input w-full text-sm" />
 				<span class="text-surface-500-400 mt-1 block text-xs"> {m.citation_prefix_hint()} </span>

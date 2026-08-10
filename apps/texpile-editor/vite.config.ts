@@ -65,7 +65,9 @@ export default defineConfig(({ mode }) => ({
 		include: ['tests/unit/**/*.{test,spec}.{js,ts}'],
 		// vitest externalizes node_modules to Node's loader by default, which cannot import a
 		// .wasm ES module. Inlining routes it back through Vite (and so through vite-plugin-wasm).
-		server: { deps: { inline: ['texpile-typst-syntax-wasm'] } }
+		server: { deps: { inline: ['texpile-typst-syntax-wasm'] } },
+		// puts localStorage back under Node 26, whose own experimental global shadows jsdom's
+		setupFiles: ['./tests/setup/webStorage.ts']
 		// node by default (most tests are pure logic); component tests opt in per file with
 		// a `// @vitest-environment jsdom` docblock
 	},
@@ -123,11 +125,16 @@ export default defineConfig(({ mode }) => ({
 
 	build: {
 		sourcemap: false,
-		// This bundle only ever runs in the Electron Chromium we ship (33 = Chromium 130), never in
+		// This bundle only ever runs in the Electron Chromium we ship (43 = Chromium 150), never in
 		// a user's browser, so Vite's conservative default target buys nothing. It costs something:
 		// wasm-pack's glue initialises the module with a TOP-LEVEL AWAIT, which the default target
 		// rejects outright, and that is how the Typst parser loads.
 		target: 'esnext',
+		// CSS gets the SAME treatment, and it needs saying separately: cssTarget defaults to the JS
+		// target, where 'esnext' means "assume nothing" and esbuild keeps lowering modern colour
+		// syntax. Naming the actual engine stops it rewriting the oklch() and light-dark() the
+		// theme is built on.
+		cssTarget: 'chrome150',
 		// Electron ships a modern Chromium with native modulepreload, so drop Vite's polyfill: it is
 		// the only inline <script> Vite injects, and removing it lets the packaged app's CSP use a
 		// strict script-src 'self' with no inline allowance

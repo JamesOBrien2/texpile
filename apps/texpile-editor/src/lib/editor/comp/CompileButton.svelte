@@ -49,7 +49,7 @@
 </script>
 
 <button
-	class="btn btn-sm {COMPILE_TONE[tone]} {narrow ? 'w-20' : 'min-w-24'} justify-center gap-1.5 rounded-r-none whitespace-nowrap"
+	class="btn btn-xs {COMPILE_TONE[tone]} {narrow ? 'w-20' : 'min-w-24'} justify-center gap-1.5 rounded-r-none whitespace-nowrap"
 	{onclick}
 	{title}
 >

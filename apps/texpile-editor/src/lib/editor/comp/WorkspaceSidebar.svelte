@@ -112,25 +112,25 @@
 		</span>
 		<div class="flex items-center gap-1">
 			<button
-				class="btn-icon btn-icon-sm hover:preset-tonal"
+				class="btn-icon btn-icon-xs hover:preset-tonal"
 				title={m.wsview_new_file_title()}
 				onclick={() => fileTreeRef?.newAtRoot('file')}
 			>
 				<FilePlus class="size-4" />
 			</button>
 			<button
-				class="btn-icon btn-icon-sm hover:preset-tonal"
+				class="btn-icon btn-icon-xs hover:preset-tonal"
 				title={m.wsview_new_folder_title()}
 				onclick={() => fileTreeRef?.newAtRoot('dir')}
 			>
 				<FolderPlus class="size-4" />
 			</button>
-			<button class="btn-icon btn-icon-sm hover:preset-tonal" title={m.wsview_refresh_tree_title()} onclick={onRefreshTree}>
+			<button class="btn-icon btn-icon-xs hover:preset-tonal" title={m.wsview_refresh_tree_title()} onclick={onRefreshTree}>
 				<RefreshCw class="size-4" />
 			</button>
 			{#if !guest}
 				<button
-					class="btn-icon btn-icon-sm {view === 'scm' ? 'text-primary-500' : 'hover:preset-tonal'}"
+					class="btn-icon btn-icon-xs {view === 'scm' ? 'text-primary-500' : 'hover:preset-tonal'}"
 					title={m.wsview_source_control()}
 					aria-label={m.wsview_source_control()}
 					onclick={() => (view = view === 'scm' ? 'explorer' : 'scm')}
@@ -138,7 +138,7 @@
 					<GitBranch class="size-4" />
 				</button>
 				<button
-					class="btn-icon btn-icon-sm {view === 'search' ? 'text-primary-500' : 'hover:preset-tonal'}"
+					class="btn-icon btn-icon-xs {view === 'search' ? 'text-primary-500' : 'hover:preset-tonal'}"
 					title={m.wsview_find_in_files_title({ combo: `${modLabel}+Shift+F` })}
 					aria-label={m.wsview_find_in_files()}
 					onclick={() => (view === 'search' ? (view = 'explorer') : onOpenGlobalSearch())}

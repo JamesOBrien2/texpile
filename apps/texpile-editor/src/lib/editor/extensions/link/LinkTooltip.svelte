@@ -189,11 +189,11 @@
 			</label>
 
 			<div class="flex justify-end gap-2 pt-1">
-				<button type="button" class="btn btn-sm preset-outlined hover:preset-tonal" onclick={handleCancel}>
+				<button type="button" class="btn btn-xs preset-outlined hover:preset-tonal" onclick={handleCancel}>
 					<X class="h-4 w-4" />
 					<span>{m.linktooltip_button_cancel()}</span>
 				</button>
-				<button type="button" class="btn btn-sm preset-filled-primary-500" onclick={handleSave} disabled={!editHref.trim()}>
+				<button type="button" class="btn btn-xs preset-filled-primary-500" onclick={handleSave} disabled={!editHref.trim()}>
 					<Check class="h-4 w-4" />
 					<span>{m.linktooltip_button_save()}</span>
 				</button>
@@ -211,7 +211,7 @@
 			<div class="border-surface-300-700 flex items-center gap-1 border-t pt-2">
 				<button
 					type="button"
-					class="btn btn-sm preset-tonal hover:preset-filled flex-1"
+					class="btn btn-xs preset-tonal hover:preset-filled flex-1"
 					onclick={() => (isEditing = true)}
 					title={m.linktooltip_button_edit_title()}
 				>
@@ -220,7 +220,7 @@
 				</button>
 				<button
 					type="button"
-					class="btn btn-sm preset-tonal hover:preset-filled flex-1"
+					class="btn btn-xs preset-tonal hover:preset-filled flex-1"
 					onclick={handleOpenLink}
 					title={m.linktooltip_button_open_title()}
 				>
@@ -229,7 +229,7 @@
 				</button>
 				<button
 					type="button"
-					class="btn btn-sm preset-tonal-error hover:preset-filled-error-500"
+					class="btn btn-xs preset-tonal-error hover:preset-filled-error-500"
 					onclick={handleRemove}
 					title={m.linktooltip_button_remove_title()}
 				>

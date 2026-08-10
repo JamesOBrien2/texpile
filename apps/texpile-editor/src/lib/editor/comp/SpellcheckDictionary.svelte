@@ -28,7 +28,7 @@
 			<div class="mb-3 flex items-center justify-between">
 				<h2 class="text-base font-semibold">{m.spelldict_heading()}</h2>
 				<button
-					class="btn-icon btn-icon-sm hover:preset-tonal"
+					class="btn-icon btn-icon-xs hover:preset-tonal"
 					type="button"
 					aria-label={m.spelldict_close_label()}
 					onclick={() => (open = false)}
@@ -47,7 +47,7 @@
 						if (e.key === 'Enter') add();
 					}}
 				/>
-				<button class="btn btn-sm preset-filled-primary-500" type="button" onclick={add} disabled={!newWord.trim()}
+				<button class="btn btn-xs preset-filled-primary-500" type="button" onclick={add} disabled={!newWord.trim()}
 					>{m.spelldict_add_button()}</button
 				>
 			</div>
@@ -57,7 +57,7 @@
 					<li class="border-surface-200-800 flex items-center justify-between border-b py-1.5 text-sm last:border-b-0">
 						<span class="truncate">{word}</span>
 						<button
-							class="btn-icon btn-icon-sm hover:preset-tonal opacity-60 hover:opacity-100"
+							class="btn-icon btn-icon-xs hover:preset-tonal opacity-60 hover:opacity-100"
 							type="button"
 							aria-label={m.spelldict_remove_word_label({ word })}
 							onclick={() => removeWordFromDocumentDictionary(word)}

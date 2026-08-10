@@ -283,7 +283,7 @@
 			<div class="flex min-w-0 flex-1 flex-col">
 				<div class="border-surface-200-800 flex shrink-0 items-center justify-between gap-4 border-b px-5 py-3">
 					<h2 class="text-base font-semibold">{categories.find((c) => c.id === category)?.label ?? m.prefs_title()}</h2>
-					<button class="btn-icon btn-icon-sm hover:preset-tonal" aria-label={m.prefs_close_aria()} onclick={() => (open = false)}
+					<button class="btn-icon btn-icon-xs hover:preset-tonal" aria-label={m.prefs_close_aria()} onclick={() => (open = false)}
 						><X class="size-4" /></button
 					>
 				</div>
@@ -438,7 +438,7 @@
 								{#if mcp.running && mcp.port}
 									<span class="text-surface-500 text-xs">{m.prefs_mcp_status({ addr: `127.0.0.1:${mcp.port}` })}</span>
 									<!-- the command lives in its own modal: it is long, and read once -->
-									<button class="btn btn-sm preset-tonal shrink-0 text-xs" onclick={() => (setupOpen = true)}>{m.prefs_mcp_show()}</button>
+									<button class="btn btn-xs preset-tonal shrink-0 text-xs" onclick={() => (setupOpen = true)}>{m.prefs_mcp_show()}</button>
 								{:else}
 									<span class="text-error-600 text-xs">{m.prefs_mcp_error({ error: mcp.error ?? '' })}</span>
 								{/if}

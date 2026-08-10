@@ -260,7 +260,7 @@
 											</Portal>
 										</Tooltip>
 									</Switch.Label>
-									<Switch.Control class="preset-filled-surface-200-700 data-[state=checked]:preset-filled-primary-500">
+									<Switch.Control class="preset-filled-surface-200-800 data-[state=checked]:preset-filled-primary-500">
 										<Switch.Thumb />
 									</Switch.Control>
 									<Switch.HiddenInput />
@@ -312,14 +312,14 @@
 												{#if lineLabelsInput[i]}
 													<button
 														type="button"
-														class="preset-tonal-surface hover:preset-tonal-error btn-icon btn-icon-sm"
+														class="preset-tonal-surface hover:preset-tonal-error btn-icon btn-icon-xs"
 														onclick={() => clearLineLabel(i)}
 														title={m.mathsettings_clear_label_title()}
 													>
 														<Trash2 class="h-3 w-3" />
 													</button>
 												{:else}
-													<button type="button" class="btn btn-sm preset-tonal" onclick={() => generateLineLabel(i)}>
+													<button type="button" class="btn btn-xs preset-tonal" onclick={() => generateLineLabel(i)}>
 														{m.mathsettings_auto_button()}
 													</button>
 												{/if}

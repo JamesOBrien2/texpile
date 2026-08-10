@@ -84,7 +84,7 @@
 		<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-md border p-5 shadow-2xl">
 			<div class="mb-3 flex items-center justify-between gap-4">
 				<h2 class="text-base font-semibold">{m.menubar_keyboard_shortcuts()}</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" aria-label={m.menubar_close_aria()} onclick={() => shortcutsOpen.set(false)}
+				<button class="btn-icon btn-icon-xs hover:preset-tonal" aria-label={m.menubar_close_aria()} onclick={() => shortcutsOpen.set(false)}
 					><X class="size-4" /></button
 				>
 			</div>

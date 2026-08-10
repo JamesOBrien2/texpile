@@ -146,7 +146,7 @@
 						<input class="input flex-1 text-sm" bind:value={relayDraft} oninput={() => (relayTouched = true)} />
 						<button
 							type="button"
-							class="btn-icon btn-icon-sm hover:preset-tonal shrink-0"
+							class="btn-icon btn-icon-xs hover:preset-tonal shrink-0"
 							onclick={resetRelay}
 							disabled={relayIsDefault}
 							title={m.collab_relay_reset_title()}

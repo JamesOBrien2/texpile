@@ -100,7 +100,7 @@
 		<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-lg border p-5 shadow-2xl">
 			<div class="mb-3 flex items-center justify-between">
 				<h2 class="text-base font-semibold">{m.wsview_compile_modal_title()}</h2>
-				<button class="btn-icon btn-icon-sm hover:preset-tonal" onclick={() => (open = false)} aria-label={m.wsview_close_aria()}>
+				<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={() => (open = false)} aria-label={m.wsview_close_aria()}>
 					<X class="size-4" />
 				</button>
 			</div>
@@ -263,7 +263,7 @@
 								/>
 								<button
 									type="button"
-									class="btn btn-sm hover:preset-tonal shrink-0"
+									class="btn btn-xs hover:preset-tonal shrink-0"
 									onclick={() => (outputs.pdf = '')}
 									disabled={!outputs.pdf}
 									title={m.wsview_clear_autodetect_title()}
@@ -286,7 +286,7 @@
 								/>
 								<button
 									type="button"
-									class="btn btn-sm hover:preset-tonal shrink-0"
+									class="btn btn-xs hover:preset-tonal shrink-0"
 									onclick={() => (outputs.log = '')}
 									disabled={!outputs.log}
 									title={m.wsview_clear_autodetect_title()}
@@ -304,12 +304,12 @@
 					{#if !$mainFile}{m.wsview_pick_main_file_to_run()}{/if}
 				</span>
 				<div class="flex gap-2">
-					<button class="btn btn-sm hover:preset-tonal" onclick={() => (open = false)}>{m.wsview_cancel_label()}</button>
+					<button class="btn btn-xs hover:preset-tonal" onclick={() => (open = false)}>{m.wsview_cancel_label()}</button>
 					{#if liveActive || previewActive}
 						<!-- one button either way: onRun goes through runCompile, which routes to the draft
 						     engine or the Typst preview by the same conditions that hid the command above -->
 						<button
-							class="btn btn-sm preset-filled-primary-500 gap-1.5"
+							class="btn btn-xs preset-filled-primary-500 gap-1.5"
 							onclick={() => {
 								open = false;
 								onRun();
@@ -320,9 +320,9 @@
 							{m.wsview_run_preview()}
 						</button>
 					{:else}
-						<button class="btn btn-sm hover:preset-tonal" onclick={() => onSave(false)}>{m.wsview_save_label()}</button>
+						<button class="btn btn-xs hover:preset-tonal" onclick={() => onSave(false)}>{m.wsview_save_label()}</button>
 						<button
-							class="btn btn-sm preset-tonal-primary gap-1.5"
+							class="btn btn-xs preset-tonal-primary gap-1.5"
 							onclick={onUseDefault}
 							disabled={DEFAULT_COMPILE_COMMAND.includes('{main}') && !$mainFile}
 							title={m.wsview_use_default_title()}
@@ -331,7 +331,7 @@
 							{m.wsview_use_default()}
 						</button>
 						<button
-							class="btn btn-sm preset-filled-primary-500 gap-1.5"
+							class="btn btn-xs preset-filled-primary-500 gap-1.5"
 							onclick={() => onSave(true)}
 							disabled={command.includes('{main}') && !$mainFile}
 						>
