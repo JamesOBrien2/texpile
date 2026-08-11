@@ -182,23 +182,50 @@ export function normalizeForMatch(s: string): { text: string; map: number[] } {
 }
 
 /**
+ * One text, normalized once, ready to be searched by many anchors.
+ *
+ * Exists because normalizing is the expensive half and the text is the same for every thread in a
+ * file: it walks the whole string character by character building a parallel offset map, ~3ms for a
+ * 200KB document. Doing that per THREAD made a file with 50 relocated comments cost 150ms instead
+ * of 5 - the same work 50 times over, for one answer that never changes.
+ */
+export interface LooseHaystack {
+	/** the original string, so a hit can be mapped back to offsets the caller can use */
+	raw: string;
+	text: string;
+	map: number[];
+}
+
+export function prepareLoose(text: string): LooseHaystack {
+	const n = normalizeForMatch(text);
+	return { raw: text, text: n.text, map: n.map };
+}
+
+/**
  * resolveAnchor across dialects: the anchor was written against one form of the text (usually the
  * source file) and is being placed in another (the rendered document), so both sides go through
  * normalizeForMatch and the match happens in canonical space. The result is mapped back to RAW
- * offsets in `text`.
+ * offsets in `h.raw`.
  *
  * Never exact: the raw fast path cannot apply when the offsets belong to a different string. The
  * hint is 0 for the same reason - a source offset points nowhere in particular here, so ties fall
  * to the earliest copy rather than to a number pretending to be relevant.
+ *
+ * The anchor's own quote/prefix/suffix are still normalized per call, and stay that way: they are
+ * at most a sentence and a pair of 32-character windows, and they differ every time.
  */
-export function resolveAnchorLoose(text: string, a: CommentAnchor): ResolvedAnchor | null {
-	const h = normalizeForMatch(text);
+export function resolveAnchorLooseIn(h: LooseHaystack, a: CommentAnchor): ResolvedAnchor | null {
 	const quote = normalizeForMatch(a.quote).text;
 	const hit = searchQuote(h.text, quote, normalizeForMatch(a.prefix).text, normalizeForMatch(a.suffix).text, 0);
 	if (!hit) return null;
 	const from = h.map[hit.from];
-	const to = hit.to < h.map.length ? h.map[hit.to] : text.length;
+	const to = hit.to < h.map.length ? h.map[hit.to] : h.raw.length;
 	return { from, to, exact: false };
+}
+
+/** the single-anchor form; callers with a list should prepare once and loop resolveAnchorLooseIn */
+export function resolveAnchorLoose(text: string, a: CommentAnchor): ResolvedAnchor | null {
+	return resolveAnchorLooseIn(prepareLoose(text), a);
 }
 
 /** how many characters of the remembered context still line up around a candidate */

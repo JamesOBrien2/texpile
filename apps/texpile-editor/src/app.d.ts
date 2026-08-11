@@ -45,7 +45,8 @@ declare global {
 		version: string;
 		/** the Typst version its embedded compiler is - what actually builds the PDF */
 		typstVersion: string;
-		source: 'configured' | 'path' | 'managed';
+		/** which candidate answered; there is no configured path (see typst-service.ts) */
+		source: 'path' | 'managed';
 	}
 
 	interface ToolProbe {

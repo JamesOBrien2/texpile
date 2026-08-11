@@ -113,6 +113,29 @@ describe('markdownToProseMirror', () => {
 		expect(chip).toBe('![icon](i.png)');
 	});
 
+	// markdown-it normalizes every destination through mdurl.encode, which is right for an <img
+	// src> and wrong for a path we resolve on disk and write back to the .md: an image called
+	// 图片.png arrived as %E5%9B%BE%E7%89%87.png, never loaded, and got saved that way.
+	it('keeps image/link destinations as the author wrote them', () => {
+		const { doc } = markdownToProseMirror(
+			'![a](images/图片.png)\n\n![b](<my file.png>)\n\n![c](images/my%20file.png)\n\n![d](100%.png)\n\n![e](https://x.example/i.png?w=2&h=1#frag)\n\n[f](docs/café.md)\n'
+		);
+		expect(doc.child(0).attrs.src).toBe('images/图片.png');
+		expect(doc.child(1).attrs.src).toBe('my file.png');
+		// an escaped destination decodes to the real filename; the file on disk has the space
+		expect(doc.child(2).attrs.src).toBe('images/my file.png');
+		// a literal % is not valid escaping - decoding throws, so the raw text is already the path
+		expect(doc.child(3).attrs.src).toBe('100%.png');
+		// decodeURI, not decodeURIComponent: query and fragment separators stay separators
+		expect(doc.child(4).attrs.src).toBe('https://x.example/i.png?w=2&h=1#frag');
+		let href: string | null = null;
+		doc.child(5).forEach((c) => {
+			const link = c.marks.find((m) => m.type.name === 'link');
+			if (link) href = String(link.attrs.href);
+		});
+		expect(href).toBe('docs/café.md');
+	});
+
 	it('links carry href/title and autolinks are bare', () => {
 		const { doc } = markdownToProseMirror('[x](https://a.example "T") and <https://b.example>\n');
 		const para = doc.child(0);

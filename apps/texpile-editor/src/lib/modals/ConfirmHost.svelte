@@ -15,7 +15,7 @@
 	>
 		<!-- svelte-ignore a11y_autofocus -->
 		<div
-			class="card bg-surface-50-950 border-surface-300-700 w-full max-w-md border p-5 shadow-2xl"
+			class="card bg-surface-50-950 border-surface-300-700 max-h-full w-full max-w-md overflow-y-auto border p-5 shadow-2xl"
 			role="alertdialog"
 			aria-modal="true"
 			tabindex="-1"

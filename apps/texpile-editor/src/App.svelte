@@ -187,15 +187,60 @@
 </noscript>
 
 <style>
-	/* toasts default to transparent, give them a solid surface */
+	/*
+	 * Layout: a two-column grid, not Skeleton's flex row.
+	 *
+	 * Its row is `message | action | close` with the message on `flex: 1`, inside a 24rem card with
+	 * 12px padding. A nowrap action button ("Check toolchain") and the close button take ~160px of
+	 * that between them, leaving the text under 190px - so any description longer than a few words
+	 * ragged-wrapped into a tall narrow column beside a button twice its width.
+	 *
+	 * The grid gives the message the full width (less the close button, which belongs in the corner
+	 * regardless) and drops the action onto its own row beneath it. Toasts WITHOUT an action - very
+	 * nearly all of them - keep exactly the shape they had, because the second row simply is not
+	 * created. align-items:start rather than center, so the close button stays at the top corner of a
+	 * message that runs to three lines instead of floating at its middle.
+	 */
 	:global([data-scope='toast'][data-part='root']) {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		align-items: start;
+	}
+	:global([data-scope='toast'][data-part='message']) {
+		grid-column: 1;
+		min-width: 0; /* a long path or command must wrap, not widen the card past its max */
+	}
+	:global([data-scope='toast'][data-part='close-trigger']) {
+		grid-column: 2;
+		grid-row: 1;
+	}
+	/* its own row, right-aligned under the close button: the action is a decision about the whole
+	   message, so it reads better after it than wedged into the middle of it */
+	:global([data-scope='toast'][data-part='action-trigger']) {
+		grid-column: 1 / -1;
+		justify-self: end;
+	}
+
+	/*
+	 * Toasts default to transparent, so give them a solid surface.
+	 *
+	 * [data-type] carries no meaning here beyond WEIGHT: Skeleton paints success/warning/error toasts
+	 * in solid `--color-{type}-500` from a three-attribute selector, which outranked a two-attribute
+	 * one. Only the .dark override happened to beat it, so the same error toast was a neutral card in
+	 * dark mode and a wall of red in light. Matching its specificity settles it in both.
+	 */
+	:global([data-scope='toast'][data-part='root'][data-type]) {
 		background-color: var(--color-surface-50, #ffffff);
 		border: 1px solid var(--color-surface-300, #cbd5e1);
+		color: var(--color-surface-950, #0b1220);
 		box-shadow: 0 10px 30px rgb(0 0 0 / 0.22);
 	}
+	/* deliberately NOT also carrying [data-type]: it already outweighs Skeleton at this weight, and a
+	   fourth token would have outranked the accent-border rules below and swallowed the colored edge */
 	:global(.dark [data-scope='toast'][data-part='root']) {
 		background-color: var(--color-surface-950, #0b1220);
 		border-color: var(--color-surface-700, #334155);
+		color: var(--color-surface-50, #f8fafc);
 	}
 	/* explicit text colors, the defaults were too low-contrast on the surface */
 	:global([data-scope='toast'][data-part='title']) {
@@ -204,6 +249,7 @@
 	}
 	:global([data-scope='toast'][data-part='description']) {
 		color: var(--color-surface-700, #334155);
+		overflow-wrap: anywhere; /* a path or command in the text must not widen the card */
 	}
 	:global(.dark [data-scope='toast'][data-part='title']) {
 		color: var(--color-surface-50, #f8fafc);

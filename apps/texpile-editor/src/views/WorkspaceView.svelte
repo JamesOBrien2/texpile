@@ -20,6 +20,7 @@
 	import type { Starter, ImportedFile } from '$lib/workspace/starters';
 	import { StarterActions } from '$lib/workspace/starterActions.svelte';
 	import { editorViewStore } from '$lib/stores/editorStore';
+	import { revealPmComment } from '$lib/editor/extensions/pmComments';
 	import { tabs } from '$lib/workspace/tabs.svelte';
 	import { docPositions } from '$lib/workspace/docPositions';
 	import { SyncTexNav, sessionRelativeTarget, needsActivate, normSyncPath } from '$lib/workspace/syncTexNav';
@@ -274,6 +275,16 @@
 		// the mode-preserving jump, not openFileAtLine: revealing a comment from the panel must not
 		// yank a visual-mode reader into source - the same courtesy SyncTeX inverse clicks get
 		openFileAt: (abs, line) => syncJumpToFileLine(abs, line),
+		// Preferred over the line jump while the reader is in visual mode: pmComments has the thread's
+		// exact range in the rendered document, so this lands ON the highlight instead of at the top of
+		// the block containing it. False whenever that is not available - source/diff mode, a file with
+		// no visual editor, a view still mounting, or a thread this view could not place - and
+		// openFileAt above takes over unchanged.
+		revealInVisual: (id) => {
+			if (modes.mode !== 'visual' || !hasVisualMode(kind)) return false;
+			const v = get(editorViewStore);
+			return !!v && revealPmComment(v, id);
+		},
 		// a guest's events go up to the host, which owns the log; a host's go out to every guest.
 		// Solo, both are no-ops and the log is just a file.
 		publish: (event) => {
@@ -282,10 +293,10 @@
 		}
 	});
 	// "not in this view" is a statement about the VISUAL view; source draws everything it resolves,
-	// so leaving visual mode must clear the set or the panel would keep the label while the reader
-	// is looking straight at the placed comment
+	// so the badge has to disappear in source mode - for the remembered files too, or the panel tells
+	// a reader already in source to switch to source
 	$effect(() => {
-		if (modes.mode !== 'visual' && commentsCtl.notVisible.size > 0) commentsCtl.notVisible = new Set();
+		commentsCtl.setVisualMode(modes.mode === 'visual');
 	});
 	// Which files the panel's threads can actually open: threads survive their file's deletion ON
 	// PURPOSE (the log is append-only, and undoing the delete brings them straight back), so the
@@ -1664,9 +1675,12 @@
 			dockView = 'comments';
 			termDock.show();
 		},
-		// the visual editor's placement report; cleared when the view stops being visual (below)
+		// The visual editor's placement report. Goes through the controller rather than straight onto
+		// the set, because this is also the only moment anyone can observe visual placement - so it is
+		// what gets recorded to the log for the files nobody has open. Cleared on leaving visual (below).
 		visualCommentsPlaced: (lost: string[]) => {
-			commentsCtl.notVisible = new Set(lost);
+			const file = commentsCtl.activeFile;
+			if (file) void commentsCtl.recordHidden(file, new Set(lost));
 		},
 		/**
 		 * A thread was clicked in the editor.

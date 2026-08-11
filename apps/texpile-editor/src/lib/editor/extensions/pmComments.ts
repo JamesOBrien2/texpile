@@ -18,7 +18,14 @@
 import { Plugin, PluginKey, TextSelection, type EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type { Node as PMNode } from 'prosemirror-model';
-import { buildAnchor, resolveAnchor, resolveAnchorLoose, type CommentAnchor } from '$lib/comments/anchor';
+import {
+	buildAnchor,
+	prepareLoose,
+	resolveAnchor,
+	resolveAnchorLooseIn,
+	type CommentAnchor,
+	type LooseHaystack
+} from '$lib/comments/anchor';
 import type { CommentThread } from '$lib/comments/log';
 
 export interface PmCommentRange {
@@ -34,6 +41,20 @@ export interface FlatDoc {
 	/** index[i] = ProseMirror position of text[i]; the whole reason this exists instead of textBetween */
 	index: number[];
 }
+
+/**
+ * Atoms whose content ProseMirror still renders, through a hole its node view leaves open.
+ *
+ * A figure caption is ordinary prose - visible, editable, and exactly the sort of line a reviewer
+ * wants to argue with - so it has to be walked like any other text. The image node is only an atom
+ * for SELECTION purposes; imageNodeView hands back a contentDOM, so a decoration over the caption
+ * renders normally.
+ *
+ * Math is deliberately not here. block_math/inline_math are atoms with content too, but mathlive
+ * draws that content itself and ProseMirror never renders it, so a range placed inside one would
+ * report a thread as placed while drawing nothing - the exact lie resolvePmComments refuses to tell.
+ */
+const ATOMS_WITH_PROSE = new Set(['image']);
 
 /**
  * One walk over the document collecting its text AND where each character lives.
@@ -58,7 +79,9 @@ export function flattenDoc(doc: PMNode): FlatDoc {
 			text += s;
 			return false;
 		}
-		if (node.isAtom) {
+		// an EMPTY captionable atom still needs its placeholder: with nothing to walk it would
+		// splice the blocks on either side of the figure together
+		if (node.isAtom && !(ATOMS_WITH_PROSE.has(node.type.name) && node.content.size > 0)) {
 			index.push(pos);
 			text += '￼';
 			return false;
@@ -85,8 +108,15 @@ export function resolvePmComments(doc: PMNode, threads: CommentThread[]): { rang
 	const { text, index } = flattenDoc(doc);
 	const ranges: PmCommentRange[] = [];
 	const lost: string[] = [];
+	// the flat text is normalized once for the whole pass, and only once something misses: this runs
+	// on every re-place, so a document whose threads all still fit pays nothing for tier 2
+	let hay: LooseHaystack | null = null;
 	for (const t of threads) {
-		const hit = resolveAnchor(text, t.anchor) ?? resolveAnchorLoose(text, t.anchor);
+		let hit = resolveAnchor(text, t.anchor);
+		if (!hit) {
+			hay ??= prepareLoose(text);
+			hit = resolveAnchorLooseIn(hay, t.anchor);
+		}
 		if (hit) {
 			const from = index[hit.from];
 			const to = hit.to > hit.from ? index[hit.to - 1] + 1 : from;
@@ -118,6 +148,37 @@ export function setPmComments(view: EditorView, ranges: PmCommentRange[]): void 
 /** which thread the reader is looking at, so its highlight can be picked out from the rest */
 export function focusPmComment(view: EditorView, id: string | null): void {
 	view.dispatch(view.state.tr.setMeta(pmCommentsKey, { type: 'focus', id } satisfies PmCommentsMeta));
+}
+
+/**
+ * Scroll a placed thread into view and park the caret on it. False when this view has not placed it.
+ *
+ * This is what the panel should use in visual mode, in preference to a source line pushed back
+ * through the block map: the map is block-granular, so a line jump lands at the top of whatever
+ * block contains the comment, while the plugin has already resolved the thread to the exact
+ * characters it covers. The highlight the reader is being sent to is the one thing we know precisely.
+ *
+ * A COLLAPSED caret, not a selection over the quote: a non-empty selection raises the "Comment"
+ * pill, and offering to comment on a comment is not what the click asked for. The focused-highlight
+ * tint is what shows the extent.
+ *
+ * Focus is deliberately not taken. The click happened in the panel, next to a reply box; scrolling
+ * is what was asked for, and yanking the caret out of the dock is not.
+ */
+export function revealPmComment(view: EditorView, id: string): boolean {
+	const r = (pmCommentsKey.getState(view.state)?.ranges ?? []).find((x) => x.id === id);
+	if (!r) return false;
+	const $at = view.state.doc.resolve(r.from);
+	// TextSelection.near rather than .create: a comment can start at a block edge, and near() finds
+	// the closest position a caret may legally occupy instead of throwing
+	const sel = TextSelection.near($at, 1);
+	if (!(sel instanceof TextSelection)) return false;
+	try {
+		view.dispatch(view.state.tr.setSelection(sel).scrollIntoView().setMeta('addToHistory', false));
+	} catch {
+		return false; // the doc moved under the range; the caller falls back to the line jump
+	}
+	return true;
 }
 
 /** the innermost thread at a position, so nested comments resolve to the one you clicked */

@@ -22,6 +22,12 @@ const CORPUS: Record<string, string> = {
 	setext: 'Setext Title\n============\n\nBody.\n',
 	hardWrap: 'This paragraph is wrapped\nacross several lines\nin the source.\n',
 	images: '![cat](cat.png "A cat")\n\ntext with ![inline](i.png) image\n',
+	// the shapes a real README opens with: badges are link-wrapped images, logos are centred HTML
+	badges:
+		'[![Build](https://img.shields.io/b.svg)](https://ci.example)\n[![Docs](d.svg)](https://d.example)\n\n<p align="center">\n  <img src="logo.png" width="200">\n</p>\n',
+	// markdown-it percent-encodes destinations; a path we look up on disk must survive verbatim
+	nonAsciiPaths: '![图](images/图片.png)\n\n![cafe](images/café.png)\n\n[doc](docs/图片.md)\n',
+	spacedPaths: '![a](<my file.png>)\n\n![b](images/my%20file.png)\n',
 	underscores: 'snake_case_word stays, *real em*, 5 * 3 = 15.\n',
 	refLinks: '[text][ref] here\n\n[ref]: https://ref.example\n',
 	noTrailingNewline: '# No trailing newline',

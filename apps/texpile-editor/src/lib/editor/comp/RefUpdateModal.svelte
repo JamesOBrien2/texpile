@@ -36,7 +36,7 @@
 	role="presentation"
 	onmousedown={(e) => e.target === e.currentTarget && onKeep()}
 >
-	<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-md border p-5 shadow-2xl">
+	<div class="card bg-surface-50-950 border-surface-300-700 max-h-full w-full max-w-md overflow-y-auto border p-5 shadow-2xl">
 		<h2 class="text-lg font-semibold">{m.wsview_refupdate_title()}</h2>
 		<p class="text-surface-600-300 mt-2 text-sm">
 			{body}

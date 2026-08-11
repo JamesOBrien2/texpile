@@ -9,6 +9,21 @@ import { writable } from 'svelte/store';
 export const preferencesOpen = writable(false);
 
 /**
+ * The tab Preferences should land on, for the places that open it to answer a specific question -
+ * the compile modal sending someone to Toolchain because their compiler is not installed.
+ *
+ * A one-shot: PreferencesDialog reads it, switches, and clears it, so the NEXT plain open lands
+ * where the reader last was rather than being dragged back here.
+ */
+export const preferencesTab = writable<string | null>(null);
+
+/** the one deep link there is: "your compiler is not installed" -> the panel that lists them. */
+export function openToolchainPrefs(): void {
+	preferencesTab.set('toolchain');
+	preferencesOpen.set(true);
+}
+
+/**
  * The dictionary and the shortcut sheet, for the same reason and then one more.
  *
  * These were local state in WorkspaceMenuBar, which also MOUNTED the dialogs - fine while the host

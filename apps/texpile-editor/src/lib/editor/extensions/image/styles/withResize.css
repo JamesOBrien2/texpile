@@ -38,7 +38,13 @@
 	@apply bg-blue;
 }
 
+/* The frame drawn round a figure on hover. Neutral rather than the vendored plugin's darkblue,
+   which was the one saturated colour in the editor and read as a selection state rather than as an
+   outline. Black on a white page, white on a dark one - the same html[data-mode] switch the rest of
+   the editor chrome uses (see app.css). Declared on the box so the resize handles below can share
+   it if they ever need to. */
 .imageResizeBox {
+	--image-frame: #000;
 	background-repeat: no-repeat;
 	box-sizing: border-box;
 	left: 0;
@@ -47,8 +53,12 @@
 	z-index: 1;
 	opacity: 0;
 	transition: all 0.3s ease;
-	box-shadow: 0 0 1px 1px darkblue;
+	box-shadow: 0 0 1px 1px var(--image-frame);
 	align-self: center;
+}
+
+html[data-mode='dark'] .imageResizeBox {
+	--image-frame: #fff;
 }
 
 .imageResizeBox.active {

@@ -681,10 +681,6 @@ const DEFAULT_SETTINGS = {
 	mathPreview: true, // live math preview tooltip in source mode
 	sourceLineWrap: true, // soft-wrap long lines in Source mode
 	visualMaxWidth: 768, // widest the visual editor's text column may grow, in px
-	// Absolute path to a tinymist binary. Empty = look on PATH, then at the copy we downloaded.
-	// tinymist both compiles Typst documents and serves their language features.
-	typstPath: '',
-	typstIntellisense: true, // run tinymist as a language server for .typ files
 	// Recompile a Typst document once typing settles. On by default: a warm rebuild is ~230ms, so
 	// unlike LaTeX's live mode there is no cost that would justify making the user ask for it.
 	typstLiveMode: true,
@@ -776,18 +772,18 @@ ipcMain.handle('settings:set', (_e, partial: Record<string, unknown>) => writeSe
 // rooted at one workspace. Keyed by webContents id so closing one window can't kill another's.
 const typstLsps = new Map<number, typstService.LspHandle>();
 
-ipcMain.handle('typst:resolve', () => typstService.resolveTinymist(String(readSettings().typstPath || ''), app.getPath('userData')));
+ipcMain.handle('typst:resolve', () => typstService.resolveTinymist(app.getPath('userData')));
 
 // "which of the programs we shell out to are actually here" - see toolchain.ts. tinymist is not in
 // that list because typst:resolve already answers for it, and with more detail (it reports the
-// embedded Typst version and which of the configured/PATH/managed locations won).
+// embedded Typst version and which location won).
 ipcMain.handle('toolchain:probe', () => toolchain.probeToolchain());
 
 ipcMain.handle('typst:lsp:start', async (e, root: string | null) => {
 	const wcId = e.sender.id;
 	typstLsps.get(wcId)?.stop();
 	typstLsps.delete(wcId);
-	const info = await typstService.resolveTinymist(String(readSettings().typstPath || ''), app.getPath('userData'));
+	const info = await typstService.resolveTinymist(app.getPath('userData'));
 	if (!info) return { ok: false, error: 'tinymist was not found on PATH.' };
 	try {
 		const handle = typstService.startLsp(info.command, root, {
@@ -1062,23 +1058,22 @@ function defaultShell(): string {
 }
 
 /**
- * The environment a terminal is spawned with: ours, plus wherever the configured tools live.
+ * The environment a terminal is spawned with: ours, plus the copy of tinymist we manage ourselves.
  *
- * Only directories are added, never a command - the shell still resolves `tinymist` (or `latexmk`,
- * or anything else) by name, exactly as a user typing the same command by hand would. That keeps
- * the compile command portable: it is the same string whether or not a path was configured.
+ * Only a directory is added, never a command - the shell still resolves `tinymist` (or `latexmk`,
+ * or anything else) by name, exactly as a user typing the same command by hand would, so a compile
+ * command stays the same string on every machine.
+ *
+ * Nothing else needs adding: the user's own installs are on PATH, and fixShellPath() has already
+ * recovered the login-shell PATH this process was launched without.
  */
 function terminalEnv(): NodeJS.ProcessEnv {
 	const dirs: string[] = [];
 	try {
-		const configured = String(readSettings().typstPath || '').trim();
-		// a configured path may be the binary itself or the folder holding it; accept either
-		if (configured) dirs.push(fs.existsSync(configured) && fs.statSync(configured).isDirectory() ? configured : path.dirname(configured));
-		// the copy we manage ourselves, if one was ever downloaded
 		const managed = typstService.managedTinymistPath(app.getPath('userData'));
 		if (fs.existsSync(managed)) dirs.push(path.dirname(managed));
 	} catch {
-		// a bad path in settings must never stop a terminal from opening
+		// an unreadable userData dir must never stop a terminal from opening
 	}
 	return toolchain.withPathDirs(process.env, dirs);
 }

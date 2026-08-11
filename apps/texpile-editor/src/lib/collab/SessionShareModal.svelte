@@ -74,7 +74,7 @@
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && (open = false)}
 	>
-		<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-md border p-5 shadow-2xl">
+		<div class="card bg-surface-50-950 border-surface-300-700 max-h-full w-full max-w-md overflow-y-auto border p-5 shadow-2xl">
 			<div class="mb-3 flex items-center justify-between">
 				<h2 class="text-base font-semibold">{m.share_title()}</h2>
 				<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={() => (open = false)} aria-label={m.session_cancel()}

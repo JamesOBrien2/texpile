@@ -21,6 +21,8 @@ import { buildTypstCommand, isTypstCommand } from './typstCommand';
 import { basename, joinPath } from './fileSystem';
 import type { EditSession } from '$lib/collab/editSession';
 import { toaster } from '$lib/modals/toaster-svelte';
+import { leadingProgram, shellSaidNotFound } from './toolMissing';
+import { openToolchainPrefs } from '$lib/stores/dialogStore';
 import { m } from '$lib/paraglide/messages';
 
 // a root-relative, forward-slashed path (the form file references take in LaTeX)
@@ -401,9 +403,34 @@ export class CompilePipeline {
 			} catch {
 				/* fs hiccup: the run still ended, the button must still reset */
 			}
+			this.reportMissingTool();
 			this.endRun();
 			this.deps.refreshTree();
 		}, 400);
+	}
+
+	/**
+	 * The command named a program the shell could not find: say so, and offer the panel that lists
+	 * what IS installed.
+	 *
+	 * Worth its own toast because this failure produces no diagnostics to show. No log is written,
+	 * no PDF appears, and the Problems panel stays empty - the only evidence is one line of shell
+	 * text in a terminal the reader may not have open, phrased by the shell rather than by us
+	 * ("'latexmk' is not recognized as an internal or external command"), which says nothing about
+	 * what to do next.
+	 *
+	 * Only on the marker-tracked path, because that is the only one that captures output at all
+	 * (see runCompile). With the completion marker off, this failure stays as silent as it was.
+	 */
+	private reportMissingTool(): void {
+		const program = leadingProgram(this.deps.getCompileCommand());
+		if (!program || !shellSaidNotFound(this.compileStdout, program)) return;
+		toaster.error({
+			title: m.compile_tool_missing_title(),
+			description: m.compile_tool_missing({ tool: program }),
+			duration: 8000,
+			action: { label: m.compile_tool_missing_action(), onClick: openToolchainPrefs }
+		});
 	}
 
 	private async ensureOutputDir() {

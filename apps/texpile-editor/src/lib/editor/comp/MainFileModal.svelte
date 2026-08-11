@@ -20,7 +20,7 @@
 	role="presentation"
 	onmousedown={(e) => e.target === e.currentTarget && onDismiss()}
 >
-	<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-lg border p-5 shadow-2xl">
+	<div class="card bg-surface-50-950 border-surface-300-700 max-h-full w-full max-w-lg overflow-y-auto border p-5 shadow-2xl">
 		<div class="mb-3 flex items-center justify-between">
 			<h2 class="text-base font-semibold">{m.wsview_mainconfirm_title()}</h2>
 			<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={onDismiss} aria-label={m.wsview_close_aria()}>

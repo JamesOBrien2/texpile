@@ -76,7 +76,11 @@
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && (open = false)}
 	>
-		<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-lg border p-5 shadow-2xl">
+		<!-- max-h-full + scroll, not a taller window: this dialog grows with what it is showing (the
+		     engine row, live mode's note, the advanced output paths) and a short window clipped its
+		     buttons off both ends, with no way to reach them. The scrim's p-4 is the margin it stops
+		     at. Every modal card in the app carries this pair for the same reason. -->
+		<div class="card bg-surface-50-950 border-surface-300-700 max-h-full w-full max-w-lg overflow-y-auto border p-5 shadow-2xl">
 			<div class="mb-3 flex items-center justify-between">
 				<h2 class="text-base font-semibold">{m.wsview_compile_modal_title()}</h2>
 				<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={() => (open = false)} aria-label={m.wsview_close_aria()}>

@@ -15,12 +15,17 @@ export interface TinymistInfo {
 	version: string;
 	/** the Typst version its embedded compiler is, e.g. "0.15.0" - what actually builds the PDF */
 	typstVersion: string;
-	source: 'configured' | 'path' | 'managed';
+	/** which candidate answered; see resolveTinymist for why there is no configured path */
+	source: 'path' | 'managed';
 }
 
 const EXE = process.platform === 'win32' ? '.exe' : '';
 
-/** where a downloaded copy lives; the caller passes userData because app isn't imported here. */
+/**
+ * Where a copy Texpile manages itself WOULD live; the caller passes userData because app isn't
+ * imported here. Nothing writes this path today - there is no downloader - so every read of it is
+ * guarded by existsSync and the resolution chain below is, in practice, configured -> PATH.
+ */
 export function managedTinymistPath(userData: string): string {
 	return path.join(userData, 'tinymist', `tinymist${EXE}`);
 }
@@ -54,14 +59,19 @@ function probe(command: string): Promise<{ version: string; typstVersion: string
 /**
  * Find tinymist, or null when it isn't installed.
  *
- * PATH is tried BEFORE the managed copy on purpose: someone who installed tinymist themselves
- * (cargo, brew, scoop) means for that one to be used, and silently preferring our download would
- * compile their documents with a version they did not choose.
+ * PATH, and nothing the user configures in Texpile. There used to be a path box in Preferences,
+ * removed because where a program lives is the operating system's answer to give: every installer
+ * (winget, scoop, brew, cargo) puts tinymist on PATH, main.ts's fixShellPath already recovers the
+ * real login-shell PATH that a GUI launch would otherwise miss, and none of the eight LaTeX tools
+ * beside it has an override either. A per-app copy of $PATH is a second place for the answer to be
+ * wrong.
+ *
+ * PATH is tried BEFORE the managed copy on purpose: someone who installed tinymist themselves means
+ * for that one to be used, and silently preferring our own would compile their documents with a
+ * version they did not choose.
  */
-export async function resolveTinymist(configured: string | null, userData: string): Promise<TinymistInfo | null> {
-	const candidates: { command: string; source: TinymistInfo['source'] }[] = [];
-	if (configured?.trim()) candidates.push({ command: configured.trim(), source: 'configured' });
-	candidates.push({ command: `tinymist${EXE}`, source: 'path' });
+export async function resolveTinymist(userData: string): Promise<TinymistInfo | null> {
+	const candidates: { command: string; source: TinymistInfo['source'] }[] = [{ command: `tinymist${EXE}`, source: 'path' }];
 	const managed = managedTinymistPath(userData);
 	if (fs.existsSync(managed)) candidates.push({ command: managed, source: 'managed' });
 

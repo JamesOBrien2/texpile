@@ -6,6 +6,7 @@
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
 	import { toolsInGroup } from '$lib/workspace/toolchainCatalog';
+	import { preferencesTab } from '$lib/stores/dialogStore';
 	import McpSetupModal from './McpSetupModal.svelte';
 	// dark wordmark for light backgrounds, white one for dark mode - the pair StartView uses
 	import logoOnLight from '$lib/assets/logo/Logo-dark.svg';
@@ -49,17 +50,21 @@
 	// One category on screen at a time, rather than every setting in one scroll. The list had grown
 	// past the point where "wrap long lines" and "editor width" could be told apart at a glance -
 	// which editor, and which of them, was only answerable by reading the hint under each.
-	type Category = 'appearance' | 'editing' | 'source' | 'visual' | 'preview' | 'latex' | 'typst' | 'vcs' | 'startup' | 'ai';
+	type Category = 'appearance' | 'editor' | 'toolchain' | 'startup' | 'ai';
 	let category = $state<Category>('appearance');
 	const categories: { id: Category; label: string }[] = [
 		{ id: 'appearance', label: m.prefs_appearance() },
-		{ id: 'editing', label: m.prefs_group_editing() },
-		{ id: 'source', label: m.prefs_group_source() },
-		{ id: 'visual', label: m.prefs_group_visual() },
-		{ id: 'preview', label: m.prefs_group_preview() },
-		{ id: 'latex', label: m.prefs_group_latex() },
-		{ id: 'typst', label: m.prefs_group_typst() },
-		{ id: 'vcs', label: m.prefs_group_vcs() },
+		// Editing, Source editor and Visual editor were three tabs holding three, two and two rows.
+		// They were split so that "wrap long lines" and "editor width" could be told apart - which
+		// editor, and which of them - and a heading inside one tab answers that just as well as a
+		// sidebar entry did, without making the reader guess which of three tabs a setting is in.
+		{ id: 'editor', label: m.prefs_group_editor() },
+		// LaTeX, Typst and Version control used to be three tabs. Every one of them was the same
+		// thing - a list of external programs and whether they were found - so three sidebar entries
+		// bought three clicks to answer one question ("is my machine set up"), and the two settings
+		// that made LaTeX look like more than a probe list were duplicates of switches in the
+		// compile-command dialog.
+		{ id: 'toolchain', label: m.prefs_group_toolchain() },
 		{ id: 'startup', label: m.prefs_group_startup() },
 		{ id: 'ai', label: m.prefs_group_ai() }
 	];
@@ -95,14 +100,32 @@
 	}
 	const probeFor = (id: string) => probes.find((p) => p.id === id);
 
-	// every tab that lists tool rows probes when it opens
-	const NEEDS_PROBE: Category[] = ['latex', 'typst', 'vcs'];
 	$effect(() => {
-		if (open && NEEDS_PROBE.includes(category) && tinymist === 'unchecked' && !probing) void probeToolchain();
+		if (open && category === 'toolchain' && tinymist === 'unchecked' && !probing) void probeToolchain();
+	});
+
+	// Opened to answer a particular question (the compile modal's "your compiler is missing"): land
+	// on that tab, then clear the request. Cleared only when it was SET, or the store write would
+	// re-run this effect forever.
+	$effect(() => {
+		if (!open) return;
+		const want = $preferencesTab;
+		if (!want) return;
+		if (categories.some((c) => c.id === want)) category = want as Category;
+		preferencesTab.set(null);
 	});
 
 	/** every row is the same shape: name and explanation on the left, the control on the right */
 	const ROW = 'border-surface-200-800 flex items-start justify-between gap-6 border-b py-4 last:border-b-0';
+
+	/**
+	 * Rows that sit under a section heading, stepped in so they read as belonging to it.
+	 *
+	 * Padding on the LEFT only. The controls are right-aligned inside each row, so indenting both
+	 * edges would walk the switches and selects inward per section and break the single column they
+	 * currently form down the whole panel - the thing that makes the list scannable at all.
+	 */
+	const SUB = 'pl-4';
 
 	const themes: { value: ThemeChoice; label: string }[] = [
 		{ value: 'system', label: m.prefs_theme_system() },
@@ -166,12 +189,12 @@
 	</div>
 {/snippet}
 
-<!-- The external programs a tab's features depend on: one row each, saying only found / not found
+<!-- The external programs Texpile's features depend on: one row each, saying only found / not found
      (the purpose sits in the tooltip). Anything more - versions, install commands - belongs in the
-     docs, which the header links no matter what. Lives next to the settings that need it rather
-     than in one combined list, so "Typst intelligence" and "is tinymist here" are answered in the
-     same place. -->
-{#snippet toolRows(group: 'latex' | 'typst' | 'general')}
+     docs, which the header links no matter what.
+     One panel for all of them, grouped by what they serve. They were three sidebar tabs; a reader
+     asking "is my machine set up" had to visit all three and could not see the answer at once. -->
+{#snippet toolchainHeader()}
 	<div class="border-surface-200-800 flex items-center justify-between gap-3 border-b pt-1 pb-3">
 		<p class="text-surface-500 text-xs">
 			{m.prefs_toolchain_intro()}
@@ -188,11 +211,19 @@
 	{#if probeFailed}
 		<p class="text-warning-700-300 pt-3 text-xs">{m.prefs_toolchain_probe_failed()}</p>
 	{/if}
+{/snippet}
+
+{#snippet sectionHeading(text: string)}
+	<h3 class="text-surface-600-300 pt-4 pb-1 text-xs font-semibold tracking-wide uppercase">{text}</h3>
+{/snippet}
+
+{#snippet toolRows(group: 'latex' | 'typst' | 'general', heading: string)}
+	{@render sectionHeading(heading)}
 	<!-- two columns for the LaTeX crowd: one column of name-plus-verdict rows was half whitespace.
 	     A group with a single tool (tinymist, git) keeps the full width, so its version line does
 	     not truncate for a column that isn't there. The version rides along truncated when needed
 	     (hover for the full line); the tool's purpose is the row tooltip -->
-	<div class="grid gap-x-6 {toolsInGroup(group).length > 1 ? 'grid-cols-2' : 'grid-cols-1'}">
+	<div class="{SUB} grid gap-x-6 {toolsInGroup(group).length > 1 ? 'grid-cols-2' : 'grid-cols-1'}">
 		{#each toolsInGroup(group) as tool (tool.id)}
 			{@const probe = probeFor(tool.id)}
 			<!-- tinymist resolves through its own path (configured / PATH / managed), so its row reads
@@ -318,7 +349,14 @@
 								{/each}
 							</select>
 						</div>
-					{:else if category === 'editing'}
+						<!-- the whole of what a "PDF preview" tab held: one switch, and one about how the
+						     document LOOKS, which is the question this tab already answers -->
+						{@render toggleRow(m.prefs_dark_pdf_pages(), m.prefs_dark_pdf_pages_note(), $settings.pdfDarkPages, (v) =>
+							updateSettings({ pdfDarkPages: v })
+						)}
+					{:else if category === 'editor'}
+						<!-- the settings that belong to neither editor in particular lead, unheaded; the two
+						     that are ABOUT one editor sit under its name below -->
 						{@render toggleRow(
 							m.prefs_autosave(),
 							collabHost.active
@@ -335,89 +373,59 @@
 						{@render selectRow(m.prefs_keybindings(), m.prefs_keybindings_note(), $settings.editorKeymap ?? 'default', keymaps, (v) =>
 							updateSettings({ editorKeymap: v as AppSettings['editorKeymap'] })
 						)}
-					{:else if category === 'source'}
-						{@render toggleRow(m.prefs_source_line_wrap(), m.prefs_source_line_wrap_note(), $settings.sourceLineWrap !== false, (v) =>
-							updateSettings({ sourceLineWrap: v })
-						)}
-						{@render toggleRow(m.prefs_math_preview(), m.prefs_math_preview_note(), $settings.mathPreview !== false, (v) =>
-							updateSettings({ mathPreview: v })
-						)}
-					{:else if category === 'latex'}
-						<!-- both of these are otherwise reachable only through the compile-command modal,
-						     which is where you go to change the command, not to find a setting -->
-						{@render toggleRow(
-							m.prefs_latex_live_mode(),
-							collabHost.active ? m.wsview_live_mode_collab_note() : m.prefs_latex_live_mode_note(),
-							$settings.draftMode,
-							(v) => updateSettings({ draftMode: v }),
-							collabHost.active
-						)}
-						{@render toggleRow(m.wsview_completion_marker_label(), m.wsview_completion_marker_desc(), $settings.compileSentinel, (v) =>
-							updateSettings({ compileSentinel: v })
-						)}
-						{@render toolRows('latex')}
-					{:else if category === 'typst'}
-						{@render toggleRow(
-							m.prefs_typst_intellisense(),
-							m.prefs_typst_intellisense_note(),
-							$settings.typstIntellisense !== false,
-							(v) => updateSettings({ typstIntellisense: v })
-						)}
-						<!-- The preview switch is NOT here: it lives in the compile-command modal, in the slot
-						     LaTeX's live mode occupies, because that is the dialog where Typst gets chosen in the
-						     first place. Two switches writing one setting is worse than one in the right place. -->
-						{@render toolRows('typst')}
-						<div class={ROW}>
-							{@render label(m.prefs_typst_path(), m.prefs_typst_path_note())}
-							<div class="w-72 shrink-0">
-								<input
-									class="border-surface-300-700 bg-surface-50-950 w-full rounded border px-2 py-1 text-sm"
-									type="text"
-									spellcheck="false"
-									placeholder="tinymist"
-									value={$settings.typstPath ?? ''}
-									onchange={(e) => {
-										updateSettings({ typstPath: (e.currentTarget as HTMLInputElement).value.trim() });
-										tinymist = 'unchecked'; // the row above is about the OLD path
-										void probeToolchain();
-									}}
-									aria-label={m.prefs_typst_path()}
-								/>
-							</div>
+						{@render sectionHeading(m.prefs_group_source())}
+						<div class={SUB}>
+							{@render toggleRow(m.prefs_source_line_wrap(), m.prefs_source_line_wrap_note(), $settings.sourceLineWrap !== false, (v) =>
+								updateSettings({ sourceLineWrap: v })
+							)}
+							{@render toggleRow(m.prefs_math_preview(), m.prefs_math_preview_note(), $settings.mathPreview !== false, (v) =>
+								updateSettings({ mathPreview: v })
+							)}
 						</div>
-					{:else if category === 'vcs'}
-						{@render toolRows('general')}
-					{:else if category === 'visual'}
-						<div class={ROW}>
-							{@render label(m.prefs_visual_width(), m.prefs_visual_width_note())}
-							<div class="w-48 shrink-0">
-								<div class="text-surface-500 mb-1 text-right text-xs tabular-nums">{$settings.visualMaxWidth ?? 768}px</div>
-								<!-- oninput, not onchange: a width slider is only useful if the column moves under
-								     the cursor. updateSettingsLive applies each value, writing only the settled one. -->
-								<input
-									class="w-full accent-current"
-									type="range"
-									min="560"
-									max="1600"
-									step="16"
-									value={$settings.visualMaxWidth ?? 768}
-									oninput={(e) => updateSettingsLive({ visualMaxWidth: Number((e.currentTarget as HTMLInputElement).value) })}
-									aria-label={m.prefs_visual_width()}
-								/>
+						{@render sectionHeading(m.prefs_group_visual())}
+						<div class={SUB}>
+							<div class={ROW}>
+								{@render label(m.prefs_visual_width(), m.prefs_visual_width_note())}
+								<div class="w-48 shrink-0">
+									<div class="text-surface-500 mb-1 text-right text-xs tabular-nums">{$settings.visualMaxWidth ?? 768}px</div>
+									<!-- oninput, not onchange: a width slider is only useful if the column moves under
+									     the cursor. updateSettingsLive applies each value, writing only the settled one. -->
+									<input
+										class="w-full accent-current"
+										type="range"
+										min="560"
+										max="1600"
+										step="16"
+										value={$settings.visualMaxWidth ?? 768}
+										oninput={(e) => updateSettingsLive({ visualMaxWidth: Number((e.currentTarget as HTMLInputElement).value) })}
+										aria-label={m.prefs_visual_width()}
+									/>
+								</div>
 							</div>
+							{@render selectRow(
+								m.prefs_image_resize_step(),
+								m.prefs_image_resize_step_note(),
+								$settings.figureResizeStep,
+								resizeSteps,
+								(v) => updateSettings({ figureResizeStep: Number(v) }),
+								'w-24'
+							)}
 						</div>
-						{@render selectRow(
-							m.prefs_image_resize_step(),
-							m.prefs_image_resize_step_note(),
-							$settings.figureResizeStep,
-							resizeSteps,
-							(v) => updateSettings({ figureResizeStep: Number(v) }),
-							'w-24'
-						)}
-					{:else if category === 'preview'}
-						{@render toggleRow(m.prefs_dark_pdf_pages(), m.prefs_dark_pdf_pages_note(), $settings.pdfDarkPages, (v) =>
-							updateSettings({ pdfDarkPages: v })
-						)}
+					{:else if category === 'toolchain'}
+						<!-- Nothing here is a preference; it is all "what did we find on this machine".
+						     The switches that used to sit above the LaTeX list - live mode, the compile
+						     completion marker - were second copies of switches in the compile-command dialog,
+						     which is where you go to decide how this project builds. One control, one home.
+						     Typst's preview switch was never duplicated here for the same reason. -->
+						{@render toolchainHeader()}
+						{@render toolRows('latex', m.prefs_group_latex())}
+						{@render toolRows('typst', m.prefs_group_typst())}
+						<!-- No path box for tinymist, and none for the eight above it either. Where a program
+						     lives is the operating system's answer to give: every installer puts it on PATH,
+						     and fixShellPath() in main.ts already recovers the login-shell PATH a GUI launch
+						     misses. A second copy of $PATH kept in app settings is one more place for it to be
+						     wrong, and the row above already says whether the OS's answer worked. -->
+						{@render toolRows('general', m.prefs_group_vcs())}
 					{:else if category === 'startup'}
 						{@render toggleRow(m.prefs_reopen_last_folder(), '', $settings.reopenLastFolder, (v) =>
 							updateSettings({ reopenLastFolder: v })

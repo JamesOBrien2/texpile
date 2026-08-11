@@ -32,7 +32,16 @@ export type CommentEvent =
 	// a file (or directory) was renamed/moved in the tree, and its threads went with it. Paths are
 	// workspace-relative like thread.file. Same version on purpose: an older build's isEvent skips
 	// the unknown t, so it degrades to threads staying under the old path rather than breaking.
-	| (Base & { t: 'move'; from: string; to: string });
+	| (Base & { t: 'move'; from: string; to: string })
+	// The last thing a Texpile instance SAW when it looked for this thread's text. Unlike every other
+	// event here it records an observation rather than a decision, and it is written only when the
+	// answer changed - so browsing a project appends nothing, and the file stays quiet in git.
+	//
+	// Best-effort by construction, and that is the deal: it is only true while every editor touching
+	// these files is Texpile. Edit main.tex in vim and this says whatever it said before, until some
+	// Texpile opens the file and corrects it. The panel treats it as a hint for files it has not
+	// looked at itself and lets the live verdict override it for the file that is open.
+	| (Base & { t: 'place'; thread: string; detached?: boolean; hidden?: boolean });
 
 export interface CommentMessage {
 	id: string;
@@ -50,6 +59,15 @@ export interface CommentThread {
 	anchor: CommentAnchor;
 	resolved: boolean;
 	messages: CommentMessage[];
+	/**
+	 * The last recorded observation of whether this thread's text could still be found (`detached`)
+	 * and whether the visual editor could draw it (`hidden`). Undefined means nobody has looked yet.
+	 *
+	 * A cached ANSWER, not a fact about the thread: the anchor never changes, but the file it points
+	 * at does. See the `place` event for why that is acceptable and what it costs.
+	 */
+	detached?: boolean;
+	hidden?: boolean;
 }
 
 /**
@@ -146,6 +164,12 @@ export function foldLog(events: CommentEvent[]): CommentThread[] {
 			}
 		} else if (e.t === 'resolve') {
 			thread.resolved = e.resolved;
+		} else if (e.t === 'place') {
+			// each field independently, because the two are observed by different halves of the app:
+			// source placement by the controller, visual placement by the editor that rendered it. A
+			// `place` carrying only one of them must not erase the other's last answer.
+			if (e.detached !== undefined) thread.detached = e.detached;
+			if (e.hidden !== undefined) thread.hidden = e.hidden;
 		} else {
 			deleted.add(e.thread);
 		}
@@ -172,6 +196,12 @@ export const resolveEvent = (o: { thread: string; by: string; resolved: boolean;
 });
 
 export const deleteEvent = (o: { thread: string; by: string; at: string }): CommentEvent => ({ v: LOG_VERSION, t: 'delete', ...o });
+
+export const placeEvent = (o: { thread: string; by: string; at: string; detached?: boolean; hidden?: boolean }): CommentEvent => ({
+	v: LOG_VERSION,
+	t: 'place',
+	...o
+});
 
 export const editEvent = (o: { message: string; body: string; by: string; at: string }): CommentEvent => ({
 	v: LOG_VERSION,
@@ -205,6 +235,14 @@ function isEvent(x: unknown): x is CommentEvent {
 			return typeof e.thread === 'string' && typeof e.resolved === 'boolean';
 		case 'delete':
 			return typeof e.thread === 'string';
+		case 'place':
+			// both flags optional, but a present one must be a boolean: a half-written merge should
+			// lose the observation, not fold a string into a field the panel treats as a verdict
+			return (
+				typeof e.thread === 'string' &&
+				(e.detached === undefined || typeof e.detached === 'boolean') &&
+				(e.hidden === undefined || typeof e.hidden === 'boolean')
+			);
 		case 'edit':
 			return typeof e.message === 'string' && typeof e.body === 'string';
 		case 'delete-message':

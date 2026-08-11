@@ -511,8 +511,10 @@
 		// activate everywhere else (VS Code's own tinymist extension is `onLanguage:typst`), and a
 		// build-config gate would deny intellisense to anyone driving Typst from a Makefile. The
 		// memory it costs is handled by releasing it when the last .typ editor closes, not by
-		// refusing to start it.
-		if (fileFor && /\.typ$/i.test(fileFor) && $settings.typstIntellisense !== false) {
+		// refusing to start it - which is also why there is no setting for this. Opening a .typ file
+		// IS the request; a switch that turns off completion in your own language is a setting whose
+		// only correct value is the default.
+		if (fileFor && /\.typ$/i.test(fileFor)) {
 			void typstLspExtension(get(workspaceRoot), fileFor)
 				.then((ext) => {
 					if (!ext || !view) return;
