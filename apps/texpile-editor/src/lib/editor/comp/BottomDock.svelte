@@ -3,6 +3,8 @@
 	// terminal state (VS Code-style: one shown, the rest kept mounted so their shells persist).
 	// The parent owns only the dock's height/visibility (they drive its grid layout).
 	import ProblemsPanel from './ProblemsPanel.svelte';
+	import CommentsPanel from './CommentsPanel.svelte';
+	import type { CommentMessage, CommentThread } from '$lib/comments/log';
 	import { compileLog } from '$lib/stores/compileLogStore';
 	import { m } from '$lib/paraglide/messages';
 	import { SquareTerminal, ChevronDown, Check, Trash2, Plus, X, FoldHorizontal, UnfoldHorizontal } from '@lucide/svelte';
@@ -13,16 +15,31 @@
 
 	let {
 		cwd,
-		view = $bindable<'terminal' | 'problems'>('terminal'),
+		view = $bindable<'terminal' | 'problems' | 'comments'>('terminal'),
 		pdfPaneOpen = false,
 		shrink = false,
 		terminalEnabled = true,
 		onToggleShrink,
 		onClose,
-		onProblemJump
+		onProblemJump,
+		comments = [],
+		commentFile = null,
+		commentsOrphaned = new Set<string>(),
+		commentsNotVisible = new Set<string>(),
+		commentFilesPresent = null,
+		commentSelected = null,
+		onCommentOpen = () => {},
+		onCommentReply = () => {},
+		onCommentResolve = () => {},
+		onCommentDelete = () => {},
+		onCommentEditMessage = () => {},
+		onCommentDeleteMessage = () => {},
+		commentPending = null,
+		onCommentSubmitPending = () => {},
+		onCommentCancelPending = () => {}
 	}: {
 		cwd: string;
-		view?: 'terminal' | 'problems';
+		view?: 'terminal' | 'problems' | 'comments';
 		pdfPaneOpen?: boolean;
 		shrink?: boolean;
 		/** false for guests: no shells, the dock is a Problems panel only. */
@@ -30,7 +47,25 @@
 		onToggleShrink: () => void;
 		onClose: () => void;
 		onProblemJump: (file: string, line: number, selectText?: string) => void;
+		/** review threads for the whole workspace; see CommentsPanel */
+		comments?: CommentThread[];
+		commentFile?: string | null;
+		commentsOrphaned?: Set<string>;
+		commentsNotVisible?: Set<string>;
+		commentFilesPresent?: Set<string> | null;
+		commentSelected?: string | null;
+		onCommentOpen?: (thread: CommentThread) => void;
+		onCommentReply?: (thread: CommentThread, body: string) => void;
+		onCommentResolve?: (thread: CommentThread, resolved: boolean) => void;
+		onCommentDelete?: (thread: CommentThread) => void;
+		onCommentEditMessage?: (message: CommentMessage, body: string) => void;
+		onCommentDeleteMessage?: (thread: CommentThread, message: CommentMessage) => void;
+		commentPending?: { quote: string } | null;
+		onCommentSubmitPending?: (body: string) => void;
+		onCommentCancelPending?: () => void;
 	} = $props();
+
+	const openComments = $derived(comments.filter((c) => !c.resolved).length);
 
 	let terminals = $state<{ id: number; title: string }[]>([]);
 	let activeTermId = $state<number | null>(null);
@@ -174,11 +209,19 @@
 	}
 </script>
 
-<div class="bg-surface-100-900 text-surface-600-300 flex h-8 shrink-0 items-center justify-between gap-2 px-2 text-xs">
-	<div class="flex min-w-0 items-center gap-1">
+<div class="@container bg-surface-100-900 text-surface-600-300 flex h-8 shrink-0 items-center gap-2 px-2 text-xs">
+	<!-- The tabs scroll and the actions never shrink. Both sides used to be shrinkable, so a narrow
+	     dock squeezed each group below its content and the two drew on top of each other - which is
+	     what a dock beside an open PDF preview does routinely. toolbar-hscroll hides the bar; there
+	     is no room for one in an h-8 strip, and the format toolbar already scrolls this way.
+
+	     Scrolling is the LAST resort though: a tab that has scrolled out of view is a tab nobody
+	     knows exists, and Comments was going first. So the strip is a @container and the terminal
+	     name below drops out before the tabs are squeezed - see there. -->
+	<div class="toolbar-hscroll flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
 		{#if terminalEnabled}
 			<button
-				class="rounded px-2 py-1 {view === 'terminal' ? 'preset-tonal' : 'hover:preset-tonal'}"
+				class="shrink-0 rounded px-2 py-1 whitespace-nowrap {view === 'terminal' ? 'preset-tonal' : 'hover:preset-tonal'}"
 				onclick={() => {
 					view = 'terminal';
 					ensure(); // a fresh shell if the last one was killed, so the pane is never empty
@@ -188,7 +231,9 @@
 			</button>
 		{/if}
 		<button
-			class="flex items-center gap-1 rounded px-2 py-1 {view === 'problems' ? 'preset-tonal' : 'hover:preset-tonal'}"
+			class="flex shrink-0 items-center gap-1 rounded px-2 py-1 whitespace-nowrap {view === 'problems'
+				? 'preset-tonal'
+				: 'hover:preset-tonal'}"
 			onclick={() => (view = 'problems')}
 		>
 			{m.wsview_problems_label()}
@@ -198,14 +243,35 @@
 				<span class="text-warning-600-400 font-semibold">{$compileLog.warnings.length}</span>
 			{/if}
 		</button>
+		<!-- always present, not only once a thread exists: a tab that appears when there is something
+			     in it is a tab nobody finds in the document they actually want to comment on -->
+		<button
+			class="flex shrink-0 items-center gap-1 rounded px-2 py-1 whitespace-nowrap {view === 'comments'
+				? 'preset-tonal'
+				: 'hover:preset-tonal'}"
+			onclick={() => (view = 'comments')}
+		>
+			{m.wsview_comments_label()}
+			{#if openComments > 0}
+				<span class="text-primary-500 font-semibold">{openComments}</span>
+			{/if}
+		</button>
 	</div>
-	<div class="flex items-center gap-0.5">
+	<div class="flex shrink-0 items-center gap-0.5">
 		{#if view === 'terminal'}
 			<div class="relative">
-				<button class="hover:preset-tonal flex items-center gap-1.5 rounded px-2 py-1" onclick={() => (menuOpen = !menuOpen)}>
-					<SquareTerminal class="size-3.5" />
-					<span class="font-medium">{terminals.find((t) => t.id === activeTermId)?.title ?? m.wsview_terminal_label()}</span>
-					<ChevronDown class="size-3" />
+				<button class="hover:preset-tonal flex max-w-40 items-center gap-1.5 rounded px-2 py-1" onclick={() => (menuOpen = !menuOpen)}>
+					<SquareTerminal class="size-3.5 shrink-0" />
+					<!-- The first thing to go when the dock narrows, and the right thing: it is the only
+					     label up here that is redundant. The icon still says terminal, the chevron still
+					     opens the list, and that list names every shell with a tick on the active one -
+					     whereas a tab that has scrolled away tells you nothing. 30rem is the width where
+					     all three tabs plus the full action row stop fitting, with slack for the longer
+					     German and Chinese labels. -->
+					<span class="truncate font-medium @max-[30rem]:hidden"
+						>{terminals.find((t) => t.id === activeTermId)?.title ?? m.wsview_terminal_label()}</span
+					>
+					<ChevronDown class="size-3 shrink-0" />
 				</button>
 				{#if menuOpen}
 					<button class="fixed inset-0 z-40 cursor-default" aria-label={m.wsview_close_menu_aria()} onclick={() => (menuOpen = false)}
@@ -275,6 +341,26 @@
 	{#if view === 'problems'}
 		<div class="bg-surface-50-950 absolute inset-0 z-10 overflow-hidden">
 			<ProblemsPanel root={cwd} onJump={onProblemJump} />
+		</div>
+	{:else if view === 'comments'}
+		<div class="bg-surface-50-950 absolute inset-0 z-10 overflow-hidden">
+			<CommentsPanel
+				threads={comments}
+				activeFile={commentFile}
+				orphaned={commentsOrphaned}
+				notVisible={commentsNotVisible}
+				filesPresent={commentFilesPresent}
+				selected={commentSelected}
+				onOpen={onCommentOpen}
+				onReply={onCommentReply}
+				onResolve={onCommentResolve}
+				onDelete={onCommentDelete}
+				onEditMessage={onCommentEditMessage}
+				onDeleteMessage={onCommentDeleteMessage}
+				pending={commentPending}
+				onSubmitPending={onCommentSubmitPending}
+				onCancelPending={onCommentCancelPending}
+			/>
 		</div>
 	{/if}
 	{#if TerminalComp}

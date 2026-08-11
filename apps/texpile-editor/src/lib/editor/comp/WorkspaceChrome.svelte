@@ -9,7 +9,7 @@
 	import GuestPresence from '$lib/collab/GuestPresence.svelte';
 	import WorkspaceDialogs from '$lib/editor/comp/WorkspaceDialogs.svelte';
 	import PaneSplitter from '$lib/editor/comp/PaneSplitter.svelte';
-	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight, ShieldQuestion } from '@lucide/svelte';
 	import type GlobalSearch from '$lib/editor/comp/GlobalSearch.svelte';
 	import type { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 	import type { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
@@ -33,6 +33,7 @@
 		showToc,
 		menu,
 		actions,
+		pendingCommand = null,
 		fileTreeRef = $bindable(),
 		globalSearchRef = $bindable()
 	}: {
@@ -62,6 +63,9 @@
 			typstProject: boolean;
 		};
 		actions: Any;
+		/** a compile command from .texpile/config.json awaiting acceptance; see projectConfig.ts.
+		 * Window-wide because it gates compiling, not just this file's editor. */
+		pendingCommand?: { command: string } | null;
 		fileTreeRef: Any;
 		globalSearchRef: GlobalSearch | null;
 	} = $props();
@@ -112,6 +116,34 @@
 <!-- outside the branch on purpose: a guest reaches Preferences through the palette and has no menu
      bar to have mounted these -->
 <WorkspaceDialogs />
+
+{#if pendingCommand}
+	<!-- The one setting in .texpile/config.json that Texpile EXECUTES, so it is the one that has to
+	     be accepted rather than applied.
+	     Across the whole window, under the title bar, rather than above the editor: it is a question
+	     about the PROJECT, not about the file you happen to have open, and compiling is blocked
+	     until it is answered (compilePipeline.runCompile) - so it must not sit in a column that a
+	     closed sidebar or a wide preview can push out of view.
+	     Still not a modal: you can keep reading and editing while you decide. -->
+	<div class="border-warning-500/40 bg-warning-500/10 flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b px-3 py-2 text-xs">
+		<ShieldQuestion class="text-warning-600-400 size-4 shrink-0" />
+		<span>{m.project_command_prompt()}</span>
+		<code class="bg-surface-200-800 min-w-0 truncate rounded px-1.5 py-0.5 font-mono" title={pendingCommand.command}>
+			{pendingCommand.command}
+		</code>
+		<span class="text-surface-500-400" title={m.project_command_why()}>({m.project_command_why()})</span>
+		<!-- Two ways to ANSWER, not one answer and one dismissal. The other button used to be "Keep
+		     mine", which only cleared the bar: it recorded nothing, so the question came back on every
+		     reopen - and now that compiling is held until this is settled, that meant starting blocked
+		     every session. Configure opens the dialog, where saving writes your command to the file
+		     and settles the disagreement for everyone, not just for this window.
+		     The accepting one on the RIGHT, where a dialog's confirm sits. -->
+		<div class="ml-auto flex shrink-0 items-center gap-1">
+			<button class="btn btn-xs hover:preset-tonal" onclick={actions.openCompileModal}>{m.wsview_configure_compile_command()}</button>
+			<button class="btn btn-xs preset-filled-primary-500" onclick={actions.acceptProjectCommand}>{m.project_command_use()}</button>
+		</div>
+	</div>
+{/if}
 
 <div class="flex min-h-0 flex-1 overflow-hidden">
 	{#if layout.sidebarOpen}

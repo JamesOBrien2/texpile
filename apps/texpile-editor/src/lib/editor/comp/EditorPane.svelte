@@ -4,7 +4,8 @@
 	// state behind it all lives in WorkspaceView.
 	import type { Node as PMNode } from 'prosemirror-model';
 	import type { ComponentProps } from 'svelte';
-	import { Loader2, CircleAlert } from '@lucide/svelte';
+	import { Loader2, CircleAlert, Info } from '@lucide/svelte';
+	import { isTexpileManaged, managedKind } from '$lib/comments/managed';
 	import Toolbar from './toolbar/Toolbar.svelte';
 	import SourceToolbar from './toolbar/SourceToolbar.svelte';
 	import SearchBar from './SearchBar.svelte';
@@ -87,6 +88,19 @@
 		onOpenFileAt: (file: string, line: number, selectText?: string) => void;
 		/** caret moved to this ZERO-based line/column in the source editor */
 		onCaretMove?: (line: number, character: number) => void;
+		/** review-comment ranges for the open file, and the hooks the editor raises; see lib/comments */
+		commentRanges?: import('$lib/editor/extensions/comments').CommentRange[];
+		/** the same file's threads with their anchors: the visual editor re-resolves against its own
+		 * rendered text, because source offsets mean nothing there (see pmComments) */
+		commentThreads?: import('$lib/comments/log').CommentThread[];
+		selectedComment?: string | null;
+		onAddComment?: (from: number, to: number) => void;
+		/** the visual editor's add: it hands a finished rendered-dialect anchor, not source offsets */
+		onAddCommentAnchored?: (anchor: import('$lib/comments/anchor').CommentAnchor | null) => void;
+		/** threads the visual editor could not draw, so the panel can label them "not in this view" */
+		onCommentsPlaced?: (lost: string[]) => void;
+		onSelectComment?: (id: string, from: 'text' | 'gutter' | 'visual') => void;
+
 		onToggleDiffLayout: () => void;
 		onRefreshDiff: () => void;
 		onExitDiff: () => void;
@@ -133,6 +147,13 @@
 		onJumpToFile,
 		onOpenFileAt,
 		onCaretMove,
+		commentRanges = [],
+		commentThreads = [],
+		selectedComment = null,
+		onAddComment,
+		onAddCommentAnchored,
+		onCommentsPlaced,
+		onSelectComment,
 		onToggleDiffLayout,
 		onRefreshDiff,
 		onExitDiff
@@ -207,13 +228,39 @@
 			{/if}
 		</div>
 	{/if}
+	<!-- not in diff mode: DiffPane carries its own, and both rendered gave two stacked banners -->
+	{#if loadedPath && viewMode !== 'diff' && isTexpileManaged(loadedPath)}
+		<!-- Above the editor, not in it: .texpile is hidden from the tree, so anyone who has this
+		     open reached it deliberately from Source Control and deserves to know what it is before
+		     they touch it. A warning rather than read-only - the file is plain text on their disk
+		     and the app should not pretend otherwise - but hand edits really are lost, so say so.
+
+		     EXCEPT the .gitignore, where editing is the supported override (Texpile only seeds it
+		     when missing): telling someone "not by hand" about the one file whose hand-edits are
+		     honoured would hide the override it exists to provide. -->
+		{@const note = managedKind(loadedPath) === 'ignore' ? m.texpile_managed_ignore_note() : m.texpile_managed_edit_warning()}
+		<!-- 40px is the app's bar height - the PDF, editor and draft toolbars are all min-h-10, border
+		     included - so this reads as another piece of chrome rather than prose shoving the document
+		     down. One line, so the tail truncates: the lead is the part that has to land, and the full
+		     warning is on the tooltip. -->
+		<div
+			class="border-surface-200-800 bg-surface-100-900 text-surface-600-300 flex min-h-10 shrink-0 items-center gap-2 border-b px-3 text-xs"
+			title={note}
+		>
+			<Info class="text-primary-500 size-3.5 shrink-0" />
+			<p class="min-w-0 truncate"><span class="font-medium">{m.vcs_texpile_managed()}.</span> {note}</p>
+		</div>
+	{/if}
 	<!-- relative anchors the floating find bar; it sits outside the scroller so it doesn't scroll away -->
 	<div class="relative min-h-0 min-w-0 flex-1">
 		{#if loadedPath && structured && viewMode === 'visual' && visualDoc}
 			<SearchBar />
 		{/if}
-		<!-- scroll-inset-r keeps this scrollbar clear of the lozenge on the preview divider -->
-		<div class="scroll-inset-r h-full w-full overflow-auto">
+		<!-- scroll-inset-r keeps this scrollbar clear of the lozenge on the preview divider. NOT in diff
+		     mode: DiffPane is a pane, not a document - it fills the height, scrolls inside itself and
+		     draws its own full-width bars, so the 3px showed up as a gap between every one of those
+		     bars and the divider. It wears the inset on its own scroller instead. -->
+		<div class="h-full w-full overflow-auto {viewMode === 'diff' ? '' : 'scroll-inset-r'}">
 			{#if folderEmpty && !$activeFilePath}
 				<div class="mx-auto mt-16 max-w-xl px-6">
 					<div class="text-center">
@@ -264,6 +311,10 @@
 						{onOpenFileAt}
 						{onCaretMove}
 						collab={session.collabFor(loadedPath)}
+						{commentRanges}
+						{selectedComment}
+						{onAddComment}
+						{onSelectComment}
 					/>
 				{/key}
 			{:else if loadedPath && structured && visualDoc}
@@ -293,6 +344,12 @@
 									{onHistoryBoundary}
 									onReady={onVisualReady}
 									onOpenLink={onMdLink}
+									{commentThreads}
+									{selectedComment}
+									{onSelectComment}
+									onAddComment={onAddCommentAnchored}
+									{onCommentsPlaced}
+									addCommentLabel={m.comments_add()}
 								/>
 							{:else if kind === 'typ'}
 								<!-- an entirely separate ProseMirror over typSchema; see lib/typst/visual -->
@@ -306,6 +363,12 @@
 									{onHistoryBoundary}
 									onReady={onVisualReady}
 									onOpenLink={onMdLink}
+									{commentThreads}
+									{selectedComment}
+									{onSelectComment}
+									onAddComment={onAddCommentAnchored}
+									{onCommentsPlaced}
+									addCommentLabel={m.comments_add()}
 								/>
 							{:else}
 								<EditorView
@@ -317,6 +380,12 @@
 									placeholder={m.wsview_editor_placeholder()}
 									{onHistoryBoundary}
 									onReady={onVisualReady}
+									{commentThreads}
+									{selectedComment}
+									{onSelectComment}
+									onAddComment={onAddCommentAnchored}
+									{onCommentsPlaced}
+									addCommentLabel={m.comments_add()}
 								/>
 							{/if}
 							{#if showRenderBar}

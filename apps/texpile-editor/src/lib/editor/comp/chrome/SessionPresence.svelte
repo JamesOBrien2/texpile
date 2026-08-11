@@ -8,6 +8,7 @@
 	// block is what the command center measures itself against: anything in there eats into
 	// menuBudget, so opening a session used to push menus into the overflow button.
 	import { Users } from '@lucide/svelte';
+	import InitialAvatar from '$lib/editor/comp/InitialAvatar.svelte';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
 	import { m } from '$lib/paraglide/messages';
 
@@ -29,11 +30,8 @@
 		<Users class="text-surface-500 size-4 shrink-0" />
 		<div class="flex items-center -space-x-1.5">
 			{#each collabHost.peers.slice(0, 5) as peer, i (i)}
-				<span
-					class="border-surface-100-900 flex size-5 items-center justify-center rounded-full border text-[10px] font-bold text-white"
-					style="background-color: {peer.color}"
-					title={peer.name}>{(peer.name || '?').slice(0, 1).toUpperCase()}</span
-				>
+				<!-- the border is what separates the overlapping stack (-space-x-1.5) into faces -->
+				<InitialAvatar name={peer.name} color={peer.color} class="border-surface-100-900 size-5 border text-[10px]" />
 			{/each}
 		</div>
 		<span class="text-surface-600-400 whitespace-nowrap">{summary}</span>

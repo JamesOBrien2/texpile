@@ -4,6 +4,7 @@
 
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
+import type { CommentEvent } from '$lib/comments/log';
 
 export const BROADCAST = 0;
 
@@ -41,7 +42,16 @@ export type ControlPayload =
 	| { kind: 'synctex-forward'; reqId: number; file: string; line: number }
 	| { kind: 'synctex-forward-result'; reqId: number; page: number; x: number; y: number; w?: number; h?: number }
 	// guest asks the host (the only disk-writer) to mutate a file; paths are manifest-relative
-	| { kind: 'file-op'; op: 'rename' | 'delete'; from: string; to?: string };
+	| { kind: 'file-op'; op: 'rename' | 'delete'; from: string; to?: string }
+	/**
+	 * One review-comment event, in both directions: a guest asking the host to append it, and the
+	 * host telling everyone it happened.
+	 *
+	 * The log is already an append-only event stream, so the thing on the wire is the thing on
+	 * disk - there is no second representation to keep in step. The whole log at join time is too
+	 * big for a control frame and goes over the blob channel instead (blob name 'comments').
+	 */
+	| { kind: 'comment-event'; event: CommentEvent };
 
 /** a manifest-relative path a guest may name in a file-op: forward slashes, inside the root. */
 export function isSafeRel(rel: string): boolean {

@@ -44,6 +44,10 @@ export interface TreeOpsDeps {
 	insertIncludeAtCursor(path: string): boolean;
 	/** offer to repoint \input/\includegraphics references after a rename/move. */
 	afterRename(oldPath: string, newPath: string): void;
+	/** a path moved, in ANY direction - user gesture, undo, redo. Unlike afterRename (a prompt,
+	 * so user gestures only), this is for state that must follow the file unconditionally:
+	 * review-comment threads ride it. */
+	afterPathMoved?(oldPath: string, newPath: string): void;
 	retargetPendingSave(from: string, to: string): void;
 	discardPendingSave(): void;
 }
@@ -292,6 +296,7 @@ export class TreeOps {
 		this.deps.retargetPendingSave(from, to); // don't let a queued write recreate the old path
 		tabs.rename(from, to);
 		docPositions.rename(from, to);
+		this.deps.afterPathMoved?.(from, to);
 		const active = get(activeFilePath);
 		const sep = from.includes('\\') ? '\\' : '/';
 		if (active === from) activeFilePath.set(to);

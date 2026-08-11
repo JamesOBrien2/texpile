@@ -9,7 +9,20 @@
 	import CompileButton, { COMPILE_TONE } from './CompileButton.svelte';
 	import type { ComponentProps } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
-	import { FileText, Eye, Code, Square, Play, ChevronDown, Settings2, CircleAlert, TriangleAlert, Save, Loader2 } from '@lucide/svelte';
+	import {
+		FileText,
+		Eye,
+		Code,
+		Square,
+		Play,
+		ChevronDown,
+		Settings2,
+		CircleAlert,
+		TriangleAlert,
+		Save,
+		Loader2,
+		ShieldQuestion
+	} from '@lucide/svelte';
 
 	interface Props {
 		loadedPath: string | null;
@@ -29,6 +42,8 @@
 		onPauseDraft: () => void;
 		onResumeDraft: () => void;
 		onCompile: () => void;
+		/** the project asks for an unaccepted compile command; the slot shows blocked (see runCompile) */
+		commandPending?: boolean;
 		/** guest only: ask the host to compile (it owns the toolchain). */
 		onRequestCompile: () => void;
 		onConfigureCompile: () => void;
@@ -53,6 +68,7 @@
 		onPauseDraft,
 		onResumeDraft,
 		onCompile,
+		commandPending = false,
 		onRequestCompile,
 		onConfigureCompile,
 		onShowProblems,
@@ -75,6 +91,18 @@
 	 * One descriptor drives both.
 	 */
 	const compile = $derived.by((): ComponentProps<typeof CompileButton> => {
+		// The project names a command this machine has not accepted: nothing compiles until the
+		// banner is answered, so the button says so instead of looking live and refusing on click.
+		// This is presentation only - runCompile holds the actual gate, for the six other ways in.
+		if (commandPending)
+			return {
+				tone: 'warning',
+				icon: ShieldQuestion,
+				label: m.wsview_compile_label(),
+				title: m.project_command_blocked_desc(),
+				disabled: true,
+				onclick: () => {}
+			};
 		if (compiling)
 			return {
 				tone: 'error',

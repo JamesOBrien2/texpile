@@ -176,7 +176,9 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	gitUnstage: (root: string, paths: string[]) => invokeFs('git:unstage', root, paths),
 	/** discard unstaged changes to tracked files. */
 	gitDiscard: (root: string, paths: string[]) => invokeFs('git:discard', root, paths),
-	gitCommit: (root: string, message: string) => invokeFs('git:commit', root, message)
+	gitCommit: (root: string, message: string) => invokeFs('git:commit', root, message),
+	/** the repo's configured user.name, for attributing comments -> { ok, name }. */
+	gitUserName: (root: string) => invokeFs('git:userName', root)
 });
 
 // in-app updates: check/download are explicit renderer calls, events stream back per channel

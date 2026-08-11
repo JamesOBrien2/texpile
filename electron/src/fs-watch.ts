@@ -25,6 +25,16 @@ import * as path from 'node:path';
  */
 const IGNORED_DIRS = new Set(['node_modules', '_draft']);
 
+/**
+ * The one dot-dir that IS watched.
+ *
+ * The blanket dot rule is right for `.git`, `.venv`, `.svelte-kit` and friends - churn the user
+ * never sees. But `.texpile/` holds the project's own state: the comment log and the compile
+ * config, both committed, both rewritten wholesale by a `git pull`. Ignoring it meant a pulled
+ * config or a colleague's comments sat unread until the folder was reopened.
+ */
+const WATCHED_DOT_DIRS = new Set(['.texpile']);
+
 /** trailing debounce: an agent touching five files, or one compile writing aux+log+pdf, should
  * come through as one refresh, not five */
 const QUIET_MS = 200;
@@ -34,7 +44,7 @@ const watchers = new Map<string, { watcher: FSWatcher; timer: NodeJS.Timeout | n
 function ignored(root: string, p: string): boolean {
 	const rel = path.relative(root, p);
 	if (!rel || rel.startsWith('..')) return false; // the root itself, or outside (symlink): let chokidar handle
-	return rel.split(path.sep).some((seg) => seg.startsWith('.') || IGNORED_DIRS.has(seg));
+	return rel.split(path.sep).some((seg) => (seg.startsWith('.') && !WATCHED_DOT_DIRS.has(seg)) || IGNORED_DIRS.has(seg));
 }
 
 /**

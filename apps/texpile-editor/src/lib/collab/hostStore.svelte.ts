@@ -8,6 +8,7 @@ import { deriveSessionKeys, sha256Hex } from './e2e/keys';
 import { CollabSession, manifestOf, locksOf, metaOf, textOf, type PeerInfo } from './session';
 import { isSafeRel, type ControlPayload } from './protocol';
 import type { SharedCompileIntel } from './editSession';
+import type { CommentEvent } from '$lib/comments/log';
 import { HostMaterializer, isTextFile, isShared } from './materialize';
 import { RelayTransport, createRelaySession } from './transport';
 import {
@@ -64,6 +65,10 @@ class HostCollabController {
 	onSyncRequest: ((payload: ControlPayload, from: number) => void) | null = null;
 	/** WorkspaceView wires this to refresh its own tree after a guest upload/rename/delete. */
 	onFileOp: (() => void) | null = null;
+	/** a guest's review-comment event, for the host's own controller to apply and persist. */
+	onCommentEvent: ((event: CommentEvent) => void) | null = null;
+	/** the whole comment log, served to a guest joining mid-review. */
+	commentLog: (() => string) | null = null;
 	/** the host trusts its own disk for file kinds. */
 	readonly sharedKindOf = () => null;
 	/** the host reads its real aux/log; only guests consume the shared copy. */
@@ -114,10 +119,16 @@ class HostCollabController {
 						if (payload.kind === 'compile-request') this.onCompileRequest?.();
 						else if (payload.kind === 'synctex-inverse' || payload.kind === 'synctex-forward') void this.onSyncRequest?.(payload, from);
 						else if (payload.kind === 'file-op') void this.applyGuestFileOp(payload);
+						else if (payload.kind === 'comment-event') this.applyGuestComment(payload.event);
 					},
 					onBlobRequest: (name, from) => {
 						if (name === 'pdf') {
 							if (this.pdfBytes) session.sendBlob('pdf', this.pdfRev, this.pdfBytes, from);
+						} else if (name === 'comments') {
+							// a guest joining mid-review needs every thread, which is far more than a
+							// control frame is for; rev 0 because the log has no revision of its own
+							const log = this.commentLog?.() ?? '';
+							session.sendBlob('comments', 0, new TextEncoder().encode(log), from);
 						} else if (name.startsWith('f:')) {
 							void this.serveFile(name, name.slice(2), from);
 						}
@@ -258,6 +269,29 @@ class HostCollabController {
 		} catch {
 			/* op failed (file gone, name clash): the unchanged manifest is the guest's answer */
 		}
+	}
+
+	/**
+	 * A guest's review-comment event: apply it here (the host owns the log file) and pass it on to
+	 * everyone else, so the guest that sent it is not the only one who sees it.
+	 *
+	 * `file` is validated even though nothing is written to that path - the write always goes to
+	 * .texpile/comments.jsonl. It ends up in a log the host commits, so a guest must not be able to
+	 * put '../..' in it any more than in a file-op.
+	 */
+	private applyGuestComment(event: CommentEvent): void {
+		if (!this.active) return;
+		if (event.t === 'open' && (!isSafeRel(event.file) || !isShared(event.file))) return;
+		this.onCommentEvent?.(event);
+		// straight back out to everyone, the sender included: PeerInfo carries no client id to
+		// address them individually, and the echo costs that guest one duplicate line in memory
+		// which foldLog is built to absorb. It is never persisted - only the host writes the file.
+		this.session?.sendControl({ kind: 'comment-event', event });
+	}
+
+	/** the host's own comment event, out to every guest. */
+	broadcastComment(event: CommentEvent): void {
+		if (this.active) this.session?.sendControl({ kind: 'comment-event', event });
 	}
 
 	/** host: reply to a specific guest (e.g. a resolved SyncTeX position). */

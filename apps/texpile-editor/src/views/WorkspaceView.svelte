@@ -63,6 +63,10 @@
 		jumpToInclude as jumpToIncludeTarget
 	} from '$lib/workspace/editorCommands';
 	import { DiffMode } from '$lib/workspace/diffMode.svelte';
+	import { CommentsController } from '$lib/workspace/commentsController.svelte';
+	import { ProjectConfigSync } from '$lib/workspace/projectConfigSync.svelte';
+	import type { CommentMessage, CommentThread } from '$lib/comments/log';
+	import type { CommentAnchor } from '$lib/comments/anchor';
 	import { attachWindowListeners, attachCloseGuard } from '$lib/workspace/workspaceMount';
 	import { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
 	import { saveVisualPosition, restoreVisualPosition } from '$lib/workspace/visualPositions';
@@ -93,7 +97,8 @@
 		setLastFile
 	} from '$lib/workspace/workspaceStore';
 	import { refreshGitStatus } from '$lib/workspace/gitStore';
-	import { refreshTree as refreshTreeState } from '$lib/workspace/treeRefresh';
+	import { refreshTree as refreshTreeState, flatFiles } from '$lib/workspace/treeRefresh';
+	import { relativeTo } from '$lib/comments/store.svelte';
 	import { ScmActions } from '$lib/workspace/scmActions.svelte';
 	import { SavePipeline } from '$lib/workspace/savePipeline.svelte';
 	import { diskChangedSince, recordDiskStamp, retargetDiskStamp } from '$lib/workspace/diskStamp';
@@ -234,6 +239,94 @@
 		getWorkingText: () => (hasVisualMode(kind) ? doc.texSource : doc.rawContent)
 	});
 	const captureDiffSnapshot = () => diff.snapshot();
+
+	/**
+	 * The refresh buttons confirm they ran.
+	 *
+	 * All three do their work silently and usually change nothing visible - the point of pressing one
+	 * is that you already suspect the view is stale - so there was no way to tell a working button
+	 * from a dead one. Only the BUTTON paths toast: the same refreshes also run on the watcher, on
+	 * focus and on session events, and a toast for those would be a notification every few seconds.
+	 */
+	const toastAfter = async (title: string, work: () => unknown): Promise<void> => {
+		await work();
+		toaster.success({ title, duration: 1500 });
+	};
+
+	// Review comments. The log lives in .texpile/comments.jsonl; anchors are re-resolved whenever a
+	// file opens or its text is replaced from outside, never per keystroke - see the controller.
+	// .texpile/config.json: the project's own build settings, adopted on open and written back on
+	// every change. Its compile command needs accepting once per project - see projectConfig.ts.
+	const projectConfig = new ProjectConfigSync();
+	$effect(() => {
+		const root = guest ? null : $workspaceRoot;
+		// adopt() writes through workspaceStore, which the live compileCommand was ALREADY derived
+		// from when the folder opened - so without re-resolving here the config landed in storage
+		// and the editor went on using whatever it had worked out before reading the file.
+		void projectConfig.adopt(root).then(() => {
+			compileCommand = resolveCompileCommand(get(workspaceRoot), get(settings).compileCommand, get(mainFile));
+		});
+	});
+
+	const commentsCtl = new CommentsController({
+		root: () => $workspaceRoot,
+		preferredAuthor: () => $settings.commentAuthor ?? '',
+		// the mode-preserving jump, not openFileAtLine: revealing a comment from the panel must not
+		// yank a visual-mode reader into source - the same courtesy SyncTeX inverse clicks get
+		openFileAt: (abs, line) => syncJumpToFileLine(abs, line),
+		// a guest's events go up to the host, which owns the log; a host's go out to every guest.
+		// Solo, both are no-ops and the log is just a file.
+		publish: (event) => {
+			if (guest) collabGuest.sendComment(event);
+			else if (collabHost.active) collabHost.broadcastComment(event);
+		}
+	});
+	// "not in this view" is a statement about the VISUAL view; source draws everything it resolves,
+	// so leaving visual mode must clear the set or the panel would keep the label while the reader
+	// is looking straight at the placed comment
+	$effect(() => {
+		if (modes.mode !== 'visual' && commentsCtl.notVisible.size > 0) commentsCtl.notVisible = new Set();
+	});
+	// Which files the panel's threads can actually open: threads survive their file's deletion ON
+	// PURPOSE (the log is append-only, and undoing the delete brings them straight back), so the
+	// panel needs to know a thread's file is gone to say so instead of presenting a dead link.
+	// null while no folder is open - "unknown", drawing no badges, rather than "everything missing".
+	const commentFilesPresent = $derived.by(() => {
+		const root = $workspaceRoot;
+		if (!root) return null;
+		return new Set(flatFiles($fileTree).map((p) => relativeTo(root, p)));
+	});
+	// a function, not a $derived: `kind` is declared further down and a derived would read it at
+	// init. The same reason DiffMode takes getWorkingText as a callback.
+	const commentText = () => (hasVisualMode(kind) ? doc.texSource : doc.rawContent);
+	$effect(() => {
+		// null for a guest: their workspaceRoot is the sentinel 'session', not a path, and the log
+		// lives on the host's disk. Comments in a shared session need the session protocol to carry
+		// their events; until it does, a guest has no log rather than a broken one.
+		void commentsCtl.load(guest ? null : $workspaceRoot);
+	});
+	// A guest has no disk, so its log arrives over the wire: single events as they happen, and the
+	// whole thing once on join. load(null) above leaves it empty until then rather than reading a
+	// path built from the 'session' sentinel.
+	$effect(() => {
+		if (!guest) return;
+		collabGuest.onCommentEvent = (event) => void commentsCtl.ingest(event);
+		collabGuest.onCommentLog = (log) => commentsCtl.adopt(log, doc.path, untrack(commentText));
+		return () => {
+			collabGuest.onCommentEvent = null;
+			collabGuest.onCommentLog = null;
+		};
+	});
+	$effect(() => {
+		// re-asked on every reconnect: events sent while we were away are only in the host's log
+		if (guest && collabGuest.status === 'online') collabGuest.requestComments();
+	});
+	$effect(() => {
+		// keyed on doc.path alone. NOT on the text, because while the editor is live CodeMirror maps
+		// the decorations through each transaction - exactly - and re-searching on top of that could
+		// snap a range onto another copy of the quote mid-edit.
+		commentsCtl.reanchor(doc.path, untrack(commentText));
+	});
 	// macro-defining text from the main file's include chain, fed to the parser (see workspace/project.ts)
 	let projectMacros = $state('');
 	const folderEmpty = $derived($texFiles.length === 0);
@@ -331,7 +424,14 @@
 			isHost: () => hostMode,
 			checkExternalChange: () => void checkExternalChange(),
 			runCompile: () => compiler.runCompile(),
-			onWindowResize: layout.reclampPdf
+			onWindowResize: layout.reclampPdf,
+			reloadProjectState: () => {
+				// both live in .texpile/ and both are committed, so both arrive by pull
+				void commentsCtl.refresh();
+				void projectConfig.refresh(guest ? null : get(workspaceRoot)).then(() => {
+					compileCommand = resolveCompileCommand(get(workspaceRoot), get(settings).compileCommand, get(mainFile));
+				});
+			}
 		});
 		const offBeforeClose = attachCloseGuard({
 			promptIsOpen: () => !!unsaved.prompt,
@@ -492,6 +592,8 @@
 		const root = get(workspaceRoot);
 		if (!root) return;
 		setMainFile(root, next);
+		// the main file is the project's, not this machine's: out to .texpile/config.json
+		void projectConfig.save(root);
 		mainPrompt.confirmed = true; // an explicit choice (set or clear) settles the first-compile question
 		void compiler.loadExistingPdf(); // the main file changed â†’ its expected PDF did too
 		projectMacros = next ? await gatherProjectMacros(next, root) : '';
@@ -521,6 +623,9 @@
 		isTypstProject: () => typstProject,
 		insertIncludeAtCursor: (path) => doInsertInclude(path),
 		afterRename: (oldPath, newPath) => void afterRename(oldPath, newPath),
+		// comment threads follow the file, on user gestures AND on undo/redo replays (which skip
+		// afterRename because it prompts). Writes a `move` event to the log - see fileMoved.
+		afterPathMoved: (from, to) => void commentsCtl.fileMoved(from, to),
 		retargetPendingSave: (from, to) => {
 			saver.retarget(from, to);
 			retargetDiskStamp(from, to); // the guard's stamp must follow the rename too
@@ -583,7 +688,7 @@
 	 */
 	const dockShrunk = $derived(termDock.shrink || !layout.pdfPaneOpen);
 	// bottom dock body: the terminal shells (always mounted) or the Problems list
-	let dockView = $state<'terminal' | 'problems'>('terminal');
+	let dockView = $state<'terminal' | 'problems' | 'comments'>('terminal');
 	// Draft mode: bump to trigger a DraftView recompile; the derived root/main feed it.
 	let draftTrigger = $state(0);
 	let draftRoot = $derived($workspaceRoot ?? '');
@@ -701,6 +806,7 @@
 		getCompileCommand: () => compileCommand,
 		terminalAvailable: () => termDock.available,
 		mainConfirmed: () => mainPrompt.confirmed,
+		commandPending: () => !!projectConfig.pending,
 		getSession: () => session,
 		getDock: () => termDock.dock,
 		stat: statFile,
@@ -1192,7 +1298,8 @@
 		new CompileSettings(
 			() => compileCommand,
 			(c) => (compileCommand = c),
-			() => compiler.runCompile()
+			() => compiler.runCompile(),
+			(root) => void projectConfig.save(root)
 		)
 	);
 	const openCompileModal = () => compileSettings.open();
@@ -1331,7 +1438,9 @@
 			runCompile: () => void compiler.runCompile(),
 			isBusy: () => compiler.busy,
 			refreshTree: () => void refreshTree(),
-			expectedPdfPath: () => compiler.expectedPdfPath()
+			expectedPdfPath: () => compiler.expectedPdfPath(),
+			applyCommentEvent: (event) => void commentsCtl.ingest(event),
+			commentLog: () => commentsCtl.store.serialize()
 		})
 	);
 
@@ -1541,6 +1650,48 @@
 
 	// the callback surface WorkspaceMain hands down to the topbar / editor / preview / dock
 	const actions = {
+		// "Comment" on a selection: reveal the dock's Comments tab with a composer for it. The thread
+		// is not written until the first message, so an abandoned composer leaves nothing behind.
+		beginComment: (from: number, to: number) => {
+			commentsCtl.beginAdd(from, to);
+			dockView = 'comments';
+			termDock.show();
+		},
+		// same gesture from the visual editor, which brings its own anchor (see beginAddAnchored)
+		beginCommentAnchored: (anchor: CommentAnchor | null) => {
+			commentsCtl.beginAddAnchored(anchor);
+			if (!commentsCtl.pending) return; // nothing to compose (no file, or an empty anchor)
+			dockView = 'comments';
+			termDock.show();
+		},
+		// the visual editor's placement report; cleared when the view stops being visual (below)
+		visualCommentsPlaced: (lost: string[]) => {
+			commentsCtl.notVisible = new Set(lost);
+		},
+		/**
+		 * A thread was clicked in the editor.
+		 *
+		 * From the gutter this opens the panel: that mark exists for no other reason than to point at
+		 * a comment, so clicking it means "show me it". From source PROSE it only selects - someone
+		 * working in their own document happened to land on commented text, and taking over the dock
+		 * for that would throw away whatever terminal they were reading; the gutter is right there
+		 * for the deliberate gesture. The visual editor HAS no gutter, so its highlight is the only
+		 * affordance pointing at the thread and a click on it opens the panel too.
+		 */
+		selectComment: (id: string, from: 'text' | 'gutter' | 'visual') => {
+			commentsCtl.selected = id;
+			if (from === 'text') return;
+			dockView = 'comments';
+			termDock.show();
+		},
+		submitComment: (body: string) => void commentsCtl.commitAdd(body),
+		cancelComment: () => commentsCtl.cancelAdd(),
+		openComment: (t: CommentThread) => commentsCtl.open(t),
+		replyToComment: (t: CommentThread, body: string) => void commentsCtl.reply(t, body),
+		resolveComment: (t: CommentThread, resolved: boolean) => void commentsCtl.setResolved(t, resolved),
+		deleteComment: (t: CommentThread) => void commentsCtl.remove(t),
+		editCommentMessage: (msg: CommentMessage, body: string) => void commentsCtl.editMessage(msg, body),
+		deleteCommentMessage: (t: CommentThread, msg: CommentMessage) => void commentsCtl.removeMessage(t, msg),
 		setViewMode,
 		syncForward,
 		pauseDraft: () => pauseDraft(),
@@ -1576,7 +1727,7 @@
 		historyStep: workspaceHistoryStep,
 		jumpToFile: jumpToInclude,
 		openFileAt: openFileAtLine,
-		refreshDiff: captureDiffSnapshot,
+		refreshDiff: () => void toastAfter(m.wsview_toast_diff_refreshed(), captureDiffSnapshot),
 		exitDiff,
 		onPdfDoubleClick,
 		onInverseSync: (file: string, line: number, selectText?: string) => openFileAtLine(normSyncPath(file), line, selectText),
@@ -1601,6 +1752,12 @@
 
 	// the callback surface WorkspaceChrome hands to the menu bar and sidebar
 	const chromeActions = {
+		// the project's compile command, accepted for this folder on this machine. Here rather than
+		// in `actions` because its banner is window-wide chrome now, not part of the editor column.
+		acceptProjectCommand: () => {
+			projectConfig.accept();
+			compileCommand = resolveCompileCommand($workspaceRoot, $settings.compileCommand, $mainFile);
+		},
 		newFileOfType: (ext?: string) => newFileOfType(ext),
 		openFolder: openFolderFromMenu,
 		closeWorkspace,
@@ -1614,14 +1771,15 @@
 		uiZoomIn,
 		uiZoomOut,
 		uiZoomReset,
-		refreshTree: () => void refreshTree(),
+		refreshTree: () => void toastAfter(m.wsview_toast_tree_refreshed(), refreshTree),
 		openGlobalSearch: () => void openGlobalSearch(),
 		closeGlobalSearch: () => void closeGlobalSearch(),
 		openFileAt: openFileAtLine,
 		openEntry,
+		// the main file is a property of the project, so it goes in .texpile/config.json with the rest
 		setMain: (entry: TreeEntry) => void toggleMainFile(entry.path),
 		revealEntry: (entry: TreeEntry) => void revealItem(entry.path),
-		refreshGit: () => refreshGitStatus(get(workspaceRoot))
+		refreshGit: () => void toastAfter(m.wsview_toast_git_refreshed(), () => refreshGitStatus(get(workspaceRoot)))
 	};
 
 	// the Ctrl+K palette. Registered rather than passed down: it reaches roughly a dozen of these
@@ -1712,6 +1870,7 @@
 			typstProject
 		}}
 		actions={chromeActions}
+		pendingCommand={projectConfig.pending}
 		bind:fileTreeRef
 		bind:globalSearchRef
 	>
@@ -1741,7 +1900,16 @@
 				sourceGotoLine,
 				sourceDiagnostics,
 				fileUrl,
-				cwd: $workspaceRoot ?? ''
+				cwd: $workspaceRoot ?? '',
+				comments: commentsCtl.threads,
+				commentFile: commentsCtl.activeFile,
+				commandPending: !!projectConfig.pending,
+				commentsOrphaned: commentsCtl.orphaned,
+				commentsNotVisible: commentsCtl.notVisible,
+				commentFilesPresent,
+				commentSelected: commentsCtl.selected,
+				commentRanges: commentsCtl.ranges,
+				commentPending: commentsCtl.pending
 			}}
 			{actions}
 			bind:dockView

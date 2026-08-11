@@ -656,6 +656,7 @@ handleFs('git:stage', gitService.gitStage);
 handleFs('git:unstage', gitService.gitUnstage);
 handleFs('git:discard', gitService.gitDiscard);
 handleFs('git:commit', gitService.gitCommit);
+handleFs('git:userName', gitService.gitUserName);
 
 const DEFAULT_SETTINGS = {
 	reopenLastFolder: true,
@@ -675,6 +676,7 @@ const DEFAULT_SETTINGS = {
 	pdfDarkPages: true, // in dark mode, render PDF pages inverted
 	draftMode: false, // preview via the incremental per-page engine instead of the terminal command
 	checkForUpdates: true,
+	commentAuthor: '', // name on review comments; blank falls back to the repo's git user.name
 	uiZoom: 1, // whole-window zoom factor (webContents.setZoomFactor); the View menu adjusts it
 	mathPreview: true, // live math preview tooltip in source mode
 	sourceLineWrap: true, // soft-wrap long lines in Source mode

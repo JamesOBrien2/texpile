@@ -35,6 +35,8 @@ export interface AppSettings {
 	draftMode: boolean;
 	/** check the update feed (updates.texpile.com) for a newer version on launch; downloads stay click-only. */
 	checkForUpdates: boolean;
+	/** name put on review comments. Blank falls back to the repo's git user.name. */
+	commentAuthor: string;
 	/** let an MCP client (Claude Code, Claude Desktop) read what the editor is showing. Off by
 	 * default: connecting also needs a config snippet pasted into the client, so defaulting this on
 	 * would open a loopback port for everyone while buying nothing until they act anyway. */
@@ -110,6 +112,7 @@ const DEFAULTS: AppSettings = {
 	pdfDarkPages: true,
 	draftMode: false,
 	checkForUpdates: true,
+	commentAuthor: '',
 	mcpEnabled: false,
 	mcpAllowCompileCommand: false,
 	uiZoom: 1,

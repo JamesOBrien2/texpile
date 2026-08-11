@@ -258,7 +258,10 @@
 		flex-wrap: nowrap;
 		overflow: hidden;
 		border-bottom: 1px solid var(--pdf-toolbar-border, #e0e0e0);
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+		/* No drop shadow. It is 40px like every other bar in the app, but the shadow spread its band
+		   ~3px further, so it never read level with whatever the editor column had beside it - the
+		   diff header most visibly. A leftover from pdf.js's light-theme chrome; no other bar here
+		   has one, and the border already separates it from the page. */
 	}
 
 	.pdf-overflow {

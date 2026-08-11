@@ -107,7 +107,11 @@
 
 <!-- no border-r: the splitter beside it draws its own 1px, and a border as well read as two -->
 <aside class="bg-surface-50-950 flex shrink-0 flex-col" style="width: {width}px">
-	<div class="border-surface-200-800 flex h-12 items-center justify-between gap-2 border-b px-3">
+	<!-- shrink-0: h-12 sets a height, it does not defend one. A flex child shrinks below its height
+	     whenever the column overflows, so any view below that asks for more room than is left takes
+	     it out of this row - and a title bar that changes height as you switch views reads as the
+	     whole layout twitching. -->
+	<div class="border-surface-200-800 flex h-12 shrink-0 items-center justify-between gap-2 border-b px-3">
 		<span class="truncate text-sm font-semibold" title={$workspaceRoot ?? ''}>
 			{$workspaceRoot ? basename($workspaceRoot) : m.wsview_no_folder()}
 		</span>

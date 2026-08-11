@@ -1,6 +1,7 @@
 <script lang="ts">
 	// source control panel, purely presentational: WorkspaceView implements the callbacks
-	import { GitBranch, Check, Plus, Minus, Undo2, RefreshCw, GitCommitHorizontal } from '@lucide/svelte';
+	import { GitBranch, Check, Plus, Minus, Undo2, RefreshCw, GitCommitHorizontal, Info } from '@lucide/svelte';
+	import { isTexpileManaged, managedKind } from '$lib/comments/managed';
 	import type { GitStatusEntry, GitBadge } from '$lib/workspace/git';
 	import { modLabel } from '$lib/platform';
 	import { m } from '$lib/paraglide/messages';
@@ -35,6 +36,15 @@
 	}: Props = $props();
 
 	let commitMessage = $state('');
+
+	/** what the managed file actually holds, so the note is about THIS file and not the last one */
+	function managedNote(path: string): string {
+		const kind = managedKind(path);
+		if (kind === 'comments') return m.vcs_texpile_managed_note();
+		if (kind === 'config') return m.texpile_managed_config_note();
+		if (kind === 'ignore') return m.texpile_managed_ignore_note();
+		return m.texpile_managed_other_note();
+	}
 
 	// staged = index column set (and not untracked); unstaged = working-dir column dirty
 	// (covers modified/deleted and untracked, whose y is '?')
@@ -88,6 +98,14 @@
 		<button class="flex min-w-0 flex-1 items-center gap-1.5 text-left" onclick={() => onOpenDiff(c.path)} title={relPath(c.path)}>
 			<span class="truncate">{baseName(c.path)}</span>
 			{#if dirName(c.path)}<span class="text-surface-500 truncate text-xs">{dirName(c.path)}</span>{/if}
+			<!-- .texpile is hidden from the file tree, so this is the first place anyone meets the
+			     file. Unexplained, it reads as junk to discard rather than review notes to commit. -->
+			{#if isTexpileManaged(relPath(c.path))}
+				<span class="badge preset-tonal-primary shrink-0 gap-1 px-1 py-0 text-[10px]" title={managedNote(c.path)}>
+					<Info class="size-3" />
+					{m.vcs_texpile_managed()}
+				</span>
+			{/if}
 		</button>
 		<div class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
 			{#if stagedRow}

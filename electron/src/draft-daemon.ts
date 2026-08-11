@@ -209,8 +209,7 @@ function typesetOn(state: Daemon, text: string, hsize: number): Promise<{ record
 }
 
 export type ParagraphResult =
-	| { ok: true; records: Rec[]; stats: Rec | null; hsize: number; textheight: number }
-	| { ok: false; error: string };
+	{ ok: true; records: Rec[]; stats: Rec | null; hsize: number; textheight: number } | { ok: false; error: string };
 
 // Typeset one block on the warm daemon (spawning/reusing it for the current preamble).
 // Requests are serialized so the single stdin protocol never interleaves.

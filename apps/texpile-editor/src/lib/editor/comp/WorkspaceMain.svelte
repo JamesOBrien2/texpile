@@ -69,7 +69,7 @@
 		/** editor inputs that are not workspace state: tabs, references, jump targets */
 		panes: Any;
 		actions: Any;
-		dockView: 'terminal' | 'problems';
+		dockView: 'terminal' | 'problems' | 'comments';
 		pdfPaneRef: Any;
 		draftRef: DraftView | null;
 	} = $props();
@@ -96,6 +96,7 @@
 		onPauseDraft={actions.pauseDraft}
 		onResumeDraft={actions.resumeDraft}
 		onCompile={compiler.runCompile}
+		commandPending={panes.commandPending}
 		onRequestCompile={actions.requestCompile}
 		onConfigureCompile={actions.openCompileModal}
 		onShowProblems={actions.showProblems}
@@ -152,6 +153,13 @@
 			onToggleDiffLayout={() => diff.toggleLayout()}
 			onRefreshDiff={actions.refreshDiff}
 			onExitDiff={actions.exitDiff}
+			commentRanges={panes.commentRanges}
+			commentThreads={panes.comments.filter((t) => t.file === panes.commentFile)}
+			selectedComment={panes.commentSelected}
+			onAddComment={actions.beginComment}
+			onAddCommentAnchored={actions.beginCommentAnchored}
+			onCommentsPlaced={actions.visualCommentsPlaced}
+			onSelectComment={actions.selectComment}
 		/>
 		{#if layout.pdfPaneOpen}
 			<PreviewPane
@@ -241,6 +249,21 @@
 			onToggleShrink={actions.toggleTerminalShrink}
 			onClose={actions.toggleTerminal}
 			onProblemJump={actions.openFileAt}
+			comments={panes.comments}
+			commentFile={panes.commentFile}
+			commentsOrphaned={panes.commentsOrphaned}
+			commentsNotVisible={panes.commentsNotVisible}
+			commentFilesPresent={panes.commentFilesPresent}
+			commentSelected={panes.commentSelected}
+			onCommentOpen={actions.openComment}
+			onCommentReply={actions.replyToComment}
+			onCommentResolve={actions.resolveComment}
+			onCommentDelete={actions.deleteComment}
+			onCommentEditMessage={actions.editCommentMessage}
+			onCommentDeleteMessage={actions.deleteCommentMessage}
+			commentPending={panes.commentPending}
+			onCommentSubmitPending={actions.submitComment}
+			onCommentCancelPending={actions.cancelComment}
 		/>
 	{/if}
 

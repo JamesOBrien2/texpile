@@ -46,6 +46,10 @@
 	import RawLatexView from '$lib/editor/extensions/raw-latex/rawLatexView';
 	import InlineLatexView from '$lib/editor/extensions/raw-latex/inlineLatexView';
 	import ContextMenu from '$lib/editor/comp/toolbar/ContextMenu.svelte';
+	import { pmComments } from '$lib/editor/extensions/pmComments';
+	import { syncPmComments } from '$lib/editor/extensions/pmCommentsSync.svelte';
+	import type { CommentAnchor } from '$lib/comments/anchor';
+	import type { CommentThread } from '$lib/comments/log';
 	import type { BibLaTeXReference } from '$lib/biblatex';
 	import 'prosemirror-view/style/prosemirror.css';
 	import 'prosemirror-tables/style/tables.css';
@@ -69,6 +73,13 @@
 		/** the link tooltip's Open action: return true when handled in-app (workspace-relative
 		 * markdown link), false to fall through to the browser. */
 		onOpenLink?: (href: string) => boolean;
+		/** review comments, same contract as the latex EditorView; see extensions/pmComments */
+		commentThreads?: CommentThread[];
+		selectedComment?: string | null;
+		onSelectComment?: (id: string, from: 'visual') => void;
+		onAddComment?: (anchor: CommentAnchor | null) => void;
+		onCommentsPlaced?: (lost: string[]) => void;
+		addCommentLabel?: string;
 	}
 
 	let {
@@ -80,7 +91,13 @@
 		placeholder = '',
 		onHistoryBoundary,
 		onReady,
-		onOpenLink
+		onOpenLink,
+		commentThreads = [],
+		selectedComment = null,
+		onSelectComment,
+		onAddComment,
+		onCommentsPlaced,
+		addCommentLabel = 'Comment'
 	}: Props = $props();
 
 	$effect(() => {
@@ -157,7 +174,12 @@
 			createBlockHandlePlugin({ items: MD_BLOCK_INSERT_ITEMS }),
 			createNodeFlashPlugin(),
 			// collaborators' carets; VisualCollab feeds it, and is inert outside a shared session
-			remoteCursorsPlugin
+			remoteCursorsPlugin,
+			...pmComments({
+				onSelect: (id) => onSelectComment?.(id, 'visual'),
+				onAdd: onAddComment,
+				addLabel: addCommentLabel
+			})
 		];
 
 		let editorState = EditorState.create({ schema: mdSchema, plugins, doc: localValue ?? undefined });
@@ -211,6 +233,8 @@
 	// swap in a re-parsed doc without remounting (same contract as the tex EditorView): a fresh
 	// EditorState on the same view keeps the DOM and scroll; fires only when localValue changes
 	let mountedDoc: PMNode | null = null;
+	/** bumped only on doc SWAPS (see pmCommentsSync); typing maps ranges instead */
+	let docEpoch = $state(0);
 	$effect(() => {
 		const next = localValue;
 		if (!editorView || !next) return;
@@ -239,11 +263,21 @@
 		}
 		editorView.updateState(restored);
 		mountedDoc = next;
+		docEpoch++;
 
 		if (scroller) {
 			scroller.scrollTop = savedTop;
 			requestAnimationFrame(() => (scroller.scrollTop = savedTop));
 		}
+	});
+
+	// after the swap effect, so the sync reads the newly-installed document
+	syncPmComments({
+		view: () => editorView,
+		threads: () => commentThreads,
+		epoch: () => docEpoch,
+		selected: () => selectedComment,
+		onPlaced: (lost) => onCommentsPlaced?.(lost)
 	});
 
 	$effect(() => {
@@ -260,7 +294,7 @@
 
 <main bind:this={editor} class="hidden"></main>
 
-<ContextMenu dialect="markdown" />
+<ContextMenu dialect="markdown" {onAddComment} />
 
 <style lang="postcss">
 	@reference "../../app.css";

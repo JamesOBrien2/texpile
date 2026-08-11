@@ -102,6 +102,7 @@ interface TexpileNative {
 	gitUnstage: (root: string, paths: string[]) => Promise<GitOpResult>;
 	gitDiscard: (root: string, paths: string[]) => Promise<GitOpResult>;
 	gitCommit: (root: string, message: string) => Promise<GitOpResult>;
+	gitUserName: (root: string) => Promise<{ ok: true; name: string | null }>;
 }
 
 export function native(): TexpileNative | undefined {

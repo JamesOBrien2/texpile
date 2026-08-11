@@ -671,6 +671,9 @@
 					{/if}
 					{#if gitBadge(entry)}
 						{@const b = gitBadge(entry)}
+						<!-- stays put on hover and is pushed left by the buttons appearing beside it. Fading
+						     it out instead read as a flicker, and left the trash standing where the badge had
+						     been without lining up with the badges on the rows above. -->
 						<span class="ml-auto shrink-0 pr-1 font-mono text-xs font-bold {b ? BADGE_COLOR[b] : ''}" title={b ? BADGE_TITLE[b] : ''}
 							>{b}</span
 						>
@@ -678,7 +681,11 @@
 				{/if}
 			</button>
 			{#if renaming !== entry.path}
-				<div class="flex shrink-0 items-center gap-0.5 pr-1 opacity-0 group-hover:opacity-100">
+				<!-- `hidden`, not opacity-0: as a permanently-laid-out sibling it reserved its width on
+				     every row, holding the git badge in off the right edge - a big share of a narrow
+				     sidebar's row. Out of flow when idle, in flow on hover, so the badge sits at the edge
+				     and gets pushed left rather than vanishing under the buttons. -->
+				<div class="hidden shrink-0 items-center gap-0.5 pr-1 group-hover:flex">
 					{#if entry.type === 'dir'}
 						<button
 							class="btn-icon btn-icon-xs hover:preset-tonal"

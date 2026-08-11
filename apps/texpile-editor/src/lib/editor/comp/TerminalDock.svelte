@@ -2,6 +2,7 @@
 	// Grid placement + drag-resize around BottomDock. Stays mounted while hidden so the shells
 	// survive; shrunk it sits under the editor column so the preview keeps full height.
 	import BottomDock from './BottomDock.svelte';
+	import type { CommentMessage, CommentThread } from '$lib/comments/log';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
@@ -12,13 +13,31 @@
 		cwd: string;
 		pdfPaneOpen: boolean;
 		terminalEnabled?: boolean;
-		view: 'terminal' | 'problems';
+		view: 'terminal' | 'problems' | 'comments';
 		dock?: BottomDock;
 		onStartResize: (e: MouseEvent) => void;
 		onResizeByKey: (e: KeyboardEvent) => void;
 		onToggleShrink: () => void;
 		onClose: () => void;
 		onProblemJump: (file: string, line: number, selectText?: string) => void;
+		/** review threads and their actions; straight through to BottomDock's Comments tab */
+		comments?: CommentThread[];
+		commentFile?: string | null;
+		commentsOrphaned?: Set<string>;
+		/** placed in the file but not drawable in the current view; see CommentsPanel */
+		commentsNotVisible?: Set<string>;
+		/** workspace-relative paths that exist; null = unknown. See CommentsPanel's fileGone. */
+		commentFilesPresent?: Set<string> | null;
+		commentSelected?: string | null;
+		onCommentOpen?: (thread: CommentThread) => void;
+		onCommentReply?: (thread: CommentThread, body: string) => void;
+		onCommentResolve?: (thread: CommentThread, resolved: boolean) => void;
+		onCommentDelete?: (thread: CommentThread) => void;
+		onCommentEditMessage?: (message: CommentMessage, body: string) => void;
+		onCommentDeleteMessage?: (thread: CommentThread, message: CommentMessage) => void;
+		commentPending?: { quote: string } | null;
+		onCommentSubmitPending?: (body: string) => void;
+		onCommentCancelPending?: () => void;
 	}
 	let {
 		visible,
@@ -34,7 +53,22 @@
 		onResizeByKey,
 		onToggleShrink,
 		onClose,
-		onProblemJump
+		onProblemJump,
+		comments = [],
+		commentFile = null,
+		commentsOrphaned = new Set<string>(),
+		commentsNotVisible = new Set<string>(),
+		commentFilesPresent = null,
+		commentSelected = null,
+		onCommentOpen,
+		onCommentReply,
+		onCommentResolve,
+		onCommentDelete,
+		onCommentEditMessage,
+		onCommentDeleteMessage,
+		commentPending = null,
+		onCommentSubmitPending,
+		onCommentCancelPending
 	}: Props = $props();
 </script>
 
@@ -56,5 +90,30 @@
 	class="border-surface-200-800 flex shrink-0 flex-col border-t"
 	style={`${visible ? `height: ${height}px` : 'display: none'}; grid-row: 4; grid-column: ${dockShrunk ? '1' : '1 / -1'}`}
 >
-	<BottomDock bind:this={dock} bind:view {cwd} {pdfPaneOpen} {shrink} {terminalEnabled} {onToggleShrink} {onClose} {onProblemJump} />
+	<BottomDock
+		bind:this={dock}
+		bind:view
+		{cwd}
+		{pdfPaneOpen}
+		{shrink}
+		{terminalEnabled}
+		{onToggleShrink}
+		{onClose}
+		{onProblemJump}
+		{comments}
+		{commentFile}
+		{commentsOrphaned}
+		{commentsNotVisible}
+		{commentFilesPresent}
+		{commentSelected}
+		{onCommentOpen}
+		{onCommentReply}
+		{onCommentResolve}
+		{onCommentDelete}
+		{onCommentEditMessage}
+		{onCommentDeleteMessage}
+		{commentPending}
+		{onCommentSubmitPending}
+		{onCommentCancelPending}
+	/>
 </section>

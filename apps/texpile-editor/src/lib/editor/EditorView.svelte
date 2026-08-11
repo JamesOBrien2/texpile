@@ -64,6 +64,10 @@
 	import { createBlockHandlePlugin } from './extensions/block-handle-plugin.svelte';
 	import { createNodeFlashPlugin } from './extensions/flash-plugin';
 	import { createLinkPlugin } from './extensions/link';
+	import { pmComments } from './extensions/pmComments';
+	import { syncPmComments } from './extensions/pmCommentsSync.svelte';
+	import type { CommentAnchor } from '$lib/comments/anchor';
+	import type { CommentThread } from '$lib/comments/log';
 	import type { BibLaTeXReference } from '$lib/biblatex';
 
 	interface Props {
@@ -83,6 +87,21 @@
 		 * block on a large document, and it starts only after the dynamic import below resolves - well
 		 * after this component's own mount - so callers cannot infer it from mounting. */
 		onReady?: () => void;
+		/** review threads on this file; resolved here against the rendered text (see pmComments) */
+		commentThreads?: CommentThread[];
+		/** the thread the reader is looking at, highlighted stronger than the rest */
+		selectedComment?: string | null;
+		/** commented text was clicked. Origin 'visual': unlike source mode's prose clicks, this one
+		 * OPENS the panel - the visual editor has no gutter rail, so the highlight is the only
+		 * affordance pointing at the thread, and select-only left no way in at all. */
+		onSelectComment?: (id: string, from: 'visual') => void;
+		/** the reader asked to comment on a selection; the anchor is rendered-dialect (buildPmAnchor) */
+		onAddComment?: (anchor: CommentAnchor | null) => void;
+		/** after each placement pass: the threads that could not be drawn in this view (every tier
+		 * failed), so the panel can say "not in this view" instead of implying they are gone */
+		onCommentsPlaced?: (lost: string[]) => void;
+		/** pill label, translated by the caller */
+		addCommentLabel?: string;
 	}
 
 	let {
@@ -93,7 +112,13 @@
 		imageDir,
 		placeholder = 'Begin your journey here...',
 		onHistoryBoundary,
-		onReady
+		onReady,
+		commentThreads = [],
+		selectedComment = null,
+		onSelectComment,
+		onAddComment,
+		onCommentsPlaced,
+		addCommentLabel = 'Comment'
 	}: Props = $props();
 
 	$effect(() => {
@@ -181,7 +206,12 @@
 			createTrailingParagraphPlugin(),
 			createBoundaryClickPlugin(),
 			createBlockHandlePlugin(),
-			createNodeFlashPlugin()
+			createNodeFlashPlugin(),
+			...pmComments({
+				onSelect: (id) => onSelectComment?.(id, 'visual'),
+				onAdd: onAddComment,
+				addLabel: addCommentLabel
+			})
 		];
 
 		const initialDoc = localValue ?? undefined;
@@ -269,6 +299,10 @@
 	// swap in a re-parsed doc without remounting: a fresh EditorState on the same view keeps the DOM
 	// and scroll. fires only when localValue changes (async re-parse landing), never on typing.
 	let mountedDoc: PMNode | null = null;
+	/** bumped when a doc SWAP lands - the one moment plugin state was rebuilt and comment ranges
+	 * with it. Typing never bumps it: ranges map through transactions and re-searching mid-edit
+	 * could snap a range onto another copy of its text. */
+	let docEpoch = $state(0);
 	$effect(() => {
 		const next = localValue;
 		if (!editorView || !next) return;
@@ -303,6 +337,7 @@
 		}
 		editorView.updateState(restored);
 		mountedDoc = next;
+		docEpoch++;
 
 		if (scroller) {
 			scroller.scrollTop = savedTop; // undo any synchronous caret-scroll from the state swap
@@ -310,6 +345,16 @@
 			// land after this restore, so bumping this to a double rAF would stomp the anchor
 			requestAnimationFrame(() => (scroller.scrollTop = savedTop)); // and any post-layout scrollIntoView
 		}
+	});
+
+	// Declared AFTER the swap effect on purpose: effects run in declaration order, so by the time
+	// the sync reads editorView.state.doc the swap has already installed the new document.
+	syncPmComments({
+		view: () => editorView,
+		threads: () => commentThreads,
+		epoch: () => docEpoch,
+		selected: () => selectedComment,
+		onPlaced: (lost) => onCommentsPlaced?.(lost)
 	});
 
 	$effect(() => {
@@ -338,7 +383,7 @@
 
 <main bind:this={editor} class="hidden"></main>
 
-<ContextMenu />
+<ContextMenu {onAddComment} />
 
 <style lang="postcss">
 	@reference "../../app.css";

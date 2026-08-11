@@ -1,14 +1,15 @@
 <script lang="ts">
-	// The compile-command modal: the LaTeX/Typst format switch, live-mode switch, engine/latexmk
-	// quick setup, the shell command, and the advanced per-folder output-path overrides. Persisting
-	// is the caller's job.
+	// The compile-command modal: a format switch, the selected lane's own settings, the shell
+	// command, and the per-folder output-path overrides. Persisting is the caller's job.
 	//
-	// Format comes first and everything else reads off it: live mode and the engine chips are TeX
-	// concepts with no Typst counterpart, so they are hidden rather than disabled when Typst is
-	// selected. Every chip's state is derived from the command text, never stored alongside it.
+	// Format comes first and decides everything under it. Auto is a LANE CHOICE, not a third mode:
+	// it reads the main file's extension and then renders exactly what that lane would render, so a
+	// .typ main under Auto gets the Typst block and its command, editable, same as picking Typst.
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
-	import { X, Play, ChevronDown } from '@lucide/svelte';
-	import * as cc from '$lib/workspace/compileCommand';
+	import { X, Play } from '@lucide/svelte';
+	import LatexCompileSettings from '$lib/editor/comp/LatexCompileSettings.svelte';
+	import TypstCompileSettings from '$lib/editor/comp/TypstCompileSettings.svelte';
+	import CompileOutputPaths from '$lib/editor/comp/CompileOutputPaths.svelte';
 	import { mainFile, type CompileFormat } from '$lib/workspace/workspaceStore';
 	import { settings, updateSettings, DEFAULT_COMPILE_COMMAND } from '$lib/settings';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
@@ -41,21 +42,15 @@
 		onRun
 	}: Props = $props();
 
-	// quick-setup chip highlight state, reflected live from the draft (null engine = unrecognized)
-	const engine = $derived(cc.detectEngine(command));
-	const latexmk = $derived(cc.usesLatexmk(command));
-
 	// The concrete lane the switch selects: the STORED format decides, with auto reading the main
 	// file's extension. Nothing is inferred from the command string.
 	const lane = $derived(format === 'auto' ? (/\.typ$/i.test($mainFile ?? '') ? 'typst' : 'latex') : format);
 	const isTypst = $derived(lane === 'typst');
 
-	// Live mode is in effect only when it would actually run: the pipeline ignores the setting for
-	// Typst, so the shell command below is the real build and must stay visible and editable.
-	const liveActive = $derived($settings.draftMode && !isTypst);
-	// Typst's counterpart, gated the same way the pipeline gates it: while Preview is on, Compile
-	// opens the preview and the shell command never runs, so showing it as editable would lie.
-	const previewActive = $derived(isTypst && $settings.typstLiveMode !== false);
+	// The lane's built-in mode is running instead of the shell command: LaTeX's live mode (the
+	// pipeline ignores the setting for Typst) or Typst's preview. The command is still the folder's
+	// and is kept - it just is not what Compile runs, so showing it as editable would lie.
+	const superseded = $derived(isTypst ? $settings.typstLiveMode !== false : $settings.draftMode);
 
 	// LaTeX and Typst are product names, so they are not translated; Auto is
 	const FORMATS = [
@@ -63,7 +58,6 @@
 		{ id: 'latex', label: () => 'LaTeX' },
 		{ id: 'typst', label: () => 'Typst' }
 	] as const;
-	const ENGINES = ['pdflatex', 'lualatex', 'xelatex'] as const;
 
 	// the segmented-control classes Preferences' theme picker uses, so an exclusive choice looks the
 	// same wherever it appears
@@ -74,21 +68,6 @@
 		`rounded-base ${compact ? 'px-2.5 py-1 text-xs' : 'px-3 py-1 text-sm'} ${
 			active ? 'bg-surface-50-950 font-medium shadow-sm' : 'text-surface-600-400 hover:text-surface-950-50'
 		}`;
-
-	function applyEngine(e: cc.Engine) {
-		command = cc.buildCompileCommand(e, cc.usesLatexmk(command), command);
-	}
-	function applyLatexmk(on: boolean) {
-		command = cc.buildCompileCommand(cc.detectEngine(command) ?? 'pdflatex', on, command);
-	}
-	function pathWarning(v: string, ext: '.pdf' | '.log'): string | null {
-		const issue = cc.outputPathIssue(v, ext);
-		if (issue === 'has-token') return m.wsview_warning_no_main_here({ token: '{main}' });
-		if (issue === 'wrong-ext') return m.wsview_warning_should_end_in({ ext });
-		return null;
-	}
-	const pdfPathWarning = $derived(pathWarning(outputs.pdf, '.pdf'));
-	const logPathWarning = $derived(pathWarning(outputs.log, '.log'));
 </script>
 
 {#if open}
@@ -107,9 +86,7 @@
 			<!-- (main-file selection lives in the first-compile confirm modal and the file
 			     tree's "Set as main file" - not here; this modal is only about the command) -->
 
-			<!-- Which typesetter, first: it decides what every control under it means. Outside the
-			     live-mode branch because live mode is itself LaTeX-only - the choice has to be
-			     reachable to get out of it. -->
+			<!-- Which typesetter, first: it decides what every control under it means. -->
 			<div class="border-surface-200-800 mb-3 flex items-center justify-between gap-4 border-b pb-3">
 				<span class="text-sm font-medium">{m.wsview_format_label()}</span>
 				<div class={SEGMENT}>
@@ -124,98 +101,22 @@
 				<p class="text-surface-500 mb-2 text-xs">{m.wsview_auto_format_note()}</p>
 			{/if}
 
-			<!-- Live mode IS the incremental lualatex pipeline, so it means nothing for Typst and the
-			     compile pipeline ignores the setting there. Hidden rather than disabled, for the same
-			     reason the engine chips are: a control that cannot apply is not worth a row. The
-			     setting is global and stays whatever it was, ready for the next LaTeX folder. -->
-			{#if !isTypst}
-				<div class="mb-1 flex items-center justify-between gap-4">
-					<span class="text-sm">{m.wsview_live_mode_label()} <span class="text-surface-500">{m.wsview_experimental_label()}</span></span>
-					<Switch checked={$settings.draftMode} disabled={sessionActive} onCheckedChange={(d) => updateSettings({ draftMode: d.checked })}>
-						<Switch.Control><Switch.Thumb /></Switch.Control>
-						<Switch.HiddenInput />
-					</Switch>
-				</div>
-
-				{#if sessionActive}
-					<p class="text-warning-700-300 mt-1 mb-1 text-xs">{m.wsview_live_mode_collab_note()}</p>
-				{/if}
+			<!-- the selected lane's own settings; under Auto this is whichever lane the main file
+			     resolves to, so the block below always describes the compiler that will actually run -->
+			{#if isTypst}
+				<TypstCompileSettings {superseded} />
 			{:else}
-				<!-- Typst's counterpart to live mode, in the same slot. Called "Preview" because that is
-				     what Typst's own tooling calls it: tinymist has a `preview` subcommand, and its editor
-				     plugins ship the command as typst-preview.preview. (The other live thing Typst has is
-				     `typst watch`, which is a rebuild-on-change - that is the separate Watch setting in
-				     Preferences, and this is faster than it.) -->
-				<div class="mb-1 flex items-center justify-between gap-4">
-					<span class="text-sm">{m.wsview_preview_label()}</span>
-					<Switch checked={$settings.typstLiveMode !== false} onCheckedChange={(d) => updateSettings({ typstLiveMode: d.checked })}>
-						<Switch.Control><Switch.Thumb /></Switch.Control>
-						<Switch.HiddenInput />
-					</Switch>
-				</div>
-				<p class="text-surface-500 mt-1 mb-1 text-xs">{m.wsview_typst_preview_note()}</p>
+				<LatexCompileSettings bind:command {superseded} {sessionActive} segment={SEGMENT} {seg} />
 			{/if}
 
-			{#if liveActive}
-				<p class="text-surface-500 mt-1 mb-1 text-xs">
-					{m.wsview_livemode_desc_pre()} <strong>lualatex</strong>
-					{m.wsview_livemode_desc_post()}
-				</p>
-				<div class="border-surface-300-700 text-surface-500 mt-3 rounded border border-dashed px-3 py-2 text-xs">
-					{m.wsview_compile_disabled_live()}
-					<code class="bg-surface-200-800 ml-1 rounded px-1 opacity-70">lualatex (built-in)</code>
-				</div>
-			{:else if previewActive}
-				<!-- same dashed slot live mode uses: the command is kept for the folder, it just is not
-				     what Compile runs while Preview is on -->
-				<div class="border-surface-300-700 text-surface-500 mt-3 rounded border border-dashed px-3 py-2 text-xs">
-					{m.wsview_compile_disabled_preview()}
-					<code class="bg-surface-200-800 ml-1 rounded px-1 opacity-70">tinymist (built-in)</code>
-				</div>
-			{:else}
-				<p class="text-surface-600-300 mt-2 mb-3 text-sm">
-					{m.wsview_compile_desc_pre()} <code class="bg-surface-200-800 rounded px-1">{'{main}'}</code>
-					{m.wsview_compile_desc_post()}
-				</p>
-
-				<!-- quick setup: chips reflect the command when recognizable, and regenerate it on click.
-				     Engines and latexmk are TeX concepts; Typst has neither, so they go away entirely
-				     rather than sitting there greyed out. Hidden under Auto too: they would edit a
-				     command that is derived, not kept. -->
-				{#if !isTypst && format !== 'auto'}
-					<div class="mb-3 flex items-center justify-between gap-3">
-						<span class="flex min-w-0 items-baseline gap-2 text-sm font-medium">
-							{m.wsview_engine_label()}
-							<!-- no segment is raised when the engine is unrecognized, so say why -->
-							{#if engine === null && command.trim()}
-								<span class="text-surface-400 truncate text-xs italic">{m.wsview_custom_label()}</span>
-							{/if}
-						</span>
-						<div class="flex shrink-0 items-center gap-3">
-							<div class={SEGMENT}>
-								{#each ENGINES as eng (eng)}
-									<button type="button" class={seg(engine === eng, true)} onclick={() => applyEngine(eng)}>
-										{eng}
-									</button>
-								{/each}
-							</div>
-							<label class="text-surface-600-300 inline-flex items-center gap-1.5 text-xs">
-								<input type="checkbox" class="checkbox" checked={latexmk} onchange={(e) => applyLatexmk(e.currentTarget.checked)} />
-								{m.wsview_use_latexmk_label()}
-							</label>
-						</div>
-					</div>
-				{/if}
-
+			{#if !superseded}
 				<!-- svelte-ignore a11y_autofocus -->
 				<input
-					class="input w-full font-mono text-sm {format === 'auto' ? 'opacity-60' : ''}"
+					class="input w-full font-mono text-sm"
 					bind:value={command}
 					placeholder={DEFAULT_COMPILE_COMMAND}
 					spellcheck="false"
 					autofocus
-					disabled={format === 'auto'}
-					title={format === 'auto' ? m.wsview_auto_format_note() : undefined}
 					onkeydown={(e) => {
 						if (e.key === 'Enter' && !(command.includes('{main}') && !$mainFile)) onSave(true);
 						else if (e.key === 'Escape') open = false;
@@ -231,72 +132,8 @@
 				<p class="text-surface-500 mt-1 text-xs">
 					{m.wsview_completion_marker_desc()}
 				</p>
-			{/if}
 
-			{#if !liveActive && !previewActive}
-				<button
-					type="button"
-					class="text-surface-500 hover:text-surface-950-50 mt-4 inline-flex items-center gap-1 text-xs"
-					onclick={() => (advancedOpen = !advancedOpen)}
-				>
-					<ChevronDown class="size-3.5 transition-transform {advancedOpen ? '' : '-rotate-90'}" />
-					{m.wsview_advanced_output_paths()}
-				</button>
-				{#if advancedOpen}
-					<div class="mt-2 space-y-3">
-						<p class="text-surface-500 text-xs">
-							{m.wsview_advanced_desc_pre()}
-							<code class="bg-surface-200-800 rounded px-1">-jobname</code>
-							{m.wsview_advanced_desc_post()}
-						</p>
-						<div>
-							<div class="mb-1 flex items-center justify-between gap-2">
-								<span class="text-surface-600-300 text-xs font-medium">{m.wsview_pdf_file_label()}</span>
-								{#if pdfPathWarning}<span class="text-warning-600-400 text-xs">{pdfPathWarning}</span>{/if}
-							</div>
-							<div class="flex gap-2">
-								<input
-									class="input flex-1 font-mono text-sm"
-									bind:value={outputs.pdf}
-									placeholder={m.wsview_auto_detected_placeholder()}
-									spellcheck="false"
-								/>
-								<button
-									type="button"
-									class="btn btn-xs hover:preset-tonal shrink-0"
-									onclick={() => (outputs.pdf = '')}
-									disabled={!outputs.pdf}
-									title={m.wsview_clear_autodetect_title()}
-								>
-									{m.wsview_auto_button()}
-								</button>
-							</div>
-						</div>
-						<div>
-							<div class="mb-1 flex items-center justify-between gap-2">
-								<span class="text-surface-600-300 text-xs font-medium">{m.wsview_log_file_label()}</span>
-								{#if logPathWarning}<span class="text-warning-600-400 text-xs">{logPathWarning}</span>{/if}
-							</div>
-							<div class="flex gap-2">
-								<input
-									class="input flex-1 font-mono text-sm"
-									bind:value={outputs.log}
-									placeholder={m.wsview_auto_detected_placeholder()}
-									spellcheck="false"
-								/>
-								<button
-									type="button"
-									class="btn btn-xs hover:preset-tonal shrink-0"
-									onclick={() => (outputs.log = '')}
-									disabled={!outputs.log}
-									title={m.wsview_clear_autodetect_title()}
-								>
-									{m.wsview_auto_button()}
-								</button>
-							</div>
-						</div>
-					</div>
-				{/if}
+				<CompileOutputPaths bind:outputs bind:open={advancedOpen} />
 			{/if}
 
 			<div class="mt-4 flex items-center justify-between gap-3">
@@ -305,7 +142,7 @@
 				</span>
 				<div class="flex gap-2">
 					<button class="btn btn-xs hover:preset-tonal" onclick={() => (open = false)}>{m.wsview_cancel_label()}</button>
-					{#if liveActive || previewActive}
+					{#if superseded}
 						<!-- one button either way: onRun goes through runCompile, which routes to the draft
 						     engine or the Typst preview by the same conditions that hid the command above -->
 						<button

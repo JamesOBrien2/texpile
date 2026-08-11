@@ -23,6 +23,13 @@
 	import { mdPathCompletion } from '$lib/markdown/pathCompletion';
 	import { cmSpellcheck } from '$lib/editor/extensions/spellcheck/cmSpellcheck';
 	import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
+	import {
+		comments,
+		setCommentRanges,
+		focusCommentThread,
+		commentGutterHandlers,
+		type CommentRange
+	} from '$lib/editor/extensions/comments';
 	import { mathPreview } from '$lib/editor/extensions/math-preview/mathPreview';
 	import { starterGhost } from '$lib/editor/extensions/starter-ghost/starterGhost';
 	import { synctexFlash, flashLineEffect } from '$lib/editor/extensions/synctex-flash/synctexFlash';
@@ -46,7 +53,7 @@
 
 	// full-file CodeMirror editor. source-mode edits are written back verbatim, never through the
 	// parse/serialize round-trip. filename picks the syntax mode, defaulting to LaTeX.
-	import { ArrowRight, Scissors, Copy, ClipboardPaste, Search } from '@lucide/svelte';
+	import { ArrowRight, Scissors, Copy, ClipboardPaste, Search, MessageSquarePlus } from '@lucide/svelte';
 
 	// gotoLine: token makes repeat jumps to the same line re-fire; selectText anchors against line drift.
 	// initialScrollPos: one-shot mode-switch sync applied at mount.
@@ -84,7 +91,11 @@
 		onJumpToFile,
 		onOpenFileAt,
 		collab = null,
-		onCaretMove
+		onCaretMove,
+		commentRanges = [],
+		selectedComment = null,
+		onAddComment,
+		onSelectComment
 	}: {
 		value?: string;
 		onInput?: (v: string) => void;
@@ -109,6 +120,13 @@
 		 * are expected to debounce.
 		 */
 		onCaretMove?: (line: number, character: number) => void;
+		/** review-comment ranges already resolved against this text; see lib/comments */
+		commentRanges?: CommentRange[];
+		/** the thread the reader is looking at; its highlight is picked out from the rest */
+		selectedComment?: string | null;
+		/** the reader selected text and pressed Comment; offsets are into this document */
+		onAddComment?: (from: number, to: number) => void;
+		onSelectComment?: (id: string, from: 'text' | 'gutter') => void;
 	} = $props();
 
 	/** last position reported to onCaretMove, so redundant selection updates do not spray requests */
@@ -321,7 +339,20 @@
 				extensions: [
 					// gutters render in extension order: lint goes before lineNumbers so it lands on their left
 					...(!fileFor || /\.(tex|typ)$/i.test(fileFor) ? [lintGutter({ hoverTime: 0 })] : []),
-					lineNumbers(),
+					// mounted only where the caller wants comments, so .bib and plain-text editors do not
+					// grow a gutter column for a feature they never show
+					...(onAddComment
+						? [
+								comments({
+									onAdd: (from, to) => onAddComment?.(from, to),
+									onSelect: (id, from) => onSelectComment?.(id, from),
+									addLabel: m.comments_add()
+								})
+							]
+						: []),
+					// the comment mark rides these cells (gutterLineClass), so the click on it has to be
+					// handled by the gutter that owns them - EditorView.domEventHandlers only sees the text
+					lineNumbers(onSelectComment ? { domEventHandlers: commentGutterHandlers((id) => onSelectComment(id, 'gutter')) } : {}),
 					gutterTheme,
 					highlightActiveLine(),
 					...(collab ? [yCollab(collab.ytext, collab.awareness, { undoManager: undoManager! }), yRemoteLayoutFix] : [history()]),
@@ -572,6 +603,30 @@
 
 	// declared after the value-sync effect so a same-flush file switch replaces the document
 	// first and the diagnostics anchor on the fresh doc.
+	// Push resolved comment ranges in. Only on identity change: once they are in the field
+	// CodeMirror maps them through every transaction itself, so re-dispatching per keystroke would
+	// throw that mapping away and replace it with whatever the controller last resolved.
+	let lastRanges: CommentRange[] | null = null;
+	$effect(() => {
+		const list = commentRanges;
+		const v = view;
+		if (!v || !onAddComment || list === lastRanges) return;
+		lastRanges = list;
+		v.dispatch({ effects: setCommentRanges.of(list) });
+	});
+
+	// Which thread is selected, so its highlight is picked out from the others. Kept separate from
+	// the ranges: selecting happens far more often than the ranges change, and it must not cost a
+	// rebuild of the whole set.
+	let lastFocus: string | null = null;
+	$effect(() => {
+		const id = selectedComment ?? null;
+		const v = view;
+		if (!v || !onAddComment || id === lastFocus) return;
+		lastFocus = id;
+		v.dispatch({ effects: focusCommentThread.of(id) });
+	});
+
 	// the effect still runs per keystroke (value is a dependency), but dispatching setDiagnostics
 	// re-runs every StateField, so skip when nothing can change: empty mapped onto empty, or the
 	// same list on an unchanged doc (re-anchoring only matters once either of them moved).
@@ -706,6 +761,23 @@
 			<span class="size-4 shrink-0"></span>
 			{m.tbar_ctx_select_all()} <span class="text-surface-500 ml-auto text-xs">⌘A</span>
 		</button>
+		{#if onAddComment}
+			<!-- the same gesture the margin pill offers, for people who reach for the menu instead;
+			     disabled rather than hidden with nothing selected, so it is discoverable -->
+			<div class="border-surface-200-800 my-1 border-t"></div>
+			<button
+				class={itemClass}
+				disabled={!ctxMenu.hasSelection}
+				onclick={() => {
+					const sel = view?.state.selection.main;
+					if (sel && !sel.empty) onAddComment(sel.from, sel.to);
+					closeMenu();
+				}}
+			>
+				<MessageSquarePlus class="size-4 opacity-70" />
+				{m.comments_add()}
+			</button>
+		{/if}
 		<div class="border-surface-200-800 my-1 border-t"></div>
 		<button class={itemClass} onclick={() => (cmFind(), closeMenu())}>
 			<Search class="size-4 opacity-70" />

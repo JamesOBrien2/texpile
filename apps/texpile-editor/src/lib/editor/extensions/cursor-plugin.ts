@@ -36,7 +36,10 @@ function buildDecorations(state: EditorState): DecorationSet {
 		if (isNodeSelection && from === start && to === end) return;
 		// fully inside an editable CM: editing, not crossing
 		if (EDITABLE_CM_TYPES.has(node.type.name) && from >= start && to <= end) return;
-		decorations.push(Decoration.node(start, end, { class: 'bg-blue-200' }));
+		// pm-selected-node wears the SAME --editor-selection colour as native ::selection (app.css):
+		// this shade exists to look like the selection continuing across the node, and the old
+		// opaque Tailwind blue read as patchwork against the translucent native highlight
+		decorations.push(Decoration.node(start, end, { class: 'pm-selected-node' }));
 	});
 
 	return decorations.length ? DecorationSet.create(state.doc, decorations) : DecorationSet.empty;

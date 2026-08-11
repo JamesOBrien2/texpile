@@ -29,7 +29,9 @@ export class CompileSettings {
 	constructor(
 		private getCommand: () => string,
 		private setCommand: (c: string) => void,
-		private runCompile: () => void
+		private runCompile: () => void,
+		/** persist the project-level part of this to .texpile/config.json */
+		private saveProjectConfig: (root: string | null) => void = () => {}
 	) {}
 
 	/** the concrete lane a chip means right now: auto reads the main file's extension. */
@@ -64,17 +66,24 @@ export class CompileSettings {
 	save(thenRun: boolean) {
 		const root = get(workspaceRoot);
 		const lane = this.lane();
-		const command = this.format === 'auto' ? this.commandFor('auto') : this.draft.trim();
+		const command = this.draft.trim();
 		if (root) {
 			setCompileFormat(root, this.format);
-			// auto pins no command (the lane keeps deriving); explicit saves into that lane's slot
-			if (this.format !== 'auto') setFormatCommand(root, lane, command || null);
+			// Auto is a LANE choice and nothing more - the main file's extension picks latex or typst -
+			// so saving under it does exactly what saving under that lane does. The lane's pinned
+			// command is what auto runs anyway (resolveFormatCommand takes saved before any default),
+			// so refusing to store one here left the field showing a live command it could not edit.
+			// Clearing the box is still how you go back to the lane's default.
+			setFormatCommand(root, lane, command || null);
 			setFormatOutputs(root, lane, { pdf: this.outputsDraft.pdf.trim(), log: this.outputsDraft.log.trim() });
 		}
 		// the global default is the LATEX lane's starting point for brand-new folders; typst's
-		// default is generated, so it needs no global slot
-		if (this.format === 'latex' && command) updateSettings({ compileCommand: command });
+		// default is generated, so it needs no global slot. Keyed on the resolved lane, so editing a
+		// LaTeX command under Auto seeds it the same way editing it under LaTeX does.
+		if (lane === 'latex' && command) updateSettings({ compileCommand: command });
 		this.setCommand(command);
+		// the command the user just typed is theirs, so it is written out AND recorded as accepted
+		this.saveProjectConfig(root);
 		this.modalOpen = false;
 		if (thenRun && command) this.runCompile();
 	}
@@ -106,6 +115,11 @@ export class CompileSettings {
 			const cur = savedFormatOutputs(root, lane);
 			setFormatOutputs(root, lane, { pdf: outputs.pdf ?? cur.pdf ?? '', log: outputs.log ?? cur.log ?? '' });
 		}
+		// same as saving from the dialog: what was applied here is the project's, so it goes to
+		// .texpile/config.json and is recorded as accepted. Without this an MCP-set command lived
+		// only in localStorage, and reopening the folder would offer to replace it with the older
+		// one still in the file.
+		this.saveProjectConfig(root);
 		// keep an open dialog showing what was just applied under it
 		if (this.modalOpen) this.open();
 	}

@@ -11,6 +11,7 @@ import { spliceDiff, EDIT_ORIGIN } from './materialize';
 import { RelayTransport } from './transport';
 import type { EditSession, SharedCompileIntel } from './editSession';
 import type { ControlPayload } from './protocol';
+import type { CommentEvent } from '$lib/comments/log';
 import { settings } from '$lib/settings';
 
 export interface GuestFile {
@@ -35,6 +36,9 @@ class GuestCollabController {
 	imageRev = $state(0);
 	// the host's parsed compile products (aux numbers + diagnostics), from the session meta map
 	compileIntel = $state<SharedCompileIntel | null>(null);
+	/** WorkspaceView wires these to its comment controller. */
+	onCommentEvent: ((event: CommentEvent) => void) | null = null;
+	onCommentLog: ((log: string) => void) | null = null;
 	private imageCache = new Map<string, { rev: number; url: string }>(); // rel -> the host's bytes at a rev
 	private imageReq = new Set<string>(); // in-flight 'rel@rev' requests, so we ask once per revision
 	private syncResolvers = new Map<number, (r: ControlPayload) => void>();
@@ -90,7 +94,9 @@ class GuestCollabController {
 				events: {
 					onPeersChange: (peers) => (this.peers = [...peers.values()]),
 					onBlob: (blobName, rev, bytes) => {
-						if (blobName === 'pdf') {
+						if (blobName === 'comments') {
+							this.onCommentLog?.(new TextDecoder().decode(bytes));
+						} else if (blobName === 'pdf') {
 							this.seenPdfRev = Math.max(this.seenPdfRev, rev);
 							this.pdfMaster = bytes.slice();
 							this.pdf = this.pdfMaster.slice().buffer; // a copy for the viewer to consume/detach
@@ -99,7 +105,8 @@ class GuestCollabController {
 						}
 					},
 					onControl: (payload) => {
-						if (payload.kind === 'synctex-inverse-result' || payload.kind === 'synctex-forward-result') {
+						if (payload.kind === 'comment-event') this.onCommentEvent?.(payload.event);
+						else if (payload.kind === 'synctex-inverse-result' || payload.kind === 'synctex-forward-result') {
 							this.syncResolvers.get(payload.reqId)?.(payload);
 							this.syncResolvers.delete(payload.reqId);
 						}
@@ -221,6 +228,22 @@ class GuestCollabController {
 	/** ask the host (the only disk-writer) to rename/delete; the manifest brings the result back. */
 	requestFileOp(op: 'rename' | 'delete', from: string, to?: string): void {
 		this.session?.sendControl({ kind: 'file-op', op, from, to });
+	}
+
+	/**
+	 * A review-comment event of ours, up to the host.
+	 *
+	 * Sent, not applied here first - the host owns the log and echoes it back to everyone, so a
+	 * guest's own comment reaches it the same way anyone else's does. It also means an event made
+	 * while the host is away is simply lost rather than silently local-only.
+	 */
+	sendComment(event: CommentEvent): void {
+		this.session?.sendControl({ kind: 'comment-event', event });
+	}
+
+	/** ask for the whole log; the host answers on the blob channel. */
+	requestComments(): void {
+		this.session?.requestBlob('comments');
 	}
 
 	private onMeta(): void {

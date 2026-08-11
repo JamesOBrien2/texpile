@@ -9,6 +9,7 @@ import { resolveGuestSyncRequest } from '$lib/workspace/syncTexNav';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 import type { EditSession } from '$lib/collab/editSession';
+import type { CommentEvent } from '$lib/comments/log';
 import type { DocumentBuffer } from '$lib/workspace/documentBuffer.svelte';
 import type { VisualParser } from '$lib/workspace/visualParse.svelte';
 import type { ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
@@ -61,6 +62,10 @@ export interface SessionHandlerDeps {
 	/** a guest changed files on the host's disk (upload / rename / delete) */
 	refreshTree(): void;
 	expectedPdfPath(): string | null;
+	/** a guest's review comment, to apply and persist here: the host owns the log file */
+	applyCommentEvent(event: CommentEvent): void;
+	/** the whole log, served to a guest joining mid-review */
+	commentLog(): string;
 }
 
 /** attach the host's handlers for guest requests; returns the teardown, which also ends the
@@ -75,6 +80,10 @@ export function attachSessionHandlers(session: EditSession, deps: SessionHandler
 		deps.runCompile();
 	};
 	session.onFileOp = () => deps.refreshTree();
+	// straight onto collabHost, not the EditSession interface: comments are host-only, and a guest
+	// has neither a log to serve nor a disk to write it to
+	collabHost.onCommentEvent = (event) => deps.applyCommentEvent(event);
+	collabHost.commentLog = () => deps.commentLog();
 	session.onSyncRequest = async (payload, from) => {
 		const root = get(workspaceRoot);
 		const pdf = deps.expectedPdfPath();
@@ -86,6 +95,8 @@ export function attachSessionHandlers(session: EditSession, deps: SessionHandler
 		session.onCompileRequest = null;
 		session.onSyncRequest = null;
 		session.onFileOp = null;
+		collabHost.onCommentEvent = null;
+		collabHost.commentLog = null;
 		void session.end();
 	};
 }

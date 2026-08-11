@@ -107,6 +107,16 @@ interface WorkspaceEntry {
 	compile?: 'latex' | 'typst';
 	latex?: FormatConfig;
 	typst?: FormatConfig;
+	/**
+	 * Compile commands accepted for this folder, per format.
+	 *
+	 * Texpile executes the compile command, so one arriving in .texpile/config.json from a cloned
+	 * repository is not run until the user has said yes to it (see projectConfig.ts). That decision
+	 * belongs to THIS MACHINE, never to the project file - a config that could mark itself trusted
+	 * would be no protection at all - and it is per folder, so it lives here with everything else
+	 * this app remembers about a folder rather than in a second map beside it.
+	 */
+	trusted?: { latex?: string; typst?: string };
 	/** pre-format-split fields, migrated on load and never written again */
 	compileCommand?: string;
 	outputs?: CompileOutputs;
@@ -213,6 +223,18 @@ export function savedMainFile(root: string): string | null {
 	return rel ? absInRoot(root, rel) : null;
 }
 
+/**
+ * The same value ROOT-RELATIVE, exactly as stored, for writing into .texpile/config.json.
+ *
+ * Not savedMainFile() put back through a relativiser: fileSystem's relativeTo compares
+ * case-sensitively, and Windows hands us the drive letter in either case - which is why relInRoot
+ * below lowercases before comparing. It silently returned the absolute path instead, and an
+ * absolute path in a file meant to travel between machines is worse than no file at all.
+ */
+export function savedMainFileRel(root: string): string | null {
+	return workspaceEntry(root).main ?? null;
+}
+
 /** remembers (or clears) the chosen main file for a folder, and updates the live store. */
 export function setMainFile(root: string, path: string | null): void {
 	mainFile.set(path);
@@ -289,5 +311,23 @@ export function setFormatOutputs(root: string, format: 'latex' | 'typst', output
 		else delete cfg.outputs;
 		if (cfg.command || cfg.outputs) e[format] = cfg;
 		else delete e[format];
+	});
+}
+
+/**
+ * Has this exact command been accepted for this folder?
+ *
+ * Exact string equality, deliberately. Anything looser - a prefix, the leading binary - would let
+ * an accepted command be extended into something else without asking again, which is the whole
+ * thing this guards against.
+ */
+export function isCommandTrusted(root: string, format: 'latex' | 'typst', command: string): boolean {
+	return workspaceEntry(root).trusted?.[format] === command;
+}
+
+/** record a command as accepted: the user typed it here, or pressed Use it on the project bar. */
+export function trustCommand(root: string, format: 'latex' | 'typst', command: string): void {
+	updateWorkspace(root, (e) => {
+		e.trusted = { ...e.trusted, [format]: command };
 	});
 }

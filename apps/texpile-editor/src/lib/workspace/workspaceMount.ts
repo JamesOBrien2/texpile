@@ -14,6 +14,8 @@ export interface WindowWiringDeps {
 	checkExternalChange(): void;
 	runCompile(): void;
 	onWindowResize(): void;
+	/** re-read .texpile/ - the comment log and the compile config - after an outside write */
+	reloadProjectState(): void;
 }
 
 /** attach the workspace's window listeners; returns the detach function */
@@ -22,6 +24,9 @@ export function attachWindowListeners(deps: WindowWiringDeps): () => void {
 		deps.refreshTree();
 		if (deps.isHost()) deps.checkExternalChange();
 		deps.reloadReferences();
+		// also here, not only on the watch: a workspace on a filesystem that cannot be watched
+		// degrades to focus, and that is exactly where a pull happens - in the terminal, elsewhere
+		deps.reloadProjectState();
 	};
 	const onFsChanged = () => {
 		deps.refreshTree();
@@ -38,6 +43,9 @@ export function attachWindowListeners(deps: WindowWiringDeps): () => void {
 	const detachNativeWatch = native()?.onWorkspaceFsChanged?.(() => {
 		onFsChanged();
 		if (deps.isHost()) deps.checkExternalChange();
+		// .texpile/ is watched for this: a pulled comment log or compile config is someone else's
+		// write by definition, and until now it waited for the folder to be reopened
+		deps.reloadProjectState();
 	});
 
 	window.addEventListener('focus', onFocus);

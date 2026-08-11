@@ -84,7 +84,12 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
+<!-- min-h-0 flex-1, not h-full: this is a flex child of the sidebar, under a fixed 48px header.
+     h-full asked for 100% of the WHOLE sidebar, so the column wanted 100% + 48px and flex made up
+     the difference by shrinking both items in proportion - taking ~3px off the header, which is
+     why the title row twitched every time you switched into search. The explorer and SCM views
+     next to it already sized themselves this way. -->
+<div class="flex min-h-0 flex-1 flex-col">
 	<div class="border-surface-200-800 flex items-center gap-1 border-b p-2">
 		<div class="relative flex-1">
 			<Search class="text-surface-400 pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />

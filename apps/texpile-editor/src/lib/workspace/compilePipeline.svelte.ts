@@ -69,6 +69,9 @@ export interface CompileDeps {
 	terminalAvailable(): boolean;
 	/** first-compile main-file confirmation state (null = unresolved for the current folder). */
 	mainConfirmed(): boolean | null;
+	/** the project names a compile command this machine has not accepted yet; nothing runs until
+	 * the bar is answered. See projectConfig.ts for why the command alone needs consent. */
+	commandPending(): boolean;
 	getSession(): EditSession;
 	getDock(): { runCommand(cmd: string, onDone?: (output: string) => void): void; interrupt(): void } | undefined;
 	stat(path: string): Promise<{ exists: boolean; mtimeMs: number; size: number }>;
@@ -79,7 +82,7 @@ export interface CompileDeps {
 	flushSaves(): Promise<void>;
 	refreshTree(): Promise<void>;
 	showTerminal(): void;
-	setDockView(view: 'terminal' | 'problems'): void;
+	setDockView(view: 'terminal' | 'problems' | 'comments'): void;
 	setPdfPaneOpen(open: boolean): void;
 	openCompileModal(): void;
 	openMainConfirm(then?: () => void): void;
@@ -167,6 +170,19 @@ export class CompilePipeline {
 		// run of the same root instead, which is what makes it usable as a live preview.
 		if (this.busy) {
 			toaster.info({ title: m.wsview_toast_compile_busy(), duration: 2500 });
+			return;
+		}
+		// The project asks for a command this machine has not accepted. Held here rather than at the
+		// button, because the button is one of seven ways in: the keybinding, the compile window
+		// event, the palette, MCP, Save & run, the first-compile confirm, and a GUEST asking the host
+		// to compile. Gating the entry point is what makes "nothing runs until you decide" true
+		// rather than merely apparent.
+		//
+		// Draft mode and the Typst preview are deliberately NOT gated: they drive built-in engines
+		// and never execute the project's command, so stopping them would cost a live preview to
+		// answer a question about a shell string they do not run.
+		if (this.deps.commandPending()) {
+			toaster.warning({ title: m.project_command_blocked_title(), description: m.project_command_blocked_desc(), duration: 5000 });
 			return;
 		}
 		// first compile in a folder with no explicitly chosen main file: confirm it first

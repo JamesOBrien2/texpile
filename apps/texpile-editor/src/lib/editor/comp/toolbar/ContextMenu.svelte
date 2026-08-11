@@ -19,20 +19,27 @@
 	import { sliceToLatex, pasteLatexText } from '$lib/editor/extensions/latexClipboard';
 	import { sliceToTypst } from '$lib/typst/visual/clipboard';
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
-	import { Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal } from '@lucide/svelte';
+	import { Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal, MessageSquarePlus } from '@lucide/svelte';
+	import { TextSelection } from 'prosemirror-state';
+	import { buildPmAnchor } from '$lib/editor/extensions/pmComments';
+	import type { CommentAnchor } from '$lib/comments/anchor';
 	import Kbd from '$lib/components/Kbd.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
 		/** dialect-aware chrome (see lib/editor/dialect.ts): feature flags derive from this. */
 		dialect?: Dialect;
+		/** offered as a menu item when present; the anchor is rendered-dialect (see pmComments) */
+		onAddComment?: (anchor: CommentAnchor | null) => void;
 	}
-	let { dialect = 'latex' }: Props = $props();
+	let { dialect = 'latex', onAddComment }: Props = $props();
 	// merged cells have no pipe-table syntax, so the markdown editor loses merge/split
 	const cellMerging = $derived(dialect === 'latex');
 
 	let isVisible: boolean = $state(false);
 	let isOnTable: boolean = $state(false);
+	/** captured when the menu opens: a text selection Comment could act on */
+	let hasTextSelection: boolean = $state(false);
 	let selectionType: 'cell' | 'column' | 'row' | null = $state(null);
 	let canMerge: boolean = $state(false);
 	let canSplit: boolean = $state(false);
@@ -345,6 +352,8 @@
 			canMerge = false;
 			canSplit = false;
 		}
+		const sel = $editorViewStore.state.selection;
+		hasTextSelection = sel instanceof TextSelection && !sel.empty;
 
 		isVisible = true;
 		cursorX = event.clientX;
@@ -424,6 +433,27 @@
 						{/if}
 					{/each}
 
+					{#if onAddComment}
+						<!-- the same gesture the floating tooltip offers, for people who reach for the menu;
+						     disabled rather than hidden with nothing selected, so it is discoverable -->
+						<div class="my-1 border-t"></div>
+						<button
+							type="button"
+							class="hover:preset-tonal-primary flex w-full items-center gap-3 px-4 py-2 text-left disabled:opacity-50"
+							disabled={!hasTextSelection}
+							onclick={() =>
+								handleItemClick(() => {
+									const { state } = $editorViewStore;
+									const sel = state.selection;
+									if (sel instanceof TextSelection && !sel.empty) onAddComment(buildPmAnchor(state.doc, sel.from, sel.to));
+								})}
+							onmousedown={(e) => e.preventDefault()}
+						>
+							<MessageSquarePlus class="h-4 w-4 flex-shrink-0" />
+							<span class="min-w-0 flex-1 text-sm">{m.comments_add()}</span>
+						</button>
+					{/if}
+
 					{#if isOnTable}
 						<div class="my-1 border-t"></div>
 						{#each getVisibleTableMenuItems() as item}
@@ -461,7 +491,10 @@
 
 	:global(.ProseMirror *::selection),
 	:global(.ProseMirror *::-moz-selection) {
-		background: #d3d3d3;
+		/* the shared selection colour (app.css), not its own grey: this rule exists to keep the
+		   selection visible while the menu is open, and visible-but-recoloured still reads as a
+		   different selection */
+		background: var(--editor-selection, #d3d3d3);
 	}
 
 	:global(.ProseMirror-selectednode) {
