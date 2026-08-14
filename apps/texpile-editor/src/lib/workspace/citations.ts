@@ -83,12 +83,23 @@ export interface ReferencesFs {
 }
 const nativeFs: ReferencesFs = { scan: (r, e) => scanFiles(r, e).then((x) => x.files), read: readTextFile };
 
-/** parses all .bib files in the folder, merged; references.bib wins on key clashes. */
+// stale-load guard: reloads fire on every save and every window focus, and an older scan landing
+// after a newer one would publish stale entries
+let loadSeq = 0;
+
+/** parses all .bib files in the folder, merged; references.bib wins on key clashes.
+ *  The store is NOT cleared up front: it used to be, and the empty window while the folder
+ *  rescanned made every citation chip downgrade to its raw key and snap back - a visible flash
+ *  on each save. The old list stays up until the fresh one replaces it in a single set. */
 export async function loadReferences(root: string, fs: ReferencesFs = nativeFs): Promise<void> {
-	references.set([]);
+	const my = ++loadSeq;
 	try {
 		const files = await fs.scan(root, ['bib']);
-		if (!files.length) return;
+		if (my !== loadSeq) return;
+		if (!files.length) {
+			references.set([]);
+			return;
+		}
 		// read references.bib first so its entries take precedence in the de-dupe
 		const ordered = [...files].sort(
 			(a, b) => Number(b.name.toLowerCase() === 'references.bib') - Number(a.name.toLowerCase() === 'references.bib')
@@ -101,8 +112,10 @@ export async function loadReferences(root: string, fs: ReferencesFs = nativeFs):
 				/* skip unreadable file */
 			}
 		}
+		if (my !== loadSeq) return;
 		references.set(mergeReferences(texts));
 	} catch (e) {
 		console.error('Failed to load references:', e);
+		if (my === loadSeq) references.set([]);
 	}
 }
