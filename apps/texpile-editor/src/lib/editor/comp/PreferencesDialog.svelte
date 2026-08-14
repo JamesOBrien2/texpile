@@ -375,6 +375,15 @@
 						{@render toggleRow(m.prefs_comment_pill(), m.prefs_comment_pill_note(), $settings.commentPill !== false, (v) =>
 							updateSettings({ commentPill: v })
 						)}
+						<!-- off silences BOTH compile-time dock opens - the terminal on start and Problems on
+						     errors (a chronically-erroring LaTeX doc that still builds would have the dock
+						     stolen every run). The badge beside Compile stays as the passive signal. -->
+						{@render toggleRow(
+							m.prefs_open_dock_on_compile(),
+							m.prefs_open_dock_on_compile_note(),
+							$settings.openDockOnCompile !== false,
+							(v) => updateSettings({ openDockOnCompile: v })
+						)}
 						{@render selectRow(m.prefs_keybindings(), m.prefs_keybindings_note(), $settings.editorKeymap ?? 'default', keymaps, (v) =>
 							updateSettings({ editorKeymap: v as AppSettings['editorKeymap'] })
 						)}

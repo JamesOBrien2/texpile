@@ -625,6 +625,8 @@
 	"comments_pill_off": "Kommentar-Schaltfläche ausblenden. In den Einstellungen wieder aktivierbar",
 	"prefs_comment_pill": "Kommentar-Schaltfläche bei Auswahl",
 	"prefs_comment_pill_note": "Die schwebende Schaltfläche, die zum Kommentieren markierten Textes einlädt, in beiden Editoren.",
+	"prefs_open_dock_on_compile": "Terminalbereich beim Kompilieren öffnen",
+	"prefs_open_dock_on_compile_note": "Öffnet bei Fehlern auch die Problemliste. Ausgeschaltet ist das Abzeichen neben Kompilieren das einzige Signal.",
 	"tabs_show_all": "Alle {count} geöffneten Dateien anzeigen",
 	"tabs_close": "Schließen",
 	"terminal_error_needs_rebuild": "Das Terminal benötigt eine für Electron kompilierte node-pty. Installieren Sie C/C++-Build-Tools, führen Sie dann `pnpm electron:rebuild` aus und starten Sie neu.",

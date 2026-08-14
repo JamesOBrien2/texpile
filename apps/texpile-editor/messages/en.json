@@ -625,6 +625,8 @@
 	"comments_pill_off": "Turn off the Comment button. Re-enable in Preferences",
 	"prefs_comment_pill": "Comment button on selection",
 	"prefs_comment_pill_note": "The floating button that offers to comment on selected text, in both editors.",
+	"prefs_open_dock_on_compile": "Open terminal panel when compiling",
+	"prefs_open_dock_on_compile_note": "Also opens Problems when a compile reports errors. Off, the badge next to Compile is the only signal.",
 	"tabs_show_all": "Show all {count} open files",
 	"tabs_close": "Close",
 	"terminal_error_needs_rebuild": "The terminal needs node-pty built for Electron. Install C/C++ build tools, then run `pnpm electron:rebuild` and restart.",

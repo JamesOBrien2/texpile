@@ -6,11 +6,11 @@ import { compileLog, rebaseLogFile } from '$lib/stores/compileLogStore';
 import { parseCompileDiagnosticsInWorker } from '$lib/latex-log/parseInWorker';
 import { pdfStore } from '$lib/stores/pdfStore';
 import { projectIntelStore } from '$lib/stores/projectIntel';
-import { DEFAULT_COMPILE_COMMAND } from '$lib/settings';
+import { DEFAULT_COMPILE_COMMAND, settings } from '$lib/settings';
 import { compileConfig } from './projectConfigSync.svelte';
 import { workspaceRoot, mainFile, texFiles, effectiveCompileFormat, savedMainFile } from './workspaceStore';
 import * as cc from './compileCommand';
-import { buildTypstCommand, isTypstCommand } from './typstCommand';
+import { buildTypstCommand, isTypstCommand, typstLogArg } from './typstCommand';
 import { basename, joinPath, samePath } from './fileSystem';
 import type { EditSession } from '$lib/collab/editSession';
 import { toaster } from '$lib/modals/toaster-svelte';
@@ -249,7 +249,9 @@ export class CompilePipeline {
 		const logBefore = logPath ? (await this.deps.stat(logPath)).mtimeMs : 0;
 		await this.ensureOutputDir();
 		this.deps.refreshTree(); // the output/ folder may have just been created
-		this.deps.showTerminal();
+		// opt-out ergonomics: with the dock closed by choice, a compile should not reopen it. The
+		// button's own running state is the progress indicator then (see openDockOnCompile).
+		if (get(settings).openDockOnCompile) this.deps.showTerminal();
 		// marker off = no end signal from the shell; leave the button as Compile instead of a
 		// Stop that would linger until the log/PDF pollers time out
 		const track = get(compileConfig).completionMarker;
@@ -335,8 +337,10 @@ export class CompilePipeline {
 		this.deps.shareCompileState(); // guests get the fresh diagnostics without waiting for the intel rescan
 		// a failed build produces no fresh PDF, so nothing else tells the user: surface the
 		// Problems list. clean/warning-only results never steal the dock. (quiet = a baseline share
-		// on session start, which shouldn't yank the host's dock open.)
-		if (!quiet && parsed.errors.length > 0) {
+		// on session start, which shouldn't yank the host's dock open.) openDockOnCompile off
+		// silences this too - a chronically-erroring LaTeX doc that still builds would otherwise
+		// have the dock stolen every run; the topbar badge carries the signal instead.
+		if (!quiet && parsed.errors.length > 0 && get(settings).openDockOnCompile) {
 			this.deps.setDockView('problems');
 			this.deps.showTerminal();
 		}
@@ -439,11 +443,22 @@ export class CompilePipeline {
 		// a command that redirects stderr (the Typst default does) leaves the shell's own error in
 		// the log rather than the terminal. Only read it in that case: a LaTeX log can be megabytes,
 		// and without a redirect it cannot hold the line anyway.
-		if (!program && logPath && redirectsStderr(cmd)) {
-			try {
-				program = missingProgram(await this.deps.readText(logPath));
-			} catch {
-				/* no log to read: nothing more to say */
+		//
+		// Read the `2>` target parsed from the command itself, not the lane-derived logPath: lane
+		// detection keys off the binary name, so the exact failure this reports (`tinymiast`, a
+		// misspelled tinymist) also breaks the lane's idea of where the log is - the evidence sat
+		// in the redirect file while the pipeline read a path that was never written. The lane
+		// path stays as the fallback for redirect shapes the parser does not model (&>, >&).
+		if (!program && redirectsStderr(cmd)) {
+			const base = this.compileBaseDir() ?? get(workspaceRoot);
+			const target = typstLogArg(cmd); // generic 2>/2>> parsing despite the home module
+			const stderrPath = target && base ? cc.resolveOutputPath(base, target) : logPath;
+			if (stderrPath) {
+				try {
+					program = missingProgram(await this.deps.readText(stderrPath));
+				} catch {
+					/* no log to read: nothing more to say */
+				}
 			}
 		}
 		if (!program) return;

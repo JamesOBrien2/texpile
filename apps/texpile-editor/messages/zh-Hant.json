@@ -625,6 +625,8 @@
 	"comments_pill_off": "關閉註解按鈕。可在偏好設定中重新啟用",
 	"prefs_comment_pill": "選取文字時顯示註解按鈕",
 	"prefs_comment_pill_note": "選取文字時浮現的註解按鈕，兩種編輯器均適用。",
+	"prefs_open_dock_on_compile": "編譯時開啟終端面板",
+	"prefs_open_dock_on_compile_note": "編譯出錯時也會開啟問題面板。關閉後，僅以編譯按鈕旁的徽章提示。",
 	"tabs_show_all": "顯示全部 {count} 個開啟的檔案",
 	"tabs_close": "關閉",
 	"terminal_error_needs_rebuild": "終端機需要為 Electron 建置 node-pty。請安裝 C/C++ 建置工具，然後執行 `pnpm electron:rebuild` 並重新啟動。",

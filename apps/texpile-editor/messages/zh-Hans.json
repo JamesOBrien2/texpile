@@ -625,6 +625,8 @@
 	"comments_pill_off": "关闭评论按钮。可在偏好设置中重新启用",
 	"prefs_comment_pill": "选中文本时显示评论按钮",
 	"prefs_comment_pill_note": "选中文本时浮现的评论按钮，两种编辑器均适用。",
+	"prefs_open_dock_on_compile": "编译时打开终端面板",
+	"prefs_open_dock_on_compile_note": "编译报错时也会打开问题面板。关闭后，仅以编译按钮旁的徽章提示。",
 	"tabs_show_all": "显示全部 {count} 个打开的文件",
 	"tabs_close": "关闭",
 	"terminal_error_needs_rebuild": "终端需要为 Electron 构建 node-pty。请安装 C/C++ 构建工具，然后运行 `pnpm electron:rebuild` 并重启。",

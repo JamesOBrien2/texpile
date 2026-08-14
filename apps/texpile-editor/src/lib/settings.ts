@@ -56,6 +56,11 @@ export interface AppSettings {
 	/** the Typst preview scrolls to follow the caret. Off by default, as in tinymist. A pane
 	 *  behavior about YOUR caret, which is why it stays here and not in the project's config. */
 	typstPreviewFollow: boolean;
+	/** Compile opens the dock: the terminal on start, Problems when the run reports errors. Off
+	 *  silences BOTH - a chronically-erroring LaTeX doc that still produces its PDF would otherwise
+	 *  have the dock stolen on every build; the topbar Problems badge stays as the passive signal.
+	 *  Personal ergonomics, so it lives here and not in the project's config. */
+	openDockOnCompile: boolean;
 	/** modal keybindings for the source editor and code blocks. */
 	editorKeymap: 'default' | 'vim' | 'emacs';
 	/** UI display language. Not the LaTeX document language (see DocumentLanguage). */
@@ -97,6 +102,7 @@ const DEFAULTS: AppSettings = {
 	// 768px = the max-w-3xl the editor column was pinned to before this became adjustable
 	visualMaxWidth: 768,
 	typstPreviewFollow: false,
+	openDockOnCompile: true,
 	editorKeymap: 'default',
 	uiLocale: 'en',
 	collabRelayUrl: DEFAULT_COLLAB_RELAY_URL,
