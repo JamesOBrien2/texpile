@@ -5,7 +5,7 @@
 	import type { Node as PMNode } from 'prosemirror-model';
 	import type { ComponentProps } from 'svelte';
 	import { Loader2, CircleAlert, Info } from '@lucide/svelte';
-	import { isTexpileManaged, managedKind } from '$lib/comments/managed';
+	import { isTexpileManaged } from '$lib/comments/managed';
 	import Toolbar from './toolbar/Toolbar.svelte';
 	import SourceToolbar from './toolbar/SourceToolbar.svelte';
 	import SearchBar from './SearchBar.svelte';
@@ -260,24 +260,18 @@
 	<!-- not in diff mode: DiffPane carries its own, and both rendered gave two stacked banners -->
 	{#if loadedPath && viewMode !== 'diff' && isTexpileManaged(loadedPath)}
 		<!-- Above the editor, not in it: .texpile is hidden from the tree, so anyone who has this
-		     open reached it deliberately from Source Control and deserves to know what it is before
-		     they touch it. A warning rather than read-only - the file is plain text on their disk
-		     and the app should not pretend otherwise - but hand edits really are lost, so say so.
-
-		     EXCEPT the .gitignore, where editing is the supported override (Texpile only seeds it
-		     when missing): telling someone "not by hand" about the one file whose hand-edits are
-		     honoured would hide the override it exists to provide. -->
-		{@const note = managedKind(loadedPath) === 'ignore' ? m.texpile_managed_ignore_note() : m.texpile_managed_edit_warning()}
+		     open reached it deliberately from Source Control and deserves the warning before they
+		     touch it. One short line everywhere a managed file appears - the same sentence as the
+		     SCM badge tooltip and the diff bar, so the notice reads as one voice. -->
 		<!-- 40px is the app's bar height - the PDF, editor and draft toolbars are all min-h-10, border
 		     included - so this reads as another piece of chrome rather than prose shoving the document
-		     down. One line, so the tail truncates: the lead is the part that has to land, and the full
-		     warning is on the tooltip. -->
+		     down. -->
 		<div
 			class="border-surface-200-800 bg-surface-100-900 text-surface-600-300 flex min-h-10 shrink-0 items-center gap-2 border-b px-3 text-xs"
-			title={note}
+			title={m.texpile_managed_note()}
 		>
 			<Info class="text-primary-500 size-3.5 shrink-0" />
-			<p class="min-w-0 truncate"><span class="font-medium">{m.vcs_texpile_managed()}.</span> {note}</p>
+			<p class="min-w-0 truncate"><span class="font-medium">{m.vcs_texpile_managed()}.</span> {m.texpile_managed_note()}</p>
 		</div>
 	{/if}
 	<!-- relative anchors the floating find bar; it sits outside the scroller so it doesn't scroll away -->

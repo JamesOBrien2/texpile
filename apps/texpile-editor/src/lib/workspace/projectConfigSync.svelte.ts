@@ -23,6 +23,7 @@ import {
 	type CompileOutputs
 } from '$lib/workspace/workspaceStore';
 import { joinPath } from '$lib/workspace/fileSystem';
+import { ensureTexpileIgnore } from '$lib/workspace/texpileDir';
 import { folderKey } from '$lib/storage/workspaces';
 import { readMigrationStash, writeMigrationStash } from '$lib/migration/migrate';
 import { hasProjectConfig, readProjectConfig, writeProjectConfig, type ProjectConfig } from '$lib/workspace/projectConfig';
@@ -67,21 +68,35 @@ export class ProjectConfigSync {
 	 * already been accepted here.
 	 */
 	async adopt(root: string | null): Promise<void> {
-		this.pending = null;
-		if (!root) return;
+		if (!root) {
+			this.pending = null;
+			return;
+		}
 		// No file yet: seed one when there is anything worth writing - a chosen main, or the compile
 		// state a pre-restructure install left in the migration stash. Keyed on the file being
 		// ABSENT rather than unreadable: a config from a newer Texpile must not be overwritten.
 		if (!(await hasProjectConfig(root))) {
+			this.pending = null;
 			await this.seed(root);
 			return;
 		}
 		const cfg = await readProjectConfig(root);
-		if (!cfg) return;
+		if (!cfg) {
+			this.pending = null;
+			return;
+		}
+		// a project WITH a config must have an ignore that lets it reach git; this also upgrades
+		// the stale seeded allowlist 0.17 shipped (it kept config.json out of git status) without
+		// waiting for the next settings change to write one
+		void ensureTexpileIgnore(root);
 		// back to absolute: setMainFile takes a real path and re-relativises it against the root.
 		// This is also what settles the typesetter - the extension decides it.
 		if (cfg.main !== undefined) setMainFile(root, cfg.main ? joinPath(root, cfg.main) : null);
 
+		// pending is computed into a local and assigned ONCE at the end: this runs on every save
+		// (the fs watcher reports our own writes), and clearing the field up front made the
+		// "Use this command?" bar blink on each one
+		let pending: PendingCommand | null = null;
 		const state = defaults();
 		if (cfg.completionMarker !== undefined) state.completionMarker = cfg.completionMarker;
 		if (cfg.latex?.liveMode !== undefined) state.latex.liveMode = cfg.latex.liveMode;
@@ -95,8 +110,9 @@ export class ProjectConfigSync {
 			if (isCommandTrusted(root, format, fc.command)) state[format].command = fc.command;
 			// only ask about the format this project actually builds with. Prompting for the other
 			// lane's command would be a question about something the user is not doing.
-			else if (format === effectiveCompileFormat(savedMainFile(root))) this.pending = { root, format, command: fc.command };
+			else if (format === effectiveCompileFormat(savedMainFile(root))) pending = { root, format, command: fc.command };
 		}
+		this.pending = pending;
 		compileConfig.set(state);
 	}
 

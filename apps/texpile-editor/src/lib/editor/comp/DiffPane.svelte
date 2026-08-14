@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Git-diff view: the status/controls strip above DiffPanel.
 	import { RefreshCw, GitCompare, X, Info, Columns2, Rows2 } from '@lucide/svelte';
-	import { isTexpileManaged, managedKind } from '$lib/comments/managed';
+	import { isTexpileManaged } from '$lib/comments/managed';
 	import DiffPanel from './DiffPanel.svelte';
 	import { m } from '$lib/paraglide/messages';
 
@@ -18,15 +18,6 @@
 		onExit: () => void;
 	}
 	let { filename, original, modified, layout, loading, error, hasHead, onToggleLayout, onRefresh, onExit }: Props = $props();
-
-	/** what the managed file actually holds, so the note is about THIS file and not the last one */
-	function managedNote(path: string): string {
-		const kind = managedKind(path);
-		if (kind === 'comments') return m.vcs_texpile_managed_note();
-		if (kind === 'config') return m.texpile_managed_config_note();
-		if (kind === 'ignore') return m.texpile_managed_ignore_note();
-		return m.texpile_managed_other_note();
-	}
 </script>
 
 <div class="flex h-full flex-col">
@@ -80,10 +71,10 @@
 		     look like the same notice -->
 		<div
 			class="border-surface-200-800 text-surface-600-300 flex min-h-10 shrink-0 items-center gap-2 border-b px-3 text-xs"
-			title={managedNote(filename)}
+			title={m.texpile_managed_note()}
 		>
 			<Info class="text-primary-500 size-3.5 shrink-0" />
-			<p class="min-w-0 truncate"><span class="font-medium">{m.vcs_texpile_managed()}.</span> {managedNote(filename)}</p>
+			<p class="min-w-0 truncate"><span class="font-medium">{m.vcs_texpile_managed()}.</span> {m.texpile_managed_note()}</p>
 		</div>
 	{/if}
 	<!-- the inset lives here rather than on EditorPane's scroller: only the diff BODY needs to keep

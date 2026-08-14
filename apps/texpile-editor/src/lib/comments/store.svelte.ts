@@ -23,27 +23,43 @@ export class CommentStore {
 	/** the log verbatim, so appending never has to re-serialize anything it did not parse */
 	private events: CommentEvent[] = [];
 
+	/** stale-load guard: reloads fire on every save (the fs watcher reports our own writes) and
+	 *  an older read landing after a newer one would publish stale threads */
+	private loadSeq = 0;
+
 	/** null for a guest, whose root is a sentinel rather than a path - see texpilePath */
 	private path(root: string): string | null {
 		return texpilePath(root, 'comments.jsonl');
 	}
 
-	/** point the store at a workspace and read its log; a missing file is an empty log, not an error */
+	/** point the store at a workspace and read its log; a missing file is an empty log, not an error.
+	 *  The store is NOT cleared while the read is in flight: it used to be, and since every save
+	 *  re-runs this through the fs watcher, the panel blanked, the topbar badge blinked out and the
+	 *  editor's comment highlights flickered on each save. The old threads stay up until the fresh
+	 *  fold replaces them in one step. */
 	async load(root: string | null): Promise<void> {
+		const my = ++this.loadSeq;
 		this.root = root;
-		this.events = [];
-		this.threads = [];
 		const path = root ? this.path(root) : null;
-		if (!path) return;
+		if (!path) {
+			this.events = [];
+			this.threads = [];
+			return;
+		}
 		this.loading = true;
 		try {
 			const text = await readTextFile(path);
+			if (my !== this.loadSeq) return;
 			this.events = parseLog(text);
 			this.threads = foldLog(this.events);
 		} catch {
 			// no log yet is the normal state for a project nobody has commented on
+			if (my === this.loadSeq) {
+				this.events = [];
+				this.threads = [];
+			}
 		} finally {
-			this.loading = false;
+			if (my === this.loadSeq) this.loading = false;
 		}
 	}
 

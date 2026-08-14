@@ -4,10 +4,12 @@
 // ignore rule cannot belong to any one of them. It used to live in the comment store, which meant a
 // user who compiled but never commented got an untracked .texpile/config.json in every project -
 // exactly the "what is this, can I delete it?" the allowlist exists to prevent.
-import { statFile, writeTextFile } from '$lib/workspace/fileSystem';
+import { readTextFile, statFile, writeTextFile } from '$lib/workspace/fileSystem';
 
 /**
- * `.texpile/` is closed by default and opens for the comment log only.
+ * `.texpile/` is closed by default and opens for what the project is meant to share: the comment
+ * log and the compile config (both are read on pull - the trust gate in projectConfigSync exists
+ * precisely because config.json travels with a clone).
  *
  * An allowlist, so the NEXT thing put in here - a cache, per-user layout - arrives ignored and has
  * to be opted in, rather than being noticed in somebody's diff. `!.gitignore` keeps this rule
@@ -15,7 +17,11 @@ import { statFile, writeTextFile } from '$lib/workspace/fileSystem';
  *
  * The negations work because `.texpile/` itself is not ignored - only its contents, by this file.
  */
-const IGNORE_BODY = '*\n!.gitignore\n!comments.jsonl\n';
+const IGNORE_BODY = '*\n!.gitignore\n!comments.jsonl\n!config.json\n';
+
+/** bodies earlier versions seeded, verbatim: the ONLY contents safe to upgrade over. Anything
+ *  else is a user's edit, and editing the file is the supported way to change what gets committed. */
+const STALE_IGNORE_BODIES = ['*\n!.gitignore\n!comments.jsonl\n'];
 
 /**
  * A guest's workspaceRoot is the sentinel 'session', not a path - it addresses the host's files
@@ -32,7 +38,9 @@ export function texpilePath(root: string, name: string): string | null {
 
 /**
  * Write the ignore rule if this project has none - never over one the user has edited, because
- * editing it IS the supported way to change what gets committed.
+ * editing it IS the supported way to change what gets committed. A file still holding an older
+ * seeded body verbatim was never edited, so it upgrades to the current allowlist (0.17 shipped
+ * ignores that silently kept config.json out of git status).
  *
  * Deliberately not cached per session. A cache would skip the check after someone deleted
  * `.texpile` by hand, and the next write would then recreate the config or the log with no ignore
@@ -43,7 +51,12 @@ export async function ensureTexpileIgnore(root: string): Promise<void> {
 	const path = texpilePath(root, '.gitignore');
 	if (!path) return;
 	try {
-		if (!(await statFile(path)).exists) await writeTextFile(path, IGNORE_BODY);
+		if (!(await statFile(path)).exists) {
+			await writeTextFile(path, IGNORE_BODY);
+			return;
+		}
+		const current = (await readTextFile(path)).replace(/\r\n/g, '\n');
+		if (STALE_IGNORE_BODIES.includes(current)) await writeTextFile(path, IGNORE_BODY);
 	} catch {
 		// a project that will not take the file still gets its comments and settings; the ignore is
 		// a courtesy, not a precondition

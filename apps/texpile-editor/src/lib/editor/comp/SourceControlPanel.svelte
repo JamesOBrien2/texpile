@@ -1,7 +1,7 @@
 <script lang="ts">
 	// source control panel, purely presentational: WorkspaceView implements the callbacks
 	import { GitBranch, Check, Plus, Minus, Undo2, RefreshCw, GitCommitHorizontal, Info } from '@lucide/svelte';
-	import { isTexpileManaged, managedKind } from '$lib/comments/managed';
+	import { isTexpileManaged } from '$lib/comments/managed';
 	import type { GitStatusEntry, GitBadge } from '$lib/workspace/git';
 	import { modLabel } from '$lib/platform';
 	import { m } from '$lib/paraglide/messages';
@@ -36,15 +36,6 @@
 	}: Props = $props();
 
 	let commitMessage = $state('');
-
-	/** what the managed file actually holds, so the note is about THIS file and not the last one */
-	function managedNote(path: string): string {
-		const kind = managedKind(path);
-		if (kind === 'comments') return m.vcs_texpile_managed_note();
-		if (kind === 'config') return m.texpile_managed_config_note();
-		if (kind === 'ignore') return m.texpile_managed_ignore_note();
-		return m.texpile_managed_other_note();
-	}
 
 	// staged = index column set (and not untracked); unstaged = working-dir column dirty
 	// (covers modified/deleted and untracked, whose y is '?')
@@ -101,7 +92,7 @@
 			<!-- .texpile is hidden from the file tree, so this is the first place anyone meets the
 			     file. Unexplained, it reads as junk to discard rather than review notes to commit. -->
 			{#if isTexpileManaged(relPath(c.path))}
-				<span class="badge preset-tonal-primary shrink-0 gap-1 px-1 py-0 text-[10px]" title={managedNote(c.path)}>
+				<span class="badge preset-tonal-primary shrink-0 gap-1 px-1 py-0 text-[10px]" title={m.texpile_managed_note()}>
 					<Info class="size-3" />
 					{m.vcs_texpile_managed()}
 				</span>
