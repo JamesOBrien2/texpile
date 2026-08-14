@@ -98,6 +98,8 @@
 		commentThreads?: import('$lib/comments/log').CommentThread[];
 		selectedComment?: string | null;
 		onAddComment?: (from: number, to: number) => void;
+		/** pick citations from Zotero and insert them at the caret (host + desktop only) */
+		onInsertCitation?: () => void;
 		/** the visual editor's add: it hands a finished rendered-dialect anchor, not source offsets */
 		onAddCommentAnchored?: (anchor: import('$lib/comments/anchor').CommentAnchor | null) => void;
 		/** threads the visual editor could not draw, so the panel can label them "not in this view" */
@@ -156,6 +158,7 @@
 		commentThreads = [],
 		selectedComment = null,
 		onAddComment,
+		onInsertCitation,
 		onAddCommentAnchored,
 		onCommentsPlaced,
 		onSelectComment,
@@ -348,6 +351,7 @@
 						{commentRanges}
 						{selectedComment}
 						{onAddComment}
+						{onInsertCitation}
 						{onSelectComment}
 					/>
 				{/key}

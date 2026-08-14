@@ -8,6 +8,7 @@
 // terminal", which view mode is already active - and an open palette is not a hot path.
 import {
 	AlignLeft,
+	BookMarked,
 	Columns2,
 	Eye,
 	FilePlus2,
@@ -165,6 +166,15 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 		});
 
 	// ---- editor ----
+	if (a.insertZoteroCitation && a.canZoteroCite?.())
+		push({
+			id: 'editor.zoteroCitation',
+			label: m.zotero_insert_citation(),
+			group: g.editor,
+			keywords: 'zotero cite citation bibliography reference bibtex import',
+			icon: BookMarked,
+			run: () => a.insertZoteroCitation?.()
+		});
 	if (a.hasFile() && a.canFormat())
 		push({
 			id: 'editor.format',

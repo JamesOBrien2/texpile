@@ -105,6 +105,8 @@
 		setLastFile
 	} from '$lib/workspace/workspaceStore';
 	import { refreshGitStatus } from '$lib/workspace/gitStore';
+	import { insertCitationFromZotero, zoteroAvailable } from '$lib/zotero/insertFromZotero';
+	import ZoteroCitationDialog from '$lib/zotero/ZoteroCitationDialog.svelte';
 	import { refreshTree as refreshTreeState, flatFiles } from '$lib/workspace/treeRefresh';
 	import { relativeTo } from '$lib/comments/store.svelte';
 	import { ScmActions } from '$lib/workspace/scmActions.svelte';
@@ -1442,6 +1444,20 @@
 	const syncToLine = (line: number) => (kind === 'typ' ? syncTypstForwardLine(line) : syncForwardLine(line));
 	const onPdfDoubleClick = (page: number, x: number, y: number, selectText?: string) => syncTex.inverseFromClick(page, x, y, selectText);
 
+	// ---- Zotero citations (host-only; see lib/zotero) ----
+	// The open file's dialect must match the main's engine: the imported entries land in the
+	// bibliography the MAIN file declares, so a .typ scratch file open in a LaTeX project has
+	// nowhere sensible to point its citation.
+	const canZoteroCite = () => !guest && zoteroAvailable() && !!$mainFile && (mainIsTypst ? kind === 'typ' : kind === 'tex');
+	const insertZoteroCitation = () => {
+		if (!canZoteroCite()) return;
+		void insertCitationFromZotero({
+			kind: kind as 'tex' | 'typ',
+			root: get(workspaceRoot) ?? '',
+			openDoc: () => ({ path: doc.path, text: doc.buffer })
+		});
+	};
+
 	// compile-command dialog state lives in lib/workspace/compileSettings.svelte.ts
 	let compileSettings = $state(
 		new CompileSettings(
@@ -1893,6 +1909,7 @@
 			showTerminal();
 			dockView = 'comments';
 		},
+		insertZoteroCitation,
 		save: () => save(),
 		activateTab,
 		closeTab,
@@ -2006,7 +2023,9 @@
 			openFolder: () => void openFolderFromMenu(),
 			refreshTree: () => void refreshTree(),
 			openTypstPreview: () => enableTypstPreview(),
-			isTypstProject: () => typstProject
+			isTypstProject: () => typstProject,
+			canZoteroCite,
+			insertZoteroCitation
 		});
 		return () => setPaletteActions(null);
 	});
@@ -2102,7 +2121,8 @@
 				commentFilesPresent,
 				commentSelected: commentsCtl.selected,
 				commentRanges: commentsCtl.ranges,
-				commentPending: commentsCtl.pending
+				commentPending: commentsCtl.pending,
+				zoteroCite: canZoteroCite()
 			}}
 			{actions}
 			bind:dockView
@@ -2110,6 +2130,8 @@
 			bind:draftRef
 		/>
 	</WorkspaceChrome>
+
+	<ZoteroCitationDialog />
 
 	<WorkspaceModals
 		bind:mainPrompt

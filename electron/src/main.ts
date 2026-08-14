@@ -18,6 +18,7 @@ import * as mcp from './mcp/server';
 import { publishWindowState, forgetWindow, type WindowState } from './mcp/state';
 import { deliverResponse } from './mcp/bridge';
 import { registerWindowChrome, forgetWindowChrome, watchWindowState } from './window-chrome';
+import { registerZotero } from './zotero';
 
 const isDev = !app.isPackaged;
 
@@ -824,6 +825,8 @@ ipcMain.handle('typst:resolve', () => typstService.resolveTinymist(app.getPath('
 // that list because typst:resolve already answers for it, and with more detail (it reports the
 // embedded Typst version and which location won).
 ipcMain.handle('toolchain:probe', () => toolchain.probeToolchain());
+
+registerZotero();
 
 ipcMain.handle('typst:lsp:start', async (e, root: string | null) => {
 	const wcId = e.sender.id;

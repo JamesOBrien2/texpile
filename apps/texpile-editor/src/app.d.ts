@@ -87,6 +87,17 @@ declare global {
 		onExit(cb: (code: number | null) => void): () => void;
 	}
 
+	interface TexpileZoteroBridge {
+		/** Is Zotero up, and does it have the Better BibTeX plugin. */
+		probe(): Promise<{ ok: boolean; running: boolean; bbt: boolean }>;
+		/** Library matches for a query, with their citekeys; feeds the in-app picker dialog. */
+		search(
+			query: string
+		): Promise<{ ok: boolean; items?: { citekey: string; title: string; author: string; year: string }[]; error?: string }>;
+		/** The picked entries as bib text, via the named Better BibTeX translator. */
+		exportBib(keys: string[], translator: string): Promise<{ ok: boolean; bib?: string; error?: string }>;
+	}
+
 	interface Window {
 		texpile: {
 			debug: boolean;
@@ -99,6 +110,8 @@ declare global {
 		texpileTerminal?: TexpileTerminalBridge;
 		/** tinymist bridge (Electron only; undefined in the browser dev server). */
 		texpileTypst?: TexpileTypstBridge;
+		/** Zotero citation bridge (Electron only; undefined in the browser dev server). */
+		texpileZotero?: TexpileZoteroBridge;
 	}
 }
 

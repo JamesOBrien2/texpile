@@ -52,6 +52,9 @@ export interface PaletteActions {
 	openTypstPreview(): void;
 	/** the compile target is Typst: New-file commands offer .typ instead of .tex */
 	isTypstProject(): boolean;
+	/** Zotero citation pick: available on hosts in the desktop app, for the matching dialect */
+	canZoteroCite?(): boolean;
+	insertZoteroCitation?(): void;
 }
 
 class CommandPaletteState {

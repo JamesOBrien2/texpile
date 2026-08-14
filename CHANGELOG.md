@@ -10,6 +10,8 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 - feat: added Typst support
 - feat: added visual Markdown support
 - feat: added comment support
+- feat: Zotero integration
+- feat: Allow preview to be popped up
 - feat: general UI enhancement
 
 ## [0.16.1] - 2026-08-02

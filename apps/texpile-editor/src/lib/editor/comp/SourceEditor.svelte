@@ -53,7 +53,7 @@
 
 	// full-file CodeMirror editor. source-mode edits are written back verbatim, never through the
 	// parse/serialize round-trip. filename picks the syntax mode, defaulting to LaTeX.
-	import { ArrowRight, Scissors, Copy, ClipboardPaste, Search, MessageSquarePlus } from '@lucide/svelte';
+	import { ArrowRight, BookMarked, Scissors, Copy, ClipboardPaste, Search, MessageSquarePlus } from '@lucide/svelte';
 
 	// gotoLine: token makes repeat jumps to the same line re-fire; selectText anchors against line drift.
 	// initialScrollPos: one-shot mode-switch sync applied at mount.
@@ -95,6 +95,7 @@
 		commentRanges = [],
 		selectedComment = null,
 		onAddComment,
+		onInsertCitation,
 		onSelectComment
 	}: {
 		value?: string;
@@ -126,6 +127,8 @@
 		selectedComment?: string | null;
 		/** the reader selected text and pressed Comment; offsets are into this document */
 		onAddComment?: (from: number, to: number) => void;
+		/** pick citations from Zotero and insert them at the caret (host + desktop only) */
+		onInsertCitation?: () => void;
 		onSelectComment?: (id: string, from: 'text' | 'gutter') => void;
 	} = $props();
 
@@ -804,6 +807,13 @@
 			>
 				<MessageSquarePlus class="size-4 opacity-70" />
 				{m.comments_add()}
+			</button>
+		{/if}
+		{#if onInsertCitation}
+			<div class="border-surface-200-800 my-1 border-t"></div>
+			<button class={itemClass} onclick={() => (onInsertCitation(), closeMenu())}>
+				<BookMarked class="size-4 opacity-70" />
+				{m.zotero_insert_citation()}
 			</button>
 		{/if}
 		<div class="border-surface-200-800 my-1 border-t"></div>

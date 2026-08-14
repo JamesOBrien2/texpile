@@ -257,6 +257,16 @@ contextBridge.exposeInMainWorld('texpileTypst', {
 	}
 });
 
+// Zotero citations, through Better BibTeX's localhost server (see electron/src/zotero.ts)
+contextBridge.exposeInMainWorld('texpileZotero', {
+	/** is Zotero up, and does it have the Better BibTeX plugin */
+	probe: () => ipcRenderer.invoke('zotero:probe'),
+	/** library matches for a query, with their citekeys - feeds the in-app picker dialog */
+	search: (query: string) => ipcRenderer.invoke('zotero:search', { query }),
+	/** the picked entries as bib text, via the named BBT translator */
+	exportBib: (keys: string[], translator: string) => ipcRenderer.invoke('zotero:export', { keys, translator })
+});
+
 // terminal bridge to the node-pty shells in the main process, keyed by a string `id`
 contextBridge.exposeInMainWorld('texpileTerminal', {
 	/** whether node-pty loaded (false if it needs `pnpm electron:rebuild`). */
