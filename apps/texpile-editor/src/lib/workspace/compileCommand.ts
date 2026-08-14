@@ -1,7 +1,7 @@
 // Parse and generate the LaTeX compile command: engine chips, output directory, and the
 // expected PDF/log paths the preview, log parser, and SyncTeX all rely on. Pure string logic.
 
-import { basename, joinPath } from './fileSystem';
+import { basename, dirname, joinPath } from './fileSystem';
 import { isTypstCommand, typstLogPath, typstOutDir, typstPdfPath } from './typstCommand';
 
 export type Engine = 'pdflatex' | 'lualatex' | 'xelatex';
@@ -29,12 +29,47 @@ export function usesLatexmk(cmd: string): boolean {
 	return /\blatexmk\b/.test(cmd);
 }
 
-/** regenerate a standard command, carrying over the current output dir (default 'output'). */
+/**
+ * latexmk's -cd: run the compile in the main file's own directory.
+ *
+ * Without it the compile runs in the workspace root, and TeX resolves \input against the WORKING
+ * directory rather than the source file - so a main file in a subfolder cannot find its own
+ * siblings. `-cd-` is the explicit OFF form and must not read as on.
+ */
+export function usesCd(cmd: string): boolean {
+	return /(?:^|\s)-cd(?![-\w])/.test(cmd);
+}
+
+/**
+ * The directory the compile actually RUNS IN, which every generated path is relative to.
+ *
+ * Under -cd that is the main file's folder, so `-output-directory=output` means <main's
+ * folder>/output and the engine's file:line errors come back relative to it too. Everywhere else
+ * it is the workspace root, which is where the terminal spawns.
+ */
+export function compileBaseDir(cmd: string, root: string | null, main: string | null): string | null {
+	if (!root) return null;
+	if (!main || isTypstCommand(cmd) || !usesCd(cmd)) return root;
+	const dir = dirname(main); // always forward-slashed; keep the root's own separator style so the
+	if (!dir) return root; // paths built from this stay native (a mixed C:\ws/sub misses exact matches)
+	return root.includes('\\') ? dir.replace(/\//g, '\\') : dir;
+}
+
+/**
+ * Regenerate a standard command, carrying over the current output dir (default 'output') and -cd.
+ *
+ * -cd is CARRIED, not imposed: a user who deleted it from the command box keeps it deleted when
+ * they click an engine chip, because a control that silently re-adds a flag you removed is the same
+ * problem as one that hides it. It comes back only when latexmk itself is switched on, which is a
+ * request for the stock latexmk setup - and it is dropped for a bare engine, where `pdflatex -cd`
+ * is not a flag at all.
+ */
 export function buildCompileCommand(engine: Engine, latexmk: boolean, cmd: string): string {
 	const cur = compileOutDir(cmd);
 	const out = `-output-directory=${cur === '.' ? 'output' : cur}`;
 	const flags = `-interaction=nonstopmode -file-line-error -synctex=1 ${out}`;
-	return latexmk ? `latexmk ${ENGINE_FLAG[engine]} ${flags} {main}` : `${engine} ${flags} {main}`;
+	const cd = usesCd(cmd) || !usesLatexmk(cmd) ? '-cd ' : '';
+	return latexmk ? `latexmk ${cd}${ENGINE_FLAG[engine]} ${flags} {main}` : `${engine} ${flags} {main}`;
 }
 
 /**
@@ -85,13 +120,16 @@ export function resolveOutputPath(root: string, p: string): string {
 	return isAbsolutePath(p) ? p : joinPath(root, p);
 }
 
-// DETECTED (not overridden) PDF path, from the command + main file: <root>/<outdir>/<main>.pdf
+// DETECTED (not overridden) PDF path, from the command + main file: <base>/<outdir>/<main>.pdf,
+// where the base is the directory the command runs in (see compileBaseDir - the root, or the main
+// file's folder under -cd)
 export function detectedPdfPath(cmd: string, root: string | null, main: string | null): string | null {
 	if (isTypstCommand(cmd)) return typstPdfPath(cmd, root, main);
 	if (!root || !main) return null;
+	const base = compileBaseDir(cmd, root, main) ?? root;
 	const pdf = basename(main).replace(/\.tex$/i, '') + '.pdf';
 	const dir = compileOutDir(cmd);
-	return dir === '.' ? joinPath(root, pdf) : joinPath(joinPath(root, dir), pdf);
+	return dir === '.' ? joinPath(base, pdf) : joinPath(joinPath(base, dir), pdf);
 }
 
 // DETECTED log: <jobname>.log next to the actual PDF, unless an aux directory (latexmk -auxdir /
@@ -106,7 +144,9 @@ export function detectedLogPath(cmd: string, root: string | null, main: string |
 	const log = basename(pdf).replace(/\.pdf$/i, '.log');
 	if (aux && aux[1]) {
 		if (!root) return null;
-		return joinPath(joinPath(root, aux[1].replace(/^["']|["']$/g, '')), log);
+		// same base as the PDF: an aux dir is relative to wherever the command runs
+		const base = compileBaseDir(cmd, root, main) ?? root;
+		return joinPath(joinPath(base, aux[1].replace(/^["']|["']$/g, '')), log);
 	}
 	return pdf.replace(/\.pdf$/i, '.log');
 }

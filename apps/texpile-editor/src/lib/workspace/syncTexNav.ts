@@ -9,7 +9,7 @@ import { collabGuest } from '$lib/collab/guestStore.svelte';
 import type { ControlPayload } from '$lib/collab/protocol';
 import { workspaceRoot, activeFilePath } from '$lib/workspace/workspaceStore';
 import { samePath, relativeTo, joinPath } from '$lib/workspace/fileSystem';
-import { settings } from '$lib/settings';
+import { compileConfig } from './projectConfigSync.svelte';
 import { sourceCmView } from '$lib/stores/editorStore';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
@@ -52,7 +52,7 @@ export class SyncTexNav {
 			d.scrollPdfTo(res.page, res.x, res.y, res.w, res.h);
 			return;
 		}
-		const live = get(settings).draftMode;
+		const live = get(compileConfig).latex.liveMode;
 		const pdf = live ? d.getDraftRoot() + '/_draft/draft.pdf' : d.expectedPdfPath();
 		const path = d.getLoadedPath();
 		if (!path || !d.isTex() || !pdf) return;

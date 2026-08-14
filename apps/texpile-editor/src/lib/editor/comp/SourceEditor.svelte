@@ -36,7 +36,7 @@
 	import { bindModalKeymap, modalKeymapCompartment } from '$lib/editor/extensions/keybindings/modalKeymap';
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
 	import { latex } from '$lib/editor/extensions/latex/latex';
-	import { releaseTypstLsp, typstLspExtension } from '$lib/typst/lspClient';
+	import { releaseTypstLsp, typstLspExtension, typstServerGen } from '$lib/typst/lspClient';
 	import { workspaceRoot } from '$lib/workspace/workspaceStore';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { docText } from '$lib/editor/docText';
@@ -514,17 +514,43 @@
 		// refusing to start it - which is also why there is no setting for this. Opening a .typ file
 		// IS the request; a switch that turns off completion in your own language is a setting whose
 		// only correct value is the default.
-		if (fileFor && /\.typ$/i.test(fileFor)) {
-			void typstLspExtension(get(workspaceRoot), fileFor)
-				.then((ext) => {
-					if (!ext || !view) return;
-					typstLspActive = true;
-					view.dispatch({ effects: lspConf.reconfigure(ext) });
-				})
-				.catch(() => {
-					/* no intellisense; highlighting and compiling are unaffected */
-				});
+		armTypstLsp();
+	});
+
+	function armTypstLsp(): void {
+		if (!fileFor || !/\.typ$/i.test(fileFor)) return;
+		void typstLspExtension(get(workspaceRoot), fileFor)
+			.then((ext) => {
+				if (!ext) return;
+				if (!view) {
+					// resolved after this editor was destroyed: hand the reference straight back,
+					// or the server would count a holder no unmount can ever release
+					releaseTypstLsp();
+					return;
+				}
+				typstLspActive = true;
+				view.dispatch({ effects: lspConf.reconfigure(ext) });
+			})
+			.catch(() => {
+				/* no intellisense; highlighting and compiling are unaffected */
+			});
+	}
+
+	// The server died and restarted (typstServerGen bumps only on a genuine death): the mounted
+	// extension is bound to the dead client, so rebuild it against the fresh one. Acts only on a
+	// gen INCREASE - the first run just records where the counter stands.
+	let seenTypstGen: number | null = null;
+	$effect(() => {
+		const gen = $typstServerGen;
+		if (seenTypstGen === null || gen === seenTypstGen) {
+			seenTypstGen = gen;
+			return;
 		}
+		seenTypstGen = gen;
+		if (!view || !fileFor || !/\.typ$/i.test(fileFor)) return;
+		typstLspActive = false; // its holder died with the server; armTypstLsp takes a fresh one
+		view.dispatch({ effects: lspConf.reconfigure([]) });
+		armTypstLsp();
 	});
 
 	// follow the Preferences toggle in the open editor rather than only at mount

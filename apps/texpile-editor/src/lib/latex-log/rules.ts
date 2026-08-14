@@ -148,7 +148,7 @@ const RULES: EnrichmentRule[] = [
 	{
 		id: 'file-not-found',
 		match: /^LaTeX Error: File `([^']+)' not found/,
-		hint: (_e, m) => `The file "${m[1]}" could not be found. Check the path (relative to the main file) and the extension.`
+		hint: (_e, m) => `The file "${m[1]}" could not be found. Check the path (relative to the folder the compile runs in) and the extension.`
 	},
 	{
 		id: 'engine-file-not-found',

@@ -1,50 +1,74 @@
-// "The compile command names a program that isn't installed" - detected two ways, from one place.
+// "The compile run needed a program that isn't installed" - read out of what the shell printed.
+// Pure: no DOM, no IPC, unit-testable.
 //
-// The compile modal asks BEFORE the fact, by probing for the program the command starts with. The
-// pipeline finds out AFTER it, from what the shell printed. Both need the same idea of which
-// program a command runs, and both should agree about what counts as proof, so both live here and
-// are pure - no DOM, no IPC, unit-testable.
+// This asks the output WHICH program was missing, rather than asking whether one particular
+// program was. Matching against the command's first word (what this used to do) got both ends
+// wrong: `latexmk -lualatex` with lualatex missing says `bash: lualatex: command not found`, which
+// names the engine and not latexmk, so nothing was reported at all; and `make` reporting its own
+// child as `make: pdflatex: Command not found` matched the first word and blamed make, which is
+// installed. Reading the name out of the line answers both correctly.
+//
+// The cost is that the program named may be a helper rather than the compiler - a missing biber or
+// gs now gets reported. That is still the thing the user has to install.
 
 /**
- * The program a shell command runs: its first word, minus surrounding quotes, any directory, and a
- * .exe suffix. Null when there is no first word.
+ * What each shell says, and where in the line the name sits.
  *
- * A first word is all this claims to find. `VAR=1 latexmk`, a pipeline, a `cmd && cmd` chain - the
- * answer will be wrong-ish, and that is fine: every caller treats an unrecognised program as "no
- * opinion" rather than as a problem, so a bad guess costs a warning that is never shown, not a
- * false accusation.
- */
-export function leadingProgram(cmd: string): string | null {
-	const first = cmd
-		.trim()
-		.split(/\s+/)[0]
-		?.replace(/^["']|["']$/g, '');
-	if (!first) return null;
-	const base = (first.split(/[/\\]/).pop() ?? first).replace(/\.exe$/i, '').toLowerCase();
-	return base || null;
-}
-
-/**
- * What each shell says when it cannot find a program.
- *
- *   bash/zsh   bash: latexmk: command not found  |  zsh: command not found: latexmk
+ *   zsh        zsh: command not found: latexmk
+ *   bash/ksh   bash: line 1: latexmk: command not found
+ *   make       make: pdflatex: Command not found          (a wrapper naming its child)
  *   dash/sh    sh: 1: latexmk: not found
  *   cmd.exe    'latexmk' is not recognized as an internal or external command,
  *   PowerShell The term 'latexmk' is not recognized as a name of a cmdlet...
+ *
+ * Order matters: zsh puts the name AFTER the phrase, so its pattern has to be tried before the
+ * bash one, which would otherwise read zsh's own prefix ("zsh: command not found") as the name.
  */
-const NOT_FOUND = [/command not found/i, /:\s*not found\b/, /is not recognized as (?:an internal|a name)/i, /CommandNotFoundException/];
+const NOT_FOUND_PATTERNS: RegExp[] = [
+	/command not found:\s*(\S+)/i,
+	/(?:^|[\s:])([^\s:]+):\s*command not found/i,
+	// dash/sh, the loose one: "not found" without the word "command". Anchored to a shell's own
+	// prefix (sh, bash, dash, zsh, /bin/sh, all of which end in "sh") and its optional line number,
+	// because `X: not found` on its own is a shape ordinary log text hits - "entering extended
+	// mode: not found by the user" reported `mode` before this was pinned down.
+	/^\s*\S*sh(?:\.exe)?:\s*(?:\d+:\s*)?([^\s:]+):\s*not found\b/i,
+	/'([^']+)' is not recognized as an internal/i,
+	/The term '([^']+)' is not recognized/i
+];
+
+/** a reported name as the user knows it: no quotes, no directory, no .exe */
+function cleanName(raw: string): string {
+	const unquoted = raw.replace(/^["']|["']$/g, '');
+	return (unquoted.split(/[/\\]/).pop() ?? unquoted).replace(/\.exe$/i, '');
+}
 
 /**
- * Did the shell report `program` as missing, in this run's output?
+ * The program the shell reported missing in `output`, or null when nothing was.
  *
- * BOTH conditions on ONE line: the line has to name the program AND carry a shell's not-found
- * phrasing. Either alone is a false positive waiting to happen - a TeX log is full of `File
- * 'geometry.sty' not found`, and latexmk prints its own name on most lines it writes. Requiring
- * them together is what keeps a missing .sty from being reported as a missing compiler.
+ * First hit wins: a run that is missing two programs only ever gets as far as the first anyway.
  */
-export function shellSaidNotFound(output: string, program: string): boolean {
-	if (!program) return false;
-	// the shell may quote it, path-qualify it, or add .exe; match the bare name on a word boundary
-	const named = new RegExp(`(?:^|[^\\w.-])${program.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\.exe)?(?:$|[^\\w-])`, 'i');
-	return output.split(/\r?\n/).some((line) => named.test(line) && NOT_FOUND.some((re) => re.test(line)));
+export function missingProgram(output: string): string | null {
+	if (!output) return null;
+	for (const line of output.split(/\r?\n/)) {
+		for (const re of NOT_FOUND_PATTERNS) {
+			const name = re.exec(line)?.[1];
+			if (name) {
+				const clean = cleanName(name);
+				if (clean) return clean;
+			}
+		}
+	}
+	return null;
+}
+
+/**
+ * Does this command send stderr somewhere other than the terminal?
+ *
+ * It matters because the shell writes its own "command not found" to the failed command's stderr,
+ * which the redirect has already applied - so for a command like the Typst default
+ * (`tinymist compile ... 2>out/x.log`) the evidence lands in the log file and never reaches the
+ * captured output. Verified against both bash and cmd.exe.
+ */
+export function redirectsStderr(cmd: string): boolean {
+	return /(?:^|\s)(?:2>|&>|>&)/.test(cmd);
 }

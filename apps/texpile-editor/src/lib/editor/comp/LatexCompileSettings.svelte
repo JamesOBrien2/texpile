@@ -6,7 +6,9 @@
 	// compiler will (the main file's extension), so an auto folder gets exactly these controls.
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
 	import * as cc from '$lib/workspace/compileCommand';
-	import { settings, updateSettings } from '$lib/settings';
+	import { compileConfig, projectConfigSync } from '$lib/workspace/projectConfigSync.svelte';
+	import { workspaceRoot, mainFile } from '$lib/workspace/workspaceStore';
+	import { dirname, relativeTo, samePath } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
@@ -27,6 +29,21 @@
 	const latexmk = $derived(cc.usesLatexmk(command));
 	const ENGINES = ['pdflatex', 'lualatex', 'xelatex'] as const;
 
+	// -cd builds in the main file's own folder rather than the workspace root, which moves both the
+	// output and what relative paths mean. Said only when it actually differs - at the root there is
+	// nothing to explain - and as a readout, not a control: the flag lives in the command box, and a
+	// second switch for the same bit is a second thing to drift.
+	const runsIn = $derived.by(() => {
+		const root = $workspaceRoot;
+		const main = $mainFile;
+		if (!root || !main || !cc.usesLatexmk(command) || !cc.usesCd(command)) return null;
+		const dir = dirname(main);
+		if (samePath(dir, root)) return null;
+		const rel = relativeTo(root, dir).replace(/\\/g, '/');
+		const out = cc.compileOutDir(command);
+		return { dir: `${rel}/`, out: out === '.' ? `${rel}/` : `${rel}/${out}/` };
+	});
+
 	function applyEngine(e: cc.Engine) {
 		command = cc.buildCompileCommand(e, cc.usesLatexmk(command), command);
 	}
@@ -39,7 +56,11 @@
      was, ready for the next LaTeX folder. -->
 <div class="mb-1 flex items-center justify-between gap-4">
 	<span class="text-sm">{m.wsview_live_mode_label()} <span class="text-surface-500">{m.wsview_experimental_label()}</span></span>
-	<Switch checked={$settings.draftMode} disabled={sessionActive} onCheckedChange={(d) => updateSettings({ draftMode: d.checked })}>
+	<Switch
+		checked={$compileConfig.latex.liveMode}
+		disabled={sessionActive}
+		onCheckedChange={(d) => projectConfigSync.setLiveMode($workspaceRoot, d.checked)}
+	>
 		<Switch.Control><Switch.Thumb /></Switch.Control>
 		<Switch.HiddenInput />
 	</Switch>
@@ -87,4 +108,10 @@
 			</label>
 		</div>
 	</div>
+
+	{#if runsIn}
+		<p class="text-surface-500 -mt-1 mb-3 text-xs">
+			{m.wsview_compile_runs_in({ dir: runsIn.dir, out: runsIn.out })}
+		</p>
+	{/if}
 {/if}

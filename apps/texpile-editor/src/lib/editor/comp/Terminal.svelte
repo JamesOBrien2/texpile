@@ -4,7 +4,7 @@
 	import { Terminal } from '@xterm/xterm';
 	import { FitAddon } from '@xterm/addon-fit';
 	import '@xterm/xterm/css/xterm.css';
-	import { settings } from '$lib/settings';
+	import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	// a real shell (node-pty in the Electron main) rendered with xterm.js via the window.texpileTerminal bridge
@@ -54,7 +54,7 @@
 	}
 
 	function withSentinel(command: string, onDone: (output: string) => void): string {
-		if (!get(settings).compileSentinel) return command;
+		if (!get(compileConfig).completionMarker) return command;
 		if (endsWithChainOperator(command) || hasStopParsingToken(command)) return command;
 		// no shell name: don't guess, syntax the actual shell can't parse could fail the whole line
 		const shell = shellName.toLowerCase().replace(/\.exe$/, '');

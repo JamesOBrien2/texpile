@@ -7,7 +7,7 @@ import { generateShareCode } from '$lib/collab/e2e/shareCode';
 import type { RelayNotice } from '$lib/collab/protocol';
 import type { Transport, TransportStatus } from '$lib/collab/transport';
 import { CollabSession, manifestOf, locksOf, textOf } from '$lib/collab/session';
-import { HostMaterializer, spliceDiff, isShared, isTextFile, EDIT_ORIGIN } from '$lib/collab/materialize';
+import { HostMaterializer, spliceDiff, isShared, isGeneratedArtifact, decodeIfText, EDIT_ORIGIN } from '$lib/collab/materialize';
 
 class FakeHub {
 	transports = new Set<FakeTransport>();
@@ -64,10 +64,10 @@ function fakeFs(files: Record<string, string>) {
 	return {
 		disk,
 		fs: {
-			readText: async (p: string) => {
+			readBytes: async (p: string) => {
 				const f = disk.get(p.replace(/^root\//, ''));
 				if (!f) throw new Error('missing ' + p);
-				return f.content;
+				return new TextEncoder().encode(f.content);
 			},
 			writeText: async (p: string, content: string) => {
 				disk.set(p.replace(/^root\//, ''), { content });
@@ -119,16 +119,24 @@ describe('spliceDiff', () => {
 });
 
 describe('sharing filters', () => {
-	it('co-edits source text, shares everything else as bytes, hides only VCS and deps', () => {
-		// co-edited source text (CRDT)
-		expect(isShared('main.tex') && isTextFile('main.tex')).toBe(true);
-		expect(isShared('refs.bib') && isTextFile('refs.bib')).toBe(true);
-		// shared, but as binary the guest fetches on demand: images plus the output folder
-		for (const p of ['fig/plot.png', 'main.aux', 'main.log', 'main.synctex.gz', 'output/main.pdf']) {
-			expect(isShared(p), p).toBe(true);
-			expect(isTextFile(p), p).toBe(false);
+	// Co-edit is decided by CONTENT, not extension: an allow-list regressed once (.typ was missing
+	// for the whole life of typst support, locking guests out of every typst file). The only
+	// name-based judgements left are the generated-artifact denylist and the VCS/deps exclusion.
+	it('classifies text by content: lossless UTF-8 in, NULs and invalid bytes out', () => {
+		expect(decodeIfText(new TextEncoder().encode('\\section{A}\nplain text'))).toBe('\\section{A}\nplain text');
+		expect(decodeIfText(new TextEncoder().encode('unicode: naïve 日本語'))).toBe('unicode: naïve 日本語');
+		expect(decodeIfText(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0x0d]))).toBeNull(); // PNG-ish: NUL
+		expect(decodeIfText(new Uint8Array([0xc3, 0x28]))).toBeNull(); // invalid UTF-8 sequence
+	});
+
+	it('keeps compile artifacts out of the CRDT, hides only VCS and deps', () => {
+		for (const p of ['main.log', 'output/main.aux', 'main.synctex.gz', 'main.fdb_latexmk', 'main.bbl']) {
+			expect(isShared(p), p).toBe(true); // still fetchable as bytes
+			expect(isGeneratedArtifact(p), p).toBe(true); // never co-edited
 		}
-		// never shared: VCS internals and dependency trees
+		for (const p of ['main.tex', 'refs.bib', 'typst/main.typ', 'chapters/01-basics.typ', 'fig/plot.png']) {
+			expect(isGeneratedArtifact(p), p).toBe(false);
+		}
 		for (const p of ['.git/config', '.svn/entries', 'node_modules/x/index.js', '__pycache__/y.pyc']) {
 			expect(isShared(p), p).toBe(false);
 		}
@@ -261,7 +269,8 @@ describe('collab session end-to-end', () => {
 		const key = (await deriveSessionKeys(generateShareCode())).contentKey;
 		const hub = new FakeHub();
 		const { disk, fs } = fakeFs({ 'main.tex': 'Hi\n' });
-		disk.set('fig.png', { content: 'PNG-v1', mtimeMs: 1000 });
+		// the NUL is what makes it binary now that classification sniffs content, not extension
+		disk.set('fig.png', { content: 'PNG\u0000v1', mtimeMs: 1000 });
 
 		const host = await makeParty(hub, 'host', 'Host', key);
 		const mat = new HostMaterializer(host.doc, 'root', fs, join);
@@ -271,7 +280,7 @@ describe('collab session end-to-end', () => {
 		expect(manifestOf(guest.doc).get('fig.png')?.rev).toBe(1000);
 
 		// same path, new bytes: the rev has to move or the guest keeps showing the old image
-		disk.set('fig.png', { content: 'PNG-v2', mtimeMs: 2000 });
+		disk.set('fig.png', { content: 'PNG\u0000v2', mtimeMs: 2000 });
 		await mat.syncFromTree();
 		await until(() => manifestOf(guest.doc).get('fig.png')?.rev === 2000);
 		// text is unaffected: its edits ride the CRDT, so it carries no rev

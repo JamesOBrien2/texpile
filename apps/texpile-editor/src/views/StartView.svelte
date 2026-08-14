@@ -26,7 +26,6 @@
 		setMainFile,
 		savedLastFile
 	} from '$lib/workspace/workspaceStore';
-	import { updateSettings } from '$lib/settings';
 	import { openTutorialProject } from '$lib/workspace/starters';
 	import { m } from '$lib/paraglide/messages';
 
@@ -69,7 +68,6 @@
 		texFiles.set(files);
 		activeFilePath.set(active ?? files[0]?.path ?? null);
 		addRecentFolder(root);
-		updateSettings({ lastFolder: root });
 		navigate('/workspace');
 	}
 
@@ -110,7 +108,6 @@
 			texFiles.set(files);
 			activeFilePath.set(await initialFile(root, files));
 			addRecentFolder(root);
-			updateSettings({ lastFolder: root });
 			navigate('/workspace');
 		} catch (e) {
 			error = e instanceof Error ? e.message : m.start_error_open_folder();

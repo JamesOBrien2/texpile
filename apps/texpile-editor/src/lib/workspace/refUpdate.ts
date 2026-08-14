@@ -1,9 +1,10 @@
-// After a rename/move, find the \includegraphics / \input references across the project's .tex
-// files that pointed at the old path (AST-based, not textual) and repoint them. The scan is
-// offered to the user first; nothing is rewritten until they accept.
+// After a rename/move, find the references across the project that pointed at the old path
+// (AST-based in every dialect, not textual) and repoint them. The scan is offered to the user
+// first; nothing is rewritten until they accept. Covers .tex, .typ and .md referrers alike - an
+// image dragged to another folder is just as broken for the markdown file that links it.
 import { get } from 'svelte/store';
 import { workspaceRoot, texFiles } from '$lib/workspace/workspaceStore';
-import { countFileRefs, replaceFileRefs } from '$lib/latex-parser/filerefs';
+import { countFileRefs, replaceFileRefs, refDialectOf, REF_SCAN_EXTS, type RefDialect } from '$lib/workspace/fileRefs';
 import { relFromRoot } from '$lib/workspace/compilePipeline.svelte';
 import type { RefUpdate } from '$lib/editor/comp/RefUpdateModal.svelte';
 import type { TreeEntry } from '$lib/workspace/fileSystem';
@@ -14,9 +15,22 @@ export interface RefUpdateDeps {
 	getSourceText(): string;
 	setSourceText(text: string): void;
 	readText(path: string): Promise<string>;
+	/** every file in the project with one of `exts` (no dots) - the provider's scan, injected so
+	 *  this module stays free of the host/guest split */
+	scanFiles(exts: string[]): Promise<string[]>;
 	writeText(path: string, content: string): Promise<unknown>;
 	/** the open file was rewritten in place: re-render, mark dirty, queue the save */
 	onActiveFileEdited(): void;
+}
+
+/** every file that could hold a reference, whatever dialect it is written in. Falls back to the
+ *  .tex-only store if the provider cannot scan by extension (it is optional on the interface). */
+async function referrers(deps: RefUpdateDeps): Promise<string[]> {
+	try {
+		return await deps.scanFiles(REF_SCAN_EXTS);
+	} catch {
+		return get(texFiles).map((f) => f.path);
+	}
 }
 
 /** scan for references to the renamed file; null when nothing points at it */
@@ -28,14 +42,16 @@ export async function scanRenamedRefs(oldPath: string, newPath: string, deps: Re
 	if (oldRel === newRel) return null;
 
 	const loaded = deps.getLoadedPath();
-	const hits: { path: string; count: number }[] = [];
+	const hits: { path: string; count: number; dialect: RefDialect }[] = [];
 	let total = 0;
-	for (const f of get(texFiles)) {
+	for (const path of await referrers(deps)) {
+		const dialect = refDialectOf(path);
+		if (!dialect) continue;
 		try {
-			const content = f.path === loaded ? deps.getSourceText() : await deps.readText(f.path);
-			const count = countFileRefs(content, oldRel);
+			const content = path === loaded ? deps.getSourceText() : await deps.readText(path);
+			const count = countFileRefs(content, oldRel, dialect);
 			if (count > 0) {
-				hits.push({ path: f.path, count });
+				hits.push({ path, count, dialect });
 				total += count;
 			}
 		} catch {
@@ -52,11 +68,11 @@ export async function applyRefUpdate(u: RefUpdate, deps: RefUpdateDeps): Promise
 	for (const h of u.hits) {
 		try {
 			if (h.path === loaded) {
-				deps.setSourceText(replaceFileRefs(deps.getSourceText(), u.oldRel, u.newRel).text);
+				deps.setSourceText(replaceFileRefs(deps.getSourceText(), u.oldRel, u.newRel, h.dialect).text);
 				deps.onActiveFileEdited();
 			} else {
 				const content = await deps.readText(h.path);
-				await deps.writeText(h.path, replaceFileRefs(content, u.oldRel, u.newRel).text);
+				await deps.writeText(h.path, replaceFileRefs(content, u.oldRel, u.newRel, h.dialect).text);
 			}
 		} catch (e) {
 			console.error('Failed to update references in', h.path, e);

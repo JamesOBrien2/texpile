@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { schema } from '$lib/schema/schema';
 import InlineLatexView from '$lib/editor/extensions/raw-latex/inlineLatexView';
-import CodeBlockView from '$lib/editor/extensions/codemirrorbridge/cmview';
+import CodeBlockView from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
 import { CM_PLACEHOLDER_CLASS } from '$lib/editor/extensions/codemirrorbridge/cmStatic';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 
@@ -70,8 +70,8 @@ function makeInline(text = '\\alpha_{ij}') {
 	return view;
 }
 
-function makeBlock(text = 'const a = 1;\nconst b = 2;') {
-	const node = schema.nodes.code_block.create({ lang: 'JavaScript' }, schema.text(text));
+function makeBlock(text = 'const a = 1;\nconst b = 2;', attrs: Record<string, unknown> = {}) {
+	const node = schema.nodes.code_block.create({ lang: 'JavaScript', ...attrs }, schema.text(text));
 	const view = new CodeBlockView(node, pmView(), () => 0);
 	document.body.appendChild(view.dom);
 	return view;
@@ -175,19 +175,31 @@ describe('code_block materialization', () => {
 		expect(placeholderOf(view)!.querySelectorAll('.cm-line').length).toBe(4);
 	});
 
-	it('shows only the current language until the picker is touched', () => {
+	// The gear is ALWAYS visible - hover-revealed chrome flashes whenever the DOM under the pointer
+	// is rebuilt - so the component mounts with the view, not on first hover.
+	it('shows the settings gear from the start', () => {
 		const view = makeBlock();
-		const select = view.dom.querySelector('select')!;
-		expect(select.options.length).toBe(1);
-		expect(select.value).toBe('JavaScript');
+		expect(view.dom.querySelectorAll('.codeblock-settings-container').length).toBe(1);
+		expect(view.dom.querySelector('button')).not.toBeNull();
 	});
 
-	it('fills in the full language list on focus, keeping the current selection', () => {
+	// and it lives in the column pr-9 reserves, not over the code, where an overlapping control
+	// once took the clicks and focus meant for CodeMirror and left the document untypable
+	it('reserves the gear its own column beside the code', () => {
 		const view = makeBlock();
-		const select = view.dom.querySelector('select')!;
-		select.dispatchEvent(new Event('focus'));
-		expect(select.options.length).toBeGreaterThan(50);
-		expect(select.value).toBe('JavaScript');
+		expect(view.dom.className).toContain('pr-9');
+		expect(view.dom.className).toContain('relative');
+	});
+
+	// the gear is chrome, not document content: its container is uneditable and its events never
+	// reach ProseMirror, where a click would put the caret inside the block
+	it('keeps the settings out of the document content', () => {
+		const view = makeBlock();
+		const button = view.dom.querySelector('button')!;
+		const container = button.closest('[contenteditable="false"]')!;
+		expect(container.parentElement).toBe(view.dom);
+		expect(view.stopEvent({ target: button } as unknown as Event)).toBe(true);
+		expect(view.ignoreMutation({ target: button } as unknown as MutationRecord)).toBe(true);
 	});
 
 	it('destroys cleanly while still plain text', () => {

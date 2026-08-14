@@ -3,7 +3,8 @@
 	// there is no engine to choose - so this lane is its own component rather than a set of holes
 	// punched in the LaTeX one. Auto renders it whenever the main file is a .typ.
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
-	import { settings, updateSettings } from '$lib/settings';
+	import { compileConfig, projectConfigSync } from '$lib/workspace/projectConfigSync.svelte';
+	import { workspaceRoot } from '$lib/workspace/workspaceStore';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
@@ -19,11 +20,12 @@
      setting in Preferences, and this is faster than it.) -->
 <div class="mb-1 flex items-center justify-between gap-4">
 	<span class="text-sm">{m.wsview_preview_label()}</span>
-	<Switch checked={$settings.typstLiveMode !== false} onCheckedChange={(d) => updateSettings({ typstLiveMode: d.checked })}>
+	<Switch checked={$compileConfig.typst.preview} onCheckedChange={(d) => projectConfigSync.setTypstPreview($workspaceRoot, d.checked)}>
 		<Switch.Control><Switch.Thumb /></Switch.Control>
 		<Switch.HiddenInput />
 	</Switch>
 </div>
+
 <p class="text-surface-500 mt-1 mb-1 text-xs">{m.wsview_typst_preview_note()}</p>
 
 {#if superseded}

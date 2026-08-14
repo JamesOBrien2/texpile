@@ -11,6 +11,9 @@
 // for free. Nothing here re-searches the document.
 import { EditorView, Decoration, type DecorationSet, ViewPlugin, gutterLineClass, GutterMarker, type BlockInfo } from '@codemirror/view';
 import { StateEffect, StateField, RangeSet, type Extension, type EditorState } from '@codemirror/state';
+import { get } from 'svelte/store';
+import { settings, updateSettings } from '$lib/settings';
+import { m } from '$lib/paraglide/messages';
 
 export interface CommentRange {
 	id: string;
@@ -45,12 +48,15 @@ const commentRanges = StateField.define<CommentRange[]>({
 	update(ranges, tr) {
 		for (const e of tr.effects) if (e.is(setCommentRanges)) return e.value;
 		if (!tr.docChanged) return ranges;
-		// assoc -1/1 keeps a range hugging its own text: typing at either edge extends the comment
-		// rather than sliding it. A range whose text is gone collapses, and is dropped.
+		// A comment covers the text it was made about, and nothing typed after the fact at its
+		// edges: assoc 1 on `from` and -1 on `to` both point AWAY from the range, so text inserted
+		// at a boundary lands outside it. (The reverse - what this used to do - grows the highlight
+		// under the cursor as you keep typing, which reads as the comment refusing to end.) An edit
+		// strictly inside still extends it, and a range whose text is gone collapses and is dropped.
 		const mapped: CommentRange[] = [];
 		for (const r of ranges) {
-			const from = tr.changes.mapPos(r.from, -1);
-			const to = tr.changes.mapPos(r.to, 1);
+			const from = tr.changes.mapPos(r.from, 1);
+			const to = tr.changes.mapPos(r.to, -1);
 			if (to > from) mapped.push({ ...r, from, to });
 		}
 		return mapped;
@@ -185,6 +191,11 @@ export function comments({ onSelect, onAdd, addLabel = 'Comment' }: CommentsConf
 /** the pill fades in rather than flashing under the pointer for every drag it passes through */
 const SHOW_DELAY = 120;
 
+const SVG = (body: string) =>
+	`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const COMMENT_ICON = SVG('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>');
+const X_ICON = SVG('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
+
 /**
  * The Comment affordance for a non-empty selection: an icon pill in the LEFT margin, vertically
  * centred on the cursor's line.
@@ -201,26 +212,38 @@ const SHOW_DELAY = 120;
 function addButton(onAdd: (from: number, to: number) => void, label: string): Extension {
 	return ViewPlugin.fromClass(
 		class {
-			private readonly dom: HTMLButtonElement;
+			/** the row: the Comment button, then the control that turns the whole thing off */
+			private readonly dom: HTMLDivElement;
 			private timer: ReturnType<typeof setTimeout> | null = null;
 			private shown = false;
 			private readonly resize: ResizeObserver;
+			private readonly unsub: () => void;
 
 			constructor(private readonly view: EditorView) {
-				this.dom = document.createElement('button');
-				this.dom.className = 'cm-comment-add';
-				this.dom.title = label;
-				this.dom.setAttribute('aria-label', label);
-				this.dom.innerHTML =
-					'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+				this.dom = document.createElement('div');
+				this.dom.className = 'cm-comment-add-row';
 				this.dom.style.display = 'none';
-				// mousedown, not click: by the time click fires the editor has collapsed the selection
-				// under the pointer and there is nothing left to comment on
-				this.dom.onmousedown = (e) => {
-					e.preventDefault();
+				const button = (title: string, svg: string, extra: string, onDown: () => void) => {
+					const b = this.dom.appendChild(document.createElement('button'));
+					b.className = `cm-comment-add${extra}`;
+					b.title = title;
+					b.setAttribute('aria-label', title);
+					b.innerHTML = svg;
+					// mousedown, not click: by the time click fires the editor has collapsed the selection
+					// under the pointer and there is nothing left to comment on
+					b.onmousedown = (e) => {
+						e.preventDefault();
+						onDown();
+					};
+				};
+				button(label, COMMENT_ICON, '', () => {
 					const sel = view.state.selection.main;
 					if (!sel.empty) onAdd(sel.from, sel.to);
-				};
+				});
+				button(m.comments_pill_off(), X_ICON, ' cm-comment-add-off', () => {
+					updateSettings({ commentPill: false });
+					this.hide(); // the setting keeps it off; this is only so it leaves under the pointer
+				});
 				view.dom.appendChild(this.dom);
 				// scrolling moves the line without changing the viewport, so update() alone would
 				// leave the pill behind; the observer catches pane and window resizes, which move
@@ -228,6 +251,8 @@ function addButton(onAdd: (from: number, to: number) => void, label: string): Ex
 				view.scrollDOM.addEventListener('scroll', this.schedule);
 				this.resize = new ResizeObserver(this.schedule);
 				this.resize.observe(view.scrollDOM);
+				// the toggle has to bite without waiting for the next selection change, both ways
+				this.unsub = settings.subscribe(() => this.schedule());
 				this.schedule();
 			}
 
@@ -238,6 +263,7 @@ function addButton(onAdd: (from: number, to: number) => void, label: string): Ex
 			destroy() {
 				this.view.scrollDOM.removeEventListener('scroll', this.schedule);
 				this.resize.disconnect();
+				this.unsub();
 				if (this.timer) clearTimeout(this.timer);
 				this.dom.remove();
 			}
@@ -255,7 +281,8 @@ function addButton(onAdd: (from: number, to: number) => void, label: string): Ex
 					key: 'cm-comment-add',
 					read: (view) => {
 						const sel = view.state.selection.main;
-						if (sel.empty) return null;
+						// turned off in Preferences: the pill never appears
+						if (get(settings).commentPill === false || sel.empty) return null;
 						const coords = view.coordsAtPos(sel.head);
 						if (!coords) return null;
 						const scroller = view.scrollDOM.getBoundingClientRect();
@@ -325,18 +352,28 @@ const theme = EditorView.baseTheme({
 	},
 	// Only geometry lives here. The pill's colours need the app's surface tokens and a dark-mode
 	// branch, which a CodeMirror baseTheme cannot express, so they are in app.css.
-	'.cm-comment-add': {
+	// the ROW is what gets positioned and faded; the buttons inside it are plain chrome
+	'.cm-comment-add-row': {
 		position: 'fixed',
 		zIndex: '5',
+		display: 'flex',
+		alignItems: 'center',
+		gap: '2px',
+		opacity: '0',
+		transition: 'opacity 0.05s ease-in'
+	},
+	'.cm-comment-add': {
 		display: 'flex',
 		alignItems: 'center',
 		justifyContent: 'center',
 		width: '26px',
 		height: '26px',
 		padding: '0',
-		cursor: 'pointer',
-		opacity: '0',
-		transition: 'opacity 0.05s ease-in'
+		cursor: 'pointer'
+	},
+	// narrower than the button it dismisses: secondary, and it must not read as a second action
+	'.cm-comment-add-off': {
+		width: '20px'
 	},
 	'.cm-comment-add-visible': {
 		opacity: '1'

@@ -4,7 +4,7 @@
 	import PdfActionsBridge from './PdfActionsBridge.svelte';
 	import { pdfStore } from '$lib/stores/pdfStore';
 	import { resolvedMode } from '$lib/theme';
-	import { settings } from '$lib/settings';
+	import { layout } from '$lib/storage/layout';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -107,7 +107,7 @@
 			     pill in dark (that global rule can't reach into the shadow DOM). -->
 			<PdfRenderer
 				{onPageClick}
-				darkMode={dark && $settings.pdfDarkPages}
+				darkMode={dark && $layout.pdfDarkPages}
 				backgroundColor={dark ? 'var(--color-surface-950, #131316)' : '#f5f5f5'}
 				pageShadow={dark ? '0 2px 8px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4)' : undefined}
 				scrollbarThumbColor={dark ? 'var(--color-surface-700, #4a4a52)' : undefined}

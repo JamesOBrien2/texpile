@@ -3,6 +3,8 @@
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
 	import { themeChoice, setTheme, type ThemeChoice } from '$lib/theme';
 	import { settings, updateSettings, updateSettingsLive, applyUiLocale, setMcpEnabled, type AppSettings } from '$lib/settings';
+	import { layout, updateLayout } from '$lib/storage/layout';
+	import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
 	import { toolsInGroup } from '$lib/workspace/toolchainCatalog';
@@ -14,7 +16,7 @@
 	import { m } from '$lib/paraglide/messages';
 
 	// autosave is forced on (shown disabled) while live mode or a hosted session is active
-	const autosaveForced = $derived($settings.draftMode || collabHost.active);
+	const autosaveForced = $derived($compileConfig.latex.liveMode || collabHost.active);
 	import { LOCALE_META } from '$lib/localeMeta';
 	import { toaster } from '$lib/modals/toaster-svelte';
 
@@ -351,8 +353,8 @@
 						</div>
 						<!-- the whole of what a "PDF preview" tab held: one switch, and one about how the
 						     document LOOKS, which is the question this tab already answers -->
-						{@render toggleRow(m.prefs_dark_pdf_pages(), m.prefs_dark_pdf_pages_note(), $settings.pdfDarkPages, (v) =>
-							updateSettings({ pdfDarkPages: v })
+						{@render toggleRow(m.prefs_dark_pdf_pages(), m.prefs_dark_pdf_pages_note(), $layout.pdfDarkPages, (v) =>
+							updateLayout({ pdfDarkPages: v })
 						)}
 					{:else if category === 'editor'}
 						<!-- the settings that belong to neither editor in particular lead, unheaded; the two
@@ -361,7 +363,7 @@
 							m.prefs_autosave(),
 							collabHost.active
 								? m.prefs_autosave_note_session()
-								: $settings.draftMode
+								: $compileConfig.latex.liveMode
 									? m.prefs_autosave_note_live()
 									: m.prefs_autosave_note_off(),
 							autosaveForced || $settings.autosave,
@@ -370,6 +372,9 @@
 							autosaveForced ? m.prefs_autosave_hint_forced() : ''
 						)}
 						{@render toggleRow(m.prefs_spellcheck(), '', $settings.spellcheck, (v) => setSpellcheckEnabled(v))}
+						{@render toggleRow(m.prefs_comment_pill(), m.prefs_comment_pill_note(), $settings.commentPill !== false, (v) =>
+							updateSettings({ commentPill: v })
+						)}
 						{@render selectRow(m.prefs_keybindings(), m.prefs_keybindings_note(), $settings.editorKeymap ?? 'default', keymaps, (v) =>
 							updateSettings({ editorKeymap: v as AppSettings['editorKeymap'] })
 						)}

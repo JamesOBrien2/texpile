@@ -168,7 +168,7 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 	if (a.hasFile() && a.canFormat())
 		push({
 			id: 'editor.format',
-			label: m.menubar_format_document(),
+			label: m.menubar_format_document({ tool: a.formatTool() }),
 			group: g.editor,
 			keywords: 'latexindent reindent tidy beautify',
 			icon: AlignLeft,

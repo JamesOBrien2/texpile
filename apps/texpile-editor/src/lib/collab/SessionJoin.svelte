@@ -6,6 +6,8 @@
 	import { formatShareCode, isValidShareCode, normalizeShareCode } from '$lib/collab/e2e/shareCode';
 	import AppFrame from '$lib/editor/comp/chrome/AppFrame.svelte';
 	import { settings, updateSettings, DEFAULT_COLLAB_RELAY_URL } from '$lib/settings';
+	import { get } from 'svelte/store';
+	import { users, updateUsers } from '$lib/storage/users';
 	import { m } from '$lib/paraglide/messages';
 	import { RotateCcw, ShieldCheck, ChevronDown } from '@lucide/svelte';
 
@@ -24,21 +26,13 @@
 	});
 
 	function loadName(): string {
-		try {
-			return localStorage.getItem('texpile:collabName') || '';
-		} catch {
-			return '';
-		}
+		return get(users).collabName;
 	}
 
 	async function join() {
 		const trimmedRelay = relayDraft.trim();
 		if (trimmedRelay && trimmedRelay !== $settings.collabRelayUrl) updateSettings({ collabRelayUrl: trimmedRelay });
-		try {
-			localStorage.setItem('texpile:collabName', nameInput.trim());
-		} catch {
-			/* private mode */
-		}
+		updateUsers({ collabName: nameInput.trim() });
 		await collabGuest.join(codeInput, nameInput);
 	}
 

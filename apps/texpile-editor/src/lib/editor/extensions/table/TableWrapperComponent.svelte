@@ -226,9 +226,15 @@
 					<Tooltip.Trigger class="flex items-center">
 						<AlertCircle class="text-warning-500 h-4 w-4" />
 					</Tooltip.Trigger>
-					<Tooltip.Content class="card preset-filled p-2 text-sm">
-						{dialect === 'typst' ? m.tablewrap_caption_placeholder_tooltip() : m.tablewrap_caption_required_tooltip()}
-					</Tooltip.Content>
+					<!-- without Portal + Positioner the content renders in normal flow: it took up layout
+					     space beside the caption instead of floating above the icon -->
+					<Portal>
+						<Tooltip.Positioner class="z-floating-ui">
+							<Tooltip.Content class="card preset-filled max-w-[260px] p-2 text-sm">
+								{dialect === 'typst' ? m.tablewrap_caption_placeholder_tooltip() : m.tablewrap_caption_required_tooltip()}
+							</Tooltip.Content>
+						</Tooltip.Positioner>
+					</Portal>
 				</Tooltip>
 			{/if}
 		</div>

@@ -6,13 +6,12 @@ import { get } from 'svelte/store';
 import { generateShareCode } from './e2e/shareCode';
 import { deriveSessionKeys, sha256Hex } from './e2e/keys';
 import { CollabSession, manifestOf, locksOf, metaOf, textOf, type PeerInfo } from './session';
-import { isSafeRel, type ControlPayload } from './protocol';
+import { isSafeRel, type ControlPayload, type PreviewPayload } from './protocol';
 import type { SharedCompileIntel } from './editSession';
 import type { CommentEvent } from '$lib/comments/log';
-import { HostMaterializer, isTextFile, isShared } from './materialize';
+import { HostMaterializer, isLikelyTextName, isShared } from './materialize';
 import { RelayTransport, createRelaySession } from './transport';
 import {
-	readTextFile,
 	writeTextFile,
 	writeBinaryFile,
 	renameEntry,
@@ -25,6 +24,7 @@ import {
 	type TreeEntry
 } from '$lib/workspace/fileSystem';
 import { settings } from '$lib/settings';
+import { users } from '$lib/storage/users';
 
 const toLf = (s: string) => s.replace(/\r\n?/g, '\n');
 
@@ -38,9 +38,13 @@ async function flattenTree(children: TreeEntry[], root: string): Promise<{ rel: 
 	};
 	walk(children);
 	// stat only the files served as blobs. Text bodies live in the CRDT and carry their own edits,
-	// so they need no rev, and statting every file would make each tree refresh O(n) IPC round-trips
+	// so they need no rev, and statting every file would make each tree refresh O(n) IPC round-trips.
+	// The name is only a fast-path HINT here: a hinted file that sniffs binary anyway just costs a
+	// rev of 0, while an unhinted one that sniffs text carries a rev nothing reads.
 	return Promise.all(
-		out.map(async (f) => (isTextFile(f.rel) || !isShared(f.rel) ? f : { ...f, mtimeMs: (await statFile(joinPath(root, f.rel))).mtimeMs }))
+		out.map(async (f) =>
+			isLikelyTextName(f.rel) || !isShared(f.rel) ? f : { ...f, mtimeMs: (await statFile(joinPath(root, f.rel))).mtimeMs }
+		)
 	);
 }
 
@@ -69,6 +73,14 @@ class HostCollabController {
 	onCommentEvent: ((event: CommentEvent) => void) | null = null;
 	/** the whole comment log, served to a guest joining mid-review. */
 	commentLog: (() => string) | null = null;
+	/** one hop of the Typst preview relay from a guest; previewRelay wires this while hosting. */
+	onPreview: ((p: PreviewPayload, from: number) => void) | null = null;
+	/** a guest asked its preview to follow a source position; workspaceSession wires this. */
+	onTypstScroll: ((p: { file: string; line: number; character: number }, from: number) => void) | null = null;
+	/** a guest asked for the raw preview page (blob 'typst-page'); previewRelay serves it. */
+	onPreviewPageRequest: ((from: number) => void) | null = null;
+	/** peer clientIDs, for pruning per-guest state (PeerInfo carries no id) */
+	peerIds = $state<number[]>([]);
 	/** the host trusts its own disk for file kinds. */
 	readonly sharedKindOf = () => null;
 	/** the host reads its real aux/log; only guests consume the shared copy. */
@@ -114,12 +126,17 @@ class HostCollabController {
 				role: 'host',
 				user: { name: hostName(), color: '#2563eb' },
 				events: {
-					onPeersChange: (peers) => (this.peers = [...peers.values()]),
+					onPeersChange: (peers) => {
+						this.peers = [...peers.values()];
+						this.peerIds = [...peers.keys()];
+					},
+					onPreview: (p, from) => this.onPreview?.(p, from),
 					onControl: (payload, from) => {
 						if (payload.kind === 'compile-request') this.onCompileRequest?.();
 						else if (payload.kind === 'synctex-inverse' || payload.kind === 'synctex-forward') void this.onSyncRequest?.(payload, from);
 						else if (payload.kind === 'file-op') void this.applyGuestFileOp(payload);
 						else if (payload.kind === 'comment-event') this.applyGuestComment(payload.event);
+						else if (payload.kind === 'typst-scroll') this.onTypstScroll?.(payload, from);
 					},
 					onBlobRequest: (name, from) => {
 						if (name === 'pdf') {
@@ -129,6 +146,8 @@ class HostCollabController {
 							// control frame is for; rev 0 because the log has no revision of its own
 							const log = this.commentLog?.() ?? '';
 							session.sendBlob('comments', 0, new TextEncoder().encode(log), from);
+						} else if (name === 'typst-page') {
+							this.onPreviewPageRequest?.(from);
 						} else if (name.startsWith('f:')) {
 							void this.serveFile(name, name.slice(2), from);
 						}
@@ -144,7 +163,16 @@ class HostCollabController {
 			const materializer = new HostMaterializer(
 				doc,
 				root,
-				{ readText: readTextFile, writeText: writeTextFile, listFiles: (r) => scanTree(r).then((t) => flattenTree(t.children, r)) },
+				{
+					// texfile:// serves raw bytes with CORS; one read covers both the sniff and the body
+					readBytes: async (p) => {
+						const res = await fetch(fileUrl(p));
+						if (!res.ok) throw new Error(`could not read ${p}`);
+						return new Uint8Array(await res.arrayBuffer());
+					},
+					writeText: writeTextFile,
+					listFiles: (r) => scanTree(r).then((t) => flattenTree(t.children, r))
+				},
 				joinPath
 			);
 			this.oversizedText = (await materializer.seed()).oversizedText;
@@ -199,7 +227,8 @@ class HostCollabController {
 	/** every host edit funnels through here (called from scheduleSave, per keystroke). */
 	edit(absPath: string, content: string): void {
 		const rel = this.active ? this.rel(absPath) : null;
-		if (rel && isShared(rel) && isTextFile(rel)) this.materializer?.hostEdit(rel, toLf(content));
+		// text-or-not is the manifest's call now (hostEdit checks the entry's kind itself)
+		if (rel && isShared(rel)) this.materializer?.hostEdit(rel, toLf(content));
 	}
 
 	/** flush any pending guest-edit write before the host reads the file from disk. */
@@ -299,6 +328,27 @@ class HostCollabController {
 		this.session?.sendControl(payload, to);
 	}
 
+	/** one hop of the preview relay, down to a guest. */
+	sendPreview(p: PreviewPayload, to: number): void {
+		this.session?.sendPreview(p, to);
+	}
+
+	/** the raw preview page a guest asked for, over the blob channel (rev 0: it has no revisions -
+	 *  it changes only with the tinymist binary, i.e. never within a session). */
+	sendPreviewPage(html: string, to: number): void {
+		this.session?.sendBlob('typst-page', 0, new TextEncoder().encode(html), to);
+	}
+
+	/**
+	 * Advertise (or retract) a streamable live preview. Rides the meta map for the same reason
+	 * compileIntel does: a guest joining late reads it from doc state instead of needing a
+	 * rebroadcast, and every guest's pane flips between stream and PDF off this one flag.
+	 */
+	advertiseTypstPreview(on: boolean): void {
+		if (!this.active || !this.doc) return;
+		if (Number(metaOf(this.doc).get('typstPreview') ?? 0) !== (on ? 1 : 0)) metaOf(this.doc).set('typstPreview', on ? 1 : 0);
+	}
+
 	/** push a freshly compiled PDF to every guest (and keep it for late joiners). */
 	async pushPdf(absPath: string): Promise<void> {
 		if (!this.active || !this.session || !this.doc) return;
@@ -326,7 +376,8 @@ class HostCollabController {
 	collabFor(absPath: string | null): { ytext: Y.Text; awareness: CollabSession['awareness'] } | null {
 		if (!this.active || !this.doc || !this.session || !absPath) return null;
 		const rel = this.rel(absPath);
-		if (!rel || !isShared(rel) || !isTextFile(rel)) return null;
+		if (!rel || !isShared(rel)) return null;
+		// the manifest entry's kind IS the classification; no name-based pre-judgement
 		const entry = manifestOf(this.doc).get(rel);
 		if (!entry || entry.kind !== 'text' || entry.gone) return null;
 		return { ytext: textOf(this.doc, rel), awareness: this.session.awareness };
@@ -339,11 +390,7 @@ class HostCollabController {
 }
 
 function hostName(): string {
-	try {
-		return localStorage.getItem('texpile:collabName') || 'Host';
-	} catch {
-		return 'Host';
-	}
+	return get(users).collabName || 'Host';
 }
 
 export const collabHost = new HostCollabController();

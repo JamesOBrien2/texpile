@@ -140,6 +140,11 @@ export function renderChildren(node: Node, inTableCell: boolean): string {
 		// end-anchored regex on the whole accumulator is quadratic across pieces); 256 chars is
 		// far past any real control-word length.
 		if (piece && /\\[a-zA-Z@]+$/.test(out.slice(-256)) && /^[a-zA-Z]/.test(piece)) out += ' ';
+		// A comment owns a WHOLE line, both ends: emitted mid-line it would swallow the rest of the
+		// line, and it arrived from source on its own line (a raw '%' can only open a comment chip;
+		// escaped text starts with \%). With serializeNode closing the line after the chip, comment
+		// chips are a round-trip fixed point instead of degrading into strippable trailing comments.
+		if (piece.startsWith('%') && out && !out.endsWith('\n')) out += '\n';
 		out += piece;
 	}
 	return out;
@@ -409,7 +414,14 @@ export function serializeNode(node: Node, ctx: Ctx): string {
 	// an unknown macro sits inside \textbf, since there's no text node inside to carry it), so
 	// wrap them the same way `text` does.
 	const leafText = node.type.spec.leafText;
-	if (leafText && !node.isText) return applyMarks(leafText(node), node.marks);
+	if (leafText && !node.isText) {
+		const text = applyMarks(leafText(node), node.marks);
+		// A comment chip owns the rest of its line: % consumes to the newline, so one is restored
+		// here or the prose after the chip would be commented out. The chip's own text stays
+		// single-line for display (a baked-in newline rendered as an empty second chip line).
+		if (node.type.name === 'inline_latex' && text.startsWith('%') && !text.endsWith('\n')) return text + '\n';
+		return text;
+	}
 
 	const handler = NODES[node.type.name];
 	if (handler) return handler(node, ctx);

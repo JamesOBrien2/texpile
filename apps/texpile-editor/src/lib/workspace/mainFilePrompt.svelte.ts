@@ -12,7 +12,7 @@ import { get } from 'svelte/store';
 import { workspaceRoot, texFiles, mainFile, savedMainFile, setMainFile } from '$lib/workspace/workspaceStore';
 import { detectMainFile, findDocRoots, gatherProjectMacros } from '$lib/workspace/project';
 import { samePath, type TexFile } from '$lib/workspace/fileSystem';
-import { settings } from '$lib/settings';
+import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 
 export interface MainFileDeps {
 	/** the compile pipeline picks up the PDF that matches the newly chosen main file */
@@ -81,7 +81,7 @@ export class MainFilePrompt {
 	private finish() {
 		this.open = false;
 		this.confirmed = true;
-		if (get(settings).draftMode) this.deps.releaseHeldDraftCompile();
+		if (get(compileConfig).latex.liveMode) this.deps.releaseHeldDraftCompile();
 		const k = this.then;
 		this.then = null;
 		k?.();

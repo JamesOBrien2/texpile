@@ -49,7 +49,7 @@
 	import { createWordCountPlugin } from './extensions/wordcount/wordCountPlugin';
 	import { emDashRule, enDashRule, emDashUpgradeRule } from './extensions/inputrules/dashRules';
 	import tableWrapperView from './extensions/table/tableWrapperView.svelte';
-	import CodeBlockView from './extensions/codemirrorbridge/cmview';
+	import CodeBlockView from './extensions/codemirrorbridge/cmview.svelte';
 	import RawLatexView from './extensions/raw-latex/rawLatexView';
 	import { RawFigureView, isRawFigure } from './extensions/raw-latex/rawFigureView';
 	import { IEEEAuthorView, isIEEEAuthorBlock } from './extensions/template-specific/ieeeAuthorView';

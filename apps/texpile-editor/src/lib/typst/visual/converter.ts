@@ -12,6 +12,7 @@
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { TypstParser } from 'texpile-typst-syntax-wasm';
 import { el, txtNodes, collapseTextNodes, realMarks, type PMNode, type PMMark } from './builders';
+import { mergeAdjacentRawBlocks } from '$lib/schema/mergeRawBlocks';
 import { typstMathToLatex } from './mathTranslate';
 
 // one parser for the module: Source::replace reparses incrementally against the previous text,
@@ -869,5 +870,5 @@ export function typstToProseMirror(source: string): TypstParseResult {
 
 	// trailing bytes past the last block belong to no node; stash them so a pristine save
 	// reproduces the file's exact tail (an EMPTY tail protects a missing final newline too)
-	return { doc: el('doc', { docTail: { text: source.slice(prevEnd), afterSeq: seq - 1 } }, result) };
+	return { doc: mergeAdjacentRawBlocks(el('doc', { docTail: { text: source.slice(prevEnd), afterSeq: seq - 1 } }, result)) };
 }

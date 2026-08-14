@@ -8,10 +8,11 @@
 	// The frame is a SEPARATE ORIGIN, so the page cannot reach this window's bridges. The only
 	// channel between us is postMessage, and the bridge on the far side is one we injected. That is
 	// what lets the zoom control below drive a viewer we cannot otherwise touch.
-	import { ZoomIn, ZoomOut, Crosshair, FileDown, Loader2, X } from '@lucide/svelte';
+	import { ZoomIn, ZoomOut, Crosshair, FileDown, Loader2, PictureInPicture2 } from '@lucide/svelte';
 	import { resolvedMode } from '$lib/theme';
 	import { settings, updateSettings } from '$lib/settings';
-	import { followScrollTick } from './followSignal';
+	import { followScrollTick, guestJumpFreezeTick } from './followSignal';
+	import { themeColour } from './themeColour';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
@@ -21,9 +22,10 @@
 		paneDragging: boolean;
 		/** compile the previewed document to a PDF on disk (the preview itself never writes one) */
 		onSaveTypstPdf: () => Promise<void>;
-		onClose: () => void;
+		/** move the preview into its own OS window; null (already popped out) hides the button */
+		onPopout?: (() => void) | null;
 	}
-	let { host, paneDragging, onSaveTypstPdf, onClose }: Props = $props();
+	let { host, paneDragging, onSaveTypstPdf, onPopout = null }: Props = $props();
 
 	/** an export is in flight; the button shows it and refuses a second one */
 	let savingPdf = $state(false);
@@ -64,25 +66,6 @@
 
 	const dark = $derived($resolvedMode === 'dark');
 
-	/**
-	 * The app's own colour for `name`, resolved to a concrete rgb() - NOT the raw declaration.
-	 *
-	 * The raw value is oklch(...) in this theme, and the colour crosses an IPC boundary whose
-	 * sanitizer (cssColour in electron main) passes only hex/rgb and silently substitutes WHITE
-	 * for anything else. That substitution is how the preview's whole surround - and the page
-	 * edge drawn in the same colour - once turned invisible. A probe element's computed style
-	 * normalises any colour syntax to rgb().
-	 */
-	function themeColour(name: string, fallback: string): string {
-		if (typeof document === 'undefined') return fallback;
-		if (!getComputedStyle(document.documentElement).getPropertyValue(name).trim()) return fallback;
-		const probe = document.createElement('div');
-		probe.style.color = `var(${name})`;
-		document.documentElement.appendChild(probe);
-		const v = getComputedStyle(probe).color;
-		probe.remove();
-		return v || fallback;
-	}
 	// The surround behind the pages, and it has to CONTRAST with them: the viewer draws white paper
 	// and nothing else, so a near-white surround makes the page edges vanish and the document reads
 	// as one endless sheet. surface-300 in light, surface-800 in dark - dark enough to separate the
@@ -150,6 +133,10 @@
 	// from out here. The bridge reports back instead, and the pane says what is wrong rather than
 	// sitting blank.
 	$effect(() => {
+		// listen where the frame lives: the page posts to ITS parent window, which is the popup's
+		// rather than this module's global whenever the pane is in the popped-out preview window
+		const win = frameBox?.ownerDocument.defaultView;
+		if (!win) return;
 		const onMessage = (e: MessageEvent) => {
 			const d = e.data;
 			if (!d || typeof d !== 'object' || d.channel !== CHANNEL) return;
@@ -159,8 +146,8 @@
 				if (typeof status.zoom === 'number') zoom = status.zoom;
 			} else if (d.type === 'error' && typeof d.value === 'string') error = d.value;
 		};
-		window.addEventListener('message', onMessage);
-		return () => window.removeEventListener('message', onMessage);
+		win.addEventListener('message', onMessage);
+		return () => win.removeEventListener('message', onMessage);
 	});
 
 	/** null once it is rendering; otherwise the reason it is not. */
@@ -207,6 +194,13 @@
 	$effect(() => {
 		if ($followScrollTick === 0) return;
 		frame?.contentWindow?.postMessage({ channel: CHANNEL, type: 'quiet', value: 500 }, '*');
+	});
+
+	// A guest's forward-sync is about to make tinymist broadcast a jump aimed at that guest; this
+	// pane's direct socket would receive it too, so the bridge swallows jump/cursor frames briefly.
+	$effect(() => {
+		if ($guestJumpFreezeTick === 0) return;
+		frame?.contentWindow?.postMessage({ channel: CHANNEL, type: 'freeze', value: 1500 }, '*');
 	});
 </script>
 
@@ -277,15 +271,19 @@
 		>
 			{#if savingPdf}<Loader2 class="size-3.5 animate-spin" />{:else}<FileDown class="size-3.5" />{/if}
 		</button>
-		<span class="bg-surface-300-700 mx-1 h-4 w-px shrink-0"></span>
-		<button
-			class="hover:preset-tonal shrink-0 rounded p-1"
-			onclick={onClose}
-			title={m.wsview_close_preview()}
-			aria-label={m.wsview_close_preview()}
-		>
-			<X class="size-4" />
-		</button>
+		<!-- no close button: docked, the divider's lozenge closes the pane; popped out, the OS
+		     window's own close does. The green Live button in the topbar is the third way off. -->
+		{#if onPopout}
+			<span class="bg-surface-300-700 mx-1 h-4 w-px shrink-0"></span>
+			<button
+				class="hover:preset-tonal shrink-0 rounded p-1"
+				onclick={onPopout}
+				title={m.wsview_popout_preview()}
+				aria-label={m.wsview_popout_preview()}
+			>
+				<PictureInPicture2 class="size-4" />
+			</button>
+		{/if}
 	</div>
 
 	<div bind:this={frameBox} class="relative min-h-0 flex-1 overflow-hidden">

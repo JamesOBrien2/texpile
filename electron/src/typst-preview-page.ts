@@ -78,6 +78,11 @@ function injection(opts: PreparePageOptions): string {
 	// parses, and its own error handling only console.logs - on the far side of an origin boundary.
 	// A mixed-content block THROWS from the constructor, so that has to be caught here to be seen.
 	var sock = { url: null, state: -1, threw: null, closeCode: null, closeReason: null };
+	// While set, incoming jump/cursor frames are swallowed: a guest's forward-sync makes tinymist
+	// broadcast a jump meant for THAT guest, and this direct socket would jerk the host's view
+	// too. Our listener registers before the viewer subscribes (it constructs, then attaches), so
+	// stopImmediatePropagation starves every later listener of the frame.
+	var jumpFreezeUntil = 0;
 	var Native = window.WebSocket;
 	function WrappedWebSocket(url, protocols) {
 		sock.url = String(url);
@@ -91,6 +96,18 @@ function injection(opts: PreparePageOptions): string {
 		}
 		s.addEventListener('open', function () { sock.state = 1; });
 		s.addEventListener('close', function (e) { sock.state = 3; sock.closeCode = e.code; sock.closeReason = e.reason; });
+		s.addEventListener('message', function (e) {
+			if (Date.now() >= jumpFreezeUntil) return;
+			// tinymist sends jump/cursor as BINARY frames (a jump is ~41 bytes of ASCII inside a
+			// binary message), so the sniff decodes the head of small ArrayBuffers too - a
+			// string-only test never matched and the freeze did nothing.
+			var head = '';
+			if (typeof e.data === 'string') head = e.data.slice(0, 8);
+			else if (e.data instanceof ArrayBuffer && e.data.byteLength <= 512) {
+				try { head = new TextDecoder().decode(new Uint8Array(e.data, 0, Math.min(8, e.data.byteLength))); } catch (err) {}
+			}
+			if (/^(jump|cursor)([\\s,]|$)/.test(head)) e.stopImmediatePropagation();
+		});
 		return s;
 	}
 	WrappedWebSocket.prototype = Native.prototype;
@@ -183,19 +200,130 @@ function injection(opts: PreparePageOptions): string {
 		if (!m || typeof m !== 'object' || m.channel !== CHANNEL) return;
 		if (m.type === 'zoom') { step(m.value); setTimeout(function () { reply('zoom', zoomPercent()); }, 0); }
 		else if (m.type === 'quiet') quietUntil = Date.now() + (typeof m.value === 'number' ? m.value : 500);
+		else if (m.type === 'freeze') jumpFreezeUntil = Date.now() + (typeof m.value === 'number' ? m.value : 1500);
 		else if (m.type === 'query') reply('status', status());
 	});
 	// Report until the document is actually on screen, then stop. Reporting the whole status rather
 	// than just "ready" is what makes a stuck preview say WHY it is stuck.
+	//
+	// NEVER give up while nothing is rendered: a compile can succeed minutes later (a fixed error,
+	// an edit from an external program) and a reporter that stopped after 30 seconds left the
+	// "nothing to preview yet" card stuck over the recovered document. Fast at first - the
+	// transitions worth narrating happen at startup - then once a second, forever if need be.
 	var tries = 0;
-	var t = setInterval(function () {
+	function report() {
 		var s = status();
 		reply('status', s);
-		if (s.pages > 0 || ++tries > 150) clearInterval(t);
-	}, 200);
+		if (s.pages > 0) return; // rendered: the last report said so, nothing left to narrate
+		tries++;
+		setTimeout(report, tries > 150 ? 1000 : 200);
+	}
+	report();
 })();
 </script>
 `;
+}
+
+/**
+ * A stand-in for WebSocket, for the page on a GUEST's screen.
+ *
+ * A guest has no tinymist and no data plane; the host holds the socket and the bytes arrive over
+ * the session. So the page's own network layer is replaced wholesale: constructing a socket posts
+ * to the parent frame instead of connecting, and the parent feeds frames back in. The viewer keeps
+ * its entire reconnect ladder - a dropped relay surfaces as a close event, the page constructs a
+ * new "socket", and the parent turns that into a fresh attach. That reconnect-on-construct IS the
+ * drop-and-reattach recovery; nothing else implements it.
+ *
+ * Placed BEFORE the theme/bridge injection on purpose: the bridge wraps whatever window.WebSocket
+ * is when it parses, so this must already be it. EventTarget is load-bearing for the same reason -
+ * the bridge instruments sockets via addEventListener.
+ */
+function remoteSocketShim(): string {
+	return `
+<script id="texpile-remote-socket">
+(function () {
+	var NET = 'texpile-preview-net';
+	// exactly one live socket: the viewer replaces its socket by constructing a new one, so a
+	// newer construction supersedes the old. epoch pairs parent messages with the construction
+	// they belong to; a stale epoch is a message for a socket that no longer exists.
+	var current = null;
+	var epoch = 0;
+	function post(ev, data) {
+		try { parent.postMessage({ channel: NET, ev: ev, epoch: epoch, data: data }, '*'); } catch (e) {}
+	}
+	class RemoteSocket extends EventTarget {
+		constructor() {
+			super();
+			this.readyState = 0;
+			this.binaryType = 'blob';
+			this.onopen = null; this.onmessage = null; this.onerror = null; this.onclose = null;
+			if (current) current._drop(1000, 'superseded');
+			current = this;
+			this._epoch = ++epoch;
+			post('open');
+		}
+		send(data) {
+			if (this.readyState !== 1) return;
+			// The outline's srclocation cannot be attributed to a clicking guest and dies here.
+			// src-point (a document click) passes: the parent whitelists it upstream, and the host
+			// reroutes tinymist's resolved jump back to this guest instead of moving its own caret.
+			if (typeof data === 'string' && data.indexOf('srclocation') !== -1) return;
+			post('send', data);
+		}
+		close() { post('close'); this._drop(1000, ''); }
+		_drop(code, reason) {
+			if (this.readyState === 3) return;
+			this.readyState = 3;
+			if (current === this) current = null;
+			var ev;
+			try { ev = new CloseEvent('close', { code: code, reason: reason }); }
+			catch (e) { ev = new Event('close'); }
+			this.dispatchEvent(ev);
+			if (this.onclose) this.onclose(ev);
+		}
+		_open() {
+			if (this.readyState !== 0) return;
+			this.readyState = 1;
+			var ev = new Event('open');
+			this.dispatchEvent(ev);
+			if (this.onopen) this.onopen(ev);
+		}
+		_message(data) {
+			if (this.readyState !== 1) return;
+			var body = this.binaryType === 'arraybuffer' || typeof data === 'string' ? data : new Blob([data]);
+			var ev = new MessageEvent('message', { data: body });
+			this.dispatchEvent(ev);
+			if (this.onmessage) this.onmessage(ev);
+		}
+	}
+	RemoteSocket.CONNECTING = 0; RemoteSocket.OPEN = 1; RemoteSocket.CLOSING = 2; RemoteSocket.CLOSED = 3;
+	window.WebSocket = RemoteSocket;
+	window.addEventListener('message', function (e) {
+		var msg = e.data;
+		if (!msg || typeof msg !== 'object' || msg.channel !== NET) return;
+		var s = current;
+		if (!s || msg.epoch !== s._epoch) return;
+		if (msg.ev === 'open') s._open();
+		else if (msg.ev === 'data') s._message(msg.data);
+		else if (msg.ev === 'close') s._drop(1006, 'relay closed');
+	});
+})();
+</script>
+`;
+}
+
+/**
+ * Prepare the host-shipped page for a GUEST's frame: same theming and bridge, but the network
+ * layer swapped for the parent-fed shim above. The websocket address is still pinned - to a
+ * dead loopback port the shim never dials - because pinning is also the check that this html
+ * is actually tinymist's page and not something else the wire handed us.
+ */
+export function prepareGuestPreviewPage(html: string, opts: Omit<PreparePageOptions, 'dataPlaneHost'>): string {
+	const out = preparePreviewPage(html, { ...opts, dataPlaneHost: '127.0.0.1:9' });
+	// the shim must parse before the bridge (which sits last in body); anchor it before both
+	const close = out.lastIndexOf('<style id="texpile-theme">');
+	const shim = remoteSocketShim();
+	return close >= 0 ? out.slice(0, close) + shim + out.slice(close) : out + shim;
 }
 
 /**

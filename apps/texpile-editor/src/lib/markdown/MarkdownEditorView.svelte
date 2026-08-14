@@ -17,6 +17,7 @@
 	import { inputRules, textblockTypeInputRule, wrappingInputRule, InputRule, undoInputRule } from 'prosemirror-inputrules';
 	import { search } from 'prosemirror-search';
 	import { mdSchema } from './schema';
+	import { markdownCopyPlugin } from './clipboard';
 	import { isMac } from '$lib/platform';
 	import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
 	import { preferences } from '$lib/stores/preferencesStore.svelte';
@@ -42,7 +43,7 @@
 	import { createNodeFlashPlugin } from '$lib/editor/extensions/flash-plugin';
 	import { remoteCursorsPlugin } from '$lib/editor/extensions/remoteCursors';
 	import { MD_BLOCK_INSERT_ITEMS } from './blockInsertItems';
-	import CodeBlockView from '$lib/editor/extensions/codemirrorbridge/cmview';
+	import CodeBlockView from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
 	import RawLatexView from '$lib/editor/extensions/raw-latex/rawLatexView';
 	import InlineLatexView from '$lib/editor/extensions/raw-latex/inlineLatexView';
 	import ContextMenu from '$lib/editor/comp/toolbar/ContextMenu.svelte';
@@ -121,6 +122,7 @@
 		const { mathlivePlugin, mlarrowHandlers } = await import('$lib/editor/extensions/mathlivebridge/mlplugin');
 
 		const plugins = [
+			markdownCopyPlugin,
 			gapCursor(),
 			dropCursor({ color: 'var(--color-primary-500)', width: 2 }),
 			columnResizing(),
@@ -299,9 +301,6 @@
 <style lang="postcss">
 	@reference "../../app.css";
 
-	/* the shared CodeBlockView card is tuned for tex (bright border + heavy shadow); markdown
-	   code blocks read better as a quiet inset */
-	:global(.MarkdownEditor .cm-wrapper) {
-		@apply border-surface-300-700 border shadow-none;
-	}
+	/* (the code-block card's quiet inset is now the shared default in cmview.ts, so the override
+	   that used to live here is gone) */
 </style>

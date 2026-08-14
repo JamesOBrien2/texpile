@@ -578,6 +578,26 @@ html[data-mode='dark'] .cm-comment-add:hover {
 	animation: dialog-scale-out 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Toasts: the group renders <Toast.Description> for every toast, so a title-only toast carries an
+   EMPTY description that still occupies a row. And the toast grid is align-items:start, which is
+   right for a paragraph toast (the close X pins to the top instead of floating mid-text) but wrong
+   for a one-liner: the 32px close button inflates the row and the title sits top-aligned with a
+   void under it. Title-only toasts collapse the phantom row and centre instead; toasts with a real
+   description keep the top-aligned layout. */
+[data-scope='toast'] [data-part='description']:empty {
+	display: none;
+}
+[data-scope='toast'][data-part='root']:has([data-part='description']:empty) {
+	align-items: center;
+}
+/* and on one line the close X is the tallest thing in the row, so its fixed 2em height - sized
+   against paragraph toasts - is what sets the toast's height; let it hug its icon instead and
+   the title line sets the height */
+[data-scope='toast'][data-part='root']:has([data-part='description']:empty) [data-part='close-trigger'] {
+	height: auto;
+	padding-block: 2px;
+}
+
 .box-show .preview-box {
 	position: fixed;
 	right: -52%;
@@ -1035,6 +1055,13 @@ html[data-mode='dark'] .cm-comment-add:hover {
 	background-color: color-mix(in srgb, var(--color-surface-400) 15%, transparent);
 	color: var(--color-surface-300);
 	border-color: var(--color-surface-600);
+}
+
+/* a comment chip owns its whole line in the source (% consumes to end of line) and serializes
+   on a line of its own, so it displays as one too */
+.ProseMirror .inline-latex-wrapper.comment-chip {
+	display: block;
+	width: fit-content;
 }
 
 /* generic editable LaTeX environment block; the env name lives in the node-view header, so no ::before badge */

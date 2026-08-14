@@ -18,10 +18,9 @@ import {
 	setMainFile,
 	addRecentFolder
 } from '$lib/workspace/workspaceStore';
-import { detectMainFile, gatherProjectMacros } from '$lib/workspace/project';
+import { gatherProjectMacros } from '$lib/workspace/project';
 import { claimWorkspace, releaseWorkspace, pickFolder, samePath, type TexFile } from '$lib/workspace/fileSystem';
 import { openTutorialProject } from '$lib/workspace/starters';
-import { updateSettings } from '$lib/settings';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 
@@ -75,7 +74,7 @@ export class FolderLifecycle {
 			docPositions.bind(root, d.hostMode());
 			texFiles.set(files);
 			addRecentFolder(root);
-			updateSettings({ lastFolder: root });
+			// (no lastFolder write: the MAIN process maintains settings.openFolders for session restore)
 			await d.refreshTree();
 			await this.initProject(root);
 			d.loadRefs(root);
@@ -119,8 +118,23 @@ export class FolderLifecycle {
 		}
 	}
 
-	/** resolve the main file (persisted choice if it still exists, else auto-detect) and gather its
-	 * cross-file macros. Runs once on folder open, before any file is loaded. */
+	/**
+	 * Resolve the main file and gather its cross-file macros. Runs once on folder open, before any
+	 * file is loaded.
+	 *
+	 * The main file is a CHOICE, and the store holds only choices. It used to hold detectMainFile's
+	 * GUESS whenever a folder had no saved one, which put a star on a file nobody picked while
+	 * `confirmed` stayed false - so the tree said "this is your main file" and the first compile
+	 * still opened the picker to ask. Two answers to one question, from the same open.
+	 *
+	 * Detection did not go away; it moved to where it is honest. MainFilePrompt runs it to preselect
+	 * a radio button, which is a suggestion the user then confirms. Nothing is starred, persisted or
+	 * compiled on the strength of it.
+	 *
+	 * One candidate is not a guess - there is nothing to choose between - so a lone file is adopted
+	 * for the session. It is deliberately NOT persisted: storage records decisions, and the user has
+	 * not made one.
+	 */
 	async initProject(root: string): Promise<void> {
 		const d = this.deps;
 		let files: TexFile[] = [];
@@ -130,11 +144,12 @@ export class FolderLifecycle {
 			/* leave files empty */
 		}
 		const saved = savedMainFile(root);
-		const main = saved && files.some((f) => samePath(f.path, saved)) ? saved : await detectMainFile(files);
+		const savedExists = !!(saved && files.some((f) => samePath(f.path, saved)));
+		const main = savedExists ? saved : files.length === 1 ? files[0].path : null;
 		if (get(workspaceRoot) !== root) return; // folder changed under us
 		// a folder whose main file was never explicitly chosen asks once before the first compile
 		// (single-file folders have nothing to choose)
-		d.setMainConfirmed(files.length <= 1 || !!(saved && files.some((f) => samePath(f.path, saved))));
+		d.setMainConfirmed(savedExists || files.length <= 1);
 		mainFile.set(main);
 		d.loadExistingPdf(); // show an already-compiled PDF for this folder without a recompile
 		d.setProjectMacros(main ? await gatherProjectMacros(main, root) : '');

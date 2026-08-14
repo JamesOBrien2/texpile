@@ -3,6 +3,8 @@
 // with a 30-day half-life and mapped to CodeMirror's boost, which tie-breaks equal matches.
 import { pickedCompletion, type Completion } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
+import { get } from 'svelte/store';
+import { users, updateUsers } from '$lib/storage/users';
 
 interface UsageEntry {
 	/** decayed accept score as of t */
@@ -11,32 +13,20 @@ interface UsageEntry {
 	t: number;
 }
 
-const STORE_KEY = 'texpile:completionUsage';
 const HALF_LIFE_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_ENTRIES = 200;
 const MAX_BOOST = 30;
 
+// in-memory working copy; the users blob is the persisted one
 let usage: Record<string, UsageEntry> | null = null;
 
 function load(): Record<string, UsageEntry> {
-	if (!usage) {
-		usage = {};
-		try {
-			const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(STORE_KEY);
-			if (raw) usage = JSON.parse(raw) as Record<string, UsageEntry>;
-		} catch {
-			// corrupted store: start fresh
-		}
-	}
+	usage ??= { ...get(users).completionUsage };
 	return usage;
 }
 
 function save(store: Record<string, UsageEntry>) {
-	try {
-		if (typeof localStorage !== 'undefined') localStorage.setItem(STORE_KEY, JSON.stringify(store));
-	} catch {
-		// quota or private mode: boosts still work for this session
-	}
+	updateUsers({ completionUsage: { ...store } });
 }
 
 const decayed = (e: UsageEntry, now: number) => e.s * Math.pow(0.5, (now - e.t) / HALF_LIFE_MS);
@@ -78,9 +68,5 @@ export function frecencyTracker() {
 /** test seam: wipe the in-memory store so cases start clean. */
 export function resetUsageForTests() {
 	usage = null;
-	try {
-		if (typeof localStorage !== 'undefined') localStorage.removeItem(STORE_KEY);
-	} catch {
-		// nothing to clear
-	}
+	updateUsers({ completionUsage: {} });
 }

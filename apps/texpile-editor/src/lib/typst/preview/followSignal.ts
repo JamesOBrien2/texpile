@@ -11,3 +11,14 @@ import { writable } from 'svelte/store';
 export const followScrollTick = writable(0);
 
 export const noteFollowScroll = (): void => followScrollTick.update((n) => n + 1);
+
+/**
+ * Bumped when a GUEST's typst-scroll request is about to be resolved on the host. tinymist
+ * broadcasts the resulting `jump` to every viewer socket, and while the relay routes it to only
+ * the asking guest, the host's OWN pane holds a direct socket the relay never sees. TypstPreview
+ * forwards this as a `freeze` message and the page bridge swallows jump/cursor frames for the
+ * window - so a guest following its caret does not drag the host's view around.
+ */
+export const guestJumpFreezeTick = writable(0);
+
+export const noteGuestJumpFreeze = (): void => guestJumpFreezeTick.update((n) => n + 1);

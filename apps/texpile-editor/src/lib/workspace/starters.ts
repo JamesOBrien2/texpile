@@ -7,7 +7,7 @@ import { joinPath, writeTextFile, writeBinaryFile, statFile, scanTree } from './
 import { m } from '$lib/paraglide/messages';
 
 // keys look like "./starters/mla/main.tex"; vite inlines the contents eagerly as strings
-const RAW = import.meta.glob('./starters/*/*.{tex,bib}', {
+const RAW = import.meta.glob('./starters/*/*.{tex,bib,typ}', {
 	query: '?raw',
 	import: 'default',
 	eager: true
@@ -24,6 +24,14 @@ export interface Starter {
 	id: string;
 	name: string;
 	description: string;
+	/**
+	 * Which typesetter this starter is for; the picker groups by it.
+	 *
+	 * Not merely a label: applyStarter sets mainFile as the project's main file, and the main file's
+	 * extension is the ONLY thing choosing the compiler (see effectiveCompileFormat). So a starter's
+	 * lang and its mainFile extension have to agree, or the folder it creates will not build.
+	 */
+	lang: 'latex' | 'typst';
 	/** the file the editor opens after the starter is applied. */
 	mainFile: string;
 	/** relative path -> file contents, written verbatim into the folder. */
@@ -63,6 +71,7 @@ export const STARTERS: Starter[] = [
 		get description() {
 			return m.starterdef_article_description();
 		},
+		lang: 'latex',
 		mainFile: 'main.tex',
 		files: filesFor('article')
 	},
@@ -74,6 +83,7 @@ export const STARTERS: Starter[] = [
 		get description() {
 			return m.starterdef_mla_description();
 		},
+		lang: 'latex',
 		mainFile: 'main.tex',
 		files: filesFor('mla')
 	},
@@ -85,6 +95,7 @@ export const STARTERS: Starter[] = [
 		get description() {
 			return m.starterdef_apa_description();
 		},
+		lang: 'latex',
 		mainFile: 'main.tex',
 		files: filesFor('apa')
 	},
@@ -96,9 +107,26 @@ export const STARTERS: Starter[] = [
 		get description() {
 			return m.starterdef_tutorial_description();
 		},
+		lang: 'latex',
 		mainFile: 'main.tex',
 		files: filesFor('tutorial'),
 		binaryFiles: binaryFilesFor('tutorial')
+	},
+	// The whole Typst lane for now, and deliberately bare: one line of prose and nothing else. It
+	// still has to be a STARTER rather than the blank-file link beside it, because only applyStarter
+	// sets the result as the main file - and with the format switch gone, a .typ that is not the main
+	// file leaves the folder compiling as LaTeX.
+	{
+		id: 'typst-empty',
+		get name() {
+			return m.starterdef_typst_empty_name();
+		},
+		get description() {
+			return m.starterdef_typst_empty_description();
+		},
+		lang: 'typst',
+		mainFile: 'main.typ',
+		files: filesFor('typst-empty')
 	}
 ];
 

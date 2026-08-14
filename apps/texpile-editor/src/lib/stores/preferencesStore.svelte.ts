@@ -1,6 +1,11 @@
+// Editor preferences facade. The old texpile:preferences blob is gone (migrated); its fields now
+// live where they belong - zoom / pageView / previewVisible in texpile:layout (how the window
+// looks), the dismissal and onboarding flags in texpile:users (the user's own memory). The
+// EditorPreferences shape survives as a facade so the editors keep one object to read and write.
 import { browser } from '$lib/runtime';
-
-const STORAGE_KEY = 'texpile:preferences';
+import { get } from 'svelte/store';
+import { layout, updateLayout } from '$lib/storage/layout';
+import { users, updateUsers } from '$lib/storage/users';
 
 export interface EditorPreferences {
 	/** editor zoom level (1 = 100%). */
@@ -14,56 +19,39 @@ export interface EditorPreferences {
 	tourCompleted: boolean;
 }
 
-const DEFAULT_PREFERENCES: EditorPreferences = {
-	zoom: 1,
-	pageView: false,
-	previewVisible: true,
-	sidebarOpen: true, // sidebarStore overrides on mobile
-	advancedWarningDismissed: false,
-	onboardingCompleted: false,
-	tourCompleted: false
-};
-
-function loadFromStorage(): EditorPreferences {
-	if (!browser) return DEFAULT_PREFERENCES;
-
-	try {
-		const stored = localStorage.getItem(STORAGE_KEY);
-		if (stored) {
-			const parsed = JSON.parse(stored);
-			// merge with defaults for keys missing from older versions
-			return { ...DEFAULT_PREFERENCES, ...parsed };
-		}
-	} catch (e) {
-		console.warn('Failed to load preferences from localStorage:', e);
-	}
-
-	return DEFAULT_PREFERENCES;
+function snapshot(): EditorPreferences {
+	const l = get(layout);
+	const u = get(users);
+	return {
+		zoom: l.editorZoom,
+		pageView: l.pageView,
+		previewVisible: l.previewVisible,
+		sidebarOpen: l.sidebarOpen,
+		advancedWarningDismissed: u.advancedWarningDismissed,
+		onboardingCompleted: u.onboardingCompleted,
+		tourCompleted: u.tourCompleted
+	};
 }
 
+export const preferences = $state<EditorPreferences>(
+	browser
+		? snapshot()
+		: {
+				zoom: 1,
+				pageView: false,
+				previewVisible: true,
+				sidebarOpen: true,
+				advancedWarningDismissed: false,
+				onboardingCompleted: false,
+				tourCompleted: false
+			}
+);
+
+// auto-save on change, each field into its home store (debounced like the old blob was)
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-function saveToStorage(prefs: EditorPreferences): void {
-	if (!browser) return;
-
-	if (saveTimeout) clearTimeout(saveTimeout);
-	saveTimeout = setTimeout(() => {
-		try {
-			localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-		} catch (e) {
-			console.warn('Failed to save preferences to localStorage:', e);
-		}
-	}, 100);
-}
-
-const initialPrefs = loadFromStorage();
-
-export const preferences = $state<EditorPreferences>(initialPrefs);
-
-// auto-save on change
 $effect.root(() => {
 	$effect(() => {
-		// touch every field so the effect tracks them all
-		const snapshot = {
+		const snap = {
 			zoom: preferences.zoom,
 			pageView: preferences.pageView,
 			previewVisible: preferences.previewVisible,
@@ -72,6 +60,15 @@ $effect.root(() => {
 			onboardingCompleted: preferences.onboardingCompleted,
 			tourCompleted: preferences.tourCompleted
 		};
-		saveToStorage(snapshot);
+		if (!browser) return;
+		if (saveTimeout) clearTimeout(saveTimeout);
+		saveTimeout = setTimeout(() => {
+			updateLayout({ editorZoom: snap.zoom, pageView: snap.pageView, previewVisible: snap.previewVisible, sidebarOpen: snap.sidebarOpen });
+			updateUsers({
+				advancedWarningDismissed: snap.advancedWarningDismissed,
+				onboardingCompleted: snap.onboardingCompleted,
+				tourCompleted: snap.tourCompleted
+			});
+		}, 100);
 	});
 });

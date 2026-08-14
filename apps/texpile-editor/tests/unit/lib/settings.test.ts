@@ -15,13 +15,13 @@ describe('settings hydration (auto-reopen depends on this)', () => {
 		// the native read resolves on a later tick, the exact case the old boolean flag mishandled
 		(globalThis as { window?: unknown }).window = {
 			texpileNative: {
-				getSettings: () => new Promise((r) => setTimeout(() => r({ lastFolder: '/saved/project', reopenLastFolder: true }), 15)),
+				getSettings: () => new Promise((r) => setTimeout(() => r({ openFolders: ['/saved/project'], reopenLastFolder: true }), 15)),
 				setSettings: () => Promise.resolve()
 			}
 		};
 		const { getSettings } = await import('../../../src/lib/settings');
 		const s = await getSettings();
-		expect(s.lastFolder).toBe('/saved/project'); // regression guard for the reopen-last-folder bug
+		expect(s.openFolders).toEqual(['/saved/project']); // regression guard for the reopen-last-folder bug
 		expect(s.reopenLastFolder).toBe(true);
 	});
 
@@ -38,8 +38,8 @@ describe('settings hydration (auto-reopen depends on this)', () => {
 		};
 		const { loadSettings } = await import('../../../src/lib/settings');
 		const [a, b] = await Promise.all([loadSettings(), loadSettings()]);
-		expect(a.lastFolder).toBe('/x');
-		expect(b.lastFolder).toBe('/x');
+		expect(a.openFolders).toEqual(['/x']);
+		expect(b.openFolders).toEqual(['/x']);
 		expect(calls).toBe(1); // one read, shared (the eager module-load hydrate)
 	});
 
@@ -81,7 +81,7 @@ describe('settings hydration (auto-reopen depends on this)', () => {
 		};
 		const { loadSettings, updateSettings } = await import('../../../src/lib/settings');
 		await loadSettings();
-		updateSettings({ terminalHeight: 300 });
-		expect(writes.at(-1)).toEqual({ terminalHeight: 300 });
+		updateSettings({ uiZoom: 1.5 });
+		expect(writes.at(-1)).toEqual({ uiZoom: 1.5 });
 	});
 });

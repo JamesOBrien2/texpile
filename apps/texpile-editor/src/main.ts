@@ -1,3 +1,6 @@
+// FIRST import, load-bearing: migrates pre-restructure storage keys before any module below
+// reads one at module scope (the theme, the layout store, the recents list)
+import '$lib/migration/local';
 import { mount } from 'svelte';
 import './app.css';
 import '$lib/theme'; // side-effect: applies the saved appearance and watches OS changes

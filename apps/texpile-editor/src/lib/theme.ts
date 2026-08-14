@@ -1,14 +1,13 @@
 // light/dark/system appearance. the resolved mode lands as data-mode + a .dark class on <html>;
-// an inline script in app.html mirrors the resolve logic pre-paint to avoid a flash.
-import { writable } from 'svelte/store';
+// an inline script in app.html mirrors the resolve logic pre-paint to avoid a flash (reading the
+// texpile:layout blob directly - keep its `theme` field in step with this module).
+import { writable, get } from 'svelte/store';
+import { layout, updateLayout } from '$lib/storage/layout';
 
 export type ThemeChoice = 'light' | 'dark' | 'system';
-const KEY = 'texpile:mode';
 
 function stored(): ThemeChoice {
-	if (typeof localStorage === 'undefined') return 'system';
-	const v = localStorage.getItem(KEY);
-	return v === 'light' || v === 'dark' || v === 'system' ? v : 'system';
+	return get(layout).theme;
 }
 
 function systemPrefersDark(): boolean {
@@ -43,11 +42,7 @@ function watchSystem(choice: ThemeChoice): void {
 
 export function setTheme(choice: ThemeChoice): void {
 	themeChoice.set(choice);
-	try {
-		localStorage.setItem(KEY, choice);
-	} catch {
-		/* ignore (private mode, etc.) */
-	}
+	updateLayout({ theme: choice });
 	apply(resolve(choice));
 	watchSystem(choice);
 }

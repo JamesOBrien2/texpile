@@ -11,6 +11,7 @@ import { languages as cmlangdata } from '@codemirror/language-data';
 import { rawEditorActiveStore } from '$lib/stores/editorStore';
 import { latexAutocomplete } from '$lib/editor/extensions/intellisense/intellisense';
 import { latex } from '$lib/editor/extensions/latex/latex';
+import { cmCommentHighlights, cmCommentClicks, syncCmCommentHighlights } from '$lib/editor/extensions/codemirrorbridge/cmComments';
 
 // codemirror-backed NodeView for raw source blocks; content reaches the serializer unprocessed.
 // attrs.lang picks the CodeMirror mode: 'latex' (default, with autocomplete), or 'html' /
@@ -41,6 +42,8 @@ class RawLatexView {
 				CodeMirrorView.lineWrapping,
 				this.languageConf.of([]), // lang loads async below
 				cmSyntaxHighlight(),
+				cmCommentHighlights,
+				cmCommentClicks(view, () => this.getPos()),
 				// popup escapes the block's box; only latex content has completions to offer
 				...(String(node.attrs.lang ?? 'latex') === 'latex' ? [latexAutocomplete({ tooltipsInBody: true })] : []),
 				// transparent surface so the raw block blends into the document; tight insets - the
@@ -94,7 +97,12 @@ class RawLatexView {
 		this.handleBlur = this.handleBlur.bind(this);
 		this.cm.dom.addEventListener('focus', this.handleFocus, true);
 		this.cm.dom.addEventListener('blur', this.handleBlur, true);
+
+		this.lastCommentKey = syncCmCommentHighlights(this.cm, this.view, this.getPos, this.node, this.lastCommentKey);
 	}
+
+	/** last comment ranges handed to CodeMirror, so a no-op update doesn't dispatch */
+	private lastCommentKey = '[]';
 
 	handleFocus() {
 		rawEditorActiveStore.set(true); // toolbar swaps to the raw-LaTeX bar
@@ -206,6 +214,8 @@ class RawLatexView {
 	update(node: Node): boolean {
 		if (node.type != this.node.type) return false;
 		this.node = node;
+		// decoration-only changes (a comment placed, focused, or dismissed) arrive here too
+		this.lastCommentKey = syncCmCommentHighlights(this.cm, this.view, this.getPos, this.node, this.lastCommentKey);
 		if (this.updating) return true;
 		const newText = node.textContent,
 			curText = this.cm.state.doc.toString();

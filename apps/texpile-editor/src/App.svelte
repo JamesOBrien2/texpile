@@ -3,7 +3,7 @@
 	import { route, navigate } from '$lib/router.svelte';
 	import { native, claimWorkspace, scanTexFiles, statFile, dirname, openNewWindow } from '$lib/workspace/fileSystem';
 	import { workspaceRoot, texFiles, activeFilePath, addRecentFolder, savedLastFile } from '$lib/workspace/workspaceStore';
-	import { settings, updateSettings, loadSettings } from '$lib/settings';
+	import { settings, loadSettings } from '$lib/settings';
 	import { checkForUpdate, updateModalOpen } from '$lib/updates';
 	import UpdateAvailableModal from '$lib/components/UpdateAvailableModal.svelte';
 	import WhatsNewModal from '$lib/components/WhatsNewModal.svelte';
@@ -89,7 +89,6 @@
 				texFiles.set(files);
 				activeFilePath.set(match?.path ?? filePath);
 				addRecentFolder(root);
-				updateSettings({ lastFolder: root });
 				navigate('/workspace');
 			} catch {
 				/* ignore an OS open we can't honor */
@@ -114,7 +113,6 @@
 				texFiles.set(files);
 				activeFilePath.set(active);
 				addRecentFolder(root);
-				updateSettings({ lastFolder: root });
 				navigate('/workspace');
 			} catch {
 				/* folder is gone or unreadable: stay on the start screen */

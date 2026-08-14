@@ -2,10 +2,10 @@
 // resizing. The dock stays MOUNTED once opened so shells persist across toggles; only its
 // visibility flips. A guest has no shells of its own, so its toggles are never persisted.
 import { browser } from '$lib/runtime';
-import { updateSettings } from '$lib/settings';
+import { get } from 'svelte/store';
+import { layout, updateLayout } from '$lib/storage/layout';
 import { startDrag, nudgeOnKey, clampTo, SNAP_SLACK } from '$lib/workspace/paneResize';
 
-const SHRINK_KEY = 'texpile:terminalShrink';
 const MIN_HEIGHT = 120;
 const MAX_HEIGHT = 700;
 const clampHeight = clampTo(MIN_HEIGHT, MAX_HEIGHT);
@@ -35,11 +35,11 @@ export class TerminalDockState {
 
 	constructor(private isGuest: () => boolean) {}
 
-	/** restore persisted height/visibility/shrink; call once at mount */
-	restore(settings: { terminalHeight?: number; terminalVisible?: boolean }) {
-		if (settings.terminalHeight !== undefined && settings.terminalHeight >= MIN_HEIGHT && settings.terminalHeight <= MAX_HEIGHT)
-			this.height = settings.terminalHeight;
-		if (this.available && settings.terminalVisible) {
+	/** restore persisted height/visibility/shrink (texpile:layout); call once at mount */
+	restore() {
+		const s = get(layout);
+		if (s.terminalHeight >= MIN_HEIGHT && s.terminalHeight <= MAX_HEIGHT) this.height = s.terminalHeight;
+		if (this.available && s.terminalVisible) {
 			this.mounted = true;
 			this.visible = true;
 			// No shell here. terminalVisible is set by anything that REVEALS the dock - a compile
@@ -47,7 +47,7 @@ export class TerminalDockState {
 			// reopened workspace a Terminal 1 the user never asked for, sitting next to the Compile
 			// shell that does the actual work. The empty pane offers one instead.
 		}
-		if (browser && localStorage.getItem(SHRINK_KEY) === '1') this.shrink = true;
+		if (browser && s.terminalShrink) this.shrink = true;
 	}
 
 	/** reveal the dock WITHOUT creating a shell: a compile opens it for its output, and jumping to
@@ -55,14 +55,14 @@ export class TerminalDockState {
 	show() {
 		this.mounted = true;
 		this.visible = true;
-		if (!this.isGuest()) updateSettings({ terminalVisible: true });
+		if (!this.isGuest()) updateLayout({ terminalVisible: true });
 		setTimeout(() => this.dock?.refit(), 0);
 	}
 
 	/** put the dock away, keeping its shells: mounted stays true so they survive the next open */
 	hide() {
 		this.visible = false;
-		if (!this.isGuest()) updateSettings({ terminalVisible: false });
+		if (!this.isGuest()) updateLayout({ terminalVisible: false });
 	}
 
 	/** the Terminal toggle: this one IS a request for a terminal, so it makes sure one exists */
@@ -80,7 +80,7 @@ export class TerminalDockState {
 
 	toggleShrink() {
 		this.shrink = !this.shrink;
-		if (browser) localStorage.setItem(SHRINK_KEY, this.shrink ? '1' : '0');
+		if (browser) updateLayout({ terminalShrink: this.shrink });
 	}
 
 	/** on folder change, replace the shells so they respawn in the new cwd */
@@ -94,7 +94,7 @@ export class TerminalDockState {
 		const wasMounted = this.mounted;
 		this.mounted = true;
 		this.visible = true;
-		updateSettings({ terminalVisible: true });
+		updateLayout({ terminalVisible: true });
 		setTimeout(() => {
 			if (wasMounted) this.dock?.addTerminal();
 			else this.dock?.ensureTerminal();
@@ -121,7 +121,7 @@ export class TerminalDockState {
 		this.height = clampHeight(h);
 		this.dock?.refit();
 	};
-	private commit = () => updateSettings({ terminalHeight: this.height });
+	private commit = () => updateLayout({ terminalHeight: this.height });
 
 	startResize = (e: MouseEvent) => {
 		const startY = e.clientY;

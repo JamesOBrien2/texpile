@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 //
-// The store hydrates at MODULE INIT, so each case re-imports with localStorage already seeded.
-// That is the only way to catch the bug this file exists for: MAX_RECENT was declared after the
-// initializing call, so reading it from inside hit the temporal dead zone, the catch swallowed the
-// ReferenceError, and the list came back empty every launch - then the first folder opened wrote
-// itself over the whole history. Nothing in a normal test that imports once would have seen it.
+// The recents MRU lives in the texpile:users blob now. The store hydrates at MODULE INIT, so each
+// case re-imports with localStorage already seeded - the only way to catch init-order bugs (the
+// original motivation: a TDZ read at init once made the list come back empty every launch, and the
+// first folder opened then overwrote the whole history).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
 
-const KEY = 'texpile:recentFolders';
-const load = () => import('$lib/workspace/workspaceStore');
+const KEY = 'texpile:users';
+const seed = (recentFolders: unknown) => localStorage.setItem(KEY, JSON.stringify({ v: 1, recentFolders }));
+const stored = () => JSON.parse(localStorage.getItem(KEY)!).recentFolders;
+const load = () => import('$lib/storage/users');
 
 describe('recentFolders', () => {
 	beforeEach(() => {
@@ -17,45 +18,45 @@ describe('recentFolders', () => {
 		vi.resetModules();
 	});
 
-	it('hydrates from localStorage at module init', async () => {
-		localStorage.setItem(KEY, JSON.stringify(['/a', '/b', '/c']));
-		const { recentFolders } = await load();
-		expect(get(recentFolders)).toEqual(['/a', '/b', '/c']);
+	it('hydrates from the users blob at module init', async () => {
+		seed(['/a', '/b', '/c']);
+		const { users } = await load();
+		expect(get(users).recentFolders).toEqual(['/a', '/b', '/c']);
 	});
 
 	it('prepends a newly opened folder without losing the history', async () => {
-		localStorage.setItem(KEY, JSON.stringify(['/a', '/b']));
-		const { recentFolders, addRecentFolder } = await load();
+		seed(['/a', '/b']);
+		const { users, addRecentFolder } = await load();
 		addRecentFolder('/c');
-		expect(get(recentFolders)).toEqual(['/c', '/a', '/b']);
-		expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(['/c', '/a', '/b']);
+		expect(get(users).recentFolders).toEqual(['/c', '/a', '/b']);
+		expect(stored()).toEqual(['/c', '/a', '/b']);
 	});
 
 	it('moves a folder already in the list to the front rather than duplicating it', async () => {
-		localStorage.setItem(KEY, JSON.stringify(['/a', '/b', '/c']));
-		const { recentFolders, addRecentFolder } = await load();
+		seed(['/a', '/b', '/c']);
+		const { users, addRecentFolder } = await load();
 		addRecentFolder('/c');
-		expect(get(recentFolders)).toEqual(['/c', '/a', '/b']);
+		expect(get(users).recentFolders).toEqual(['/c', '/a', '/b']);
 	});
 
 	it('caps the list on read as well as write', async () => {
-		localStorage.setItem(KEY, JSON.stringify(Array.from({ length: 20 }, (_, i) => `/f${i}`)));
-		const { recentFolders, addRecentFolder } = await load();
-		expect(get(recentFolders)).toHaveLength(8);
+		seed(Array.from({ length: 20 }, (_, i) => `/f${i}`));
+		const { users, addRecentFolder } = await load();
+		expect(get(users).recentFolders).toHaveLength(8);
 		addRecentFolder('/new');
-		expect(get(recentFolders)).toHaveLength(8);
-		expect(get(recentFolders)[0]).toBe('/new');
+		expect(get(users).recentFolders).toHaveLength(8);
+		expect(get(users).recentFolders[0]).toBe('/new');
 	});
 
 	it('survives junk in storage rather than throwing at import', async () => {
 		localStorage.setItem(KEY, '{not json');
-		const { recentFolders } = await load();
-		expect(get(recentFolders)).toEqual([]);
+		const { users } = await load();
+		expect(get(users).recentFolders).toEqual([]);
 	});
 
 	it('drops non-string entries', async () => {
-		localStorage.setItem(KEY, JSON.stringify(['/a', 42, null, '/b']));
-		const { recentFolders } = await load();
-		expect(get(recentFolders)).toEqual(['/a', '/b']);
+		seed(['/a', 42, null, '/b']);
+		const { users } = await load();
+		expect(get(users).recentFolders).toEqual(['/a', '/b']);
 	});
 });

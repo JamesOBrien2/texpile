@@ -2,14 +2,19 @@
 // user (shared sessions don't sync tab state). The ACTIVE file stays workspaceStore's
 // activeFilePath; WorkspaceView wires activation, closing and tree-change cleanup to this.
 import { samePath, joinPath } from './fileSystem';
+import { getFolder, updateFolder } from '$lib/storage/workspaces';
 
-const TABS_KEY = 'texpile:tabs'; // { [folderRoot]: relPath[] }
 const MAX_TABS = 50;
 
 const sepOf = (p: string) => (p.includes('\\') ? '\\' : '/');
 
 class TabsStore {
 	list = $state<string[]>([]);
+	/** The one PREVIEW tab, VS Code style: a file you opened but have not edited yet. Opening
+	 *  another file takes its slot instead of adding a tab, so browsing a tree does not bury the
+	 *  strip. Editing it (keep()) makes it permanent, and only then does the next file get a tab
+	 *  of its own. Never persisted: a restored session's tabs are all permanent. */
+	preview = $state<string | null>(null);
 	private root: string | null = null;
 	private persistable = false;
 
@@ -18,26 +23,28 @@ class TabsStore {
 		this.root = root;
 		this.persistable = persist && !!root && typeof localStorage !== 'undefined';
 		this.list = [];
+		this.preview = null;
 		if (!this.persistable || !root) return;
-		try {
-			const all = JSON.parse(localStorage.getItem(TABS_KEY) || '{}') as Record<string, string[]>;
-			const rels = all[root];
-			if (Array.isArray(rels)) this.list = rels.slice(0, MAX_TABS).map((r) => joinPath(root, String(r)));
-		} catch {
-			/* fresh set */
-		}
+		const rels = getFolder(root).tabs;
+		if (Array.isArray(rels)) this.list = rels.slice(0, MAX_TABS).map((r) => joinPath(root, String(r)));
+	}
+
+	isPreview(path: string): boolean {
+		return !!this.preview && samePath(this.preview, path);
+	}
+
+	/** promote out of the preview slot: the file was edited, or the user asked to keep it. */
+	keep(path: string): void {
+		if (this.isPreview(path)) this.preview = null;
 	}
 
 	private persist(): void {
 		if (!this.persistable || !this.root) return;
 		const root = this.root;
-		try {
-			const all = JSON.parse(localStorage.getItem(TABS_KEY) || '{}') as Record<string, string[]>;
-			all[root] = this.list.map((p) => p.slice(root.length).replace(/^[\\/]/, ''));
-			localStorage.setItem(TABS_KEY, JSON.stringify(all));
-		} catch {
-			/* storage blocked; tabs just don't persist */
-		}
+		const rels = this.list.map((p) => p.slice(root.length).replace(/^[\\/]/, ''));
+		updateFolder(root, (e) => {
+			e.tabs = rels;
+		});
 	}
 
 	has(path: string): boolean {
@@ -54,7 +61,11 @@ class TabsStore {
 			if (!samePath(path.slice(0, prefix.length), prefix)) return;
 		}
 		if (this.has(path)) return;
-		this.list = [...this.list.slice(-(MAX_TABS - 1)), path];
+		// the unedited tab gives up its slot rather than its position: replacing in place keeps
+		// the strip from shuffling under the pointer while you click down a file tree
+		const at = this.preview ? this.list.findIndex((t) => samePath(t, this.preview!)) : -1;
+		this.list = at >= 0 ? this.list.map((t, i) => (i === at ? path : t)) : [...this.list.slice(-(MAX_TABS - 1)), path];
+		this.preview = path;
 		this.persist();
 	}
 
@@ -67,6 +78,7 @@ class TabsStore {
 
 	close(path: string): void {
 		this.list = this.list.filter((t) => !samePath(t, path));
+		this.keep(path); // the slot goes with the tab
 		this.persist();
 	}
 
@@ -74,13 +86,16 @@ class TabsStore {
 	closeUnder(path: string): void {
 		const prefix = path + sepOf(path);
 		this.list = this.list.filter((t) => !samePath(t, path) && !t.startsWith(prefix));
+		this.dropPreviewIfClosed();
 		this.persist();
 	}
 
 	/** a rename/move retargets the tab, or every tab under it when a folder moved. */
 	rename(from: string, to: string): void {
 		const prefix = from + sepOf(from);
-		this.list = this.list.map((t) => (samePath(t, from) ? to : t.startsWith(prefix) ? to + t.slice(from.length) : t));
+		const retarget = (t: string) => (samePath(t, from) ? to : t.startsWith(prefix) ? to + t.slice(from.length) : t);
+		this.list = this.list.map(retarget);
+		if (this.preview) this.preview = retarget(this.preview);
 		this.persist();
 	}
 
@@ -89,8 +104,13 @@ class TabsStore {
 		const next = this.list.filter((t) => livePaths.some((p) => samePath(p, t)));
 		if (next.length !== this.list.length) {
 			this.list = next;
+			this.dropPreviewIfClosed();
 			this.persist();
 		}
+	}
+
+	private dropPreviewIfClosed(): void {
+		if (this.preview && !this.has(this.preview)) this.preview = null;
 	}
 
 	cycle(current: string | null, dir: 1 | -1): string | null {

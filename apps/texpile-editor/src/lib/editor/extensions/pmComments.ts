@@ -27,6 +27,9 @@ import {
 	type LooseHaystack
 } from '$lib/comments/anchor';
 import type { CommentThread } from '$lib/comments/log';
+import { get } from 'svelte/store';
+import { settings, updateSettings } from '$lib/settings';
+import { m } from '$lib/paraglide/messages';
 
 export interface PmCommentRange {
 	id: string;
@@ -243,12 +246,16 @@ export function pmComments({ onSelect, onAdd, addLabel = 'Comment' }: PmComments
 				if (meta?.type === 'set') return { ...value, ranges: meta.ranges, deco: build(tr.doc, meta.ranges, value.focused) };
 				if (meta?.type === 'focus') return { ...value, focused: meta.id, deco: build(tr.doc, value.ranges, meta.id) };
 				if (!tr.docChanged) return value;
-				// bias -1/1 keeps a range hugging its own text: typing at either edge extends the
-				// comment rather than sliding it. A range whose text is gone collapses, and is dropped.
+				// A comment covers the text it was made about, and nothing typed after the fact at
+				// its edges: bias 1 on `from` and -1 on `to` both point AWAY from the range, so
+				// text inserted at a boundary lands outside it. Same rule as the source editor's
+				// field (extensions/comments.ts) - the two views must agree about where a thread
+				// ends. An edit strictly inside still extends it, and a range whose text is gone
+				// collapses and is dropped.
 				const mapped: PmCommentRange[] = [];
 				for (const r of value.ranges) {
-					const from = tr.mapping.map(r.from, -1);
-					const to = tr.mapping.map(r.to, 1);
+					const from = tr.mapping.map(r.from, 1);
+					const to = tr.mapping.map(r.to, -1);
 					if (to > from) mapped.push({ ...r, from, to });
 				}
 				return { ...value, ranges: mapped, deco: build(tr.doc, mapped, value.focused) };
@@ -274,6 +281,11 @@ export function pmComments({ onSelect, onAdd, addLabel = 'Comment' }: PmComments
 /** the pill fades in rather than flashing under the pointer for every drag it passes through */
 const SHOW_DELAY = 120;
 
+const SVG = (body: string) =>
+	`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const COMMENT_ICON = SVG('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>');
+const X_ICON = SVG('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
+
 /**
  * The Comment affordance for a non-empty selection: a small tooltip button floating ABOVE the
  * selection, sharing the source pill's .cm-comment-add chrome from app.css.
@@ -291,34 +303,54 @@ const SHOW_DELAY = 120;
 function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): Plugin {
 	return new Plugin({
 		view(view) {
-			const dom = document.createElement('button');
-			dom.className = 'cm-comment-add';
-			dom.title = label;
-			dom.setAttribute('aria-label', label);
-			dom.innerHTML =
-				'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
-			// geometry inline: the shared class only carries colours (the CM side gets these same
-			// properties from its baseTheme, which this editor does not load)
+			// a ROW, not a lone button: the dismiss control sits at its end, so the pill carries the
+			// means of getting rid of it. Turning it off is a SETTING, not a one-shot hide - the
+			// complaint it answers is "this thing keeps covering my text", which recurs.
+			const dom = document.createElement('div');
+			// named for parity with the CodeMirror twin's row; this editor loads no baseTheme, so
+			// the geometry below is inline rather than from that class
+			dom.className = 'cm-comment-add-row';
 			Object.assign(dom.style, {
 				position: 'fixed',
 				zIndex: '5',
 				display: 'none',
 				alignItems: 'center',
-				justifyContent: 'center',
-				width: '26px',
-				height: '26px',
-				padding: '0',
-				cursor: 'pointer',
+				gap: '2px',
 				opacity: '0',
 				transition: 'opacity 0.05s ease-in'
 			});
-			// mousedown, not click: by the time click fires the editor has collapsed the selection
-			// under the pointer and there is nothing left to comment on
-			dom.onmousedown = (e) => {
-				e.preventDefault();
+			// geometry inline: the shared class only carries colours (the CM side gets these same
+			// properties from its baseTheme, which this editor does not load)
+			const button = (title: string, svg: string, width: string, onDown: () => void) => {
+				const b = dom.appendChild(document.createElement('button'));
+				b.className = 'cm-comment-add';
+				b.title = title;
+				b.setAttribute('aria-label', title);
+				b.innerHTML = svg;
+				Object.assign(b.style, {
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					width,
+					height: '26px',
+					padding: '0',
+					cursor: 'pointer'
+				});
+				// mousedown, not click: by the time click fires the editor has collapsed the selection
+				// under the pointer and there is nothing left to comment on
+				b.onmousedown = (e) => {
+					e.preventDefault();
+					onDown();
+				};
+			};
+			button(label, COMMENT_ICON, '26px', () => {
 				const sel = view.state.selection;
 				if (sel instanceof TextSelection && !sel.empty) onAdd(buildPmAnchor(view.state.doc, sel.from, sel.to));
-			};
+			});
+			button(m.comments_pill_off(), X_ICON, '20px', () => {
+				updateSettings({ commentPill: false });
+				hide(); // the setting keeps it off; this is only so it leaves under the pointer
+			});
 			// NEXT TO the editor, never inside it: view.dom is the contenteditable ProseMirror root,
 			// whose children the view owns - its mutation observer treats a foreign child as document
 			// DOM and removes it (the CodeMirror twin gets away with view.dom.appendChild because CM's
@@ -340,7 +372,8 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 			};
 			const place = () => {
 				const sel = view.state.selection;
-				if (!(sel instanceof TextSelection) || sel.empty) {
+				// turned off in Preferences: the pill never appears, and the plugin costs a boolean
+				if (get(settings).commentPill === false || !(sel instanceof TextSelection) || sel.empty) {
 					hide();
 					return;
 				}
@@ -364,9 +397,12 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 				const anchor = oneLine ? a : head;
 				// above the line, else below it when the selection starts at the top of the window
 				const top = anchor.top - 26 - 6 >= 4 ? anchor.top - 26 - 6 : anchor.bottom + 6;
+				// display before measuring: offsetWidth is 0 while the row is hidden, and the row is
+				// wider than the old lone button
 				dom.style.display = 'flex';
+				const half = (dom.offsetWidth || 48) / 2;
 				dom.style.top = `${top}px`;
-				dom.style.left = `${Math.min(Math.max(cx - 13, 4), window.innerWidth - 30)}px`;
+				dom.style.left = `${Math.min(Math.max(cx - half, 4), window.innerWidth - half * 2 - 4)}px`;
 				if (!shown && !timer) {
 					timer = setTimeout(() => {
 						timer = null;
@@ -378,11 +414,14 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 			window.addEventListener('scroll', place, true);
 			const ro = new ResizeObserver(place);
 			ro.observe(view.dom);
+			// the toggle has to bite without waiting for the next selection change, in both directions
+			const unsub = settings.subscribe(() => place());
 			return {
 				update: place,
 				destroy() {
 					window.removeEventListener('scroll', place, true);
 					ro.disconnect();
+					unsub();
 					if (timer) clearTimeout(timer);
 					dom.remove();
 				}

@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	getSettings: () => ipcRenderer.invoke('settings:get'),
 	/** merges a partial update into settings; resolves to the updated settings. */
 	setSettings: (partial: Record<string, unknown>) => ipcRenderer.invoke('settings:set', partial),
+	/** replace settings.json WHOLE (the migration's write; merge-writes cannot delete keys). */
+	replaceSettings: (full: Record<string, unknown>) => ipcRenderer.invoke('settings:replace', full),
 	/** set the whole-window zoom factor (clamped 0.5..2.5); resolves to the applied factor. */
 	setZoomFactor: (factor: number) => ipcRenderer.invoke('window:setZoom', factor),
 	/** whether AI-assistant access is enabled, and the loopback port if it is listening. */
@@ -220,6 +222,23 @@ contextBridge.exposeInMainWorld('texpileTypst', {
 	preparePreview: (host: string, background: string, foreground: string) =>
 		ipcRenderer.invoke('typst:preview:prepare', { host, background, foreground }),
 	releasePreview: () => ipcRenderer.send('typst:preview:release'),
+	/** the raw page as tinymist serves it, for a session host to ship to guests. */
+	previewPageHtml: (host: string) => ipcRenderer.invoke('typst:preview:pageHtml', { host }),
+	/** serve the host-shipped page for this (guest) window's frame; networkless CSP. */
+	prepareGuestPreview: (html: string, background: string, foreground: string) =>
+		ipcRenderer.invoke('typst:preview:prepareGuest', { html, background, foreground }),
+
+	// ---- preview relay (host side): websocket legs to the preview task's data plane, one per
+	// guest. `id` is this window's handle; traffic is opaque bytes both ways. ----
+	relayOpen: (id: number, host: string) => ipcRenderer.send('typst:relay:open', { id, host }),
+	relaySend: (id: number, data: string | ArrayBuffer) => ipcRenderer.send('typst:relay:send', { id, data }),
+	relayClose: (id: number) => ipcRenderer.send('typst:relay:close', { id }),
+	/** subscribe to relay socket events ({ id, ev, data? }); returns an unsubscribe fn. */
+	onRelayEvent: (cb: (e: { id: number; ev: 'open' | 'data' | 'close'; data?: string | ArrayBuffer }) => void) => {
+		const h = (_e: unknown, ev: { id: number; ev: 'open' | 'data' | 'close'; data?: string | ArrayBuffer }) => cb(ev);
+		ipcRenderer.on('typst:relay:event', h);
+		return () => ipcRenderer.removeListener('typst:relay:event', h);
+	},
 	/** spawn `tinymist lsp` for this window, rooted at `root`. */
 	startLsp: (root: string | null) => ipcRenderer.invoke('typst:lsp:start', root),
 	send: (json: string) => ipcRenderer.send('typst:lsp:send', json),

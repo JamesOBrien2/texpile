@@ -33,6 +33,10 @@
 	import { setEditorFileAccess } from '$lib/editor/fileAccess';
 	import { initSpellcheckConfig } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
+	import { isSafeRel } from '$lib/collab/protocol';
+	import { previewRelay } from '$lib/collab/previewRelay.svelte';
+	import { updateLayout } from '$lib/storage/layout';
+	import { users } from '$lib/storage/users';
 	import { visualCollabBridge, attachSessionHandlers } from '$lib/collab/workspaceSession';
 	import { collabGuest } from '$lib/collab/guestStore.svelte';
 	import type { EditSession } from '$lib/collab/editSession';
@@ -47,10 +51,13 @@
 	import {
 		startTypstPreview,
 		killTypstPreview,
+		formatTypstDocument,
+		typstBridgeAvailable,
 		setPreviewJumpHandler,
 		setTypstDiagnosticsHandler,
 		scrollTypstPreview,
 		exportTypstPdf,
+		typstServerGen,
 		type TypstDiagnostic
 	} from '$lib/typst/lspClient';
 	import { noteFollowScroll } from '$lib/typst/preview/followSignal';
@@ -65,7 +72,7 @@
 	} from '$lib/workspace/editorCommands';
 	import { DiffMode } from '$lib/workspace/diffMode.svelte';
 	import { CommentsController } from '$lib/workspace/commentsController.svelte';
-	import { ProjectConfigSync } from '$lib/workspace/projectConfigSync.svelte';
+	import { projectConfigSync as projectConfig, compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 	import type { CommentMessage, CommentThread } from '$lib/comments/log';
 	import type { CommentAnchor } from '$lib/comments/anchor';
 	import { attachWindowListeners, attachCloseGuard } from '$lib/workspace/workspaceMount';
@@ -105,13 +112,14 @@
 	import { diskChangedSince, recordDiskStamp, retargetDiskStamp } from '$lib/workspace/diskStamp';
 	import { CompilePipeline, resolveCompileCommand, relFromRoot } from '$lib/workspace/compilePipeline.svelte';
 	import { TreeOps } from '$lib/workspace/treeOps';
-	import { settings, loadSettings, updateSettings } from '$lib/settings';
+	import { settings } from '$lib/settings';
 	import { detectMainFile, gatherProjectMacros } from '$lib/workspace/project';
 	import {
 		basename,
 		dirname,
 		claimWorkspace,
 		isDesktop,
+		joinPath,
 		samePath,
 		native,
 		revealItem,
@@ -258,20 +266,24 @@
 	// file opens or its text is replaced from outside, never per keystroke - see the controller.
 	// .texpile/config.json: the project's own build settings, adopted on open and written back on
 	// every change. Its compile command needs accepting once per project - see projectConfig.ts.
-	const projectConfig = new ProjectConfigSync();
 	$effect(() => {
 		const root = guest ? null : $workspaceRoot;
 		// adopt() writes through workspaceStore, which the live compileCommand was ALREADY derived
 		// from when the folder opened - so without re-resolving here the config landed in storage
 		// and the editor went on using whatever it had worked out before reading the file.
 		void projectConfig.adopt(root).then(() => {
-			compileCommand = resolveCompileCommand(get(workspaceRoot), get(settings).compileCommand, get(mainFile));
+			compileCommand = resolveCompileCommand(get(mainFile));
 		});
 	});
 
 	const commentsCtl = new CommentsController({
 		root: () => $workspaceRoot,
-		preferredAuthor: () => $settings.commentAuthor ?? '',
+		// a guest has no git repo to fall back to (its root is the 'session' sentinel), but it DOES
+		// have the name it joined with - that is what every peer already sees on its cursor
+		preferredAuthor: () => $users.commentAuthor || (guest ? collabGuest.selfName : ''),
+		// new anchors and event resolution read the LIVE buffer; the reanchor snapshot goes stale
+		// under remote edits in a shared session (see the controller's activeText comment)
+		activeText: () => commentText(),
 		// the mode-preserving jump, not openFileAtLine: revealing a comment from the panel must not
 		// yank a visual-mode reader into source - the same courtesy SyncTeX inverse clicks get
 		openFileAt: (abs, line) => syncJumpToFileLine(abs, line),
@@ -323,9 +335,16 @@
 		if (!guest) return;
 		collabGuest.onCommentEvent = (event) => void commentsCtl.ingest(event);
 		collabGuest.onCommentLog = (log) => commentsCtl.adopt(log, doc.path, untrack(commentText));
+		// this guest clicked the streamed preview; the host's tinymist resolved the span and sent
+		// the answer back here - the same landing an own-preview click gets on the host
+		collabGuest.onTypstJump = (p) => {
+			if (!isSafeRel(p.file) || !Number.isFinite(p.line) || p.line < 0) return;
+			syncJumpToFileLine(p.file, Math.floor(p.line) + 1);
+		};
 		return () => {
 			collabGuest.onCommentEvent = null;
 			collabGuest.onCommentLog = null;
+			collabGuest.onTypstJump = null;
 		};
 	});
 	$effect(() => {
@@ -367,8 +386,16 @@
 	// live/draft mode isn't supported in a shared session: guests can't run the incremental engine,
 	// they see the host's compiled PDF. Force it off while hosting (the toggle is disabled there too).
 	$effect(() => {
-		if (session.active && !guest && $settings.draftMode) updateSettings({ draftMode: false });
+		if (session.active && !guest && $compileConfig.latex.liveMode) projectConfig.setLiveMode($workspaceRoot, false);
 	});
+	/**
+	 * Typst's Preview does NOT go dark while hosting, unlike draft mode above: the preview's data
+	 * plane is relayed to guests over the session (see collab/previewRelay.svelte.ts), so a hosted
+	 * preview is exactly what guests watch. The relay also creates demand of its own - a guest can
+	 * ask for the stream while the host's pane is closed - which is why the attach effect below
+	 * folds previewRelay.demand into `want`.
+	 */
+	const typstPreviewAvailable = $derived($compileConfig.typst.preview);
 
 	// starter templates + file import live in lib/workspace/starterActions.svelte.ts
 	const starters = new StarterActions({
@@ -417,11 +444,8 @@
 		refreshTree();
 		initSpellcheckConfig(); // seed editorConfigStore so the spell-check toggle works
 
-		loadSettings().then((s) => {
-			layout.restore(s); // loadExistingPdf refills the preview if it was open last
-			compileCommand = resolveCompileCommand(get(workspaceRoot), s.compileCommand ?? '', get(mainFile));
-			termDock.restore(s);
-		});
+		layout.restore(); // loadExistingPdf refills the preview if it was open last
+		termDock.restore();
 		modes.restore();
 		diff.restoreLayout();
 
@@ -440,7 +464,7 @@
 				// both live in .texpile/ and both are committed, so both arrive by pull
 				void commentsCtl.refresh();
 				void projectConfig.refresh(guest ? null : get(workspaceRoot)).then(() => {
-					compileCommand = resolveCompileCommand(get(workspaceRoot), get(settings).compileCommand, get(mainFile));
+					compileCommand = resolveCompileCommand(get(mainFile));
 				});
 			}
 		});
@@ -464,6 +488,13 @@
 	$effect(() => {
 		const p = $activeFilePath;
 		if (p) tabs.noteOpened(p);
+	});
+
+	// the first edit promotes the preview tab: from here on it is a file you are working on, not
+	// one you glanced at, so the next file opened gets a tab of its own instead of taking this slot
+	$effect(() => {
+		const p = $activeFilePath;
+		if ($isDirty && p) tabs.keep(p);
 	});
 
 	// Leaving a file in visual mode: record the caret before the switch tears the editor down. A plain
@@ -697,7 +728,8 @@
 	 * longer zero-width. It holds the rail that reopens the pane, so a dock spanning to the last
 	 * column now runs straight past that rail to the window edge.
 	 */
-	const dockShrunk = $derived(termDock.shrink || !layout.pdfPaneOpen);
+	// popped out counts as "no docked pane": the rail is up and the dock must not run past it
+	const dockShrunk = $derived(termDock.shrink || !layout.pdfPaneOpen || layout.pdfPopout);
 	// bottom dock body: the terminal shells (always mounted) or the Problems list
 	let dockView = $state<'terminal' | 'problems' | 'comments'>('terminal');
 	// Draft mode: bump to trigger a DraftView recompile; the derived root/main feed it.
@@ -705,7 +737,11 @@
 	let draftRoot = $derived($workspaceRoot ?? '');
 	let draftMainRel = $derived.by(() => {
 		if (mainPrompt.confirmed !== true) return ''; // hold the first live compile until the main file is confirmed
-		const target = $mainFile ?? doc.path;
+		// the MAIN file only - never the focused one. The old `?? doc.path` fallback meant that
+		// unsetting the main quietly re-targeted the warm engine onto whatever file had focus,
+		// compiling a chapter fragment as if it were the document. Mainless now shows the pane's
+		// pick-a-main message instead (mainUnset), so an empty rel here just means "off".
+		const target = $mainFile;
 		return $workspaceRoot && target ? relFromRoot(target, $workspaceRoot) : '';
 	});
 	// like the file tree's "Set as main file" (star badge included).
@@ -722,10 +758,18 @@
 	);
 	const resolveMainConfirm = (root: string | null) => mainPrompt.resolve(root);
 	const openMainConfirm = (then?: () => void) => mainPrompt.prompt(then);
+	// A main file that IS set answers the question this prompt exists to ask, whoever set it - the
+	// tree, .texpile/config.json, MCP, a starter. Tracking "confirmed" separately let the two drift:
+	// config.json is adopted in its own effect, so on a project whose config names a main it could
+	// land AFTER initProject had already recorded "not confirmed", leaving a starred main that still
+	// opened the picker on the first compile. Same symptom as the detection bug, different cause.
+	$effect(() => {
+		if ($mainFile) mainPrompt.confirmed = true;
+	});
 	// live mode compiles on its own as soon as the pane is open; surface the question then.
 	// Strictly `=== false`: null means initProject is still resolving, never a modal.
 	$effect(() => {
-		const wants = $settings.draftMode && layout.pdfPaneOpen && !draftPaused && !!$workspaceRoot && $texFiles.length > 1;
+		const wants = $compileConfig.latex.liveMode && layout.pdfPaneOpen && !draftPaused && !!$workspaceRoot && $texFiles.length > 1;
 		if (wants && mainPrompt.confirmed === false && !mainPrompt.open) void mainPrompt.prompt();
 	});
 	// Draft mode live preview: ONE decision point per edit (the spec's "decide when to
@@ -739,7 +783,7 @@
 	const draftDispatcher = new DraftDispatcher({
 		getSource: () => doc.texSource,
 		getLoadedPath: () => doc.path,
-		isActive: () => $settings.draftMode && layout.pdfPaneOpen && !!doc.path && !draftPaused,
+		isActive: () => get(compileConfig).latex.liveMode && layout.pdfPaneOpen && !!doc.path && !draftPaused,
 		flushSaves: () => saver.flushAndWait(),
 		triggerFullCompile: () => draftTrigger++,
 		getTarget: () => draftRef
@@ -753,7 +797,7 @@
 	let daemonActive = false;
 	let daemonRoot: string | null = null;
 	$effect(() => {
-		const active = $settings.draftMode && layout.pdfPaneOpen && !draftPaused;
+		const active = $compileConfig.latex.liveMode && layout.pdfPaneOpen && !draftPaused;
 		const root = $workspaceRoot;
 		if (daemonActive && (!active || root !== daemonRoot)) native()?.draftStop?.();
 		daemonActive = active;
@@ -771,23 +815,23 @@
 	// The Preferences toggle shows this as forced+disabled.
 	function autosaveActive(): boolean {
 		const s = get(settings);
-		return s.autosave !== false || s.draftMode || (session.active && !guest);
+		return s.autosave !== false || get(compileConfig).latex.liveMode || (session.active && !guest);
 	}
 
 	// a new folder's diagnostics start blank, the previous folder's log is meaningless here
 	$effect(() => {
-		const root = $workspaceRoot;
+		void $workspaceRoot; // dependency: re-run per folder
 		compileLog.set(null);
 		dockView = 'terminal';
 		compiler.resetForFolder(); // any pollers still watching the previous folder's paths stand down
-		compileCommand = resolveCompileCommand(root, get(settings).compileCommand, get(mainFile));
+		compileCommand = resolveCompileCommand(get(mainFile));
 	});
 	// The project scan names the main file AFTER the folder effect above has run, so a Typst
 	// project would otherwise sit on the inherited LaTeX command until something else re-resolved
 	// it. Folders with a saved command of their own are unaffected (resolveCompileCommand prefers it).
 	$effect(() => {
 		const main = $mainFile;
-		if (main) compileCommand = resolveCompileCommand(get(workspaceRoot), get(settings).compileCommand, main);
+		if (main) compileCommand = resolveCompileCommand(main);
 	});
 	// guests: surface the host's shared compile diagnostics through the same Problems UI the
 	// host has (the raw log never crosses the wire; this rebuilds the parsed shape from intel)
@@ -852,6 +896,8 @@
 	 */
 	/** guards against a second attach while the first executeCommand is still in flight */
 	let typstPreviewStarting = false;
+	/** the document the running task was started FOR; a main switch away from it re-attaches */
+	let typstPreviewAttachedFile: string | null = null;
 
 	async function openTypstPreview() {
 		const root = get(workspaceRoot);
@@ -863,6 +909,7 @@
 			// we had started a standalone `tinymist preview`, which reads the file instead.
 			const target = await startTypstPreview(root, file);
 			if (!target) throw new Error('tinymist did not return a preview address');
+			typstPreviewAttachedFile = file;
 			typstPreviewHost = target.host;
 			typstPreviewTask = target.taskId;
 		} catch (err) {
@@ -909,17 +956,36 @@
 	 */
 	function detachTypstPreview() {
 		sendCaretScroll.cancel(); // a scroll landing after the kill would be for a dead task
+		typstPreviewAttachedFile = null;
 		const task = typstPreviewTask;
 		typstPreviewTask = null;
 		if (task) void killTypstPreview(get(workspaceRoot), task);
 	}
+
+	// tinymist DIED under a running preview (crash, external kill - own stops never fire this).
+	// The task and its port died with it, so drop the address without the doKillPreview round trip
+	// (nothing left to kill, and its holder bookkeeping died with the server); the demand effect
+	// below sees the null host and starts a fresh task while the pane is still wanted. Acts only
+	// on a gen INCREASE: the effect also re-runs when the replacement task sets the host, and
+	// treating that as a death would kill every fresh task after the first crash, forever.
+	let seenServerGen = 0;
+	$effect(() => {
+		const gen = $typstServerGen;
+		if (gen === seenServerGen) return;
+		seenServerGen = gen;
+		if (typstPreviewHost === null) return;
+		sendCaretScroll.cancel();
+		typstPreviewAttachedFile = null;
+		typstPreviewTask = null;
+		typstPreviewHost = null;
+	});
 
 	/**
 	 * The palette entry. Turns the switch on and opens the pane rather than attaching directly:
 	 * attaching behind a switch that says "off" would last exactly until the effect below noticed.
 	 */
 	function enableTypstPreview() {
-		updateSettings({ typstLiveMode: true });
+		projectConfig.setTypstPreview(get(workspaceRoot), true);
 		layout.setPdfPaneOpen(true);
 	}
 
@@ -944,8 +1010,33 @@
 	 *
 	 * Debounced trailing: the caret hook now fires per column change, i.e. every keystroke.
 	 */
+	/** Where a typst follow/sync can go: the local task, or - as a guest - the host's streamed
+	 *  preview (the host resolves the position and the relay routes the jump back to only us). */
+	const typstScrollTarget = (): 'local' | 'remote' | null => {
+		if (typstPreviewHost !== null && typstPreviewTask) return 'local';
+		if (guest && collabGuest.typstPreviewOffered) return 'remote';
+		return null;
+	};
+	/** The manifest-relative path of `file`, for a guest's scroll request. A guest's doc paths are
+	 *  ALREADY manifest-relative (its workspaceRoot is the 'session' sentinel, not a prefix of
+	 *  them - relFromRoot would slice real characters off); only a 'session/'-prefixed jump target
+	 *  needs stripping, and an absolute path is not the session's to ask about. */
+	const guestScrollRel = (file: string): string | null => {
+		const norm = file.replace(/\\/g, '/');
+		const root = get(workspaceRoot);
+		if (root && norm.startsWith(root.replace(/\\/g, '/') + '/')) return norm.slice(root.length + 1);
+		return /^([A-Za-z]:|\/)/.test(norm) ? null : norm;
+	};
+	const sendTypstScroll = (file: string, line: number, character: number): void => {
+		if (typstScrollTarget() === 'remote') {
+			const rel = guestScrollRel(file);
+			if (rel) collabGuest.requestTypstScroll(rel, line, character);
+			return;
+		}
+		void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, line, character);
+	};
 	const sendCaretScroll = trailingDebounce(150, ({ line, character }: { line: number; character: number }) => {
-		if (typstPreviewHost === null || !typstPreviewTask) return;
+		if (typstScrollTarget() === null) return;
 		if ($settings.typstPreviewFollow !== true) return;
 		// the FOCUSED file, not the main one: the caret is in the file being edited, and pairing
 		// it with main.typ's path asks the server to resolve a position that does not exist
@@ -954,11 +1045,11 @@
 		// follow jumps are ambient: warn the frame so it swallows the viewer's jump ripple.
 		// One-shot syncs (syncTypstForward and friends) deliberately do NOT send this.
 		noteFollowScroll();
-		void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, line, character);
+		sendTypstScroll(file, line, character);
 	});
 	function onCaretMove(line: number, character: number) {
 		// gate before enqueueing too, so an off switch means no timer churn while typing
-		if (typstPreviewHost === null || $settings.typstPreviewFollow !== true) return;
+		if (typstScrollTarget() === null || $settings.typstPreviewFollow !== true) return;
 		sendCaretScroll({ line, character });
 	}
 
@@ -990,14 +1081,14 @@
 		return rescued == null ? null : { line, character: rescued };
 	}
 	const sendVisualCaretScroll = trailingDebounce(150, (_: null) => {
-		if (typstPreviewHost === null || !typstPreviewTask) return;
+		if (typstScrollTarget() === null) return;
 		if ($settings.typstPreviewFollow !== true) return;
 		const file = doc.path;
 		if (!file) return;
 		const pos = visualCaretSourcePos();
 		if (!pos) return; // no resolvable position on that line at all
 		noteFollowScroll();
-		void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, pos.line, pos.character);
+		sendTypstScroll(file, pos.line, pos.character);
 	});
 
 	// Click-to-jump out of the preview. The framed page cannot reach us - different origin, on
@@ -1026,10 +1117,29 @@
 		openFileAtLine(file, line, selectText);
 	}
 
+	// tinymist can deliver ONE preview click through two channels (the scrollSource notification
+	// and the showDocument request); without this the second delivery found the guest's claim
+	// already consumed and jumped the HOST's editor too. Harmless for the host's own clicks -
+	// jumping twice to the same line is invisible - so this only needs to be approximate.
+	let lastPreviewJump = { key: '', at: 0 };
 	$effect(() => {
 		if (typstPreviewHost === null) return;
 		setPreviewJumpHandler((jump) => {
 			if (!jump?.filepath || !jump.start) return;
+			const key = `${jump.filepath}:${jump.start[0]}:${jump.start[1]}`;
+			if (key === lastPreviewJump.key && Date.now() - lastPreviewJump.at < 800) return;
+			lastPreviewJump = { key, at: Date.now() };
+			// A GUEST's preview click: tinymist resolved it, but the resolution belongs to the
+			// guest that clicked, not to this editor - hand it back over the session instead.
+			const clicker = previewRelay.claimSrcClick();
+			if (clicker !== null) {
+				const root = get(workspaceRoot);
+				const rel = root ? relFromRoot(jump.filepath, root) : '';
+				if (rel && rel !== jump.filepath.replace(/\\/g, '/')) {
+					collabHost.replyControl({ kind: 'typst-jump', file: rel, line: jump.start[0] }, clicker);
+				}
+				return;
+			}
 			// tinymist speaks zero-based LSP positions; the jump helper wants one-based lines
 			syncJumpToFileLine(jump.filepath, jump.start[0] + 1);
 		});
@@ -1046,38 +1156,66 @@
 	 * The pane branches on this rather than on the host, so the compiled PDF never flashes up for the
 	 * moment it takes doStartPreview to answer.
 	 *
-	 * STICKY across tabs: the preview shows the MAIN document, so focusing a .bib or an image next
-	 * to it must not tear it down and swap the stale compiled PDF in. The latch remembers the last
-	 * previewed .typ (per workspace - another root invalidates it) and keeps the pane a preview
-	 * until the switch goes off or the workspace changes. A .typ MAIN file counts on its own -
-	 * the latch is session state, so restoring a workspace onto a .bib tab would otherwise open
-	 * the pane as a PDF viewer until a .typ tab was clicked.
+	 * Pinned to the MAIN file, and nothing else. There used to be fallbacks - the focused .typ, a
+	 * sticky latch remembering the last previewed one - all covering the mainless state, where they
+	 * bought a preview at the price of it silently going stale (unset the main, focus another file,
+	 * and the pane kept rendering whatever it had attached to). Now the mainless state is a message
+	 * in the pane with a button (see mainUnset below), so the fallbacks cover nothing: a .typ main
+	 * previews, and focusing a .bib or an image beside it changes nothing because the main hasn't.
 	 */
-	let typstSticky = $state<{ root: string; file: string } | null>(null);
-	$effect(() => {
-		if (doc.kind === 'typ' && doc.path && $workspaceRoot && !guest) typstSticky = { root: $workspaceRoot, file: doc.path };
-	});
-	const typstPreviewWanted = $derived(
-		(doc.kind === 'typ' || $mainFile?.toLowerCase().endsWith('.typ') === true || typstSticky?.root === $workspaceRoot) &&
-			$settings.typstLiveMode !== false &&
-			!!$workspaceRoot &&
-			!guest
-	);
+	const mainIsTypst = $derived($mainFile?.toLowerCase().endsWith('.typ') === true);
+	const typstPreviewWanted = $derived(mainIsTypst && typstPreviewAvailable && !guest);
 
-	/** the previewed document: the main file, else the focused .typ, else the latch's memory of it */
+	/** the previewed document: the main file, always (typstPreviewWanted holds otherwise) */
 	function typstPreviewFile(): string | null {
-		return get(mainFile) ?? (doc.kind === 'typ' ? doc.path : null) ?? typstSticky?.file ?? null;
+		return get(mainFile);
 	}
 
+	/**
+	 * No main file in a folder that has candidates: the preview pane can only show something
+	 * wrong (a stale PDF, a fragment compile), so it shows this instead - a message and the
+	 * picker - and BOTH live modes count as off, which is what stops draft mode re-targeting
+	 * the warm engine onto whatever fragment happens to have focus. An empty folder is not
+	 * "unset" (there is nothing to pick), and a guest never picks (compiling is the host's).
+	 */
+	const mainUnset = $derived(!guest && !$mainFile && $texFiles.length > 0);
+
 	$effect(() => {
-		const want = typstPreviewWanted && layout.pdfPaneOpen;
+		// guests holding the stream keep the task alive with the host's own pane closed; their
+		// demand exists only while hosting, so this never starts a task for a lone workspace
+		const want = typstPreviewWanted && (layout.pdfPaneOpen || previewRelay.demand > 0);
+		// tracked: switching the main from one .typ to ANOTHER keeps `want` true, so without
+		// this the task attached to the old document would run - and stream to guests - forever
+		const target = $mainFile;
 		if (want && typstPreviewHost === null && !typstPreviewStarting) {
 			typstPreviewStarting = true;
 			void openTypstPreview().finally(() => (typstPreviewStarting = false));
-		} else if (!want && typstPreviewHost !== null) {
+		} else if (typstPreviewHost !== null && (!want || target !== typstPreviewAttachedFile)) {
+			// the falling edge, and the retarget: kill the task; the effect re-runs on the host
+			// reset and re-attaches onto the current main when still wanted
 			typstPreviewHost = null;
 			detachTypstPreview();
 		}
+	});
+
+	// ---- the preview stream's host end ----
+	// the relay dials the data plane, so it needs the task's address (and its disappearance)
+	$effect(() => previewRelay.setHost(typstPreviewHost));
+	// the relay found the task's port dead (dials refused): kill it; the demand effect above
+	// starts a fresh one for the guests still asking - the same moves as a main-file retarget
+	$effect(() => {
+		previewRelay.onTaskUnreachable = () => {
+			if (typstPreviewHost === null) return;
+			typstPreviewHost = null;
+			detachTypstPreview();
+		};
+		return () => (previewRelay.onTaskUnreachable = null);
+	});
+	// legs of departed guests close with them
+	$effect(() => previewRelay.prune(collabHost.peerIds));
+	// guests flip between stream and pushed PDF off this flag (late joiners read it from doc state)
+	$effect(() => {
+		if (collabHost.active && !guest) collabHost.advertiseTypstPreview(typstPreviewWanted);
 	});
 
 	// ---- the Problems panel in Preview mode ----
@@ -1212,7 +1350,7 @@
 	function openFileAtLine(file: string, line: number, selectText?: string) {
 		const target = sessionRelativeTarget(file, guest);
 		modes.mode = 'source';
-		localStorage.setItem('texpile:viewMode', 'source');
+		updateLayout({ viewMode: 'source' });
 		sourceGotoLine = { line, token: ++gotoToken, selectText, path: target };
 		if (needsActivate(target)) activeFilePath.set(target);
 	}
@@ -1242,7 +1380,7 @@
 	 * explains why nothing can jump there instead of silently no-oping. Typst has no SyncTeX:
 	 * only tinymist's live preview can resolve a source position. */
 	function typstSyncUnavailable(): boolean {
-		if (typstPreviewHost !== null && typstPreviewTask) return false;
+		if (typstScrollTarget() !== null) return false;
 		toaster.info({ title: m.typst_sync_preview_only_title(), description: m.typst_sync_preview_only_desc(), duration: 5000 });
 		return true;
 	}
@@ -1255,7 +1393,7 @@
 		if (cm && cm.dom.isConnected) {
 			const head = cm.state.selection.main.head;
 			const docLine = cm.state.doc.lineAt(head);
-			void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, docLine.number - 1, head - docLine.from);
+			sendTypstScroll(file, docLine.number - 1, head - docLine.from);
 			return;
 		}
 		// Visual mode: the PM caret through the block map, one shot (no follow bookkeeping).
@@ -1268,7 +1406,7 @@
 		await saver.flushAndWait();
 		const pos = visualCaretSourcePos();
 		if (!pos) return;
-		void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, pos.line, pos.character);
+		sendTypstScroll(file, pos.line, pos.character);
 	}
 	const syncForward = () => {
 		if (kind === 'typ') {
@@ -1309,16 +1447,39 @@
 		new CompileSettings(
 			() => compileCommand,
 			(c) => (compileCommand = c),
-			() => compiler.runCompile(),
-			(root) => void projectConfig.save(root)
+			() => compiler.runCompile()
 		)
 	);
-	const openCompileModal = () => compileSettings.open();
+	/**
+	 * Everything in the modal - the Format readout, which lane's settings show, the default
+	 * command - derives from the main file, so opened without one it can only show the LaTeX
+	 * fallback, which for a Typst folder is wrong on every row. Ask for the main first and open
+	 * the modal after; even dismissing the picker settles the detected candidate, so what follows
+	 * shows a real lane. An empty folder skips straight in - there is nothing to pick - and a
+	 * guest has no main file to set (compiling is the host's).
+	 */
+	const openCompileModal = () => {
+		if (hostMode && !get(mainFile) && get(texFiles).length > 0 && !mainPrompt.open) {
+			void openMainConfirm(() => compileSettings.open());
+			return;
+		}
+		compileSettings.open();
+	};
 	const saveCompileCommand = (thenRun: boolean) => compileSettings.save(thenRun);
 	const useDefaultCommand = () => compileSettings.useDefault();
 
+	/**
+	 * Whether Format can serve the open file. LaTeX goes through latexindent (an external tool the
+	 * provider must expose); Typst goes through tinymist's built-in typstyle, gated to SOURCE mode:
+	 * the formatter edits the server's in-memory document, and only the source editor's LSP binding
+	 * keeps that identical to the buffer - in visual mode the server's copy is stale or closed.
+	 */
+	function canFormatDoc(): boolean {
+		if (kind === 'tex') return provider.caps.format;
+		return kind === 'typ' && typstBridgeAvailable() && modes.mode === 'source';
+	}
 	function openFormatModal() {
-		if (!doc.path || kind !== 'tex') return;
+		if (!doc.path || !canFormatDoc()) return;
 		formatModalOpen = true;
 	}
 	const doRunFormat = () => {
@@ -1328,7 +1489,7 @@
 			getSource: () => doc.texSource,
 			getEol: () => doc.eol,
 			flushSaves: () => saver.flushAndWait(),
-			format: formatLatexDocument,
+			format: kind === 'typ' ? (p, text) => formatTypstDocument(get(workspaceRoot), p, text) : formatLatexDocument,
 			applyFormatted: (text) => doc.replaceSource(text, { dirty: true }),
 			setBusy: (b) => (formatting = b)
 		});
@@ -1364,6 +1525,7 @@
 		getSourceText: () => doc.texSource,
 		setSourceText: (t: string) => (doc.texSource = t),
 		readText: readTextFile,
+		scanFiles: async (exts: string[]) => (await provider.scanFiles($workspaceRoot ?? '', exts)).map((f) => f.path),
 		writeText: writeTextFile,
 		onActiveFileEdited: () => {
 			if (modes.mode === 'visual') rebuildVisualFromSource();
@@ -1440,6 +1602,7 @@
 		setGraphicResolver(null);
 		setEditorFileAccess(null, null);
 		detachTypstPreview(); // leaving the workspace must not leave a preview compiling in the server
+		projectConfig.reset(); // adopted compile state is per folder; the start screen holds defaults
 	});
 
 	// shared session: guests can ask for a compile; leaving the workspace ends the session
@@ -1451,7 +1614,12 @@
 			refreshTree: () => void refreshTree(),
 			expectedPdfPath: () => compiler.expectedPdfPath(),
 			applyCommentEvent: (event) => void commentsCtl.ingest(event),
-			commentLog: () => commentsCtl.store.serialize()
+			commentLog: () => commentsCtl.store.serialize(),
+			typstScrollForGuest: (rel, line, character) => {
+				const root = get(workspaceRoot);
+				if (!root || !typstPreviewTask) return;
+				void scrollTypstPreview(root, typstPreviewTask, joinPath(root, rel), line, character);
+			}
 		})
 	);
 
@@ -1721,9 +1889,14 @@
 			showTerminal();
 			dockView = 'problems';
 		},
+		showComments: () => {
+			showTerminal();
+			dockView = 'comments';
+		},
 		save: () => save(),
 		activateTab,
 		closeTab,
+		keepTab: (path: string) => tabs.keep(path),
 		useSource: () => setViewMode('source'),
 		pickStarter,
 		newTexFile,
@@ -1734,7 +1907,7 @@
 		onVisualSelection: () => {
 			visualCollab?.publishCursor();
 			// visual-mode preview follow; gated here too so no timer churn outside typ+follow
-			if (kind === 'typ' && typstPreviewHost !== null && $settings.typstPreviewFollow === true) sendVisualCaretScroll(null);
+			if (kind === 'typ' && typstScrollTarget() !== null && $settings.typstPreviewFollow === true) sendVisualCaretScroll(null);
 		},
 		onEditFrontmatter: editPreambleFrontmatter,
 		syncToPdf: syncToLine,
@@ -1770,7 +1943,7 @@
 		// in `actions` because its banner is window-wide chrome now, not part of the editor column.
 		acceptProjectCommand: () => {
 			projectConfig.accept();
-			compileCommand = resolveCompileCommand($workspaceRoot, $settings.compileCommand, $mainFile);
+			compileCommand = resolveCompileCommand($mainFile);
 		},
 		newFileOfType: (ext?: string) => newFileOfType(ext),
 		openFolder: openFolderFromMenu,
@@ -1813,7 +1986,8 @@
 			hasFile: () => !!doc.path,
 			canManageTree: () => provider.caps.manageTree,
 			canSearch: () => provider.caps.search,
-			canFormat: () => provider.caps.format && kind === 'tex', // latexindent formats .tex only
+			canFormat: () => canFormatDoc(),
+			formatTool: () => (kind === 'typ' ? 'typstyle' : 'latexindent'),
 			canGit: () => provider.caps.git,
 			openFile: (abs) => activeFilePath.set(abs),
 			toggleSidebar: () => layout.toggleSidebar(),
@@ -1879,7 +2053,7 @@
 			// never a guest: a guest is IN someone's session, not in a position to open one
 			shareable: isDesktop() && !guest,
 			hostMode,
-			canFormat: provider.caps.format && kind === 'tex', // latexindent formats .tex only
+			canFormat: canFormatDoc(),
 			uiZoomPercent,
 			typstProject
 		}}
@@ -1907,8 +2081,13 @@
 			draft={{ root: draftRoot, mainRel: draftMainRel, trigger: draftTrigger, paused: draftPaused }}
 			{typstPreviewHost}
 			{typstPreviewWanted}
+			{mainIsTypst}
+			guestTypstOffered={guest && collabGuest.typstPreviewOffered}
+			{mainUnset}
+			onPickMain={() => void openMainConfirm()}
 			panes={{
 				openTabs: tabs.list,
+				previewTab: tabs.preview,
 				applyingStarter: starters.applying,
 				allReferences,
 				sourceGotoLine,
@@ -1938,6 +2117,7 @@
 		{external}
 		bind:compileSettings
 		bind:formatModalOpen
+		formatTool={kind === 'typ' ? 'typstyle' : 'latexindent'}
 		{formatting}
 		{pendingRefUpdate}
 		onSaveCompile={saveCompileCommand}

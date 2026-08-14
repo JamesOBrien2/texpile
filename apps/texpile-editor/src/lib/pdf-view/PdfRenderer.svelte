@@ -85,7 +85,7 @@
 		if (!containerEl || !scrollContainerEl || !viewer || viewer.pagesCount === 0) return null;
 		const contRect = scrollContainerEl.getBoundingClientRect();
 		if (contRect.width === 0) return null;
-		const overlay = document.createElement('div');
+		const overlay = containerEl.ownerDocument.createElement('div');
 		overlay.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:5;';
 		for (const pageDiv of scrollContainerEl.querySelectorAll<HTMLElement>('.page')) {
 			const rect = pageDiv.getBoundingClientRect();
@@ -181,8 +181,10 @@
 			}
 
 			// getPdfDocument, not pdfjs.getDocument: the task must not adopt the shared worker, or the
-			// destroy below (and every other document's) would tear it down for the whole app
-			const loadingTask = await getPdfDocument(documentSource);
+			// destroy below (and every other document's) would tear it down for the whole app.
+			// ownerDocument is where THIS viewer's canvases live - the popped-out preview window's
+			// document when detached - so the PDF's fonts register where they will be drawn.
+			const loadingTask = await getPdfDocument(documentSource, scrollContainerEl.ownerDocument);
 			if (!loadingTask) return;
 			toDestroy = loadingTask; // if the parse rejects, the task itself still needs freeing
 			const loadedPdfDocument = await loadingTask.promise;

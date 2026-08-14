@@ -57,7 +57,7 @@
 	import { createBlockHandlePlugin } from '$lib/editor/extensions/block-handle-plugin.svelte';
 	import { createNodeFlashPlugin } from '$lib/editor/extensions/flash-plugin';
 	import { remoteCursorsPlugin } from '$lib/editor/extensions/remoteCursors';
-	import CodeBlockView from '$lib/editor/extensions/codemirrorbridge/cmview';
+	import CodeBlockView from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
 	import { typstTableWrapperView } from '$lib/editor/extensions/table/tableWrapperView.svelte';
 	import RawLatexView from '$lib/editor/extensions/raw-latex/rawLatexView';
 	import InlineLatexView from '$lib/editor/extensions/raw-latex/inlineLatexView';
@@ -372,10 +372,8 @@
 <style lang="postcss">
 	@reference "../../../app.css";
 
-	/* same quiet inset as the markdown editor's islands; the tex card styling is too loud here */
-	:global(.TypstEditor .cm-wrapper) {
-		@apply border-surface-300-700 border shadow-none;
-	}
+	/* (the code-block card's quiet inset is now the shared default in cmview.ts, so the override
+	   that used to live here is gone) */
 
 	/* raw-island insets are tightened in RawLatexView itself (all dialects), nothing typst-specific */
 

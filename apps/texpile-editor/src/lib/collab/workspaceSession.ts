@@ -5,6 +5,9 @@
 import { get } from 'svelte/store';
 import { workspaceRoot, isDirty } from '$lib/workspace/workspaceStore';
 import { collabHost } from '$lib/collab/hostStore.svelte';
+import { previewRelay } from '$lib/collab/previewRelay.svelte';
+import { isSafeRel } from '$lib/collab/protocol';
+import { noteGuestJumpFreeze } from '$lib/typst/preview/followSignal';
 import { resolveGuestSyncRequest } from '$lib/workspace/syncTexNav';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
@@ -66,6 +69,9 @@ export interface SessionHandlerDeps {
 	applyCommentEvent(event: CommentEvent): void;
 	/** the whole log, served to a guest joining mid-review */
 	commentLog(): string;
+	/** resolve a guest's typst src -> preview position through the host's tinymist; no-op when no
+	 *  preview task is running. `rel` is manifest-relative and already validated. */
+	typstScrollForGuest(rel: string, line: number, character: number): void;
 }
 
 /** attach the host's handlers for guest requests; returns the teardown, which also ends the
@@ -91,12 +97,24 @@ export function attachSessionHandlers(session: EditSession, deps: SessionHandler
 		const reply = await resolveGuestSyncRequest(payload, root, pdf);
 		if (reply) collabHost.replyControl(reply, from);
 	};
+	collabHost.onTypstScroll = (p, from) => {
+		if (!isSafeRel(p.file) || !Number.isFinite(p.line) || !Number.isFinite(p.character) || p.line < 0 || p.character < 0) return;
+		// deliver the resulting jump to only the asking guest, and hold it off the host's own pane
+		previewRelay.expectJump(from);
+		noteGuestJumpFreeze();
+		deps.typstScrollForGuest(p.file, Math.floor(p.line), Math.floor(p.character));
+	};
+	// the Typst preview stream's host end; on collabHost directly like comments, since a guest
+	// has no preview task to relay from
+	previewRelay.attach();
 	return () => {
 		session.onCompileRequest = null;
 		session.onSyncRequest = null;
 		session.onFileOp = null;
 		collabHost.onCommentEvent = null;
 		collabHost.commentLog = null;
+		collabHost.onTypstScroll = null;
+		previewRelay.detach();
 		void session.end();
 	};
 }

@@ -10,7 +10,7 @@ import { CollabSession, manifestOf, locksOf, metaOf, textOf, type PeerInfo, type
 import { spliceDiff, EDIT_ORIGIN } from './materialize';
 import { RelayTransport } from './transport';
 import type { EditSession, SharedCompileIntel } from './editSession';
-import type { ControlPayload } from './protocol';
+import type { ControlPayload, PreviewPayload } from './protocol';
 import type { CommentEvent } from '$lib/comments/log';
 import { settings } from '$lib/settings';
 
@@ -36,9 +36,21 @@ class GuestCollabController {
 	imageRev = $state(0);
 	// the host's parsed compile products (aux numbers + diagnostics), from the session meta map
 	compileIntel = $state<SharedCompileIntel | null>(null);
+	/** the host is streaming a live Typst preview; the pane shows it instead of the pushed PDF */
+	typstPreviewOffered = $state(false);
+	/** the raw preview page the host shipped (blob 'typst-page'); null until asked for and answered */
+	previewPage = $state<string | null>(null);
 	/** WorkspaceView wires these to its comment controller. */
 	onCommentEvent: ((event: CommentEvent) => void) | null = null;
 	onCommentLog: ((log: string) => void) | null = null;
+	/** the remote preview pane wires this; host-origin preview frames land here */
+	onPreviewFrame: ((p: PreviewPayload) => void) | null = null;
+	/** WorkspaceView wires this: this guest clicked the streamed preview and the host's tinymist
+	 *  resolved it to a source position (manifest-relative file, zero-based line). */
+	onTypstJump: ((p: { file: string; line: number }) => void) | null = null;
+	/** the name this guest joined with - the identity peers see, and what comments sign as */
+	selfName = $state('');
+	private previewPageAsked = false;
 	private imageCache = new Map<string, { rev: number; url: string }>(); // rel -> the host's bytes at a rev
 	private imageReq = new Set<string>(); // in-flight 'rel@rev' requests, so we ask once per revision
 	private syncResolvers = new Map<number, (r: ControlPayload) => void>();
@@ -80,6 +92,7 @@ class GuestCollabController {
 			return;
 		}
 		this.status = 'joining';
+		this.selfName = name.trim() || 'Guest';
 		try {
 			const keys = await deriveSessionKeys(code);
 			const relayUrl = get(settings).collabRelayUrl.trim();
@@ -96,6 +109,8 @@ class GuestCollabController {
 					onBlob: (blobName, rev, bytes) => {
 						if (blobName === 'comments') {
 							this.onCommentLog?.(new TextDecoder().decode(bytes));
+						} else if (blobName === 'typst-page') {
+							this.previewPage = new TextDecoder().decode(bytes);
 						} else if (blobName === 'pdf') {
 							this.seenPdfRev = Math.max(this.seenPdfRev, rev);
 							this.pdfMaster = bytes.slice();
@@ -104,12 +119,13 @@ class GuestCollabController {
 							this.receiveFileBlob(blobName.slice(2), rev, bytes);
 						}
 					},
+					onPreview: (p) => this.onPreviewFrame?.(p),
 					onControl: (payload) => {
 						if (payload.kind === 'comment-event') this.onCommentEvent?.(payload.event);
 						else if (payload.kind === 'synctex-inverse-result' || payload.kind === 'synctex-forward-result') {
 							this.syncResolvers.get(payload.reqId)?.(payload);
 							this.syncResolvers.delete(payload.reqId);
-						}
+						} else if (payload.kind === 'typst-jump') this.onTypstJump?.(payload);
 					},
 					onStatus: (s) => {
 						if (s === 'connected') {
@@ -246,8 +262,25 @@ class GuestCollabController {
 		this.session?.requestBlob('comments');
 	}
 
+	/**
+	 * Ask for the raw preview page. Asked once per session normally; `again` retries after a
+	 * failed attach, covering the host whose preview task was not up when the first ask arrived
+	 * (it does not answer rather than answering wrongly).
+	 */
+	requestPreviewPage(again = false): void {
+		if (this.previewPageAsked && !again) return;
+		this.previewPageAsked = true;
+		this.session?.requestBlob('typst-page');
+	}
+
+	/** one hop of the preview relay, up to the host. */
+	sendPreview(p: PreviewPayload): void {
+		this.session?.sendPreview(p);
+	}
+
 	private onMeta(): void {
 		if (!this.doc || !this.session) return;
+		this.typstPreviewOffered = Number(metaOf(this.doc).get('typstPreview') ?? 0) === 1;
 		const rev = Number(metaOf(this.doc).get('pdfRev') ?? 0);
 		this.pdfName = String(metaOf(this.doc).get('pdfName') ?? '');
 		// a rev we haven't seen means we missed the broadcast (joined late / was offline): ask once.
@@ -342,6 +375,13 @@ class GuestCollabController {
 		return r && r.kind === 'synctex-forward-result' ? { page: r.page, x: r.x, y: r.y, w: r.w, h: r.h } : null;
 	}
 
+	/** Typst src -> preview: ask the host to resolve this position; the jump comes back over the
+	 *  preview channel routed to only this guest. Fire-and-forget - an unresolvable position is a
+	 *  silent no-op server-side, so there is nothing to await. */
+	requestTypstScroll(rel: string, line: number, character: number): void {
+		this.session?.sendControl({ kind: 'typst-scroll', file: rel, line, character });
+	}
+
 	isLocked(rel: string): boolean {
 		return this.files.find((f) => f.rel === rel)?.locked ?? false;
 	}
@@ -386,6 +426,12 @@ class GuestCollabController {
 		this.pdfName = '';
 		this.hostOnline = true;
 		this.compileIntel = null;
+		this.typstPreviewOffered = false;
+		this.previewPage = null;
+		this.previewPageAsked = false;
+		this.onPreviewFrame = null;
+		this.onTypstJump = null;
+		this.selfName = '';
 		this.seenPdfRev = 0;
 		this.requestedPdfRev = 0;
 		if (destroySession) session?.destroy();

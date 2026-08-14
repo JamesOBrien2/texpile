@@ -1,13 +1,17 @@
 import { EditorView as CodeMirrorView, keymap as cmKeymap, drawSelection, rectangularSelection, crosshairCursor } from '@codemirror/view';
 import { Compartment as CodeMirrorCompartment, EditorState as CodeMirrorState } from '@codemirror/state';
+import { cmCommentHighlights, cmCommentClicks, syncCmCommentHighlights } from './cmComments';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
 import { exitCode } from 'prosemirror-commands';
 import { undo, redo } from 'prosemirror-history';
 import { TextSelection, Selection } from 'prosemirror-state';
 import type { Node } from 'prosemirror-model';
-import type { EditorView as ProseMirrorView } from 'prosemirror-view';
+import type { EditorView as ProseMirrorView, ViewMutationRecord } from 'prosemirror-view';
 import { languages as cmlangdata } from '@codemirror/language-data';
+import { mount, unmount } from 'svelte';
+import CodeBlockSettings from './CodeBlockSettings.svelte';
+
 import { markdown } from '@codemirror/lang-markdown';
 import { renderStaticCodeBlock, setStaticCode } from './cmStatic';
 import { upgradeWhenNear, cancelUpgrade } from '$lib/editor/extensions/mathlivebridge/mathViewport';
@@ -26,6 +30,11 @@ async function loadLanguageByName(name: string | null | undefined): Promise<{ na
 	return { name: data.name, support: await data.load() };
 }
 
+// reactive props stashed on the container so update() can reach the mounted component without a registry.
+interface SettingsHost extends HTMLElement {
+	__svelteComponentProps?: { node: Node; view: ProseMirrorView; getPos: () => number | undefined };
+}
+
 class CodeBlockView {
 	node: Node;
 	view: ProseMirrorView;
@@ -39,8 +48,8 @@ class CodeBlockView {
 	tabSize = new CodeMirrorCompartment();
 	/** plain-text stand-in until this block nears the viewport */
 	private placeholder?: HTMLElement;
-	private dropdown?: HTMLSelectElement;
-	private optionsFilled = false;
+	private settingsContainer: HTMLElement;
+	private settingsComponent?: ReturnType<typeof mount>;
 
 	constructor(node: Node, view: ProseMirrorView, getPos: () => number) {
 		this.node = node;
@@ -49,16 +58,33 @@ class CodeBlockView {
 		this.updating = false;
 
 		const wrapper = document.createElement('div');
-		wrapper.className = 'noautofocus cm-wrapper border-2 border-gray-1100 shadow-lg rounded-md p-2 m-1';
+		// A quiet inset, not a floating card. The old styling (2px --color-gray-1100 plus shadow-lg)
+		// drew more attention than the code inside it, and that border is a single fixed light blue
+		// with no dark variant, so it glowed against a dark editor and vanished against a light one.
+		// The markdown and typst editors had each already overridden this card as "too loud"; this is
+		// their treatment, promoted to the shared default so all three dialects match.
+		// `relative` anchors the settings gear; `pr-9` reserves a right-hand column for it, so the
+		// gear NEVER sits over the code - an overlapping control takes the clicks and focus meant
+		// for CodeMirror, which is how two earlier pickers left the document untypable.
+		wrapper.className = 'noautofocus cm-wrapper relative border-surface-300-700 bg-surface-50-950 m-1 rounded-md border p-2 pr-9';
 		this.dom = wrapper;
-
-		this.dropdown = this.buildDropdown();
-		wrapper.appendChild(this.dropdown);
 
 		// Same reasoning as the inline chips: a CodeMirror instance per block is expensive, and a
 		// block the reader cannot see does not need one. Plain text now, real editor on approach.
 		this.placeholder = renderStaticCodeBlock(this.node.textContent);
 		wrapper.appendChild(this.placeholder);
+
+		// The settings gear, in the reserved right column. ALWAYS visible, like the table wrapper's
+		// settings button and unlike the equation gear: hover-revealed chrome flashes whenever the
+		// DOM under the pointer is rebuilt, because :hover has to be re-established on the fresh
+		// element - a control that looks the same before and after a rebuild has nothing to flash.
+		// contentEditable=false plus the stopEvent/ignoreMutation guards below keep ProseMirror out
+		// of it: it is chrome, not content. (The attribute, not the property: jsdom's property
+		// setter does not reflect to the attribute, which is what selectors act on.)
+		this.settingsContainer = document.createElement('div');
+		this.settingsContainer.setAttribute('contenteditable', 'false');
+		wrapper.appendChild(this.settingsContainer);
+		this.mountSettings();
 
 		this.handleFocus = this.handleFocus.bind(this);
 		this.handleBlur = this.handleBlur.bind(this);
@@ -66,56 +92,23 @@ class CodeBlockView {
 		upgradeWhenNear(this.dom, this.materialize);
 	}
 
-	/** The language picker holds one option per entry in @codemirror/language-data - around 150 DOM
-	 * nodes - and the list is identical for every block. Show the current language as the only option
-	 * until the picker is actually opened, then fill in the rest. */
-	private buildDropdown(): HTMLSelectElement {
-		const dropdown = document.createElement('select');
-		// surface-100/900, not 50/950: the darkest surface read as a black bar against the code
-		// card in dark mode, and the lightest washed out against it in light mode
-		dropdown.className =
-			'noautofocus bg-surface-100-900 text-surface-900-100 border-surface-300-700 flex h-5 w-full items-center justify-center rounded border-[0.504px] text-xs font-medium';
+	/** Builds the settings popover. Eager: the gear is always visible, so there is no moment where
+	 * deferring the mount would be invisible to the user. */
+	private mountSettings = (): void => {
+		if (this.settingsComponent) return;
 
-		const current = document.createElement('option');
-		current.value = current.text = this.node.attrs.lang || 'Markdown';
-		dropdown.appendChild(current);
-
-		dropdown.addEventListener('pointerdown', this.fillLanguageOptions);
-		dropdown.addEventListener('focus', this.fillLanguageOptions);
-
-		dropdown.addEventListener('change', async (event) => {
-			const selectedLanguage = (event.target as HTMLSelectElement).value;
-			const selected = await loadLanguageByName(selectedLanguage);
-			if (!selected) return;
-			const pos = this.getPos();
-			const cur = pos !== undefined ? this.view.state.doc.nodeAt(pos) : null;
-			if (!cur) return;
-			// preserve the other attrs (a bare {lang} would reset env/args to defaults), and for
-			// fenced blocks keep the file's info string in sync - the typst and markdown
-			// serializers emit `args`, so lang alone would never reach the file
-			const attrs: Record<string, unknown> = { ...cur.attrs, lang: selectedLanguage };
-			if (cur.attrs.env === 'fence') attrs.args = selectedLanguage.toLowerCase();
-			this.view.dispatch(this.view.state.tr.setNodeMarkup(pos!, undefined, attrs));
-			// changing the language is an interaction, so the editor must exist to reconfigure
-			this.materialize();
-			this.cm?.dispatch({ effects: this.languageConf.reconfigure(selected.support) });
+		const componentProps = $state({
+			node: this.node,
+			view: this.view,
+			getPos: this.getPos
 		});
-		return dropdown;
-	}
 
-	private fillLanguageOptions = (): void => {
-		if (this.optionsFilled || !this.dropdown) return;
-		this.optionsFilled = true;
-		const selected = this.dropdown.value;
-		this.dropdown.textContent = '';
-		for (const lang of cmlangdata) {
-			const option = document.createElement('option');
-			option.value = option.text = lang.name;
-			this.dropdown.appendChild(option);
-		}
-		this.dropdown.value = selected;
-		this.dropdown.removeEventListener('pointerdown', this.fillLanguageOptions);
-		this.dropdown.removeEventListener('focus', this.fillLanguageOptions);
+		this.settingsComponent = mount(CodeBlockSettings, {
+			target: this.settingsContainer,
+			props: componentProps
+		});
+
+		(this.settingsContainer as SettingsHost).__svelteComponentProps = componentProps;
 	};
 
 	/** Swaps the plain-text stand-in for a real CodeMirror. One-way and idempotent. */
@@ -137,6 +130,8 @@ class CodeBlockView {
 				crosshairCursor(),
 				this.languageConf.of(markdown()),
 				cmSyntaxHighlight(),
+				cmCommentHighlights,
+				cmCommentClicks(this.view, () => this.getPos()),
 				// the card's own p-2 is the visual gap; drop CodeMirror's default 6px line inset
 				CodeMirrorView.theme({ '.cm-line': { padding: '0 2px' } }),
 				CodeMirrorView.updateListener.of((update) => this.forwardUpdate(update as never)),
@@ -158,7 +153,6 @@ class CodeBlockView {
 		const currentlang = this.node.attrs.lang;
 		void loadLanguageByName(currentlang).then((lang) => {
 			if (!lang) return;
-			if (this.dropdown) this.dropdown.value = lang.name;
 			cm.dispatch({
 				effects: this.languageConf.reconfigure(lang.support)
 			});
@@ -166,6 +160,16 @@ class CodeBlockView {
 
 		cm.dom.addEventListener('focus', this.handleFocus, true);
 		cm.dom.addEventListener('blur', this.handleBlur, true);
+
+		this.syncCommentHighlights();
+	};
+
+	/** last ranges handed to CodeMirror, so a no-op update doesn't dispatch */
+	private lastCommentKey = '[]';
+
+	private syncCommentHighlights = (): void => {
+		if (!this.cm) return;
+		this.lastCommentKey = syncCmCommentHighlights(this.cm, this.view, this.getPos, this.node, this.lastCommentKey);
 	};
 
 	handleFocus() {}
@@ -283,7 +287,26 @@ class CodeBlockView {
 
 	update(node: Node): boolean {
 		if (node.type != this.node.type) return false;
+		// The language can change from outside this view too (undo, a collaborator, the source
+		// editor, the settings popover) - re-highlight for it. The old dropdown only relabeled
+		// itself here, so an external language change kept the stale colours until reload.
+		const prevLang = String(this.node.attrs.lang || '');
 		this.node = node;
+		const requested = String(node.attrs.lang || '');
+		if (this.cm && requested !== prevLang) {
+			void loadLanguageByName(requested).then((lang) => {
+				// stale resolve: the language changed again while this import was in flight
+				if (!this.cm || String(this.node.attrs.lang || '') !== requested) return;
+				// A language with no CodeMirror grammar (much of the listings set: ABAP, Ada, ...)
+				// clears the colours rather than keeping the old grammar - Python tokens sitting on
+				// Ada code reads as "the switch did nothing".
+				this.cm.dispatch({ effects: this.languageConf.reconfigure(lang ? lang.support : []) });
+			});
+		}
+		const existingProps = (this.settingsContainer as SettingsHost).__svelteComponentProps;
+		if (existingProps) existingProps.node = node;
+		// decoration-only changes (a comment placed, focused, or dismissed) arrive here too
+		this.syncCommentHighlights();
 		if (this.updating) return true;
 		const newText = node.textContent;
 
@@ -330,18 +353,35 @@ class CodeBlockView {
 		}, 0);
 	}
 
-	stopEvent(): boolean {
+	stopEvent(event: Event): boolean {
+		// the settings gear is chrome: its clicks are never document edits, and before CodeMirror
+		// exists the rule below would hand them to ProseMirror, which puts the caret in the block
+		const t = event.target;
+		if (t instanceof globalThis.Node && this.settingsContainer.contains(t)) return true;
 		// Once CodeMirror exists it owns everything inside the block. While it is still plain text
 		// there is nothing to own the events, so let ProseMirror handle the click and route it back
 		// here through selectNode().
 		return this.cm !== undefined;
 	}
+
+	/**
+	 * Ignore every DOM mutation in here except selection, which is exactly what a contentDOM-less
+	 * node view got by default before any explicit guard existed. Everything inside the wrapper
+	 * belongs to CodeMirror or the settings gear, and edits flow back through forwardUpdate - no
+	 * mutation is ever document content. That INCLUDES the placeholder-to-CodeMirror swap: a
+	 * narrower guard here (ignore only the settings container) let PM read that swap as dirt and
+	 * recreate the node view, which re-armed the swap - an infinite rebuild loop, ~50 per second,
+	 * that surfaced as flashing chrome, unclickable settings, and unfocusable blocks.
+	 */
+	ignoreMutation(mutation: ViewMutationRecord): boolean {
+		return mutation.type !== 'selection';
+	}
+
 	// ProseMirror calls destroy(); this used to be spelled `destory`, so it never ran and every
 	// removed code block leaked its CodeMirror instance and both capture listeners.
 	destroy() {
 		cancelUpgrade(this.dom);
-		this.dropdown?.removeEventListener('pointerdown', this.fillLanguageOptions);
-		this.dropdown?.removeEventListener('focus', this.fillLanguageOptions);
+		if (this.settingsComponent) unmount(this.settingsComponent);
 		if (!this.cm) return;
 		this.cm.dom.removeEventListener('focus', this.handleFocus, true);
 		this.cm.dom.removeEventListener('blur', this.handleBlur, true);

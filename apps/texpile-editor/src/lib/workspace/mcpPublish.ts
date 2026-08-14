@@ -8,7 +8,7 @@
 import { get } from 'svelte/store';
 import { browser } from '$lib/runtime';
 import { workspaceRoot, mainFile, activeFilePath, isDirty } from './workspaceStore';
-import { settings } from '$lib/settings';
+import { compileConfig } from './projectConfigSync.svelte';
 import { tabs } from './tabs.svelte';
 import { sourceCmView } from '$lib/stores/editorStore';
 import { relativeTo } from './fileSystem';
@@ -84,7 +84,7 @@ export function buildWindowState(viewMode: ViewMode | null): WindowStatePayload 
 			dirty: dirty && !!active && p === active,
 			active: !!active && p === active
 		})),
-		livePreview: get(settings).draftMode === true,
+		livePreview: get(compileConfig).latex.liveMode,
 		...readCursorAndSelection(viewMode)
 	};
 }

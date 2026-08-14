@@ -733,7 +733,10 @@
 						<Menu.Item value="quote" class={itemClass}><Menu.ItemText>{m.menubar_format_blockquote()}</Menu.ItemText></Menu.Item>
 						{#if onFormatDocument}
 							<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-							<Menu.Item value="format-document" class={itemClass}><Menu.ItemText>{m.menubar_format_document()}</Menu.ItemText></Menu.Item>
+							<Menu.Item value="format-document" class={itemClass}
+								><Menu.ItemText>{m.menubar_format_document({ tool: fileKind === 'typ' ? 'typstyle' : 'latexindent' })}</Menu.ItemText
+								></Menu.Item
+							>
 						{/if}
 					</Menu.Content>
 				</Menu.Positioner>

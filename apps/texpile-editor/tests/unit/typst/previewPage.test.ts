@@ -1,7 +1,7 @@
 // Preparing tinymist's preview page for our frame. Every failure here is a blank preview pane with
 // no error, which is why the module throws rather than returning something almost-right.
 import { describe, it, expect } from 'vitest';
-import { preparePreviewPage, PreviewPageError } from '../../../../../electron/src/typst-preview-page';
+import { preparePreviewPage, prepareGuestPreviewPage, PreviewPageError } from '../../../../../electron/src/typst-preview-page';
 
 const OPTS = { dataPlaneHost: '127.0.0.1:52145', background: '#131316', foreground: '#e4e4e7' };
 
@@ -95,5 +95,38 @@ describe('the injected payload', () => {
 		// it is a 1.6MB page we did not write; the less we rewrite, the less can rot
 		const out = preparePreviewPage(SERVED, OPTS);
 		expect(out).toContain('urlObject.protocol.replace("https:", "wss:")');
+	});
+});
+
+describe('the guest page', () => {
+	const GUEST_OPTS = { background: '#131316', foreground: '#e4e4e7' };
+
+	it('replaces the network layer with the postMessage shim', () => {
+		const out = prepareGuestPreviewPage(SERVED, GUEST_OPTS);
+		expect(out).toContain('texpile-remote-socket');
+		expect(out).toContain('window.WebSocket = RemoteSocket');
+	});
+
+	it('parses the shim before the bridge, or the bridge instruments the wrong constructor', () => {
+		// the bridge captures window.WebSocket when IT parses; a shim arriving later is never seen
+		const out = prepareGuestPreviewPage(SERVED, GUEST_OPTS);
+		expect(out.indexOf('texpile-remote-socket')).toBeGreaterThan(-1);
+		expect(out.indexOf('texpile-remote-socket')).toBeLessThan(out.indexOf('texpile-bridge'));
+		// and both still sit after the viewer's own script
+		expect(out.indexOf('texpile-remote-socket')).toBeGreaterThan(out.indexOf('retrieveWsArgs'));
+	});
+
+	it('swallows click-to-jump, which would move the HOST editor', () => {
+		const out = prepareGuestPreviewPage(SERVED, GUEST_OPTS);
+		expect(out).toContain('srclocation');
+	});
+
+	it('still validates that the html is tinymist page-shaped', () => {
+		expect(() => prepareGuestPreviewPage('<html><body>not the page</body></html>', GUEST_OPTS)).toThrow(PreviewPageError);
+	});
+
+	it('keeps the theme injection a guest chose', () => {
+		const out = prepareGuestPreviewPage(SERVED, GUEST_OPTS);
+		expect(out).toMatch(/--typst-preview-background-color:\s*#131316\s*!important/);
 	});
 });

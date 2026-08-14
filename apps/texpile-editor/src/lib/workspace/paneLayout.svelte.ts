@@ -6,10 +6,9 @@
 // stays proportional across window sizes, and it is re-clamped on every window resize: a width
 // saved on a wide screen must not squeeze the editor out in a small window.
 import { browser } from '$lib/runtime';
-import { updateSettings } from '$lib/settings';
+import { get } from 'svelte/store';
+import { layout as layoutStore, updateLayout } from '$lib/storage/layout';
 import { startDrag, nudgeOnKey, clampTo, SNAP_SLACK } from '$lib/workspace/paneResize';
-
-const PDF_FRACTION_KEY = 'texpile:pdfPaneFraction';
 const SIDEBAR_MIN = 180;
 const SIDEBAR_MAX = 600;
 const TOC_MIN = 0.1;
@@ -32,26 +31,34 @@ export class PaneLayout {
 
 	pdfPaneOpen = $state(false);
 	pdfPaneWidth = $state(480);
+	/**
+	 * The preview lives in its own OS window (PreviewPopout) instead of the docked pane. Implies
+	 * pdfPaneOpen - everything demand-driven (the Typst task, caret follow) keys on the pane being
+	 * open, and a popped-out preview is an open pane that happens to be elsewhere. Deliberately not
+	 * persisted: a restored session must not open a second window before the user asked for one.
+	 */
+	pdfPopout = $state(false);
 	/** a splitter is being dragged right now; panes that reflow expensively can freeze while it is true */
 	paneDragging = $state(false);
 
-	/** restore persisted geometry; call once at mount, after settings load */
-	restore(s: { sidebarWidth?: number; sidebarOpen?: boolean; tocFraction?: number; pdfPaneOpen?: boolean }) {
-		if (s.sidebarWidth !== undefined && s.sidebarWidth >= SIDEBAR_MIN && s.sidebarWidth <= SIDEBAR_MAX) this.sidebarWidth = s.sidebarWidth;
-		if (s.sidebarOpen !== undefined) this.sidebarOpen = s.sidebarOpen;
-		if (s.tocFraction !== undefined && s.tocFraction >= TOC_MIN && s.tocFraction <= TOC_MAX) this.tocFraction = s.tocFraction;
+	/** restore persisted geometry (texpile:layout); call once at mount */
+	restore() {
+		const s = get(layoutStore);
+		if (s.sidebarWidth >= SIDEBAR_MIN && s.sidebarWidth <= SIDEBAR_MAX) this.sidebarWidth = s.sidebarWidth;
+		this.sidebarOpen = s.sidebarOpen;
+		if (s.tocFraction >= TOC_MIN && s.tocFraction <= TOC_MAX) this.tocFraction = s.tocFraction;
 		if (browser && typeof window !== 'undefined') {
-			const frac = parseFloat(localStorage.getItem(PDF_FRACTION_KEY) ?? '');
+			const frac = s.pdfPaneFraction;
 			this.pdfPaneWidth = this.clampPdf((frac > 0 && frac < 1 ? frac : 0.4) * window.innerWidth);
 		}
-		if (s.pdfPaneOpen !== undefined) this.pdfPaneOpen = s.pdfPaneOpen;
+		this.pdfPaneOpen = s.pdfPaneOpen;
 	}
 
 	// --- sidebar ---
 
 	setSidebarOpen = (open: boolean) => {
 		this.sidebarOpen = open;
-		updateSettings({ sidebarOpen: open });
+		updateLayout({ sidebarOpen: open });
 	};
 
 	toggleSidebar = () => this.setSidebarOpen(!this.sidebarOpen);
@@ -71,7 +78,7 @@ export class PaneLayout {
 		if (!this.sidebarOpen) this.setSidebarOpen(true);
 		this.sidebarWidth = clampSidebar(w);
 	};
-	private commitSidebar = () => updateSettings({ sidebarWidth: this.sidebarWidth });
+	private commitSidebar = () => updateLayout({ sidebarWidth: this.sidebarWidth });
 
 	startSidebarResize = (e: MouseEvent) => {
 		const startX = e.clientX;
@@ -94,7 +101,7 @@ export class PaneLayout {
 	// --- TOC split ---
 
 	private setToc = (f: number) => (this.tocFraction = clampToc(f));
-	private commitToc = () => updateSettings({ tocFraction: this.tocFraction });
+	private commitToc = () => updateLayout({ tocFraction: this.tocFraction });
 
 	startTocResize = (e: MouseEvent) => {
 		const rect = this.splitEl?.getBoundingClientRect();
@@ -123,10 +130,19 @@ export class PaneLayout {
 
 	setPdfPaneOpen = (open: boolean) => {
 		this.pdfPaneOpen = open;
-		updateSettings({ pdfPaneOpen: open });
+		// closing the pane closes the preview WHEREVER it is: any closer (the Live button, the
+		// divider) that runs while the preview is popped out must not leave the flag armed, or the
+		// next open would fling the pane straight back into a window nobody asked for
+		if (!open) this.pdfPopout = false;
+		updateLayout({ pdfPaneOpen: open });
 	};
 
 	togglePdfPane = () => this.setPdfPaneOpen(!this.pdfPaneOpen);
+
+	setPdfPopout = (out: boolean) => {
+		this.pdfPopout = out;
+		if (out && !this.pdfPaneOpen) this.setPdfPaneOpen(true);
+	};
 
 	/** raw, unclamped - see setSidebar; the two panes snap on the same rule */
 	private setPdfWidth = (w: number) => {
@@ -138,7 +154,7 @@ export class PaneLayout {
 		this.pdfPaneWidth = this.clampPdf(w);
 	};
 	private savePdfFraction = () => {
-		if (browser && typeof window !== 'undefined') localStorage.setItem(PDF_FRACTION_KEY, String(this.pdfPaneWidth / window.innerWidth));
+		if (browser && typeof window !== 'undefined') updateLayout({ pdfPaneFraction: this.pdfPaneWidth / window.innerWidth });
 	};
 
 	/** re-clamp when the window shrinks so the preview can't squeeze the editor out */

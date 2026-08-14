@@ -1,10 +1,11 @@
-// find/rewrite file-path references via the AST (never regex) for the move-aware reference
-// updater. matches exact or sans-extension (LaTeX lets you omit .tex/.png), preserves the
-// original's extension style, and splices via source offsets so the rest of the file is untouched.
+// LaTeX's contribution to the move-aware reference updater: find every file-path argument via
+// the AST (never regex) and report its exact span. Matching, extension-style preservation and
+// the splice are shared - see workspace/fileRefs.ts, which dispatches here by file extension.
 import { parseLatex } from './parser';
 import { findAll } from './ast-utils';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
 import type { Macro } from '@unified-latex/unified-latex-types';
+import type { FileRef } from '$lib/workspace/fileRefs';
 
 // explicit signatures so the mandatory {path} arg always attaches (some of these live in CTAN
 // packages the bundled DB doesn't include, e.g. graphicx).
@@ -24,13 +25,10 @@ const FILEREF_PARSE_OPTS = {
 };
 const FILE_COMMANDS = new Set(Object.keys(FILEREF_PARSE_OPTS.macros));
 
-const stripExt = (p: string) => p.replace(/\.[^./\\]+$/, '');
-
-type Ref = { innerStart: number; innerEnd: number; current: string };
-
-function collectRefs(latex: string): Ref[] {
+/** Every file-path argument in `latex`, with the span holding the path itself. */
+export function collectLatexFileRefs(latex: string): FileRef[] {
 	const ast = parseLatex(latex, FILEREF_PARSE_OPTS);
-	const out: Ref[] = [];
+	const out: FileRef[] = [];
 	const offset = (n: unknown, end = false) => {
 		const p = (n as { position?: { start?: { offset?: number }; end?: { offset?: number } } }).position;
 		return (end ? p?.end?.offset : p?.start?.offset) ?? null;
@@ -45,28 +43,4 @@ function collectRefs(latex: string): Ref[] {
 		out.push({ innerStart, innerEnd, current: printRaw(content).trim() });
 	}
 	return out;
-}
-
-function matching(refs: Ref[], targetRel: string): Ref[] {
-	const t = stripExt(targetRel);
-	return refs.filter((r) => r.current === targetRel || stripExt(r.current) === t);
-}
-
-/** How many references in `latex` point at `targetRel` (exact or sans-extension). */
-export function countFileRefs(latex: string, targetRel: string): number {
-	return matching(collectRefs(latex), targetRel).length;
-}
-
-/** Repoint every reference to `targetRel` to `newRel`, preserving the original's extension style. */
-export function replaceFileRefs(latex: string, targetRel: string, newRel: string): { text: string; count: number } {
-	const refs = matching(collectRefs(latex), targetRel);
-	if (!refs.length) return { text: latex, count: 0 };
-	let text = latex;
-	// Splice last → first so earlier offsets stay valid.
-	for (const r of [...refs].sort((a, b) => b.innerStart - a.innerStart)) {
-		const hadExt = /\.[^./\\]+$/.test(r.current);
-		const replacement = hadExt ? newRel : stripExt(newRel);
-		text = text.slice(0, r.innerStart) + replacement + text.slice(r.innerEnd);
-	}
-	return { text, count: refs.length };
 }

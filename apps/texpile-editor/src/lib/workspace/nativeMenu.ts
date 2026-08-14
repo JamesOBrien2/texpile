@@ -72,7 +72,7 @@ export interface MenuStateInput {
 const APP = 'Texpile';
 
 /** every label the native template can ask for, keyed the way window-chrome.ts looks them up */
-function labels(): Record<string, string> {
+function labels(tool: 'latexindent' | 'typstyle'): Record<string, string> {
 	return {
 		file: m.menubar_menu_file(),
 		edit: m.menubar_menu_edit(),
@@ -125,7 +125,7 @@ function labels(): Record<string, string> {
 		h2: m.menubar_heading_2(),
 		h3: m.menubar_heading_3(),
 		quote: m.menubar_format_blockquote(),
-		formatDocument: m.menubar_format_document(),
+		formatDocument: m.menubar_format_document({ tool }),
 		checkSpelling: m.menubar_check_spelling(),
 		dictionary: m.menubar_edit_dictionary(),
 		compile: m.menubar_terminal_compile(),
@@ -167,7 +167,7 @@ export function publishMenuState(state: MenuStateInput): void {
 	// off macOS nobody reads this, and building it means calling sixty message functions on every
 	// menu-state change (every file switch, every terminal toggle) for a payload that is discarded
 	if (!isMac) return;
-	api()?.publishMenuState?.({ ...state, labels: labels() });
+	api()?.publishMenuState?.({ ...state, labels: labels(state.dialect === 'typ' ? 'typstyle' : 'latexindent') });
 }
 
 /** wire the native selections into the in-app handlers; returns the detach function */

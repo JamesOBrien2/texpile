@@ -15,7 +15,8 @@ export enum FrameType {
 	BlobRequest = 4, // ask the host for a named blob (the PDF, or a file's bytes for previews)
 	BlobChunk = 5, // one chunk of a host->guest blob transfer
 	Control = 6, // small JSON control messages (compile-request, session-end, synctex, ...)
-	Upload = 7 // one chunk of a guest->host file upload (host writes it to disk)
+	Upload = 7, // one chunk of a guest->host file upload (host writes it to disk)
+	Preview = 8 // one hop of the Typst preview relay (host <-> guest, see PreviewPayload)
 }
 
 export interface HelloPayload {
@@ -41,6 +42,14 @@ export type ControlPayload =
 	| { kind: 'synctex-inverse-result'; reqId: number; file: string; line: number; selectText?: string }
 	| { kind: 'synctex-forward'; reqId: number; file: string; line: number }
 	| { kind: 'synctex-forward-result'; reqId: number; page: number; x: number; y: number; w?: number; h?: number }
+	// Typst src -> preview: the host resolves the position through its tinymist and the resulting
+	// jump frame comes back over the PREVIEW channel, routed to only the asking guest - so there
+	// is no result payload here. file is manifest-relative; line/character are zero-based (LSP).
+	| { kind: 'typst-scroll'; file: string; line: number; character: number }
+	// the reverse direction: a guest clicked its streamed preview; the host's tinymist resolved
+	// the span and this is the answer, routed to only the clicking guest. file is manifest-
+	// relative; line is zero-based (LSP), matching PreviewJumpInfo.
+	| { kind: 'typst-jump'; file: string; line: number }
 	// guest asks the host (the only disk-writer) to mutate a file; paths are manifest-relative
 	| { kind: 'file-op'; op: 'rename' | 'delete'; from: string; to?: string }
 	/**
@@ -52,6 +61,31 @@ export type ControlPayload =
 	 * big for a control frame and goes over the blob channel instead (blob name 'comments').
 	 */
 	| { kind: 'comment-event'; event: CommentEvent };
+
+/**
+ * One hop of the Typst preview relay.
+ *
+ * The host runs tinymist's preview and, per guest, holds one websocket to its loopback data plane;
+ * these frames carry that socket's traffic over the session, opaquely - neither side interprets the
+ * data-plane protocol. The GUEST owns the connection lifecycle: `conn` is a guest-chosen epoch,
+ * bumped on every (re)attach, and both sides drop frames for another epoch as stale. Recovery is
+ * drop-and-reattach: there is no retransmission, a guest that detects a gap closes and reopens.
+ */
+export interface PreviewPayload {
+	/** guest-chosen connection epoch; frames for another epoch are stale and dropped */
+	conn: number;
+	/** open: guest asks / host confirms; data: binary data-plane bytes; text: a data-plane text
+	 *  frame (utf-8 in `bytes`); close: either side tears the connection down */
+	ev: 'open' | 'data' | 'text' | 'close';
+	/** host->guest: counts every frame on this conn, so a relay drop is a visible gap. 0 from guests. */
+	seq: number;
+	/** chunking of one oversized data-plane message: this piece / how many (0/1 when whole) */
+	part: number;
+	parts: number;
+	bytes: Uint8Array;
+}
+
+const PREVIEW_EVS = ['open', 'data', 'text', 'close'] as const;
 
 /** a manifest-relative path a guest may name in a file-op: forward slashes, inside the root. */
 export function isSafeRel(rel: string): boolean {
@@ -66,7 +100,8 @@ export type Frame =
 	| { type: FrameType.BlobRequest; from: number; to: number; name: string }
 	| { type: FrameType.BlobChunk; from: number; to: number; payload: BlobChunkPayload }
 	| { type: FrameType.Control; from: number; to: number; payload: ControlPayload }
-	| { type: FrameType.Upload; from: number; to: number; payload: BlobChunkPayload };
+	| { type: FrameType.Upload; from: number; to: number; payload: BlobChunkPayload }
+	| { type: FrameType.Preview; from: number; to: number; payload: PreviewPayload };
 
 export function encodeFrame(frame: Frame): Uint8Array {
 	const enc = encoding.createEncoder();
@@ -94,6 +129,14 @@ export function encodeFrame(frame: Frame): Uint8Array {
 			break;
 		case FrameType.Control:
 			encoding.writeVarString(enc, JSON.stringify(frame.payload));
+			break;
+		case FrameType.Preview:
+			encoding.writeVarUint(enc, frame.payload.conn);
+			encoding.writeVarUint(enc, PREVIEW_EVS.indexOf(frame.payload.ev));
+			encoding.writeVarUint(enc, frame.payload.seq);
+			encoding.writeVarUint(enc, frame.payload.part);
+			encoding.writeVarUint(enc, frame.payload.parts);
+			encoding.writeVarUint8Array(enc, frame.payload.bytes);
 			break;
 	}
 	return encoding.toUint8Array(enc);
@@ -128,6 +171,24 @@ export function decodeFrame(data: Uint8Array): Frame {
 			};
 		case FrameType.Control:
 			return { type, from, to, payload: JSON.parse(decoding.readVarString(dec)) as ControlPayload };
+		case FrameType.Preview: {
+			const conn = decoding.readVarUint(dec);
+			const ev = PREVIEW_EVS[decoding.readVarUint(dec)];
+			if (!ev) throw new Error('unknown preview event');
+			return {
+				type,
+				from,
+				to,
+				payload: {
+					conn,
+					ev,
+					seq: decoding.readVarUint(dec),
+					part: decoding.readVarUint(dec),
+					parts: decoding.readVarUint(dec),
+					bytes: decoding.readVarUint8Array(dec)
+				}
+			};
+		}
 		default:
 			throw new Error(`unknown frame type ${type}`);
 	}
@@ -182,6 +243,65 @@ export class BlobAssembler {
 			off += (p as Uint8Array).byteLength;
 		}
 		return out;
+	}
+}
+
+/**
+ * Split one data-plane message into sealed-frame-sized preview payloads.
+ *
+ * `seq` numbers every RESULTING frame, not the message: the receiver checks plain continuity and
+ * cares nothing for message boundaries, so a drop inside a chunk run is caught the same way as a
+ * drop between messages. Returns the payloads and the seq the next call should start from.
+ */
+export function chunkPreview(
+	conn: number,
+	ev: 'data' | 'text',
+	seq: number,
+	bytes: Uint8Array
+): { payloads: PreviewPayload[]; nextSeq: number } {
+	const parts = Math.max(1, Math.ceil(bytes.byteLength / BLOB_CHUNK_SIZE));
+	const payloads: PreviewPayload[] = [];
+	for (let i = 0; i < parts; i++) {
+		payloads.push({ conn, ev, seq: seq + i, part: i, parts, bytes: bytes.subarray(i * BLOB_CHUNK_SIZE, (i + 1) * BLOB_CHUNK_SIZE) });
+	}
+	return { payloads, nextSeq: seq + parts };
+}
+
+// one reassembled data-plane message may not exceed this many chunks (128 * 256 KB = 32 MB);
+// bounds the buffer a hostile peer's `parts` can make us allocate, far above any real render frame
+const MAX_PREVIEW_CHUNKS = 128;
+
+/**
+ * The guest end of one preview connection: checks frame continuity and reassembles chunked
+ * messages. One instance per `conn` epoch, thrown away on reattach.
+ */
+export class PreviewStream {
+	private nextSeq = 0;
+	private parts: Uint8Array[] = [];
+
+	/**
+	 * Feed one host->guest payload. Returns the completed message, null while a chunk run is still
+	 * arriving, or 'gap' when a frame was lost (relay drop) - the caller must then close this conn
+	 * and reattach with a fresh epoch, because everything after a gap is undecodable.
+	 */
+	add(p: PreviewPayload): { bytes: Uint8Array; text: boolean } | null | 'gap' {
+		if (p.seq !== this.nextSeq) return 'gap';
+		this.nextSeq = p.seq + 1;
+		if (!Number.isInteger(p.parts) || p.parts < 1 || p.parts > MAX_PREVIEW_CHUNKS) return 'gap';
+		if (p.part !== this.parts.length) return 'gap'; // continuity held but the chunk run didn't
+		this.parts.push(p.bytes);
+		if (this.parts.length < p.parts) return null;
+		const collected = this.parts;
+		this.parts = [];
+		if (collected.length === 1) return { bytes: collected[0], text: p.ev === 'text' };
+		const size = collected.reduce((n, c) => n + c.byteLength, 0);
+		const out = new Uint8Array(size);
+		let off = 0;
+		for (const c of collected) {
+			out.set(c, off);
+			off += c.byteLength;
+		}
+		return { bytes: out, text: p.ev === 'text' };
 	}
 }
 

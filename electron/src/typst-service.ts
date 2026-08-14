@@ -152,14 +152,21 @@ export function startLsp(
 		throw err;
 	}
 
+	let alive = true;
 	const framer = new LspFramer(on.message);
 	proc.stdout.on('data', (c: Buffer) => framer.push(c));
 	proc.stderr.on('data', (c: Buffer) => on.log?.(c.toString('utf8')));
-	proc.on('exit', (code) => on.exit(code));
+	// exit is only reported for a GENUINE death (crash, external kill): the renderer reacts to it
+	// by dropping its client and restarting things, and our own stop() must not trigger that
+	proc.on('exit', (code) => {
+		if (alive) on.exit(code);
+		alive = false;
+	});
 	// a spawn failure (ENOENT) surfaces here rather than as a throw
-	proc.on('error', () => on.exit(null));
-
-	let alive = true;
+	proc.on('error', () => {
+		if (alive) on.exit(null);
+		alive = false;
+	});
 	return {
 		send(json: string) {
 			if (!alive || !proc.stdin.writable) return;

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { referenceStore, templateFeaturesStore } from '$lib/stores/editorStore';
+	import { splitCitationKeys } from './citationKeys';
 	import { ChevronDown } from '@lucide/svelte';
 	import { m } from '$lib/paraglide/messages';
 
@@ -17,6 +18,7 @@
 	} = $props();
 
 	const key = $derived(node.textContent);
+	const keys = $derived(splitCitationKeys(node.textContent));
 	const reference = $derived($referenceStore?.find((ref) => ref.key === key));
 
 	// dropdown label, capped so long titles don't blow out the select
@@ -84,11 +86,22 @@
 
 <div class="citation-edit-form" role="dialog" aria-label={m.citation_dialog_aria_label()} tabindex="-1" onkeydown={handleKeydown}>
 	<div class="border-surface-300-700 mb-4 border-b pb-3">
-		{#if onChangeKey && $referenceStore?.length}
+		{#if keys.length > 1}
+			<!-- a multi-key cite: swapping through the single-key select would silently collapse it
+			     to one key, so the group is listed read-only; the shared notes below stay editable -->
+			<span class="text-surface-900-100 text-sm font-medium">{m.citation_reference_label()}</span>
+			{#each keys as k (k)}
+				{@const ref = $referenceStore?.find((r) => r.key === k)}
+				<div class="mt-1.5">
+					<span class="text-surface-900-100 text-sm font-semibold">{ref?.author || k}</span>
+					<span class="text-surface-600-400 text-sm">{ref ? ref.year || ref.date?.slice(0, 4) || '' : m.citation_key_missing()}</span>
+				</div>
+			{/each}
+		{:else if onChangeKey && $referenceStore?.length}
 			<span class="text-surface-900-100 text-sm font-medium">{m.citation_reference_label()}</span>
 			<select class="input mt-1.5 w-full text-sm" value={key} onchange={(e) => onChangeKey?.((e.currentTarget as HTMLSelectElement).value)}>
 				{#if !reference}<option value={key}>{m.citation_ref_not_found({ key })}</option>{/if}
-				{#each $referenceStore as ref}
+				{#each $referenceStore as ref (ref.key)}
 					<option value={ref.key} title={ref.title || ref.key}>{refLabel(ref)}</option>
 				{/each}
 			</select>
@@ -123,7 +136,7 @@
 				<label class="block">
 					<span class="text-surface-900-100 text-sm font-medium">{m.citation_style_label()}</span>
 					<select bind:value={variant} class="input mt-1.5 w-full text-sm">
-						{#each variantOptions as opt}
+						{#each variantOptions as opt (opt.value)}
 							<option value={opt.value}>
 								{opt.label}: {opt.desc}
 							</option>

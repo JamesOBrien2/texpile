@@ -66,6 +66,16 @@ declare global {
 		/** Fetch tinymist's preview page, theme it, re-serve it from typstpreview://. */
 		preparePreview(host: string, background: string, foreground: string): Promise<{ ok: boolean; url?: string; error?: string }>;
 		releasePreview(): void;
+		/** The raw page as tinymist serves it, for a session host to ship to guests. */
+		previewPageHtml(host: string): Promise<{ ok: boolean; html?: string; error?: string }>;
+		/** Serve the host-shipped page for this (guest) window's frame; networkless CSP. */
+		prepareGuestPreview(html: string, background: string, foreground: string): Promise<{ ok: boolean; url?: string; error?: string }>;
+		/** Preview relay (host side): one websocket leg to the preview data plane per guest. */
+		relayOpen(id: number, host: string): void;
+		relaySend(id: number, data: string | ArrayBuffer): void;
+		relayClose(id: number): void;
+		/** Subscribe to relay socket events; returns an unsubscribe fn. */
+		onRelayEvent(cb: (e: { id: number; ev: 'open' | 'data' | 'close'; data?: string | ArrayBuffer }) => void): () => void;
 		/** Spawn `tinymist lsp` for this window, rooted at `root`. */
 		startLsp(root: string | null): Promise<{ ok: boolean; info?: TinymistInfo; error?: string }>;
 		/** Send one JSON-RPC message; the main process adds the Content-Length framing. */

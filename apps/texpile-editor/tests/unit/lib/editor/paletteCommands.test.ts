@@ -20,6 +20,7 @@ function actions(caps: boolean): PaletteActions {
 		canManageTree: () => caps,
 		canSearch: () => caps,
 		canFormat: () => caps,
+		formatTool: () => 'latexindent' as const,
 		canGit: () => caps,
 		openFile: () => {},
 		toggleSidebar: () => {},

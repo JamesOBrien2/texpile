@@ -13,6 +13,7 @@
 		MoreHorizontal
 	} from '@lucide/svelte';
 	import { getPdfViewerContext } from './pdf-viewer/context';
+	import { searchIntent } from './pdf-viewer/searchIntent';
 
 	const { state: viewerState, actions } = getPdfViewerContext();
 
@@ -35,7 +36,10 @@
 	function toggleMenu() {
 		if (!menuOpen && menuButton) {
 			const r = menuButton.getBoundingClientRect();
-			menuPos = { top: r.bottom + 4, right: Math.max(4, window.innerWidth - r.right) };
+			// measured against the window the toolbar is IN - the popped-out preview's, not
+			// necessarily this module's global
+			const vw = menuButton.ownerDocument.defaultView?.innerWidth ?? window.innerWidth;
+			menuPos = { top: r.bottom + 4, right: Math.max(4, vw - r.right) };
 		}
 		menuOpen = !menuOpen;
 	}
@@ -84,11 +88,13 @@
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') menuOpen = false;
 		};
-		window.addEventListener('pointerdown', onDown, true);
-		window.addEventListener('keydown', onKey, true);
+		// on the toolbar's own window, so dismissal works when the viewer is popped out
+		const win = menuButton?.ownerDocument.defaultView ?? window;
+		win.addEventListener('pointerdown', onDown, true);
+		win.addEventListener('keydown', onKey, true);
 		return () => {
-			window.removeEventListener('pointerdown', onDown, true);
-			window.removeEventListener('keydown', onKey, true);
+			win.removeEventListener('pointerdown', onDown, true);
+			win.removeEventListener('keydown', onKey, true);
 		};
 	});
 
@@ -122,14 +128,18 @@
 	}
 
 	function handleSearchKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') {
-			if (e.shiftKey) {
+		if (e.key !== 'Enter') return;
+		// searchQuery is the query the current matches came from; once the box says something else,
+		// Enter has to start a new search rather than step through the old results
+		switch (searchIntent(searchInput, viewerState.searchQuery, viewerState.searchTotal, e.shiftKey)) {
+			case 'previous':
 				actions.searchPrevious();
-			} else if (viewerState.searchTotal > 0) {
+				break;
+			case 'next':
 				actions.searchNext();
-			} else {
+				break;
+			default:
 				handleSearch();
-			}
 		}
 	}
 </script>

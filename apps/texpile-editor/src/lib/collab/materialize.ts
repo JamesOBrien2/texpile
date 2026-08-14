@@ -8,23 +8,50 @@ import type * as Y from 'yjs';
 import { manifestOf, locksOf, textOf, type ManifestEntry } from './session';
 
 export interface MaterializeFs {
-	readText(absPath: string): Promise<string>;
+	/** raw bytes: both the text/binary classification and the seeded body come from one read */
+	readBytes(absPath: string): Promise<Uint8Array>;
 	writeText(absPath: string, content: string): Promise<void>;
 	/** flat file list, root-relative forward-slash paths. mtimeMs is only meaningful for binaries;
 	 *  it becomes the manifest rev a guest uses to notice its cached copy went stale. */
 	listFiles(root: string): Promise<{ rel: string; size: number; mtimeMs?: number }[]>;
 }
 
-// files co-edited as text through the CRDT (source only). Generated products (.aux, .log, .bbl,
-// the compiled .pdf, ...) are shared too, but as binary the guest fetches on demand and never edits.
-const TEXT_EXT = /\.(tex|bib|cls|sty|txt|md|csv|dat|def|tikz|pgf|json|yml|yaml|toml|lco|ldf|clo|bst)$/i;
+// Which files co-edit as CRDT text is decided by CONTENT (decodeIfText below), not by an
+// extension list: the old allow-list silently locked guests out of every file of a type nobody
+// remembered to add - .typ sat missing for the whole life of typst support. Only two things
+// still gate it: generated artifacts (below) and the size caps.
+//
+// Generated build products are rewritten wholesale by every compile, and a Y.Doc keeps history -
+// routing them through the CRDT would grow every participant's session memory with dead compile
+// output. They stay in the fetch-on-demand binary tier (guests still get the log and friends).
+const GENERATED_EXT =
+	/\.(log|aux|toc|lof|lot|out|bbl|blg|bcf|fls|fdb_latexmk|synctex|synctex\.gz|xdv|dvi|run\.xml|nav|snm|vrb|idx|ilg|ind|glo|gls|glg|ist|spl)$/i;
 // never shared: VCS internals and dependency trees (credentials + noise). Everything else is shared,
 // gated by size, so a guest can pull the output folder for local intellisense, the log, and the PDF.
 const EXCLUDE = /(^|\/)(\.git|\.svn|node_modules|__pycache__)(\/|$)/i;
+// Name-based HINT that a file is source text, where content is not worth reading: the too-big-to-
+// co-edit warning, and the tree scan's "text needs no stat" fast path. Never used to DENY co-edit.
+const LIKELY_TEXT = /\.(tex|bib|cls|sty|txt|md|csv|dat|def|tikz|pgf|json|yml|yaml|toml|lco|ldf|clo|bst|typ)$/i;
 
 export const isShared = (rel: string) => !EXCLUDE.test(rel);
-// co-editable source text (drives CRDT sync); everything else shared is served as bytes on demand
-export const isTextFile = (rel: string) => TEXT_EXT.test(rel);
+export const isGeneratedArtifact = (rel: string) => GENERATED_EXT.test(rel);
+export const isLikelyTextName = (rel: string) => LIKELY_TEXT.test(rel);
+
+/**
+ * The decoded text of `bytes`, or null when they are not losslessly text: a NUL in the first 8 KB
+ * (the classic binary tell) or any invalid UTF-8. Lossless matters because this exact string is
+ * what the materializer writes BACK to disk - a lossy decode of a PNG would corrupt the file on
+ * the first write-through.
+ */
+export function decodeIfText(bytes: Uint8Array): string | null {
+	const probe = Math.min(bytes.length, 8192);
+	for (let i = 0; i < probe; i++) if (bytes[i] === 0) return null;
+	try {
+		return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+	} catch {
+		return null;
+	}
+}
 
 // co-edit cap; larger text is shared as binary (name + on-demand bytes). Frames are gzipped before
 // they hit the relay (session.ts), and LaTeX compresses ~4x, so a file up to this size still clears
@@ -85,16 +112,21 @@ export class HostMaterializer {
 		const bodies = new Map<string, { text: string; eol: '\r\n' | '\n' }>();
 		const oversizedText: string[] = [];
 		for (const f of files) {
-			if (!isTextFile(f.rel)) continue;
+			if (isGeneratedArtifact(f.rel)) continue;
 			if (f.size > MAX_TEXT_BYTES) {
-				oversizedText.push(f.rel);
+				// too big to co-edit whatever it is; warn only where the name says it was source
+				if (isLikelyTextName(f.rel)) oversizedText.push(f.rel);
 				continue;
 			}
 			try {
-				const raw = await this.fs.readText(this.joinPath(this.root, f.rel));
+				const bytes = await this.fs.readBytes(this.joinPath(this.root, f.rel));
 				// tree scans don't always carry sizes; the cap re-applies after the read
-				if (raw.length <= MAX_TEXT_BYTES) bodies.set(f.rel, { text: toLf(raw), eol: detectEol(raw) });
-				else oversizedText.push(f.rel);
+				if (bytes.byteLength > MAX_TEXT_BYTES) {
+					if (isLikelyTextName(f.rel)) oversizedText.push(f.rel);
+					continue;
+				}
+				const raw = decodeIfText(bytes);
+				if (raw !== null) bodies.set(f.rel, { text: toLf(raw), eol: detectEol(raw) });
 			} catch (e) {
 				this.onError?.(f.rel, e);
 			}
@@ -209,10 +241,11 @@ export class HostMaterializer {
 		for (const f of files) {
 			const existing = manifest.get(f.rel);
 			if (!existing || existing.gone) {
-				if (isTextFile(f.rel) && f.size <= MAX_TEXT_BYTES) {
+				if (!isGeneratedArtifact(f.rel) && f.size <= MAX_TEXT_BYTES) {
 					try {
-						const raw = await this.fs.readText(this.joinPath(this.root, f.rel));
-						if (raw.length <= MAX_TEXT_BYTES) {
+						const bytes = await this.fs.readBytes(this.joinPath(this.root, f.rel));
+						const raw = bytes.byteLength <= MAX_TEXT_BYTES ? decodeIfText(bytes) : null;
+						if (raw !== null) {
 							bodies.set(f.rel, { text: toLf(raw), eol: detectEol(raw) });
 							newTexts.push(f.rel);
 						}

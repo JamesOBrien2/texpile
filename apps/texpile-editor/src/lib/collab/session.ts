@@ -23,6 +23,7 @@ import {
 	BlobAssembler,
 	type Frame,
 	type ControlPayload,
+	type PreviewPayload,
 	type RelayNotice
 } from './protocol';
 import type { Transport, TransportStatus } from './transport';
@@ -86,6 +87,8 @@ export interface SessionEvents {
 	onBlobRequest?: (name: string, from: number) => void;
 	/** a guest uploaded a file (host only): write it to disk. */
 	onUpload?: (path: string, bytes: Uint8Array) => void;
+	/** one hop of the Typst preview relay; guests only ever see host-origin frames. */
+	onPreview?: (payload: PreviewPayload, from: number) => void;
 	onStatus?: (s: TransportStatus | 'host-gone' | 'host-back', detail?: string) => void;
 	onSessionEnd?: (reason: SessionEndReason, detail?: string) => void;
 }
@@ -245,6 +248,11 @@ export class CollabSession {
 		}
 	}
 
+	/** one hop of the preview relay: the host addresses a guest, a guest defaults to the host. */
+	sendPreview(payload: PreviewPayload, to: number = this.hostId ?? BROADCAST): void {
+		this.post({ type: FrameType.Preview, from: this.clientId, to, payload });
+	}
+
 	/** guest -> host: upload a file for the host to write to disk (path is manifest-relative). */
 	sendUpload(path: string, bytes: Uint8Array): void {
 		for (const chunk of chunkBlob(path, 0, bytes)) {
@@ -304,6 +312,11 @@ export class CollabSession {
 					const done = this.uploadAssembler.add(frame.payload);
 					if (done) this.events.onUpload?.(frame.payload.name, done);
 				}
+				break;
+			case FrameType.Preview:
+				// same authenticity rule as blobs: a guest only ever acts on the real host's stream,
+				// so another guest cannot feed it forged render frames
+				if (this.role === 'host' || fromHost) this.events.onPreview?.(frame.payload, frame.from);
 				break;
 			case FrameType.Control:
 				// session-end is host-authoritative; ignore a guest forging it

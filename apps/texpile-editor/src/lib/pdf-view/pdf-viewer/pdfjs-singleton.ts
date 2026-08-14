@@ -60,7 +60,14 @@ export async function getPdfJs(): Promise<typeof import('pdfjs-dist/legacy/build
  * Passing `worker` takes the branch above out of play: `src.worker instanceof PDFWorker` leaves
  * task._worker null, so no document destroy can reach the worker. It lives until destroyPdfJs().
  */
-export async function getPdfDocument(src: DocumentSource): Promise<LoadingTask | null> {
+/**
+ * `ownerDocument` is which document's font registry the render uses. pdf.js registers the PDF's
+ * embedded fonts via the FontLoader of this document (defaults to the global one), and canvases
+ * living in a DIFFERENT document cannot see them - which is exactly what a viewer mounted in the
+ * popped-out preview window is, and every glyph came out as a box there. Pass the document the
+ * viewer's canvases live in.
+ */
+export async function getPdfDocument(src: DocumentSource, ownerDocument?: Document): Promise<LoadingTask | null> {
 	const pdfjs = await getPdfJs();
 	if (!pdfjs || !pdfWorker) return null;
 	// getDocument also accepts a bare url or bare bytes; normalise so there is somewhere to put the
@@ -71,7 +78,7 @@ export async function getPdfDocument(src: DocumentSource): Promise<LoadingTask |
 			: src instanceof ArrayBuffer || ArrayBuffer.isView(src)
 				? { data: src }
 				: src;
-	return pdfjs.getDocument({ ...params, worker: pdfWorker });
+	return pdfjs.getDocument({ ...params, worker: pdfWorker, ...(ownerDocument ? { ownerDocument } : {}) });
 }
 
 /** destroys the PDF.js worker; the next getPdfJs() call creates a new one. */

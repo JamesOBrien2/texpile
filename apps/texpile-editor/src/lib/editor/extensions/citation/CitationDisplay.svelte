@@ -3,6 +3,7 @@
 	import type { Node as PMNode } from 'prosemirror-model';
 	import type { EditorView } from 'prosemirror-view';
 	import { referenceStore } from '$lib/stores/editorStore';
+	import { splitCitationKeys } from './citationKeys';
 	import CitationEditForm from './CitationEditForm.svelte';
 
 	let {
@@ -19,38 +20,36 @@
 
 	let dropdownOpen = $state(false);
 
+	// \cite{a, b, c} is ONE command with a shared note, so it stays one chip; each key resolves
+	// on its own and an unresolved one shows as its raw key (the red state says it's broken)
 	const displayText = $derived.by(() => {
-		const key = node.textContent;
 		const references = $referenceStore;
 
 		if (!references) return '(loading...)';
 
-		const reference = references.find((ref) => ref.key === key);
+		const keys = splitCitationKeys(node.textContent);
+		if (!keys.length) return `(${node.textContent} not found)`;
 
-		if (!reference) {
-			return `(${key} not found)`;
-		}
+		const text = keys
+			.map((key) => {
+				const reference = references.find((ref) => ref.key === key);
+				if (!reference) return keys.length === 1 ? `${key} not found` : key;
+				return `${reference.author} ${reference.year || reference.date?.slice(0, 4) || 'n.d.'}`;
+			})
+			.join('; ');
 
 		const { prenote, postnote } = node.attrs;
-		let text = `${reference.author} ${reference.year || reference.date?.slice(0, 4) || 'n.d.'}`;
-
-		if (prenote && postnote) {
-			text = `(${prenote}, ${text}, ${postnote})`;
-		} else if (prenote) {
-			text = `(${prenote}, ${text})`;
-		} else if (postnote) {
-			text = `(${text}, ${postnote})`;
-		} else {
-			return '(' + text + ')';
-		}
-
-		return text;
+		if (prenote && postnote) return `(${prenote}, ${text}, ${postnote})`;
+		if (prenote) return `(${prenote}, ${text})`;
+		if (postnote) return `(${text}, ${postnote})`;
+		return `(${text})`;
 	});
 
 	const isValid = $derived.by(() => {
 		const references = $referenceStore;
 		if (!references) return false;
-		return references.some((ref) => ref.key === node.textContent);
+		const keys = splitCitationKeys(node.textContent);
+		return keys.length > 0 && keys.every((key) => references.some((ref) => ref.key === key));
 	});
 
 	// preventDefault avoids selection issues

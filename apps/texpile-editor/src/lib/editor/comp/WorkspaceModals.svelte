@@ -19,6 +19,7 @@
 		external,
 		compileSettings = $bindable(),
 		formatModalOpen = $bindable(),
+		formatTool,
 		formatting,
 		pendingRefUpdate,
 		onSaveCompile,
@@ -34,6 +35,8 @@
 		external: ExternalChangeWatcher;
 		compileSettings: CompileSettings;
 		formatModalOpen: boolean;
+		/** which formatter Format will run for the open file */
+		formatTool: 'latexindent' | 'typstyle';
 		formatting: boolean;
 		pendingRefUpdate: RefUpdate | null;
 		onSaveCompile: (thenRun: boolean) => void;
@@ -60,8 +63,6 @@
 <CompileCommandModal
 	bind:open={compileSettings.modalOpen}
 	bind:command={compileSettings.draft}
-	format={compileSettings.format}
-	onSelectFormat={(f) => compileSettings.selectFormat(f)}
 	bind:outputs={compileSettings.outputsDraft}
 	bind:advancedOpen={compileSettings.advancedOpen}
 	onSave={onSaveCompile}
@@ -69,7 +70,7 @@
 	onRun={onRunCompile}
 />
 
-<FormatModal bind:open={formatModalOpen} {formatting} {onFormat} />
+<FormatModal bind:open={formatModalOpen} {formatting} tool={formatTool} {onFormat} />
 
 <!-- file edited on disk while we held unsaved edits -->
 {#if external.conflict}

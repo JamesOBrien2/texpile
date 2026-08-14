@@ -59,7 +59,12 @@
 	{disabled}
 >
 	{#if dot}
-		<span class="bg-success-500 size-2 rounded-full"></span>
+		<!-- the dot rides inside a size-4 box, the exact slot the icons occupy: the button's height
+		     is content-driven, and a bare 8px dot let the Live state come out ~3px shorter than the
+		     icon states - and ~1px shorter than its own chevron half, which pokes past the seam -->
+		<span class="flex size-4 items-center justify-center">
+			<span class="bg-success-500 size-2 rounded-full"></span>
+		</span>
 	{:else if icon}
 		{@const Icon = icon}
 		<Icon class="size-4" />

@@ -5,6 +5,7 @@
 	import EditorTopbar from '$lib/editor/comp/EditorTopbar.svelte';
 	import EditorPane from '$lib/editor/comp/EditorPane.svelte';
 	import PreviewPane from '$lib/editor/comp/PreviewPane.svelte';
+	import PreviewPopout from '$lib/editor/comp/PreviewPopout.svelte';
 	import PaneSplitter from '$lib/editor/comp/PaneSplitter.svelte';
 	import TerminalDock from '$lib/editor/comp/TerminalDock.svelte';
 	import { ChevronLeft } from '@lucide/svelte';
@@ -39,6 +40,10 @@
 		draft,
 		typstPreviewHost,
 		typstPreviewWanted,
+		mainIsTypst,
+		guestTypstOffered,
+		mainUnset,
+		onPickMain,
 		panes,
 		actions,
 		dockView = $bindable(),
@@ -66,6 +71,14 @@
 		typstPreviewHost: string | null;
 		/** this pane is for a Typst preview, even before it has an address */
 		typstPreviewWanted: boolean;
+		/** the main file is .typ, so Typst owns the output even when its preview is unavailable */
+		mainIsTypst: boolean;
+		/** guest: the host streams its live Typst preview, shown instead of the pushed PDF */
+		guestTypstOffered: boolean;
+		/** no main file in a folder that has candidates: the pane shows the pick-a-main message */
+		mainUnset: boolean;
+		/** open the set-main-file prompt (the pane's message carries the button) */
+		onPickMain: () => void;
 		/** editor inputs that are not workspace state: tabs, references, jump targets */
 		panes: Any;
 		actions: Any;
@@ -73,6 +86,23 @@
 		pdfPaneRef: Any;
 		draftRef: DraftView | null;
 	} = $props();
+
+	// One gate for the docked chip and the popped-out button. Guest: the open file must match what
+	// the host's pane shows - a streamed Typst preview syncs .typ files, a pushed PDF syncs .tex
+	// ones (via the host's SyncTeX data). Host: same rule against the main file's engine; Typst
+	// syncs only through the live preview (no SyncTeX in its PDFs), so a shell-compiled .typ gets
+	// no button either, and diff has no caret to sync.
+	const syncToCursor = $derived(
+		(
+			guest
+				? guestTypstOffered
+					? kind === 'typ'
+					: kind === 'tex'
+				: (mainIsTypst ? kind === 'typ' && typstPreviewWanted : kind === 'tex') && modes.mode !== 'diff'
+		)
+			? (actions.syncForward as () => void)
+			: null
+	);
 </script>
 
 <main
@@ -100,8 +130,12 @@
 		onRequestCompile={actions.requestCompile}
 		onConfigureCompile={actions.openCompileModal}
 		onShowProblems={actions.showProblems}
+		commentCount={panes.comments.filter((t: Any) => !t.resolved).length}
+		onShowComments={actions.showComments}
 		onTogglePdf={layout.togglePdfPane}
 		onSave={actions.save}
+		onSyncToCursor={layout.pdfPopout && !mainUnset ? syncToCursor : null}
+		syncTargetsPreview={guest ? guestTypstOffered : typstPreviewWanted}
 	/>
 
 	<!-- editor column (toolbar + content) with the PDF pane beside it, so the PDF skips the
@@ -110,8 +144,10 @@
 	<div class="contents">
 		<EditorPane
 			openTabs={panes.openTabs}
+			previewTab={panes.previewTab}
 			onActivateTab={actions.activateTab}
 			onCloseTab={actions.closeTab}
+			onKeepTab={actions.keepTab}
 			loadedPath={doc.path}
 			{kind}
 			{nameOnly}
@@ -161,7 +197,7 @@
 			onCommentsPlaced={actions.visualCommentsPlaced}
 			onSelectComment={actions.selectComment}
 		/>
-		{#if layout.pdfPaneOpen}
+		{#if layout.pdfPaneOpen && !layout.pdfPopout}
 			<PreviewPane
 				width={layout.pdfPaneWidth}
 				{dockShrunk}
@@ -173,16 +209,12 @@
 				draftTrigger={draft.trigger}
 				{typstPreviewHost}
 				{typstPreviewWanted}
+				{guestTypstOffered}
+				{mainUnset}
+				{onPickMain}
 				onSaveTypstPdf={actions.onSaveTypstPdf}
-				onSyncToCursor={(
-					guest
-						? kind === 'tex'
-						: // both dialects resolve the visual caret through the block map now, so the
-							// button works in source AND visual mode; diff has no caret to sync
-							(kind === 'tex' || kind === 'typ') && modes.mode !== 'diff'
-				)
-					? actions.syncForward
-					: null}
+				onSyncToCursor={syncToCursor}
+				onPopout={() => layout.setPdfPopout(true)}
 				paneDragging={layout.paneDragging}
 				bind:pdfPaneRef
 				bind:draftRef
@@ -194,7 +226,7 @@
 				onSettled={actions.onPreviewSettled}
 				onDiagnostics={actions.onPreviewDiagnostics}
 			/>
-		{:else if termDock.available || guest}
+		{:else if termDock.available || guest || layout.pdfPopout}
 			<!-- the pane is gone but its divider stays, on the editor's right edge with the chevron
 			     flipped: that is the way back, now that the toolbar has no toggle. Not resizable -
 			     there is nothing to size - so it loses the drag cursor too.
@@ -222,13 +254,38 @@
 				onResizeByKey={layout.resizePdfByKey}
 				toggle={{
 					icon: ChevronLeft,
-					onclick: layout.togglePdfPane,
+					// while the preview is popped out this rail is what stands in for the pane, so
+					// its chevron brings the window home rather than opening a second body
+					onclick: () => (layout.pdfPopout ? layout.setPdfPopout(false) : layout.togglePdfPane()),
 					title: m.wsview_toggle_pdf_preview(),
 					ariaLabel: m.wsview_toggle_pdf_preview()
 				}}
 				bottomInset={termDock.shrink || !termDock.visible ? 0 : termDock.height}
 				class="z-20 mr-[7px]"
 				style="grid-column: 3; grid-row: 2 / -1"
+			/>
+		{/if}
+		{#if layout.pdfPaneOpen && layout.pdfPopout}
+			<PreviewPopout
+				{guest}
+				guestPdf={session.guestPdf}
+				{guestTypstOffered}
+				{mainUnset}
+				{onPickMain}
+				pdfFilename={compiler.pdfFilename}
+				draftRoot={draft.root}
+				draftMainRel={draft.mainRel}
+				draftTrigger={draft.trigger}
+				{typstPreviewHost}
+				{typstPreviewWanted}
+				onSaveTypstPdf={actions.onSaveTypstPdf}
+				onPdfRef={(r) => (pdfPaneRef = r)}
+				onDraftRef={(r) => (draftRef = r)}
+				onClosed={() => layout.setPdfPopout(false)}
+				onPageClick={actions.onPdfDoubleClick}
+				onInverseSync={actions.onInverseSync}
+				onSettled={actions.onPreviewSettled}
+				onDiagnostics={actions.onPreviewDiagnostics}
 			/>
 		{/if}
 	</div>
@@ -241,7 +298,7 @@
 			shrink={termDock.shrink}
 			{dockShrunk}
 			cwd={panes.cwd}
-			pdfPaneOpen={layout.pdfPaneOpen}
+			pdfPaneOpen={layout.pdfPaneOpen && !layout.pdfPopout}
 			bind:view={dockView}
 			bind:dock={termDock.dock}
 			onStartResize={termDock.startResize}

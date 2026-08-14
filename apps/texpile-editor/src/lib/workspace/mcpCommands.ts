@@ -3,20 +3,12 @@
 // file tools for that, and keeping writes out is what makes this surface safe.
 import { get } from 'svelte/store';
 import { browser } from '$lib/runtime';
-import {
-	workspaceRoot,
-	isDirty,
-	mainFile,
-	texFiles,
-	fileTree,
-	savedCompileFormat,
-	effectiveCompileFormat,
-	savedFormatOutputs
-} from './workspaceStore';
+import { workspaceRoot, isDirty, mainFile, texFiles, fileTree, effectiveCompileFormat } from './workspaceStore';
 import type { TreeEntry } from './fileSystem';
 import { isGitRepo, refreshGitStatus } from './gitStore';
 import { compileLog } from '$lib/stores/compileLogStore';
 import { settings } from '$lib/settings';
+import { compileConfig } from './projectConfigSync.svelte';
 import { joinPath, relativeTo, samePath } from './fileSystem';
 import {
 	compileOutDir,
@@ -95,12 +87,12 @@ function diagnosticsPayload(deps: McpCommandDeps) {
 	// how trustworthy compiling:false is. With the completion marker on, the end comes from the
 	// shell reporting the command exited; with it off, it is inferred from the log going quiet and
 	// can fire during a long between-pass pause (biber, on-the-fly package installs).
-	const endSignal = get(settings).compileSentinel ? 'shell-exit' : 'log-quiet';
+	const endSignal = get(compileConfig).completionMarker ? 'shell-exit' : 'log-quiet';
 	// Live mode does NOT write this: its incremental engine keeps its own diagnostics and never
 	// touches a .log. So what is here is whatever the last SHELL compile left behind - or, if there
 	// hasn't been one, the .log found sitting in the folder when it was opened, which can be
 	// arbitrarily old. Saying so beats letting a caller read `status.pages` off a stale run.
-	const live = get(settings).draftMode === true;
+	const live = get(compileConfig).latex.liveMode;
 	if (!log) return { compiled: false, compiling, endSignal, live, errors: [], warnings: [] };
 	const root = get(workspaceRoot);
 	const trim = (list: typeof log.errors) =>
@@ -227,17 +219,16 @@ function compileConfigPayload(deps: McpCommandDeps) {
 	const root = get(workspaceRoot);
 	const cmd = deps.getCompileCommand();
 	const main = get(mainFile);
-	const format = effectiveCompileFormat(root, main);
-	const ov = root ? savedFormatOutputs(root, format) : {};
+	const format = effectiveCompileFormat(main);
+	const ov = get(compileConfig)[format].outputs;
 	const rel = (p: string | null) => (p && root ? relativeTo(root, p) : p);
 	const s = get(settings);
 	return {
 		command: cmd,
-		// the typesetter in effect, from the folder's EXPLICIT format switch (auto follows the
-		// main file). Switch it by setting a .typ/.tex main while the switch is 'auto', or, gated,
-		// via set_compile_command (which pins the command's format).
+		// the typesetter in effect, from the main file's extension and nothing else. Change it by
+		// setting a .typ or .tex main file; there is no override, because typst cannot build a .tex
+		// and latex cannot build a .typ.
 		format,
-		formatSwitch: root ? savedCompileFormat(root) : 'auto',
 		engine: detectEngine(cmd),
 		latexmk: usesLatexmk(cmd),
 		outputDir: compileOutDir(cmd),
@@ -247,7 +238,7 @@ function compileConfigPayload(deps: McpCommandDeps) {
 		// null rather than absent, so "no override, this was detected" is distinguishable from
 		// "an override happens to match what would have been detected"
 		overrides: { pdf: ov.pdf ?? null, log: ov.log ?? null },
-		live: s.draftMode === true,
+		live: get(compileConfig).latex.liveMode,
 		// so a caller can tell "you may not do that" apart from "that failed", without trying it
 		canSetCommand: s.mcpAllowCompileCommand === true
 	};
@@ -349,7 +340,7 @@ export function attachMcpCommands(deps: McpCommandDeps): () => void {
 			// it got. In live mode runCompile() drives the incremental draft engine, the preview is
 			// already refreshing on its own, and diagnostics come from that engine rather than a .log a
 			// shell wrote - so "I compiled, now poll get_diagnostics" is the wrong mental model there.
-			const live = get(settings).draftMode === true;
+			const live = get(compileConfig).latex.liveMode;
 			deps.runCompile();
 			// Dispatch only either way. A terminal compile is seconds to minutes, so waiting here would
 			// just time out.

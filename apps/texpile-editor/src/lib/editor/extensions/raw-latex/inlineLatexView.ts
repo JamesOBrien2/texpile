@@ -10,6 +10,7 @@ import { languages as cmlangdata } from '@codemirror/language-data';
 import { latexAutocomplete } from '$lib/editor/extensions/intellisense/intellisense';
 import { latex } from '$lib/editor/extensions/latex/latex';
 import { renderStaticInlineCode, setStaticCode } from '$lib/editor/extensions/codemirrorbridge/cmStatic';
+import { cmCommentHighlights, cmCommentClicks, syncCmCommentHighlights } from '$lib/editor/extensions/codemirrorbridge/cmComments';
 import { upgradeWhenNear, cancelUpgrade } from '$lib/editor/extensions/mathlivebridge/mathViewport';
 
 // single-line inline codemirror for inline_latex; newlines rejected, enter / arrow-out exit the node
@@ -35,6 +36,7 @@ class InlineLatexView {
 		wrapper.className =
 			'noautofocus inline-latex-wrapper border-surface-400-600 mx-px inline-block rounded-base border px-0.5 align-baseline';
 		this.dom = wrapper;
+		this.syncCommentClass();
 
 		// A CodeMirror instance per chip is the single biggest mount cost in a macro-heavy document:
 		// 605 of them in the 80KB fixture. Start as plain text and build the editor when the chip
@@ -63,6 +65,8 @@ class InlineLatexView {
 				drawSelection(),
 				this.languageConf.of([]),
 				cmSyntaxHighlight(),
+				cmCommentHighlights,
+				cmCommentClicks(this.view, () => this.getPos()),
 				// popup escapes the inline node's box; only latex content has completions to offer
 				...(String(this.node.attrs.lang ?? 'latex') === 'latex' ? [latexAutocomplete({ tooltipsInBody: true })] : []),
 				// reject anything that would make it multi-line
@@ -111,7 +115,12 @@ class InlineLatexView {
 		}
 
 		cm.dom.addEventListener('blur', this.handleBlur, true);
+
+		this.lastCommentKey = syncCmCommentHighlights(cm, this.view, () => this.getPos(), this.node, this.lastCommentKey);
 	};
+
+	/** last comment ranges handed to CodeMirror, so a no-op update doesn't dispatch */
+	private lastCommentKey = '[]';
 
 	handleBlur() {
 		this.deselectNode();
@@ -202,9 +211,19 @@ class InlineLatexView {
 		return true;
 	}
 
+	/** A comment chip owns its whole line in the source (% consumes to end of line) and the
+	 * serializer emits it that way, so display it on a line of its own too. Class-based so an
+	 * edit that adds or removes the leading % moves the chip in or out of line flow. */
+	private syncCommentClass(): void {
+		this.dom.classList.toggle('comment-chip', this.node.textContent.startsWith('%'));
+	}
+
 	update(node: Node): boolean {
 		if (node.type != this.node.type) return false;
 		this.node = node;
+		this.syncCommentClass();
+		// decoration-only changes (a comment placed, focused, or dismissed) arrive here too
+		if (this.cm) this.lastCommentKey = syncCmCommentHighlights(this.cm, this.view, () => this.getPos(), this.node, this.lastCommentKey);
 		if (this.updating) return true;
 		const newText = node.textContent;
 

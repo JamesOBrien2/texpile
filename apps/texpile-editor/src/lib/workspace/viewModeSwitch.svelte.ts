@@ -9,6 +9,7 @@
 // visual/source choice, never diff.
 import { get } from 'svelte/store';
 import { browser } from '$lib/runtime';
+import { layout, updateLayout } from '$lib/storage/layout';
 import { isGitRepo } from '$lib/workspace/gitStore';
 import { isDirty } from '$lib/workspace/workspaceStore';
 import { editorViewStore, viewMode as viewModeStore } from '$lib/stores/editorStore';
@@ -16,8 +17,6 @@ import { captureVisualAnchor as captureVisualAnchorAt, captureSourceAnchor, reso
 import { bodyOffsetOf, type ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
 import { stripFor } from '$lib/markdown/sourceMap';
 import { createSourceHistory } from '$lib/workspace/sourceHistory';
-
-const VIEW_MODE_KEY = 'texpile:viewMode';
 
 export type ViewMode = 'visual' | 'source' | 'diff';
 type DocMeta = Pick<ParsedLatexFile, 'preamble' | 'postamble' | 'hadDocumentEnv'> | null;
@@ -53,7 +52,7 @@ export class ViewModeSwitch {
 
 	/** restore the persisted choice; call once at mount */
 	restore() {
-		if (browser && localStorage.getItem(VIEW_MODE_KEY) === 'source') {
+		if (browser && get(layout).viewMode === 'source') {
 			this.mode = 'source';
 			this.lastEditMode = 'source';
 		}
@@ -110,7 +109,7 @@ export class ViewModeSwitch {
 		this.mode = mode;
 		this.lastEditMode = mode;
 		if (structured && mode === 'visual') d.rebuildVisual();
-		if (browser) localStorage.setItem(VIEW_MODE_KEY, mode);
+		if (browser) updateLayout({ viewMode: mode });
 	}
 
 	exitDiff(): void {

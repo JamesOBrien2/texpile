@@ -9,8 +9,8 @@
 // change on disk between sessions, and an offset that drifts lands you mid-word somewhere unrelated
 // while a line number lands you roughly where you meant.
 import { samePath } from './fileSystem';
+import { getFolder, updateFolder } from '$lib/storage/workspaces';
 
-const KEY = 'texpile:docPositions'; // { [folderRoot]: { [relPath]: DocPosition } }
 /** past this many files per folder the oldest are evicted; entries are ~60 bytes each */
 const MAX_ENTRIES = 200;
 
@@ -29,8 +29,6 @@ export interface DocPosition {
 	at: number;
 }
 
-type Stored = Record<string, Record<string, DocPosition>>;
-
 const sepOf = (p: string) => (p.includes('\\') ? '\\' : '/');
 
 class DocPositionsStore {
@@ -44,16 +42,11 @@ class DocPositionsStore {
 		this.persistable = persist && !!root && typeof localStorage !== 'undefined';
 		this.byRel = new Map();
 		if (!this.persistable || !root) return;
-		try {
-			const all = JSON.parse(localStorage.getItem(KEY) || '{}') as Stored;
-			const mine = all[root];
-			if (mine && typeof mine === 'object') {
-				for (const [rel, pos] of Object.entries(mine)) {
-					if (isPosition(pos)) this.byRel.set(rel, pos);
-				}
+		const mine = getFolder(root).positions;
+		if (mine && typeof mine === 'object') {
+			for (const [rel, pos] of Object.entries(mine)) {
+				if (isPosition(pos)) this.byRel.set(rel, pos);
 			}
-		} catch {
-			/* fresh set */
 		}
 	}
 
@@ -66,13 +59,10 @@ class DocPositionsStore {
 
 	private persist(): void {
 		if (!this.persistable || !this.root) return;
-		try {
-			const all = JSON.parse(localStorage.getItem(KEY) || '{}') as Stored;
-			all[this.root] = Object.fromEntries(this.byRel);
-			localStorage.setItem(KEY, JSON.stringify(all));
-		} catch {
-			/* storage blocked or full; positions just don't persist */
-		}
+		const positions = Object.fromEntries(this.byRel);
+		updateFolder(this.root, (e) => {
+			e.positions = positions;
+		});
 	}
 
 	/** drop the least recently touched entries once the cap is passed */

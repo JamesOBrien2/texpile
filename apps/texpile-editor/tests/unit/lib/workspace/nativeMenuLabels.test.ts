@@ -31,7 +31,8 @@ function keysRequested(): string[] {
 
 /** the keys the renderer sends: the `key: m.something()` lines inside labels() */
 function keysSupplied(): string[] {
-	const body = native.slice(native.indexOf('function labels()'), native.indexOf('export function publishMenuState'));
+	// 'function labels(' unclosed: it takes the open file's formatter, so the signature has a param
+	const body = native.slice(native.indexOf('function labels('), native.indexOf('export function publishMenuState'));
 	return [...body.matchAll(/^\t\t([A-Za-z]+):\s*m\./gm)].map((m) => m[1]);
 }
 

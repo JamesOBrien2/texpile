@@ -2,7 +2,7 @@
 	// The editor's top bar: sidebar toggle, word count, the visual/source toggle, and the
 	// compile / preview / save controls. Pure chrome driven by props + callbacks. The open-file
 	// tabs live on their own strip below (TabBar in EditorPane).
-	import { settings } from '$lib/settings';
+	import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 	import { isDirty } from '$lib/workspace/workspaceStore';
 	import { compileLog } from '$lib/stores/compileLogStore';
 	import WordCount from './WordCount.svelte';
@@ -10,6 +10,7 @@
 	import type { ComponentProps } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import {
+		ArrowRight,
 		FileText,
 		Eye,
 		Code,
@@ -21,7 +22,8 @@
 		TriangleAlert,
 		Save,
 		Loader2,
-		ShieldQuestion
+		ShieldQuestion,
+		MessageSquare
 	} from '@lucide/svelte';
 
 	interface Props {
@@ -48,8 +50,19 @@
 		onRequestCompile: () => void;
 		onConfigureCompile: () => void;
 		onShowProblems: () => void;
+		/** open review threads in the project; 0 hides the badge, like a clean compile hides Problems */
+		commentCount?: number;
+		onShowComments?: () => void;
 		onTogglePdf: () => void;
 		onSave: () => void;
+		/**
+		 * One-shot sync of the preview to the caret, shown ONLY while the preview is popped out
+		 * into its own window: docked, the chip on the pane divider is that button, and it leaves
+		 * with the pane. Null hides it.
+		 */
+		onSyncToCursor?: (() => void) | null;
+		/** flavors the sync button's tooltip: live preview wording vs SyncTeX wording */
+		syncTargetsPreview?: boolean;
 	}
 	let {
 		loadedPath,
@@ -72,8 +85,12 @@
 		onRequestCompile,
 		onConfigureCompile,
 		onShowProblems,
+		commentCount = 0,
+		onShowComments = () => {},
 		onTogglePdf,
-		onSave
+		onSave,
+		onSyncToCursor = null,
+		syncTargetsPreview = false
 	}: Props = $props();
 
 	let compileMenuOpen = $state(false);
@@ -115,7 +132,7 @@
 		// on close), so this is both indicator and off switch
 		if (typstLive && pdfPaneOpen)
 			return { tone: 'success', dot: true, label: m.wsview_live_label(), title: m.wsview_typst_preview_live_title(), onclick: onTogglePdf };
-		if ($settings.draftMode && pdfPaneOpen) {
+		if ($compileConfig.latex.liveMode && pdfPaneOpen) {
 			if (draftPaused)
 				return {
 					tone: 'warning',
@@ -132,7 +149,7 @@
 				onclick: onPauseDraft
 			};
 		}
-		const live = typstLive || $settings.draftMode;
+		const live = typstLive || $compileConfig.latex.liveMode;
 		return {
 			tone: 'primary',
 			icon: Play,
@@ -179,6 +196,16 @@
 				</button>
 			</div>
 		{/if}
+		{#if commentCount > 0}
+			<!-- unresolved review threads, project-wide. Left of Problems on purpose: Problems is the
+			     compile's own readout and stays touching the Compile button; this row grows leftward
+			     into free space instead of reflowing that pair. Hidden at zero, like Problems after a
+			     clean compile - the badge appearing IS the notification. -->
+			<button class="btn btn-xs preset-tonal gap-1" onclick={onShowComments} title={m.wsview_show_comments_title()}>
+				<MessageSquare class="size-3.5" />
+				{commentCount}
+			</button>
+		{/if}
 		{#if $compileLog && ($compileLog.errors.length > 0 || $compileLog.warnings.length > 0)}
 			<button
 				class="btn btn-xs gap-1 {$compileLog.errors.length > 0 ? 'preset-tonal-error' : 'preset-tonal-warning'}"
@@ -193,9 +220,23 @@
 				{/if}
 			</button>
 		{/if}
+		{#if onSyncToCursor}
+			<!-- only while the preview is popped out: its window has no divider chip, and the jump
+			     reads the caret in THIS window, so the button belongs beside Compile here -->
+			<button
+				class="btn btn-xs preset-tonal gap-1.5"
+				onmousedown={(e) => e.preventDefault()}
+				onclick={onSyncToCursor}
+				title={syncTargetsPreview ? m.wsview_sync_to_preview_title() : m.wsview_sync_to_pdf_title()}
+				aria-label={syncTargetsPreview ? m.wsview_sync_to_preview_aria() : m.wsview_sync_to_pdf_aria()}
+			>
+				<ArrowRight class="size-4" />
+			</button>
+		{/if}
 		{#if terminalAvailable}
 			<!-- the one-shot sync-to-cursor button used to sit here; it lives on the preview pane's
-			     own header now (PreviewPane / TypstPreview) - the button moves THAT pane -->
+			     own header now (PreviewPane / TypstPreview) - and returns beside Compile while the
+			     preview is popped out (see onSyncToCursor above) -->
 			<div class="relative flex items-center">
 				<CompileButton {...compile} />
 				<!-- border-l-0: the button's right edge already draws the seam, and two hairlines

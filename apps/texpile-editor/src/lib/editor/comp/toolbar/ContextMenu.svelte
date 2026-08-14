@@ -18,6 +18,7 @@
 	import { toaster } from '$lib/modals/toaster-svelte';
 	import { sliceToLatex, pasteLatexText } from '$lib/editor/extensions/latexClipboard';
 	import { sliceToTypst } from '$lib/typst/visual/clipboard';
+	import { sliceToMarkdown } from '$lib/markdown/clipboard';
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal, MessageSquarePlus } from '@lucide/svelte';
 	import { TextSelection } from 'prosemirror-state';
@@ -87,18 +88,19 @@
 				const html = div.innerHTML;
 
 				// both flavors: HTML for rich internal paste, plus a plain-text form in the
-				// EDITOR'S OWN markup - typst selections copy as typst, tex/md as LaTeX
-				let latex: string;
+				// EDITOR'S OWN markup - one serializer per dialect, matching what that editor's
+				// clipboardTextSerializer puts on the clipboard for Ctrl+C
+				let plain: string;
 				try {
-					latex = dialect === 'typst' ? sliceToTypst(slice) : sliceToLatex(slice);
+					plain = dialect === 'typst' ? sliceToTypst(slice) : dialect === 'markdown' ? sliceToMarkdown(slice) : sliceToLatex(slice);
 				} catch {
-					latex = state.doc.textBetween(from, to, '\n\n');
+					plain = state.doc.textBetween(from, to, '\n\n');
 				}
 				navigator.clipboard
 					.write([
 						new ClipboardItem({
 							'text/html': new Blob([html], { type: 'text/html' }),
-							'text/plain': new Blob([latex], { type: 'text/plain' })
+							'text/plain': new Blob([plain], { type: 'text/plain' })
 						})
 					])
 					.then(() => {
@@ -125,9 +127,10 @@
 						} else if (item.types.includes('text/plain')) {
 							const blob = await item.getType('text/plain');
 							const text = await blob.text();
-							// LaTeX text pastes as rich nodes, same as the Ctrl+V path — except in the
-							// typst editor, where the latex parser's tex-schema nodes must never land
-							if (dialect === 'typst' || !pasteLatexText($editorViewStore, text)) $editorViewStore.pasteText(text);
+							// LaTeX text pastes as rich nodes, same as the Ctrl+V path — but ONLY in the
+							// LaTeX editor: the parser emits tex-schema nodes, which must never land in
+							// a typst or markdown document (nor does either one's Ctrl+V do this)
+							if (dialect !== 'latex' || !pasteLatexText($editorViewStore, text)) $editorViewStore.pasteText(text);
 						} else {
 							toaster.warning({
 								title: m.ctxmenu_paste_images_hint_toast(),

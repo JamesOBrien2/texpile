@@ -43,8 +43,11 @@
 	interface Props {
 		loadedPath: string | null;
 		openTabs: string[];
+		/** the unedited preview tab, if any (see TabsStore.preview) */
+		previewTab: string | null;
 		onActivateTab: (path: string) => void;
 		onCloseTab: (path: string) => void;
+		onKeepTab: (path: string) => void;
 		kind: FileKind;
 		/** a shared session serves this file by name only (no body): show a note, not an empty editor */
 		nameOnly?: boolean;
@@ -108,8 +111,10 @@
 	let {
 		loadedPath,
 		openTabs,
+		previewTab,
 		onActivateTab,
 		onCloseTab,
+		onKeepTab,
 		kind,
 		nameOnly = false,
 		viewMode,
@@ -175,6 +180,10 @@
 	let readyFor = $state<string | null>(null);
 	const editorReady = $derived(!!loadedPath && readyFor === loadedPath);
 
+	/** which starter tab is open, so the blurb above the grid names the extension it is offering.
+	 *  Deliberately not persisted - it is a view of the templates, not a setting. */
+	let starterLang = $state<'latex' | 'typst'>('latex');
+
 	/** Rendered for the whole build, but it holds itself invisible for the first 300 ms through a CSS
 	 * animation delay (see VisualLoading), so a fast build never flashes a bar. Deliberately not a
 	 * size threshold: that would bake in an assumption about how fast the machine is, and suppress
@@ -215,7 +224,15 @@
 </script>
 
 <div class="flex min-h-0 min-w-0 flex-col" style="grid-column: 1; grid-row: 2">
-	<TabBar tabs={openTabs} activePath={loadedPath} dirty={$isDirty && !session.isGuest} onActivate={onActivateTab} onClose={onCloseTab} />
+	<TabBar
+		tabs={openTabs}
+		activePath={loadedPath}
+		dirty={$isDirty && !session.isGuest}
+		previewPath={previewTab}
+		onActivate={onActivateTab}
+		onClose={onCloseTab}
+		onKeep={onKeepTab}
+	/>
 	{#if visualDoc && loadedPath && structured && viewMode === 'visual'}
 		<div class="border-surface-200-800 @container relative z-20 flex min-h-10 items-center overflow-hidden border-b px-2">
 			{#if kind === 'md'}
@@ -275,12 +292,20 @@
 					<div class="text-center">
 						<h2 class="text-lg font-semibold">{m.wsview_start_new_doc_heading()}</h2>
 						<p class="text-surface-500 mt-1 text-sm">
-							{m.wsview_start_new_doc_desc_pre()} <code>.tex</code>
+							<!-- follows the open tab: telling someone reading the Typst templates that this folder
+							     has no .tex files in it is true and useless -->
+							{m.wsview_start_new_doc_desc_pre()} <code>{starterLang === 'typst' ? '.typ' : '.tex'}</code>
 							{m.wsview_start_new_doc_desc_post()}
 						</p>
 					</div>
 					<div class="mt-6">
-						<StarterPicker onPick={onPickStarter} onBlank={onBlankStarter} onImport={onImportStarter} busy={applyingStarter} />
+						<StarterPicker
+							onPick={onPickStarter}
+							onBlank={onBlankStarter}
+							onImport={onImportStarter}
+							busy={applyingStarter}
+							bind:lang={starterLang}
+						/>
 					</div>
 				</div>
 			{:else if loadError}

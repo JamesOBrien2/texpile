@@ -9,6 +9,8 @@ import { LSPClient, languageServerExtensions, languageServerSupport } from '@cod
 import type { Transport } from '@codemirror/lsp-client';
 import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+import { writable } from 'svelte/store';
+import { applyTextEdits, type LspTextEdit } from './textEdits';
 
 // @codemirror/lsp-client caps its SIGNATURE tooltips but not its hover tooltips, and tinymist's
 // hover for a builtin is the function's whole documentation page - unconstrained, that renders
@@ -85,6 +87,35 @@ interface Session {
 let session: Session | null = null;
 
 /**
+ * Bumped when the server process DIES out from under us (never for our own stops - the spawn
+ * suppresses those, see typst-service). By the bump the dead client is already dropped, so
+ * subscribers re-arm against a fresh `typstClient()`: WorkspaceView restarts a live preview whose
+ * task died with the server, and each open .typ editor rebuilds its LSP extension - both were
+ * otherwise left holding a corpse, the pane dialing a dead port forever.
+ */
+export const typstServerGen = writable(0);
+
+let exitHooked = false;
+function hookExit(): void {
+	if (exitHooked) return;
+	const b = bridge();
+	if (!b?.onExit) return;
+	exitHooked = true;
+	b.onExit(() => {
+		cancelIdleStop();
+		holders = 0;
+		const dead = session;
+		session = null;
+		try {
+			dead?.client.disconnect();
+		} catch {
+			/* transport already gone */
+		}
+		typstServerGen.update((n) => n + 1);
+	});
+}
+
+/**
  * How many open editors are using the server.
  *
  * It costs ~90MB resident with one document open, which is worth reclaiming when the last .typ is
@@ -114,6 +145,7 @@ function cancelIdleStop(): void {
 export async function typstClient(root: string | null): Promise<LSPClient | null> {
 	const b = bridge();
 	if (!b) return null;
+	hookExit();
 	if (session && session.root === root) return (await session.started) ? session.client : null;
 
 	stopTypstClient();
@@ -269,6 +301,90 @@ export async function startTypstPreview(root: string | null, file: string): Prom
 }
 
 /**
+ * Reformat a .typ through the language server's built-in formatter (typstyle - the same one
+ * tinymist's VS Code extension binds Format Document to).
+ *
+ * `text` must be what the server's in-memory document holds, i.e. the open editor's buffer: the
+ * server computes edits against ITS copy, and applying them to anything else would splice at the
+ * wrong offsets. The caller gates this to a live source editor, whose LSP binding keeps the two
+ * identical via didChange. formatterMode rides ahead as configuration exactly like exportPdf's
+ * outputPath does - tinymist ships with the formatter disabled, and this is the one switch that
+ * turns it on. Idempotent, so pushing it per call costs nothing.
+ *
+ * Returns the formatted document; errors propagate (the caller shows them - a formatter the user
+ * invoked must not fail silently).
+ */
+export async function formatTypstDocument(root: string | null, file: string, text: string): Promise<string> {
+	const client = await typstClient(root);
+	if (!client) throw new Error('tinymist is not available');
+	client.notification('workspace/didChangeConfiguration', { settings: { formatterMode: 'typstyle' } });
+	const edits = await client.request<
+		{ textDocument: { uri: string }; options: { tabSize: number; insertSpaces: boolean } },
+		LspTextEdit[] | null
+	>('textDocument/formatting', { textDocument: { uri: fileUri(file) }, options: { tabSize: 2, insertSpaces: true } });
+	// null/empty means "already formatted", which is a success, not a failure
+	if (!Array.isArray(edits) || edits.length === 0) return text;
+	return applyTextEdits(text, edits);
+}
+
+/** one file's share of a rename, keyed by absolute path rather than URI */
+export interface RenameFileEdits {
+	path: string;
+	edits: LspTextEdit[];
+}
+
+/**
+ * Ask tinymist to rename the symbol at `offset` in `file`, and return the edits it wants made,
+ * grouped per file.
+ *
+ * The reply covers the WHOLE project, not just the open document - that is the point of a rename,
+ * and it is what the built-in CodeMirror command silently drops (its default Workspace only
+ * applies edits to files that already have an editor view, and Texpile shows one file at a time).
+ * Nothing is applied here; the caller owns writing, because the open file and the rest of the
+ * project are written by different routes.
+ *
+ * `documentChanges` (the versioned form) is accepted as well as `changes`: which one a server
+ * sends depends on the client capabilities it was initialised with, and tinymist can send either.
+ */
+export interface LspWorkspaceEdit {
+	changes?: Record<string, LspTextEdit[]>;
+	documentChanges?: { textDocument?: { uri?: string }; edits?: LspTextEdit[] }[];
+}
+
+/** Flatten a WorkspaceEdit into per-file edit lists. Kept separate from the request so the shape
+ *  handling is testable without a server. */
+export function renameEditsFrom(res: LspWorkspaceEdit | null): RenameFileEdits[] {
+	if (!res) return [];
+	const out: RenameFileEdits[] = [];
+	for (const [uri, edits] of Object.entries(res.changes ?? {})) {
+		if (edits?.length) out.push({ path: pathFromUri(uri), edits });
+	}
+	for (const change of res.documentChanges ?? []) {
+		const uri = change.textDocument?.uri;
+		if (!uri || !change.edits?.length) continue;
+		const path = pathFromUri(uri);
+		// a server that sent both forms must not have the file written twice
+		if (!out.some((o) => o.path === path)) out.push({ path, edits: change.edits });
+	}
+	return out;
+}
+
+export async function renameTypstSymbol(
+	root: string | null,
+	file: string,
+	position: { line: number; character: number },
+	newName: string
+): Promise<RenameFileEdits[]> {
+	const client = await typstClient(root);
+	if (!client) throw new Error('tinymist is not available');
+	const res = await client.request<
+		{ textDocument: { uri: string }; position: { line: number; character: number }; newName: string },
+		LspWorkspaceEdit | null
+	>('textDocument/rename', { textDocument: { uri: fileUri(file) }, position, newName });
+	return renameEditsFrom(res);
+}
+
+/**
  * Compile the document and write it out as a PDF, returning the written file's absolute path.
  *
  * `tinymist.exportPdf` is the same command tinymist's VS Code extension binds its Export PDF
@@ -324,7 +440,7 @@ export function setPreviewJumpHandler(handler: ((jump: PreviewJumpInfo) => void)
 }
 
 /** file:// URI back to a plain path, undoing fileUri() */
-function pathFromUri(uri: string): string {
+export function pathFromUri(uri: string): string {
 	try {
 		const p = decodeURIComponent(new URL(uri).pathname);
 		return /^\/[A-Za-z]:/.test(p) ? p.slice(1) : p;
@@ -453,5 +569,8 @@ export async function typstLspExtension(root: string | null, filePath: string): 
 		releaseTypstLsp();
 		return null;
 	}
-	return [languageServerSupport(client, fileUri(filePath), 'typst'), lspHoverTheme];
+	// our F2 first: languageServerSupport binds the same key to a rename that drops every edit
+	// outside the open file (see typst/rename.ts)
+	const { typstRenameKeymap } = await import('./rename');
+	return [typstRenameKeymap, languageServerSupport(client, fileUri(filePath), 'typst'), lspHoverTheme];
 }

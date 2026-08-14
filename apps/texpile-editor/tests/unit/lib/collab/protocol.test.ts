@@ -6,10 +6,13 @@ import {
 	chunkBlob,
 	BlobAssembler,
 	BLOB_CHUNK_SIZE,
+	chunkPreview,
+	PreviewStream,
 	parseRelayNotice,
 	isSafeRel,
 	BROADCAST,
-	type Frame
+	type Frame,
+	type PreviewPayload
 } from '$lib/collab/protocol';
 
 describe('collab protocol', () => {
@@ -21,7 +24,9 @@ describe('collab protocol', () => {
 			{ type: FrameType.BlobRequest, from: 2, to: 3, name: 'pdf' },
 			{ type: FrameType.BlobChunk, from: 3, to: 2, payload: { name: 'pdf', rev: 4, index: 1, total: 2, bytes: new Uint8Array([9]) } },
 			{ type: FrameType.Control, from: 2, to: BROADCAST, payload: { kind: 'compile-request' } },
-			{ type: FrameType.Control, from: 4, to: BROADCAST, payload: { kind: 'file-op', op: 'rename', from: 'a.tex', to: 'b/c.tex' } }
+			{ type: FrameType.Control, from: 4, to: BROADCAST, payload: { kind: 'file-op', op: 'rename', from: 'a.tex', to: 'b/c.tex' } },
+			{ type: FrameType.Preview, from: 5, to: 6, payload: { conn: 3, ev: 'data', seq: 41, part: 1, parts: 2, bytes: new Uint8Array([8]) } },
+			{ type: FrameType.Preview, from: 6, to: 5, payload: { conn: 1, ev: 'open', seq: 0, part: 0, parts: 1, bytes: new Uint8Array(0) } }
 		];
 		for (const f of frames) expect(decodeFrame(encodeFrame(f))).toEqual(f);
 	});
@@ -34,7 +39,9 @@ describe('collab protocol', () => {
 		}
 	});
 
-	it('chunks and reassembles blobs, including chunk-boundary sizes', () => {
+	// megabytes of real chunking, not a mock: ~1.5s alone but past vitest's 5s default when the
+	// whole suite runs it in parallel with everything else
+	it('chunks and reassembles blobs, including chunk-boundary sizes', { timeout: 20_000 }, () => {
 		for (const size of [0, 1, BLOB_CHUNK_SIZE, BLOB_CHUNK_SIZE + 1, BLOB_CHUNK_SIZE * 2 + 17]) {
 			const bytes = new Uint8Array(size).map((_, i) => i % 251);
 			const chunks = chunkBlob('pdf', 1, bytes);
@@ -45,6 +52,55 @@ describe('collab protocol', () => {
 			for (const c of [...chunks].reverse()) out = asm.add(c) ?? out;
 			expect(out && new Uint8Array(out)).toEqual(bytes);
 		}
+	});
+
+	// the preview relay's transport rules: chunking keeps every frame under the relay's message
+	// cap, and the seq walk is the ONLY thing that turns a silently dropped frame into a reattach
+	describe('preview stream', () => {
+		const feed = (stream: PreviewStream, payloads: PreviewPayload[]) => payloads.map((p) => stream.add(p));
+
+		it('chunks one message into seq-consecutive parts and reassembles it', () => {
+			const bytes = new Uint8Array(BLOB_CHUNK_SIZE * 2 + 5).map((_, i) => i % 251);
+			const { payloads, nextSeq } = chunkPreview(1, 'data', 0, bytes);
+			expect(payloads.length).toBe(3);
+			expect(nextSeq).toBe(3);
+			const results = feed(new PreviewStream(), payloads);
+			expect(results.slice(0, 2)).toEqual([null, null]);
+			const done = results[2] as { bytes: Uint8Array; text: boolean };
+			expect(done.text).toBe(false);
+			expect(new Uint8Array(done.bytes)).toEqual(bytes);
+		});
+
+		it('carries small messages whole, text flagged as text', () => {
+			const { payloads, nextSeq } = chunkPreview(1, 'text', 7, new TextEncoder().encode('{"event":"current"}'));
+			expect(payloads.length).toBe(1);
+			expect(nextSeq).toBe(8);
+			const stream = new PreviewStream();
+			// pretend frames 0..6 already flowed
+			for (let i = 0; i < 7; i++) stream.add(chunkPreview(1, 'data', i, new Uint8Array(1)).payloads[0]);
+			const done = stream.add(payloads[0]) as { bytes: Uint8Array; text: boolean };
+			expect(done.text).toBe(true);
+			expect(new TextDecoder().decode(done.bytes)).toBe('{"event":"current"}');
+		});
+
+		it('reports a gap when a frame is lost, whether between messages or inside a chunk run', () => {
+			const stream = new PreviewStream();
+			const a = chunkPreview(1, 'data', 0, new Uint8Array(3)).payloads[0];
+			expect(stream.add(a)).not.toBe('gap');
+			// seq 1 never arrives
+			const late = chunkPreview(1, 'data', 2, new Uint8Array(3)).payloads[0];
+			expect(stream.add(late)).toBe('gap');
+
+			const stream2 = new PreviewStream();
+			const run = chunkPreview(1, 'data', 0, new Uint8Array(BLOB_CHUNK_SIZE * 2 + 1)).payloads;
+			expect(stream2.add(run[0])).toBeNull();
+			expect(stream2.add(run[2])).toBe('gap'); // middle chunk dropped
+		});
+
+		it('rejects a hostile parts count before it can size a buffer', () => {
+			const stream = new PreviewStream();
+			expect(stream.add({ conn: 1, ev: 'data', seq: 0, part: 0, parts: 1 << 20, bytes: new Uint8Array(1) })).toBe('gap');
+		});
 	});
 
 	it('a newer rev obsoletes a half-finished older transfer', () => {

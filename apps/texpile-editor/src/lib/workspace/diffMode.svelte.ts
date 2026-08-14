@@ -4,10 +4,10 @@
 // keystroke. The layout choice persists; the mode itself does not, so a reload always restores
 // the last visual/source choice rather than dropping the user back into a diff.
 import { browser } from '$lib/runtime';
+import { get } from 'svelte/store';
+import { layout, updateLayout } from '$lib/storage/layout';
 import { gitShowHead } from '$lib/workspace/git';
 import { m } from '$lib/paraglide/messages';
-
-const LAYOUT_KEY = 'texpile:diffLayout';
 
 export interface DiffDeps {
 	getLoadedPath(): string | null;
@@ -29,12 +29,12 @@ export class DiffMode {
 
 	/** restore the persisted layout; call once at mount */
 	restoreLayout() {
-		if (browser && localStorage.getItem(LAYOUT_KEY) === 'split') this.layout = 'split';
+		if (browser && get(layout).diffLayout === 'split') this.layout = 'split';
 	}
 
 	toggleLayout() {
 		this.layout = this.layout === 'unified' ? 'split' : 'unified';
-		if (browser) localStorage.setItem(LAYOUT_KEY, this.layout);
+		if (browser) updateLayout({ diffLayout: this.layout });
 	}
 
 	async snapshot(): Promise<void> {

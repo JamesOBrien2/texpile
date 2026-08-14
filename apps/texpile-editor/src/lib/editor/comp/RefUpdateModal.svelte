@@ -1,5 +1,12 @@
 <script module lang="ts">
-	export type RefUpdate = { oldRel: string; newRel: string; hits: { path: string; count: number }[]; total: number };
+	import type { RefDialect } from '$lib/workspace/fileRefs';
+	export type RefUpdate = {
+		oldRel: string;
+		newRel: string;
+		/** the dialect decides how each hit is rewritten, so it travels with the hit */
+		hits: { path: string; count: number; dialect: RefDialect }[];
+		total: number;
+	};
 </script>
 
 <script lang="ts">

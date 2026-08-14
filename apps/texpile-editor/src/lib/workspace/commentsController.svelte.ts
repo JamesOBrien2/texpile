@@ -34,6 +34,13 @@ interface Deps {
 	root: () => string | null;
 	/** the Preferences name; blank falls back to git */
 	preferredAuthor: () => string;
+	/**
+	 * The open file's CURRENT text. `reanchor` snapshots the text only when a file opens, which is
+	 * fine for re-searching but wrong for building NEW anchors: in a shared session the buffer
+	 * drifts under remote edits between open and gesture, and a quote sliced from the stale
+	 * snapshot detaches the thread everywhere. Everything offset-shaped refreshes through this.
+	 */
+	activeText?: () => string;
 	/** open a file and put the caret on a line (1-based) */
 	openFileAt: (absPath: string, line: number) => void;
 	/**
@@ -183,6 +190,13 @@ export class CommentsController {
 		this.applyOrphans();
 	}
 
+	/** the live text when the view provides it, else the last reanchor snapshot */
+	private fresh(): string {
+		const t = this.deps.activeText?.();
+		if (t !== undefined) this.text = t;
+		return this.text;
+	}
+
 	/** recompute the active file's ranges from the current log and text */
 	private resolve(): void {
 		if (!this.file) {
@@ -191,7 +205,7 @@ export class CommentsController {
 			this.applyOrphans();
 			return;
 		}
-		const text = this.text;
+		const text = this.fresh();
 		const ranges: CommentRange[] = [];
 		const lost = new Set<string>();
 		// normalized once for the whole file, and only if something actually misses the fast path
@@ -253,10 +267,19 @@ export class CommentsController {
 		await this.commit(...stale.map((t) => placeEvent({ thread: t.id, hidden: lost.has(t.id), by, at })));
 	}
 
-	/** the reader selected text and asked to comment; the panel takes it from here */
+	/**
+	 * The reader selected text and asked to comment; the panel takes it from here.
+	 *
+	 * The anchor is built NOW, against the live text the offsets refer to - not at commit. The
+	 * composer stays open while collaborators keep editing, and offsets held raw across that
+	 * window pointed into a document that no longer existed; the anchor's quote and context
+	 * survive it, exactly as the visual editor's ready-made anchors do.
+	 */
 	beginAdd(from: number, to: number): void {
 		if (!this.file || to <= from) return;
-		this.pending = { from, to, quote: this.text.slice(from, to) };
+		const text = this.fresh();
+		if (to > text.length) return;
+		this.pending = { from, to, quote: text.slice(from, to), anchor: buildAnchor(text, from, to) };
 		this.selected = null;
 	}
 
@@ -280,27 +303,19 @@ export class CommentsController {
 		const p = this.pending;
 		if (!p) return;
 		this.pending = null;
-		if (p.anchor) await this.addAnchored(p.anchor, body);
-		else if (p.from !== undefined && p.to !== undefined) await this.add(p.from, p.to, body);
-	}
-
-	/** start a thread on a selection in the open file */
-	async add(from: number, to: number, body: string): Promise<void> {
-		if (to <= from) return;
-		const id = await this.writeOpen(buildAnchor(this.text, from, to), body);
-		// straight into the range list rather than a re-anchor: the offsets are already exact, and
-		// re-searching for text the user just selected could land on an earlier copy of it
-		if (id) {
-			this.ranges = [...this.ranges, { id, from, to, resolved: false }];
-			this.selected = id;
+		if (!p.anchor) return;
+		const id = await this.writeOpen(p.anchor, body);
+		if (!id) return;
+		// Source-mode threads get their highlight now. Re-resolved rather than pushing the
+		// beginAdd offsets: the composer window may have seen remote edits, and the anchor search
+		// lands on the text wherever it sits NOW. Visual-editor anchors get no push - their
+		// offsets are not source offsets, and the visual side re-resolves off the list changing.
+		if (p.from !== undefined) {
+			const text = this.fresh();
+			const hit = resolveAnchor(text, p.anchor) ?? resolveAnchorLoose(text, p.anchor);
+			if (hit) this.ranges = [...this.ranges, { id, from: hit.from, to: hit.to, resolved: false }];
 		}
-	}
-
-	/** start a thread from a visual-editor anchor. No range push: these offsets are not source
-	 * offsets, and the visual side re-resolves off the thread list changing anyway. */
-	async addAnchored(anchor: CommentAnchor, body: string): Promise<void> {
-		const id = await this.writeOpen(anchor, body);
-		if (id) this.selected = id;
+		this.selected = id;
 	}
 
 	/** write the open event; returns the new thread's id, or null if there was nothing to write */
@@ -382,9 +397,15 @@ export class CommentsController {
 	 * the exact mapping CodeMirror has been keeping. Only the range this event is about is touched.
 	 */
 	async ingest(event: CommentEvent): Promise<void> {
+		// The host echoes a guest's own event back (it broadcasts to everyone, the sender
+		// included). A thread we already hold is that echo: appending is harmless (foldLog
+		// dedupes by id) but re-resolving is NOT - a miss here badged the author's own fresh
+		// comment as detached on their own screen.
+		if (event.t === 'open' && this.store.threads.some((t) => t.id === event.id)) return;
 		await this.store.append(event);
 		if (event.t === 'open' && event.file === this.file) {
-			const hit = resolveAnchor(this.text, event.anchor) ?? resolveAnchorLoose(this.text, event.anchor);
+			const text = this.fresh();
+			const hit = resolveAnchor(text, event.anchor) ?? resolveAnchorLoose(text, event.anchor);
 			if (hit) this.ranges = [...this.ranges, { id: event.id, from: hit.from, to: hit.to, resolved: false }];
 			else this.orphaned = new Set([...this.orphaned, event.id]);
 		} else if (event.t === 'resolve') {

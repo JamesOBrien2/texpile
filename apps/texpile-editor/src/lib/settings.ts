@@ -1,42 +1,30 @@
-// persisted app settings: userData/settings.json via the native bridge in Electron, localStorage in
-// browser dev. new settings also go in the main process DEFAULT_SETTINGS so on-disk defaults match.
+// Persisted app settings: userData/settings.json via the native bridge in Electron, localStorage
+// in browser dev. New settings also go in the main process DEFAULT_SETTINGS so on-disk defaults
+// match.
+//
+// v1 holds ONLY what earns a place in a machine-global, human-readable file the MAIN process can
+// read before a window exists: session restore, locale, MCP, update checks, and deliberate user
+// preferences. Everything else moved in the storage restructure - layout memory to
+// texpile:layout, personal data to texpile:users, per-folder state to texpile:workspaces, and the
+// whole compile surface (command, outputs, toggles) to each folder's .texpile/config.json.
 import { browser } from '$lib/runtime';
 import { writable, get } from 'svelte/store';
 import { setLocale as setParaglideLocale } from '$lib/paraglide/runtime';
 import { trailingDebounce } from '$lib/trailingDebounce';
+import { migrateSettingsObject } from '$lib/migration/settings';
 
 export interface AppSettings {
+	/** settings.json's own shape version; absent means pre-restructure and triggers migration */
+	v: 1;
 	reopenLastFolder: boolean;
 	/** autosave edits (debounced); when off the user is warned before switching files. */
 	autosave: boolean;
-	lastFolder: string | null;
-	sidebarOpen: boolean;
-	sidebarWidth: number;
 	/** Harper spell-check enabled. */
 	spellcheck: boolean;
-	/** custom spell-check dictionary (words to ignore). */
-	dictionary: string[];
-	/** table-of-contents share of the sidebar height (0..1). */
-	tocFraction: number;
-	/** LaTeX compile command run in the terminal; {main} expands to the main file. */
-	compileCommand: string;
-	/** append a marker echo after the compile command to detect when it finishes. */
-	compileSentinel: boolean;
-	terminalVisible: boolean;
-	terminalHeight: number;
-	pdfPaneWidth: number;
-	pdfPaneOpen: boolean;
 	/** image resize snap step as a fraction of \textwidth (0.25 = 25/50/75/100%). */
 	figureResizeStep: number;
-	/** render PDF pages inverted in dark mode. */
-	pdfDarkPages: boolean;
-	/** Draft mode: preview via the incremental per-page engine extractor instead of the
-	 *  terminal compile command. Requires lualatex. */
-	draftMode: boolean;
 	/** check the update feed (updates.texpile.com) for a newer version on launch; downloads stay click-only. */
 	checkForUpdates: boolean;
-	/** name put on review comments. Blank falls back to the repo's git user.name. */
-	commentAuthor: string;
 	/** let an MCP client (Claude Code, Claude Desktop) read what the editor is showing. Off by
 	 * default: connecting also needs a config snippet pasted into the client, so defaulting this on
 	 * would open a loopback port for everyone while buying nothing until they act anyway. */
@@ -58,70 +46,62 @@ export interface AppSettings {
 	whatsNewSeen: string;
 	/** live math preview tooltip in source mode. */
 	mathPreview: boolean;
+	/** the floating Comment button offered over a selection, in BOTH editors. */
+	commentPill: boolean;
 	/** soft-wrap long lines in Source mode instead of scrolling horizontally. */
 	sourceLineWrap: boolean;
 	/** widest the visual editor's text column may grow, in px. Past this the window pads with
 	 *  empty space rather than stretching the measure, which is why it is adjustable. */
 	visualMaxWidth: number;
-	/** recompile a Typst document shortly after typing stops, rather than only on Compile.
-	 *  On by default: a warm Typst rebuild is ~230ms, so unlike LaTeX's live mode there is no
-	 *  cost that would justify making the user opt in. */
-	typstLiveMode: boolean;
-	/** the Typst preview scrolls to follow the caret. Off by default, as in tinymist */
+	/** the Typst preview scrolls to follow the caret. Off by default, as in tinymist. A pane
+	 *  behavior about YOUR caret, which is why it stays here and not in the project's config. */
 	typstPreviewFollow: boolean;
 	/** modal keybindings for the source editor and code blocks. */
 	editorKeymap: 'default' | 'vim' | 'emacs';
 	/** UI display language. Not the LaTeX document language (see DocumentLanguage). */
 	uiLocale: 'en' | 'zh-Hans' | 'zh-Hant' | 'de';
-	/** shared-session relay endpoint (ws:// or wss://). */
+	/** shared-session relay endpoint (ws:// or wss://); the self-hosted-relay escape hatch. */
 	collabRelayUrl: string;
 	/** folders open across windows; maintained by the MAIN process for session restore.
 	 *  read-only here: renderers never write it. */
 	openFolders: string[];
+	/** MCP port override (0 = channel default); a hand-edit escape hatch for port clashes. */
+	mcpPort: number;
 }
 
-/** default compile command. -interaction=nonstopmode keeps errors from parking the engine at its
- *  interactive prompt; -synctex=1 enables source<->PDF sync; -file-line-error gives file:line attribution. */
+/** default compile command. -cd runs the compile in the main file's own directory, so a main file in
+ *  a subfolder resolves its \input siblings (TeX resolves those against the working directory, and
+ *  the terminal's is the workspace root); it is a no-op when the main file is at the root.
+ *  -interaction=nonstopmode keeps errors from parking the engine at its interactive prompt;
+ *  -synctex=1 enables source<->PDF sync; -file-line-error gives file:line attribution. */
 export const DEFAULT_COMPILE_COMMAND =
-	'latexmk -lualatex -interaction=nonstopmode -file-line-error -synctex=1 -output-directory=output {main}';
+	'latexmk -cd -lualatex -interaction=nonstopmode -file-line-error -synctex=1 -output-directory=output {main}';
 
 /** the hosted blind relay; users can point at their own, and the share/join dialogs reset to this */
 export const DEFAULT_COLLAB_RELAY_URL = 'wss://collab.texpile.com';
 
 const DEFAULTS: AppSettings = {
+	v: 1,
 	reopenLastFolder: true,
 	autosave: true,
-	lastFolder: null,
-	sidebarOpen: true,
-	sidebarWidth: 256,
 	spellcheck: false,
-	dictionary: [],
-	tocFraction: 0.5,
-	compileCommand: DEFAULT_COMPILE_COMMAND,
-	compileSentinel: true,
-	terminalVisible: false,
-	terminalHeight: 240,
-	pdfPaneWidth: 480,
-	pdfPaneOpen: false,
 	figureResizeStep: 0.25,
-	pdfDarkPages: true,
-	draftMode: false,
 	checkForUpdates: true,
-	commentAuthor: '',
 	mcpEnabled: false,
 	mcpAllowCompileCommand: false,
 	uiZoom: 1,
 	whatsNewSeen: '',
 	mathPreview: true,
+	commentPill: true,
 	sourceLineWrap: true,
 	// 768px = the max-w-3xl the editor column was pinned to before this became adjustable
 	visualMaxWidth: 768,
-	typstLiveMode: true,
 	typstPreviewFollow: false,
 	editorKeymap: 'default',
 	uiLocale: 'en',
 	collabRelayUrl: DEFAULT_COLLAB_RELAY_URL,
-	openFolders: []
+	openFolders: [],
+	mcpPort: 0
 };
 
 const LS_KEY = 'texpile:settings';
@@ -129,6 +109,7 @@ const LS_KEY = 'texpile:settings';
 interface NativeSettings {
 	getSettings?: () => Promise<Partial<AppSettings>>;
 	setSettings?: (partial: Partial<AppSettings>) => Promise<AppSettings>;
+	replaceSettings?: (full: Record<string, unknown>) => Promise<void>;
 }
 function native(): NativeSettings | undefined {
 	if (!browser) return undefined;
@@ -146,11 +127,11 @@ let loadPromise: Promise<AppSettings> | null = null;
 export function loadSettings(): Promise<AppSettings> {
 	if (loadPromise) return loadPromise;
 	loadPromise = (async () => {
-		let raw: Partial<AppSettings> = {};
+		let raw: Record<string, unknown> = {};
 		const n = native();
 		if (n?.getSettings) {
 			try {
-				raw = await n.getSettings();
+				raw = (await n.getSettings()) as Record<string, unknown>;
 			} catch {
 				/* fall back to defaults */
 			}
@@ -161,7 +142,22 @@ export function loadSettings(): Promise<AppSettings> {
 				/* ignore malformed json */
 			}
 		}
-		const merged = { ...DEFAULTS, ...raw };
+		// pre-restructure settings migrate here, in the ONE place settings hydrate: the slimmed
+		// object replaces the file whole (merge-writes cannot delete keys), and this run continues
+		// on the migrated shape.
+		const migrated = migrateSettingsObject(raw);
+		if (migrated) {
+			raw = migrated;
+			if (n?.replaceSettings) n.replaceSettings(migrated).catch(() => {});
+			else if (browser) {
+				try {
+					localStorage.setItem(LS_KEY, JSON.stringify(migrated));
+				} catch {
+					/* ignore */
+				}
+			}
+		}
+		const merged = { ...DEFAULTS, ...(raw as Partial<AppSettings>), v: 1 as const };
 		settings.set(merged);
 		// reload:false: this runs before main.ts mounts the app, so nothing has rendered
 		// the base locale yet and there's nothing to correct with a reload.
@@ -238,6 +234,5 @@ export async function setMcpEnabled(enabled: boolean): Promise<void> {
 	}
 }
 
-// hydrate at module load so the store holds real values before any UI writes,
-// otherwise a saved lastFolder gets clobbered with defaults
+// hydrate at module load so the store holds real values before any UI writes
 if (browser) void loadSettings();

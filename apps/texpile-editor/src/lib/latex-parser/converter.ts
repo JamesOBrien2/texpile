@@ -8,6 +8,7 @@ import type { ParseOptions } from './types';
 import { listNewcommands } from '@unified-latex/unified-latex-util-macros';
 import { attachMacroArgs } from '@unified-latex/unified-latex-util-arguments';
 import { schema } from '$lib/schema/schema';
+import { mergeAdjacentRawBlocks } from '$lib/schema/mergeRawBlocks';
 import {
 	el,
 	txt,
@@ -23,6 +24,7 @@ import {
 } from './builders';
 
 import { ignoredMacros, SCOPED_SWITCHES, FONT_SIZE_SWITCHES, MACRO_SIGNATURES, ENV_SIGNATURES, stripSamelineComments } from './macros';
+import { listingLanguage } from './listingLanguage';
 import {
 	heuristicMarkCommentedMacroCalls,
 	heuristicMarkTeXPrimitiveDefs,
@@ -504,9 +506,17 @@ function codeBlockFromVerbatimEnv(env: Environment): PMNode {
 	// unified-latex stores verbatim-family bodies as a literal string on `content`, despite the
 	// declared `content: Node[]` type.
 	const rawContent = env.content as unknown as Node[] | string;
-	const body = typeof rawContent === 'string' ? rawContent : printRaw(rawContent);
+	const raw = typeof rawContent === 'string' ? rawContent : printRaw(rawContent);
+	// Drop the delimiter newlines, which belong to the \begin and \end lines rather than to the
+	// code. LaTeX itself discards the one after \begin{verbatim}, and the serializer re-adds both -
+	// so keeping them showed a blank line at the top and bottom of every block in the editor, and
+	// grew the file by one at each end every time an edited block was written back and reparsed.
+	// Only the outermost pair goes; blank lines inside the listing are the author's.
+	const body = raw.replace(/^\r?\n/, '').replace(/\r?\n[ \t]*$/, '');
 	const args = env.args && env.args.length ? printRaw(env.args) : '';
-	return el('code_block', { lang: 'text', env: env.env, args }, [txt(body)]);
+	// the language the source already declares, so a listing opens highlighted instead of as plain
+	// text with a dropdown that has to be set by hand every time (and forgot the answer on reload)
+	return el('code_block', { lang: listingLanguage(env.env, args) ?? 'text', env: env.env, args }, [txt(body)]);
 }
 
 const envHandlers: Record<string, EnvHandler> = {
@@ -1260,8 +1270,10 @@ function convertNodeToInline(node: Node, ctx: ConversionContext): PMNode[] | nul
 		case 'comment': {
 			// a mid-paragraph comment must be kept as an inline chip: dropped from PM content it
 			// survives only in the orig slice, which regeneration doesn't consult. % consumes to
-			// end of line, so baking the trailing newline into the chip matches the source.
-			const text = '%' + ((node as { content?: string }).content ?? '') + '\n';
+			// end of line; the SERIALIZER restores the line-ending newline for a chip starting
+			// with %, so the chip's own text stays single-line - a newline baked in here rendered
+			// as a bogus empty second line in the chip.
+			const text = '%' + ((node as { content?: string }).content ?? '');
 			return [el('inline_latex', null, [txt(text)])];
 		}
 		case 'verb': {
@@ -1327,6 +1339,8 @@ function paragraphAsRawLatex(para: PMNode): string | null {
 	para.forEach((child) => {
 		if (isInlineLatexNode(child)) {
 			out += child.textContent;
+			// a comment chip owns its line; restore the newline its text no longer carries
+			if (child.textContent.startsWith('%') && !child.textContent.endsWith('\n')) out += '\n';
 			hasChip = true;
 		} else if (child.type.name === 'hard_break') {
 			out += '\\\\\n';
@@ -1887,7 +1901,7 @@ export function latexToProseMirror(latex: string, options: ConversionOptions = {
 	if (cap && cap.prevEnd < cap.source.length) {
 		docAttrs = { docTail: { text: cap.source.slice(cap.prevEnd, cap.source.length), afterSeq: cap.seq - 1 } };
 	}
-	const doc = el('doc', docAttrs, blocks.length > 0 ? blocks : [el('paragraph')]);
+	const doc = mergeAdjacentRawBlocks(el('doc', docAttrs, blocks.length > 0 ? blocks : [el('paragraph')]));
 
 	return { doc, ast };
 }

@@ -10,6 +10,7 @@ import * as draftService from './draft-service';
 import * as draftDaemon from './draft-daemon';
 import * as typstService from './typst-service';
 import * as typstPreviewPage from './typst-preview-page';
+import * as previewRelay from './typst-preview-relay';
 import * as toolchain from './toolchain';
 import * as updates from './updates';
 import { startWorkspaceWatch, stopWorkspaceWatch } from './fs-watch';
@@ -393,9 +394,50 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 			win.webContents.send(p.kind === 'file' ? 'main:open-path' : 'main:open-folder', p.path);
 		}
 	});
-	win.webContents.setWindowOpenHandler(({ url: target }) => {
+	// The one window.open the renderer is allowed: the popped-out preview pane, an about:blank
+	// child the opener fills by DOM portal (PreviewPopout.svelte). Same-origin about:blank shares
+	// the opener's renderer process, which is the whole design - the pane's components keep their
+	// stores and sockets. The url check matters: the Typst preview iframe shares this handler, so
+	// without it any framed page could mint a window under our name and navigate it anywhere.
+	win.webContents.setWindowOpenHandler(({ url: target, frameName }) => {
+		if (frameName === 'texpile-preview' && target === 'about:blank') {
+			return {
+				action: 'allow',
+				overrideBrowserWindowOptions: {
+					width: 720,
+					height: 960,
+					minWidth: 360,
+					minHeight: 400,
+					// a plain framed OS window: the custom title bar machinery stays in the main window
+					frame: true,
+					titleBarStyle: 'default',
+					autoHideMenuBar: true,
+					icon: path.join(__dirname, '..', 'icon.png'),
+					backgroundColor: chromeColors().background
+				}
+			};
+		}
 		if (/^https?:/.test(target)) shell.openExternal(target);
 		return { action: 'deny' };
+	});
+	// the preview popup: same guards as the parent (its top frame is about:blank and must stay
+	// that; its only legitimate subframe is the loopback-served Typst page), the saved zoom, and
+	// a lifetime bounded by its opener - a preview outliving its workspace previews nothing
+	win.webContents.on('did-create-window', (child) => {
+		const z = Number(readSettings().uiZoom);
+		if (Number.isFinite(z) && z > 0) child.webContents.setZoomFactor(z);
+		child.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+		child.webContents.on('will-navigate', (e) => e.preventDefault());
+		child.webContents.on('will-frame-navigate', (event) => {
+			if (event.isMainFrame) return;
+			if (/^http:\/\/127\.0\.0\.1:\d+\//.test(event.url)) return;
+			event.preventDefault();
+		});
+		const closeChild = () => {
+			if (!child.isDestroyed()) child.close();
+		};
+		win.on('closed', closeChild);
+		child.on('closed', () => win.removeListener('closed', closeChild));
 	});
 	// the renderer is a single-page app; the top frame must never navigate away from its own origin.
 	// http/https go to the real browser, everything else (file:, data:, javascript:, ...) is dropped.
@@ -658,34 +700,22 @@ handleFs('git:discard', gitService.gitDiscard);
 handleFs('git:commit', gitService.gitCommit);
 handleFs('git:userName', gitService.gitUserName);
 
+// v1: settings.json holds only machine/app configuration - what MAIN reads before a window
+// exists, plus deliberate user preferences. Layout memory, personal data and per-folder state
+// live in the renderer's versioned localStorage blobs; the compile surface lives in each
+// folder's .texpile/config.json. The renderer migrates pre-restructure files on first load
+// (see src/lib/migration) and replaces this file whole via settings:replace.
 const DEFAULT_SETTINGS = {
+	v: 1,
 	reopenLastFolder: true,
 	autosave: true, // off = manual save, warn before switching files
-	lastFolder: null as string | null,
-	sidebarOpen: true,
-	sidebarWidth: 256,
 	spellcheck: false,
-	dictionary: [] as string[], // spell-check ignore list
-	tocFraction: 0.5, // table-of-contents share of the sidebar height (0..1)
-	compileCommand: 'latexmk -lualatex -synctex=1 -output-directory=output {main}', // {main} = main file
-	compileSentinel: true, // append a marker echo after the compile command to detect completion
-	terminalVisible: false,
-	terminalHeight: 240,
-	pdfPaneWidth: 480,
-	pdfPaneOpen: false,
-	pdfDarkPages: true, // in dark mode, render PDF pages inverted
-	draftMode: false, // preview via the incremental per-page engine instead of the terminal command
 	checkForUpdates: true,
-	commentAuthor: '', // name on review comments; blank falls back to the repo's git user.name
 	uiZoom: 1, // whole-window zoom factor (webContents.setZoomFactor); the View menu adjusts it
 	mathPreview: true, // live math preview tooltip in source mode
 	sourceLineWrap: true, // soft-wrap long lines in Source mode
 	visualMaxWidth: 768, // widest the visual editor's text column may grow, in px
-	// Recompile a Typst document once typing settles. On by default: a warm rebuild is ~230ms, so
-	// unlike LaTeX's live mode there is no cost that would justify making the user ask for it.
-	typstLiveMode: true,
 	typstPreviewFollow: false,
-
 	editorKeymap: 'default', // modal keybindings for the source editor: 'default' | 'vim' | 'emacs'
 	uiLocale: 'en', // UI display language, not the LaTeX document language. Overridden per-read by
 	// the detected system language until the user picks one; see systemUiLocale + readSettings.
@@ -764,8 +794,24 @@ function writeSettings(partial: Record<string, unknown> | undefined): Record<str
 	// hand back the effective settings (with detection applied) so callers see a complete object
 	return { ...DEFAULT_SETTINGS, uiLocale: systemUiLocale(), ...next };
 }
+/** write exactly what was given, no merge: the migration's deletions must stick. An object that
+ *  carries no uiLocale stays without one, so OS-language detection keeps working (writeSettings'
+ *  rule, preserved here by NOT spreading defaults in). */
+function replaceSettings(full: Record<string, unknown>): void {
+	try {
+		fs.writeFileSync(settingsFile(), JSON.stringify(full, null, 2));
+	} catch (e) {
+		console.error('Failed to replace settings:', e);
+	}
+}
 ipcMain.handle('settings:get', () => readSettings());
 ipcMain.handle('settings:set', (_e, partial: Record<string, unknown>) => writeSettings(partial));
+// replace the file WHOLE - the migration's write. Merge-writes cannot delete keys, and deleting
+// keys is most of what a migration does.
+ipcMain.handle('settings:replace', (_e, full: Record<string, unknown>) => {
+	if (typeof full !== 'object' || full === null || Array.isArray(full)) return;
+	replaceSettings(full);
+});
 
 // --- Typst / tinymist -------------------------------------------------------
 // One language server per window: each window has its own folder, and tinymist's project model is
@@ -786,13 +832,21 @@ ipcMain.handle('typst:lsp:start', async (e, root: string | null) => {
 	const info = await typstService.resolveTinymist(app.getPath('userData'));
 	if (!info) return { ok: false, error: 'tinymist was not found on PATH.' };
 	try {
+		// tinymist logs to stderr; keep a short tail so an unexpected death says why it died
+		// (otherwise the only symptom is the preview pane's port going dead)
+		const stderrTail: string[] = [];
 		const handle = typstService.startLsp(info.command, root, {
 			message: (json) => {
 				if (!e.sender.isDestroyed()) e.sender.send('typst:lsp:message', json);
 			},
 			exit: (code) => {
+				console.error(`[tinymist] exited unexpectedly (code ${code}); last stderr:\n${stderrTail.join('')}`);
 				typstLsps.delete(wcId);
 				if (!e.sender.isDestroyed()) e.sender.send('typst:lsp:exit', code);
+			},
+			log: (line) => {
+				stderrTail.push(line);
+				while (stderrTail.length > 40) stderrTail.shift();
 			}
 		});
 		typstLsps.set(wcId, handle);
@@ -831,9 +885,29 @@ ipcMain.handle('typst:lsp:start', async (e, root: string | null) => {
 //
 // Note this also rules out our own renderer connecting directly in a packaged build, where the
 // origin would be `app://bundle`.
-const preparedPages = new Map<number, string>();
+// per-page CSP because host and guest pages differ in exactly one right: the host's page needs
+// its socket to tinymist, while a guest's page - html that arrived OVER THE WIRE from the host -
+// gets no network at all, so a hostile host cannot use a guest's screen to probe its loopback.
+const preparedPages = new Map<number, { html: string; csp: string }>();
 let pageServer: import('node:http').Server | null = null;
 let pageServerPort = 0;
+
+// the page needs its inlined wasm and a socket to tinymist, and nothing else
+const HOST_PAGE_CSP = [
+	"default-src 'none'",
+	"script-src 'unsafe-inline' 'wasm-unsafe-eval' data:",
+	"style-src 'unsafe-inline'",
+	'img-src data: blob:',
+	'font-src data:',
+	'connect-src ws://127.0.0.1:* http://127.0.0.1:* data: blob:',
+	"frame-src 'none'",
+	"object-src 'none'",
+	"base-uri 'none'",
+	"form-action 'none'"
+].join('; ');
+// a guest's page talks to its parent frame by postMessage only; no connect-src at all beyond
+// the data:/blob: its renderer wasm reaches for
+const GUEST_PAGE_CSP = HOST_PAGE_CSP.replace('connect-src ws://127.0.0.1:* http://127.0.0.1:* data: blob:', 'connect-src data: blob:');
 
 async function ensurePageServer(): Promise<number> {
 	if (pageServer && pageServerPort) return pageServerPort;
@@ -850,21 +924,9 @@ async function ensurePageServer(): Promise<number> {
 			res.writeHead(200, {
 				'Content-Type': 'text/html; charset=utf-8',
 				'Cache-Control': 'no-store',
-				// the page needs its inlined wasm and a socket to tinymist, and nothing else
-				'Content-Security-Policy': [
-					"default-src 'none'",
-					"script-src 'unsafe-inline' 'wasm-unsafe-eval' data:",
-					"style-src 'unsafe-inline'",
-					'img-src data: blob:',
-					'font-src data:',
-					'connect-src ws://127.0.0.1:* http://127.0.0.1:* data: blob:',
-					"frame-src 'none'",
-					"object-src 'none'",
-					"base-uri 'none'",
-					"form-action 'none'"
-				].join('; ')
+				'Content-Security-Policy': page.csp
 			});
-			res.end(page);
+			res.end(page.html);
 		});
 		server.on('error', reject);
 		// 127.0.0.1 explicitly, never 0.0.0.0: this must not be reachable from the network
@@ -887,7 +949,7 @@ ipcMain.handle('typst:preview:prepare', async (e, body: { host: string; backgrou
 			background: cssColour(body.background),
 			foreground: cssColour(body.foreground)
 		});
-		preparedPages.set(e.sender.id, page);
+		preparedPages.set(e.sender.id, { html: page, csp: HOST_PAGE_CSP });
 		e.sender.once('destroyed', () => preparedPages.delete(e.sender.id));
 		const port = await ensurePageServer();
 		// one page per window, so the id keeps windows from seeing each other's preview
@@ -898,6 +960,51 @@ ipcMain.handle('typst:preview:prepare', async (e, body: { host: string; backgrou
 });
 
 ipcMain.on('typst:preview:release', (e) => preparedPages.delete(e.sender.id));
+
+// the raw page as tinymist serves it, for a HOST to ship to its guests (each guest themes it
+// with its own colours at prepare time, so the raw copy is what travels)
+ipcMain.handle('typst:preview:pageHtml', async (_e, body: { host: string }) => {
+	if (!/^127\.0\.0\.1:\d+$/.test(body?.host ?? '')) return { ok: false, error: 'refusing a non-loopback preview host' };
+	try {
+		const res = await fetch(`http://${body.host}/`, { signal: AbortSignal.timeout(15000) });
+		if (!res.ok) return { ok: false, error: `preview server answered ${res.status}` };
+		return { ok: true, html: await res.text() };
+	} catch (err) {
+		return { ok: false, error: String(err instanceof Error ? err.message : err) };
+	}
+});
+
+// a GUEST serving the host-shipped page for its own frame. Same loopback server, but under the
+// no-network CSP: this html crossed the session, so it renders and posts to its parent - nothing else.
+ipcMain.handle('typst:preview:prepareGuest', async (e, body: { html: string; background: string; foreground: string }) => {
+	// ~1.6MB is the page's natural size; 16MB bounds what a hostile host can park in this map
+	if (typeof body?.html !== 'string' || body.html.length > 16 * 1024 * 1024) return { ok: false, error: 'refusing an oversized page' };
+	try {
+		const page = typstPreviewPage.prepareGuestPreviewPage(body.html, {
+			background: cssColour(body.background),
+			foreground: cssColour(body.foreground)
+		});
+		preparedPages.set(e.sender.id, { html: page, csp: GUEST_PAGE_CSP });
+		e.sender.once('destroyed', () => preparedPages.delete(e.sender.id));
+		const port = await ensurePageServer();
+		return { ok: true, url: `http://127.0.0.1:${port}/${e.sender.id}` };
+	} catch (err) {
+		return { ok: false, error: String(err instanceof Error ? err.message : err) };
+	}
+});
+
+// --- Typst preview relay (host side of a shared session) ------------------------------------
+// One websocket per guest to the preview task's data plane; see typst-preview-relay.ts.
+ipcMain.on('typst:relay:open', (e, body: { id: number; host: string }) => {
+	if (typeof body?.id === 'number' && typeof body?.host === 'string') previewRelay.open(e.sender, body.id, body.host);
+});
+ipcMain.on('typst:relay:send', (e, body: { id: number; data: string | ArrayBuffer }) => {
+	if (typeof body?.id === 'number' && (typeof body.data === 'string' || body.data instanceof ArrayBuffer))
+		previewRelay.send(e.sender, body.id, body.data);
+});
+ipcMain.on('typst:relay:close', (e, body: { id: number }) => {
+	if (typeof body?.id === 'number') previewRelay.close(e.sender, body.id);
+});
 
 /**
  * Colours reach us from the renderer's theme; this bounds them to a colour-shaped charset so they
