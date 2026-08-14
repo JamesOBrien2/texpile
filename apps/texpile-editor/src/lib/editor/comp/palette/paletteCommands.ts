@@ -19,18 +19,22 @@ import {
 	PanelLeft,
 	Play,
 	RefreshCw,
+	RotateCw,
 	Save,
 	Search,
 	Settings,
 	Square,
 	Terminal,
 	TerminalSquare,
-	Users
+	Users,
+	Wrench
 } from '@lucide/svelte';
 import type { Component } from 'svelte';
 import { get } from 'svelte/store';
-import { fileTree, workspaceRoot } from '$lib/workspace/workspaceStore';
-import { relativeTo, type TreeEntry } from '$lib/workspace/fileSystem';
+import { fileTree, isDirty, workspaceRoot } from '$lib/workspace/workspaceStore';
+import { native, relativeTo, type TreeEntry } from '$lib/workspace/fileSystem';
+import { confirmAsk } from '$lib/modals/confirm.svelte';
+import { collabHost } from '$lib/collab/hostStore.svelte';
 import { settings, updateSettings, type AppSettings } from '$lib/settings';
 import { combo } from '$lib/editor/comp/shortcutText';
 import type { PaletteActions } from '$lib/workspace/commandPalette.svelte';
@@ -45,6 +49,10 @@ export interface PaletteItem {
 	/** right-aligned: a shortcut, or a path for a file entry */
 	hint?: string;
 	icon?: Component;
+	/** never listed in the empty-query browse view; typing is the only way to reach it.
+	 *  For diagnostics: present enough for support to say "press Ctrl+K, type dev",
+	 *  invisible enough that browsing users never meet a debugger. */
+	searchOnly?: boolean;
 	run(): void;
 }
 
@@ -278,6 +286,40 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 		icon: RefreshCw,
 		run: () => a.refreshTree()
 	});
+	// Full renderer reload, VS Code's "Reload Window": the recovery move when something is stuck.
+	// Through the main process, not location.reload(): the workspace root is memory-only, so a bare
+	// reload forgets the folder and lands on Start - main re-queues the folder push instead, the
+	// same path session restore uses, which also reopens the last file. Hosts only: a guest's
+	// "workspace" is the live session, and reloading is just disconnecting.
+	if (a.canManageTree() && native()?.reloadWorkspace)
+		push({
+			id: 'window.reload',
+			label: m.palette_reload_workspace(),
+			group: g.file,
+			keywords: 'restart window refresh reset stuck',
+			icon: RotateCw,
+			run: async () => {
+				// hosting outranks a dirty buffer: the reload drops every guest (session keys are
+				// memory-only), and that is the surprise worth one dialog. Never both dialogs.
+				if (collabHost.active) {
+					if (!(await confirmAsk(m.palette_reload_sharing_confirm(), { danger: true }))) return;
+				} else if (get(isDirty) && !(await confirmAsk(m.palette_reload_unsaved_confirm(), { danger: true }))) return;
+				native()?.reloadWorkspace?.();
+			}
+		});
+	// searchOnly, and deliberately untranslated: it is a diagnostic, and English is what a support
+	// note or a web search will name, so a localized label would make it harder to talk someone to.
+	// The palette is its ONLY way in - no menu item, no shortcut (see electron window-chrome.ts).
+	if (native()?.toggleDevTools)
+		push({
+			id: 'window.devtools',
+			label: 'Toggle Developer Tools',
+			group: g.file,
+			keywords: 'devtools debug console inspect diagnostics',
+			icon: Wrench,
+			searchOnly: true,
+			run: () => native()?.toggleDevTools?.()
+		});
 	push({
 		id: 'file.preferences',
 		label: m.menubar_preferences(),

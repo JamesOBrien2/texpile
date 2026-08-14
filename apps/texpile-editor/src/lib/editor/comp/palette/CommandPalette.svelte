@@ -71,7 +71,12 @@
 	}
 
 	function rank(items: PaletteItem[], q: string, limit: number): Scored[] {
-		if (!q) return items.slice(0, limit).map((item) => ({ item, hits: [] }));
+		// searchOnly items (diagnostics) exist to be typed for, never browsed to
+		if (!q)
+			return items
+				.filter((i) => !i.searchOnly)
+				.slice(0, limit)
+				.map((item) => ({ item, hits: [] }));
 		const out: { item: PaletteItem; hits: number[]; score: number }[] = [];
 		for (const item of items) {
 			const onLabel = fuzzyScore(item.label, q);

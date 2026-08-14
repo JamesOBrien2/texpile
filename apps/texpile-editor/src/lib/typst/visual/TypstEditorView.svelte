@@ -93,6 +93,8 @@
 		selectedComment?: string | null;
 		onSelectComment?: (id: string, from: 'visual') => void;
 		onAddComment?: (anchor: CommentAnchor | null) => void;
+		/** pick citations from Zotero, offered in the context menu when present */
+		onInsertCitation?: () => void;
 		onCommentsPlaced?: (lost: string[]) => void;
 		addCommentLabel?: string;
 	}
@@ -111,6 +113,7 @@
 		selectedComment = null,
 		onSelectComment,
 		onAddComment,
+		onInsertCitation,
 		onCommentsPlaced,
 		addCommentLabel = 'Comment'
 	}: Props = $props();
@@ -367,7 +370,7 @@
 
 <main bind:this={editor} class="hidden"></main>
 
-<ContextMenu dialect="typst" {onAddComment} />
+<ContextMenu dialect="typst" {onAddComment} {onInsertCitation} />
 
 <style lang="postcss">
 	@reference "../../../app.css";

@@ -405,6 +405,7 @@
 									{selectedComment}
 									{onSelectComment}
 									onAddComment={onAddCommentAnchored}
+									{onInsertCitation}
 									{onCommentsPlaced}
 									addCommentLabel={m.comments_add()}
 								/>
@@ -422,6 +423,7 @@
 									{selectedComment}
 									{onSelectComment}
 									onAddComment={onAddCommentAnchored}
+									{onInsertCitation}
 									{onCommentsPlaced}
 									addCommentLabel={m.comments_add()}
 								/>

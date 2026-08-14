@@ -1084,6 +1084,15 @@ ipcMain.handle('window:new', () => {
 // scoped to the sender rather than the focused window: with several workspaces open, the menu
 // that was clicked is the one whose console the user wants
 ipcMain.on('window:toggle-devtools', (e) => e.sender.toggleDevTools());
+// "Reload workspace": a plain renderer reload loses the in-memory workspace root and lands on the
+// start screen, so queue the folder as a pending open first - the same did-finish-load push that
+// session restore uses, which also reopens the last file. The root comes from the window registry,
+// never from the renderer, so a confused renderer cannot talk this into opening an arbitrary path.
+ipcMain.on('window:reload-workspace', (e) => {
+	const root = windowRoots.get(e.sender.id);
+	if (root) pendingOpens.set(e.sender.id, { kind: 'folder', path: root.raw });
+	e.sender.reload();
+});
 // picker + new window in one step, deduped against windows that already have the folder
 ipcMain.handle('window:openFolderNew', async (e) => {
 	const res = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender) ?? undefined!, {

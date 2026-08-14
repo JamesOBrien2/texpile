@@ -174,6 +174,44 @@
 		{/if}
 	</div>
 	<div class="flex items-center gap-2">
+		{#if commentCount > 0}
+			<!-- unresolved review threads, project-wide. Leftmost of the cluster on purpose: the row is
+			     right-aligned, so out here the badge's appearance grows into free space instead of
+			     nudging the view toggle - and comments are a document concern, so they sit with the
+			     view controls, away from the compile zone (Problems stays glued to Compile as its
+			     readout). Hidden at zero, like Problems after a clean compile - the badge appearing IS
+			     the notification. -->
+			<!-- outlined, not tonal: a filled gray chip reads as a disabled button, but a bare ghost
+			     floats shapeless in the bar. Border, radius, padding and type size all mirror the
+			     view toggle beside it, so the two read as one family of document controls. -->
+			<button
+				class="border-surface-300-700 hover:preset-tonal flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs"
+				onclick={onShowComments}
+				title={m.wsview_show_comments_title()}
+			>
+				<MessageSquare class="size-3.5" />
+				{commentCount}
+			</button>
+		{/if}
+		{#if onSyncToCursor}
+			<!-- only while the preview is popped out: its window has no divider chip, and the jump
+			     reads the caret in THIS window. With the docked divider gone it joins the quiet
+			     document-side controls before the view toggle, not the compile zone. -->
+			<!-- same chip recipe as the comments badge and view toggle; quiet at rest, primary blue
+			     on hover - the divider chip's gray-until-hover behavior from the docked state -->
+			<button
+				class="border-surface-300-700 hover:preset-filled-primary-500 hover:border-primary-500 flex items-center rounded-md border px-2.5 py-1 text-xs"
+				onmousedown={(e) => e.preventDefault()}
+				onclick={onSyncToCursor}
+				title={syncTargetsPreview ? m.wsview_sync_to_preview_title() : m.wsview_sync_to_pdf_title()}
+				aria-label={syncTargetsPreview ? m.wsview_sync_to_preview_aria() : m.wsview_sync_to_pdf_aria()}
+			>
+				<!-- icon-only: the 1lh wrapper stands in for exactly one text-xs line box - the thing
+				     that gives the neighboring chips their content height (18px in this theme, not
+				     the 16px the Tailwind default would suggest) - while the glyph stays at their 14px -->
+				<span class="flex h-[1lh] items-center"><ArrowRight class="size-3.5" /></span>
+			</button>
+		{/if}
 		{#if loadedPath && (kind === 'tex' || kind === 'md' || kind === 'typ' || (kind === 'bib' && !guest))}
 			<!-- visual/source toggle; for .bib it's the reference editor vs raw BibTeX (BibManager
 			     stays host-only: it isn't wired to the shared doc yet) -->
@@ -196,16 +234,6 @@
 				</button>
 			</div>
 		{/if}
-		{#if commentCount > 0}
-			<!-- unresolved review threads, project-wide. Left of Problems on purpose: Problems is the
-			     compile's own readout and stays touching the Compile button; this row grows leftward
-			     into free space instead of reflowing that pair. Hidden at zero, like Problems after a
-			     clean compile - the badge appearing IS the notification. -->
-			<button class="btn btn-xs preset-tonal gap-1" onclick={onShowComments} title={m.wsview_show_comments_title()}>
-				<MessageSquare class="size-3.5" />
-				{commentCount}
-			</button>
-		{/if}
 		{#if $compileLog && ($compileLog.errors.length > 0 || $compileLog.warnings.length > 0)}
 			<button
 				class="btn btn-xs gap-1 {$compileLog.errors.length > 0 ? 'preset-tonal-error' : 'preset-tonal-warning'}"
@@ -218,19 +246,6 @@
 				{#if $compileLog.warnings.length > 0}
 					<TriangleAlert class="size-3.5" /> {$compileLog.warnings.length}
 				{/if}
-			</button>
-		{/if}
-		{#if onSyncToCursor}
-			<!-- only while the preview is popped out: its window has no divider chip, and the jump
-			     reads the caret in THIS window, so the button belongs beside Compile here -->
-			<button
-				class="btn btn-xs preset-tonal gap-1.5"
-				onmousedown={(e) => e.preventDefault()}
-				onclick={onSyncToCursor}
-				title={syncTargetsPreview ? m.wsview_sync_to_preview_title() : m.wsview_sync_to_pdf_title()}
-				aria-label={syncTargetsPreview ? m.wsview_sync_to_preview_aria() : m.wsview_sync_to_pdf_aria()}
-			>
-				<ArrowRight class="size-4" />
 			</button>
 		{/if}
 		{#if terminalAvailable}

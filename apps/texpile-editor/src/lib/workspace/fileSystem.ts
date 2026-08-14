@@ -63,6 +63,7 @@ interface TexpileNative {
 	releaseWorkspace?: () => Promise<{ ok: boolean }>;
 	newWindow?: () => Promise<void>;
 	toggleDevTools?: () => void;
+	reloadWorkspace?: () => void;
 	openFolderNewWindow?: () => Promise<string | null>;
 	claimStartupTasks?: () => Promise<boolean>;
 	onBeforeClose?: (cb: () => void) => () => void;

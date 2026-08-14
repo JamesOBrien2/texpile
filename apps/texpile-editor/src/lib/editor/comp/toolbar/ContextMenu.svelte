@@ -20,7 +20,7 @@
 	import { sliceToTypst } from '$lib/typst/visual/clipboard';
 	import { sliceToMarkdown } from '$lib/markdown/clipboard';
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
-	import { Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal, MessageSquarePlus } from '@lucide/svelte';
+	import { BookMarked, Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal, MessageSquarePlus } from '@lucide/svelte';
 	import { TextSelection } from 'prosemirror-state';
 	import { buildPmAnchor } from '$lib/editor/extensions/pmComments';
 	import type { CommentAnchor } from '$lib/comments/anchor';
@@ -32,8 +32,10 @@
 		dialect?: Dialect;
 		/** offered as a menu item when present; the anchor is rendered-dialect (see pmComments) */
 		onAddComment?: (anchor: CommentAnchor | null) => void;
+		/** pick citations from Zotero and insert at the caret; a menu item when present */
+		onInsertCitation?: () => void;
 	}
-	let { dialect = 'latex', onAddComment }: Props = $props();
+	let { dialect = 'latex', onAddComment, onInsertCitation }: Props = $props();
 	// merged cells have no pipe-table syntax, so the markdown editor loses merge/split
 	const cellMerging = $derived(dialect === 'latex');
 
@@ -454,6 +456,19 @@
 						>
 							<MessageSquarePlus class="h-4 w-4 flex-shrink-0" />
 							<span class="min-w-0 flex-1 text-sm">{m.comments_add()}</span>
+						</button>
+					{/if}
+
+					{#if onInsertCitation}
+						<div class="my-1 border-t"></div>
+						<button
+							type="button"
+							class="hover:preset-tonal-primary flex w-full items-center gap-3 px-4 py-2 text-left"
+							onclick={() => handleItemClick(() => onInsertCitation())}
+							onmousedown={(e) => e.preventDefault()}
+						>
+							<BookMarked class="h-4 w-4 flex-shrink-0" />
+							<span class="min-w-0 flex-1 text-sm">{m.zotero_insert_citation()}</span>
 						</button>
 					{/if}
 

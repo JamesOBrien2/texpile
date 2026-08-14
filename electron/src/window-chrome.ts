@@ -307,12 +307,10 @@ function template(win: BrowserWindow, s: MenuState): MenuItemConstructorOptions[
 				{ label: label(s, 'discord', 'Join Discord'), click: () => fire(win, 'help:discord') },
 				{ label: label(s, 'support', 'Contact support'), click: () => fire(win, 'help:support') },
 				{ type: 'separator' },
-				{ label: label(s, 'updates', 'Check for updates'), click: () => fire(win, 'help:updates') },
-				// Handled here rather than by role: 'toggleDevTools', whose built-in accelerator would put
-				// Cmd+Alt+I back on the keyboard. A packaged build is meant to have no binding at all.
-				// Deliberately untranslated: it is a diagnostic, and English is what a support note or a
-				// web search will name, so a localized build would make it harder to talk someone to.
-				{ label: 'Dev Tools', click: () => win.webContents.toggleDevTools() }
+				// Dev Tools is a command-palette entry now (search "dev"), not a menu item: a diagnostic
+				// does not belong in the menu writers open for tutorials. Still no keyboard accelerator
+				// anywhere - a writer must never open a debugger by fumbling a shortcut mid-sentence.
+				{ label: label(s, 'updates', 'Check for updates'), click: () => fire(win, 'help:updates') }
 			]
 		}
 	];

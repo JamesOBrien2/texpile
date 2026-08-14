@@ -6,7 +6,7 @@
 	import { get } from 'svelte/store';
 	import { editorViewStore, referenceStore, editorConfigStore, cursorInCm } from '$lib/stores/editorStore';
 	import { recentFolders } from '$lib/workspace/workspaceStore';
-	import { basename, isDesktop, native, openNewWindow, openFolderInNewWindow } from '$lib/workspace/fileSystem';
+	import { basename, isDesktop, openNewWindow, openFolderInNewWindow } from '$lib/workspace/fileSystem';
 	import { isMac } from '$lib/platform';
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
 	const appVersion = __APP_VERSION__; // injected by Vite from package.json
@@ -818,17 +818,9 @@
 							{/if}
 						</Menu.Item>
 						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<!-- Dev Tools rides the version line rather than taking a row of its own: it is a
-						     diagnostic, and this is already the strip people look at when reporting a problem.
-						     A plain button, not a Menu.Item, so it never joins the menu's keyboard rotation. -->
-						<div class="text-surface-500 flex items-center justify-between gap-4 px-2.5 py-1 text-xs">
-							<span>{m.menubar_version_footer({ version: appVersion })}</span>
-							<button
-								type="button"
-								class="rounded-base hover:preset-tonal hover:text-surface-300 cursor-pointer px-1 text-[10px]"
-								onclick={() => native()?.toggleDevTools?.()}>Dev Tools</button
-							>
-						</div>
+						<!-- Dev Tools used to ride this line; it lives in the command palette now (search
+						     "dev"), so the menu every writer opens carries no debugger furniture -->
+						<div class="text-surface-500 px-2.5 py-1 text-xs">{m.menubar_version_footer({ version: appVersion })}</div>
 					</Menu.Content>
 				</Menu.Positioner>
 			</Portal>

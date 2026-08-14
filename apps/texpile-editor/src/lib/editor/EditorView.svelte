@@ -97,6 +97,8 @@
 		onSelectComment?: (id: string, from: 'visual') => void;
 		/** the reader asked to comment on a selection; the anchor is rendered-dialect (buildPmAnchor) */
 		onAddComment?: (anchor: CommentAnchor | null) => void;
+		/** pick citations from Zotero, offered in the context menu when present */
+		onInsertCitation?: () => void;
 		/** after each placement pass: the threads that could not be drawn in this view (every tier
 		 * failed), so the panel can say "not in this view" instead of implying they are gone */
 		onCommentsPlaced?: (lost: string[]) => void;
@@ -117,6 +119,7 @@
 		selectedComment = null,
 		onSelectComment,
 		onAddComment,
+		onInsertCitation,
 		onCommentsPlaced,
 		addCommentLabel = 'Comment'
 	}: Props = $props();
@@ -383,7 +386,7 @@
 
 <main bind:this={editor} class="hidden"></main>
 
-<ContextMenu {onAddComment} />
+<ContextMenu {onAddComment} {onInsertCitation} />
 
 <style lang="postcss">
 	@reference "../../app.css";

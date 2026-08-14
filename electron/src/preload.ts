@@ -56,8 +56,10 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	releaseWorkspace: () => ipcRenderer.invoke('workspace:release'),
 	/** open an empty new window. */
 	newWindow: () => ipcRenderer.invoke('window:new'),
-	/** Help > Toggle Developer Tools; the window's own devtools, not a global */
+	/** palette "Toggle Developer Tools"; the window's own devtools, not a global */
 	toggleDevTools: () => ipcRenderer.send('window:toggle-devtools'),
+	/** palette "Reload workspace": reload this window and reopen its folder (main keeps the root) */
+	reloadWorkspace: () => ipcRenderer.send('window:reload-workspace'),
 
 	// ---- custom title bar. The window is frameless off macOS, so these are the only way to
 	// minimise, maximise or close it. `close` goes through the normal close path, unsaved-changes
