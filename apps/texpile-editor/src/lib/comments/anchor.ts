@@ -94,27 +94,90 @@ function searchQuote(text: string, quote: string, prefix: string, suffix: string
 	return { from: best, to: best + quote.length };
 }
 
+/** which markup family the normalizer strips; derived from the commented file, never stored */
+export type AnchorDialect = 'tex' | 'md' | 'typ';
+
+/** the anchor dialect of a workspace file, by extension; anything unknown matches as LaTeX */
+export function dialectOfPath(path: string): AnchorDialect {
+	const p = path.toLowerCase();
+	if (p.endsWith('.md') || p.endsWith('.markdown')) return 'md';
+	if (p.endsWith('.typ')) return 'typ';
+	return 'tex';
+}
+
 /**
  * Bring both dialects of the same prose to one canonical form, remembering where every canonical
  * character came from: map[i] = raw offset where canonical character i starts. (The raw span of
  * character i therefore ends where character i+1 begins.)
  *
- * The layers are deliberately closed sets - whitespace, LaTeX escapes, the typographic ligatures -
- * because each is deterministic in both directions. Command stripping (\emph{x} -> x) is NOT here:
- * that is half a parser, and a quote it would mishandle should demote to its block instead of
- * being matched by machinery we only half trust.
+ * The layers are deliberately closed sets - whitespace, escapes, the typographic ligatures, and
+ * per-dialect INLINE MARKERS (md/typ emphasis and code marks, link syntax, line-start list and
+ * heading markers; tex braces and \word commands) - because each is deterministic enough to apply
+ * to BOTH sides of a match. Stripping is symmetric: the same characters vanish from the quote and
+ * the haystack, so a rendered-dialect quote and the marked-up source meet in the middle. What is
+ * NOT here is anything whose text differs between the two sides (math bodies, citation chips,
+ * link targets): a quote crossing those demotes to its block instead of being matched by
+ * machinery we only half trust.
  */
-export function normalizeForMatch(s: string): { text: string; map: number[] } {
+export function normalizeForMatch(s: string, dialect: AnchorDialect = 'tex'): { text: string; map: number[] } {
 	const map: number[] = [];
 	let text = '';
 	const emit = (ch: string, at: number) => {
 		text += ch;
 		map.push(at);
 	};
+	const tex = dialect === 'tex';
+	const md = dialect === 'md';
+	const typ = dialect === 'typ';
+	// nothing but indentation between `i` and the previous newline: line-start markers only
+	const atLineStart = (i: number) => {
+		let k = i - 1;
+		while (k >= 0 && (s[k] === ' ' || s[k] === '\t')) k--;
+		return k < 0 || s[k] === '\n';
+	};
+	const isLetter = (c: string | undefined) => c !== undefined && /[a-zA-Z]/.test(c);
+	// md/typ escape any ASCII punctuation; the rendered side holds the bare character
+	const isPunct = (c: string | undefined) => c !== undefined && /[!-/:-@[-`{-~]/.test(c);
 	// the last comparison is U+00A0 (nbsp), not a second plain space: the rendered side of ~
 	const ws = (c: string) => c === ' ' || c === '\t' || c === '\r' || c === '\n' || c === ' ';
 	for (let i = 0; i < s.length;) {
 		const c = s[i];
+		// line-start structure markers vanish: the rendered side has heading/list NODES, no marker
+		// characters. Symmetric by absence - the rendered text never contains them to begin with.
+		if ((md || typ) && atLineStart(i)) {
+			if (md && c === '#') {
+				let j = i;
+				while (s[j] === '#' && j - i < 6) j++;
+				if (s[j] === ' ' || s[j] === '\t') {
+					i = j + 1;
+					continue;
+				}
+			}
+			if (typ && c === '=') {
+				let j = i;
+				while (s[j] === '=') j++;
+				if (s[j] === ' ' || s[j] === '\t') {
+					i = j + 1;
+					continue;
+				}
+			}
+			if (md && c === '>') {
+				i += s[i + 1] === ' ' ? 2 : 1;
+				continue;
+			}
+			if ((c === '-' || c === '+' || (md && c === '*')) && (s[i + 1] === ' ' || s[i + 1] === '\t')) {
+				i += 2;
+				continue;
+			}
+			if (md && c >= '0' && c <= '9') {
+				let j = i;
+				while (s[j] >= '0' && s[j] <= '9') j++;
+				if ((s[j] === '.' || s[j] === ')') && (s[j + 1] === ' ' || s[j + 1] === '\t')) {
+					i = j + 2;
+					continue;
+				}
+			}
+		}
 		// whitespace runs to one space: source wraps lines that the rendered text does not, so this
 		// single rule is what lets any multi-line quote match at all
 		if (ws(c)) {
@@ -124,20 +187,43 @@ export function normalizeForMatch(s: string): { text: string; map: number[] } {
 			continue;
 		}
 		if (c === '~') {
-			emit(' ', i++); // LaTeX's non-breaking space; the rendered side is caught by ws above
+			if (tex || typ) {
+				emit(' ', i++); // the non-breaking space; the rendered side is caught by ws above
+				continue;
+			}
+			if (s[i + 1] === '~') {
+				i += 2; // md strikethrough marker
+				continue;
+			}
+			emit(c, i++);
 			continue;
 		}
 		if (c === '\\') {
 			const next = s[i + 1];
-			if (next !== undefined && '&%$#_{}'.includes(next)) {
-				emit(next, i);
+			if (tex) {
+				if (next !== undefined && '&%$#_{}'.includes(next)) {
+					emit(next, i);
+					i += 2;
+					continue;
+				}
+				const dots = s.startsWith('\\ldots', i) ? 6 : s.startsWith('\\dots', i) ? 5 : 0;
+				if (dots) {
+					emit('…', i);
+					i += dots;
+					continue;
+				}
+				// any other \word command drops: its ARGUMENT is the prose the rendered side shows
+				// (\emph{x} -> x once the braces below go too). A command whose argument is not
+				// prose (\cite, \label) leaves residue that simply fails to match - honest.
+				if (isLetter(next)) {
+					i++;
+					while (isLetter(s[i])) i++;
+					if (s[i] === '*') i++;
+					continue;
+				}
+			} else if (isPunct(next)) {
+				emit(next, i); // md/typ backslash escape: the rendered side holds the bare character
 				i += 2;
-				continue;
-			}
-			const dots = s.startsWith('\\ldots', i) ? 6 : s.startsWith('\\dots', i) ? 5 : 0;
-			if (dots) {
-				emit('…', i);
-				i += dots;
 				continue;
 			}
 			emit(c, i++);
@@ -146,26 +232,55 @@ export function normalizeForMatch(s: string): { text: string; map: number[] } {
 		// dashes and ellipsis canonicalize UP to the unicode character the visual editor's input
 		// rules produce; quotes canonicalize DOWN to ascii, because the rendered side may hold
 		// either straight or curly depending on whether smartQuotes saw them typed
-		if (c === '-' && s[i + 1] === '-') {
+		if ((tex || typ) && c === '-' && s[i + 1] === '-') {
 			const three = s[i + 2] === '-';
 			emit(three ? '—' : '–', i);
 			i += three ? 3 : 2;
 			continue;
 		}
-		if (c === '.' && s[i + 1] === '.' && s[i + 2] === '.') {
+		if ((tex || typ) && c === '.' && s[i + 1] === '.' && s[i + 2] === '.') {
 			emit('…', i);
 			i += 3;
 			continue;
 		}
 		if (c === '`') {
-			const two = s[i + 1] === '`';
-			emit(two ? '"' : "'", i);
-			i += two ? 2 : 1;
+			if (tex) {
+				const two = s[i + 1] === '`';
+				emit(two ? '"' : "'", i);
+				i += two ? 2 : 1;
+			} else {
+				i++; // md/typ code marker
+			}
 			continue;
 		}
-		if (c === "'" && s[i + 1] === "'") {
+		if (tex && c === "'" && s[i + 1] === "'") {
 			emit('"', i);
 			i += 2;
+			continue;
+		}
+		// md/typ inline markers vanish from both sides alike: emphasis asterisks/underscores, and
+		// md link brackets (a "](url)" goes whole - the rendered side shows only the link's text)
+		if ((md || typ) && (c === '*' || c === '_')) {
+			i++;
+			continue;
+		}
+		if (md && c === '[') {
+			i++;
+			continue;
+		}
+		if (md && c === ']') {
+			if (s[i + 1] === '(') {
+				const close = s.indexOf(')', i + 2);
+				if (close !== -1 && close - i < 1024) {
+					i = close + 1;
+					continue;
+				}
+			}
+			i++;
+			continue;
+		}
+		if (tex && (c === '{' || c === '}')) {
+			i++;
 			continue;
 		}
 		if (c === '‘' || c === '’') {
@@ -194,11 +309,13 @@ export interface LooseHaystack {
 	raw: string;
 	text: string;
 	map: number[];
+	/** the dialect the haystack was normalized with; anchors must be normalized to match */
+	dialect: AnchorDialect;
 }
 
-export function prepareLoose(text: string): LooseHaystack {
-	const n = normalizeForMatch(text);
-	return { raw: text, text: n.text, map: n.map };
+export function prepareLoose(text: string, dialect: AnchorDialect = 'tex'): LooseHaystack {
+	const n = normalizeForMatch(text, dialect);
+	return { raw: text, text: n.text, map: n.map, dialect };
 }
 
 /**
@@ -215,8 +332,8 @@ export function prepareLoose(text: string): LooseHaystack {
  * at most a sentence and a pair of 32-character windows, and they differ every time.
  */
 export function resolveAnchorLooseIn(h: LooseHaystack, a: CommentAnchor): ResolvedAnchor | null {
-	const quote = normalizeForMatch(a.quote).text;
-	const hit = searchQuote(h.text, quote, normalizeForMatch(a.prefix).text, normalizeForMatch(a.suffix).text, 0);
+	const quote = normalizeForMatch(a.quote, h.dialect).text;
+	const hit = searchQuote(h.text, quote, normalizeForMatch(a.prefix, h.dialect).text, normalizeForMatch(a.suffix, h.dialect).text, 0);
 	if (!hit) return null;
 	const from = h.map[hit.from];
 	const to = hit.to < h.map.length ? h.map[hit.to] : h.raw.length;
@@ -224,8 +341,8 @@ export function resolveAnchorLooseIn(h: LooseHaystack, a: CommentAnchor): Resolv
 }
 
 /** the single-anchor form; callers with a list should prepare once and loop resolveAnchorLooseIn */
-export function resolveAnchorLoose(text: string, a: CommentAnchor): ResolvedAnchor | null {
-	return resolveAnchorLooseIn(prepareLoose(text), a);
+export function resolveAnchorLoose(text: string, a: CommentAnchor, dialect: AnchorDialect = 'tex'): ResolvedAnchor | null {
+	return resolveAnchorLooseIn(prepareLoose(text, dialect), a);
 }
 
 /** how many characters of the remembered context still line up around a candidate */
@@ -251,4 +368,85 @@ function occurrences(text: string, needle: string): number[] {
 		if (out.length >= MAX_HITS) break;
 	}
 	return out;
+}
+
+// ---- block downgrade: locate a quote that cannot be matched whole ----
+
+/**
+ * Spans of a quote with no textual counterpart on the other side of the dialect boundary, used to
+ * SPLIT the quote into locatable fragments. U+FFFC is the rendered side's atom placeholder; the
+ * rest is the source syntax of the same atoms - math, citations, references, labels - per
+ * dialect. Closed patterns on purpose: a span these miss just yields a shorter fragment.
+ */
+const ATOM_SYNTAX: Record<AnchorDialect, string> = {
+	tex: '￼|\\$[^$]*\\$|\\\\\\((?:[^\\\\]|\\\\[^)])*?\\\\\\)|\\\\\\[(?:[^\\\\]|\\\\[^\\]])*?\\\\\\]|\\\\[a-zA-Z]+\\*?(?:\\[[^\\]]*\\])?(?:\\{[^{}]*\\})+',
+	md: '￼|!\\[[^\\]]*\\]\\([^)]*\\)|`[^`]+`|\\$[^$]*\\$',
+	typ: '￼|\\$[^$]*\\$|@[\\w:.-]+|#[a-zA-Z_][\\w.]*(?:\\([^()]*\\))?'
+};
+
+/**
+ * Find WHERE a quote lives when the quote itself cannot: split it at atom spans, search the
+ * longest surviving fragment (then the next, and so on), each with the quote's own surrounding
+ * text as context. The hit places the FRAGMENT only - the caller expands it to the enclosing
+ * block, which is the honest granularity for a selection that crossed content the text search
+ * cannot carry.
+ */
+export function resolveFragment(h: LooseHaystack, quote: string): ResolvedAnchor | null {
+	const split = new RegExp(ATOM_SYNTAX[h.dialect], 'g');
+	const frags: { text: string; at: number }[] = [];
+	let last = 0;
+	for (let m = split.exec(quote); m !== null; m = split.exec(quote)) {
+		if (m.index > last) frags.push({ text: quote.slice(last, m.index), at: last });
+		last = m.index + (m[0].length || 1);
+	}
+	if (last < quote.length) frags.push({ text: quote.slice(last), at: last });
+	if (frags.length === 1 && frags[0].at === 0 && frags[0].text === quote) return null; // nothing to split: the whole quote already missed
+	frags.sort((a, b) => b.text.length - a.text.length);
+	for (const f of frags) {
+		if (f.text.trim().length < MIN_QUOTE) continue;
+		const hit = resolveAnchorLooseIn(h, {
+			quote: f.text,
+			prefix: quote.slice(Math.max(0, f.at - CONTEXT), f.at),
+			suffix: quote.slice(f.at + f.text.length, f.at + f.text.length + CONTEXT),
+			start: 0,
+			end: 0
+		});
+		if (hit) return hit;
+	}
+	return null;
+}
+
+/**
+ * The enclosing source block of a range: expanded to blank-line boundaries, edges trimmed. The
+ * unit a fragment-located comment downgrades to - blank lines delimit paragraphs in every dialect
+ * this app edits, so the rule needs no parser and cannot lie by much.
+ */
+export function blockBounds(text: string, from: number, to: number): { from: number; to: number } {
+	let start = 0;
+	{
+		let lineStart = text.lastIndexOf('\n', Math.max(0, from - 1)) + 1;
+		while (lineStart > 0) {
+			const prevStart = text.lastIndexOf('\n', lineStart - 2) + 1;
+			if (!text.slice(prevStart, lineStart - 1).trim()) {
+				start = lineStart;
+				break;
+			}
+			lineStart = prevStart;
+		}
+	}
+	let end = text.length;
+	{
+		let lineEnd = text.indexOf('\n', to);
+		while (lineEnd !== -1) {
+			const nextEnd = text.indexOf('\n', lineEnd + 1);
+			if (!text.slice(lineEnd + 1, nextEnd === -1 ? text.length : nextEnd).trim()) {
+				end = lineEnd;
+				break;
+			}
+			lineEnd = nextEnd;
+		}
+	}
+	while (start < end && /\s/.test(text[start])) start++;
+	while (end > start && /\s/.test(text[end - 1])) end--;
+	return { from: start, to: end };
 }

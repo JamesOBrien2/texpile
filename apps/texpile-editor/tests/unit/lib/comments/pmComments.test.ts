@@ -123,10 +123,8 @@ describe('resolvePmComments', () => {
 
 	it('reports a quote hidden inside an atom as not visible, never a guess', () => {
 		// block_math IS an atom - its LaTeX is rendered, not text - so a quote on the environment
-		// markup has no rendered text anywhere. The honest answer is "not in this view"; the
-		// source editor still places it. (An earlier block-demotion tier washed the containing
-		// block instead, and was dropped: same behaviour in every dialect beats a highlight over
-		// a whole table claiming to be a comment on it.)
+		// markup has no rendered text anywhere, and no PROSE fragment for the block tier to locate
+		// it by either. The honest answer is "not in this view"; the source editor still places it.
 		const source = 'Before.\n\n\\begin{align}\nE=mc^2\n\\end{align}\n\nAfter.\n';
 		const math = schema.nodes.block_math.create(null, schema.text('E=mc^2'));
 		const d = schema.nodes.doc.create(null, [p('Before.'), math, p('After.')]);
@@ -134,6 +132,25 @@ describe('resolvePmComments', () => {
 		const { ranges, lost } = resolvePmComments(d, [t]);
 		expect(ranges).toEqual([]);
 		expect(lost).toEqual(['t1']);
+	});
+
+	it('washes the enclosing block for a quote that crossed an inline atom', () => {
+		// the anchor's quote spans inline math: the exact search cannot carry '$E=mc^2$' onto the
+		// placeholder, but its prose fragments locate the sentence, and the highlight covers the
+		// containing paragraph - the same block granularity such anchors downgrade to at creation
+		const source = 'Before.\n\nThe formula $E=mc^2$ changed physics.\n\nAfter.\n';
+		const math = schema.nodes.inline_math.create({ latex: 'E=mc^2' });
+		const d = doc(
+			p('Before.'),
+			schema.nodes.paragraph.create(null, [schema.text('The formula '), math, schema.text(' changed physics.')]),
+			p('After.')
+		);
+		const t = threadOn(source, 'formula $E=mc^2$ changed');
+		const { ranges, lost } = resolvePmComments(d, [t]);
+		expect(lost).toEqual([]);
+		expect(ranges).toHaveLength(1);
+		// the atom contributes no text here; the range still spans the whole paragraph around it
+		expect(d.textBetween(ranges[0].from, ranges[0].to)).toBe('The formula  changed physics.');
 	});
 
 	it('places a source-authored comment on a figure caption', () => {

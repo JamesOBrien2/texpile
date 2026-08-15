@@ -355,6 +355,7 @@
 	syncPmComments({
 		view: () => editorView,
 		threads: () => commentThreads,
+		dialect: 'tex',
 		epoch: () => docEpoch,
 		selected: () => selectedComment,
 		onPlaced: (lost) => onCommentsPlaced?.(lost)

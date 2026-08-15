@@ -6,12 +6,15 @@
 // Runs $effects, so it must be called during component init.
 import type { EditorView } from 'prosemirror-view';
 import type { CommentThread } from '$lib/comments/log';
+import type { AnchorDialect } from '$lib/comments/anchor';
 import { setPmComments, focusPmComment, resolvePmComments, revealPmComment } from './pmComments';
 
 export interface PmCommentsSyncArgs {
 	/** the mounted view, or null until it exists */
 	view: () => EditorView | null;
 	threads: () => CommentThread[];
+	/** the source dialect anchors are matched against; static per editor */
+	dialect: AnchorDialect;
 	/**
 	 * Bumped by the caller when a re-parsed doc is SWAPPED onto the view (updateState rebuilds
 	 * plugin state, dropping the old ranges). Typing must not bump it: ranges map through
@@ -40,7 +43,7 @@ export function syncPmComments(args: PmCommentsSyncArgs): void {
 		if (fp === lastFp && epoch === lastEpoch) return;
 		lastFp = fp;
 		lastEpoch = epoch;
-		const placed = resolvePmComments(v.state.doc, threads);
+		const placed = resolvePmComments(v.state.doc, threads, args.dialect);
 		setPmComments(v, placed.ranges);
 		args.onPlaced?.(placed.lost);
 	});

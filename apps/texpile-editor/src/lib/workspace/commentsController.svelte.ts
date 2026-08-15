@@ -5,11 +5,14 @@
 // this needs anything from it but the workspace root and a way to open a file.
 import { CommentStore, relativeTo } from '$lib/comments/store.svelte';
 import {
+	blockBounds,
 	buildAnchor,
+	dialectOfPath,
 	prepareLoose,
 	resolveAnchor,
 	resolveAnchorLoose,
 	resolveAnchorLooseIn,
+	resolveFragment,
 	type CommentAnchor,
 	type LooseHaystack
 } from '$lib/comments/anchor';
@@ -197,6 +200,11 @@ export class CommentsController {
 		return this.text;
 	}
 
+	/** the open file's markup family, for the normalized quote search */
+	private dialect() {
+		return dialectOfPath(this.file ?? '');
+	}
+
 	/** recompute the active file's ranges from the current log and text */
 	private resolve(): void {
 		if (!this.file) {
@@ -215,7 +223,7 @@ export class CommentsController {
 			// normalized search can carry it back onto source with its wraps, escapes and ligatures
 			let hit = resolveAnchor(text, t.anchor);
 			if (!hit) {
-				hay ??= prepareLoose(text);
+				hay ??= prepareLoose(text, this.dialect());
 				hit = resolveAnchorLooseIn(hay, t.anchor);
 			}
 			if (hit) ranges.push({ id: t.id, from: hit.from, to: hit.to, resolved: t.resolved });
@@ -284,12 +292,35 @@ export class CommentsController {
 	}
 
 	/**
-	 * The visual editor's version of beginAdd: it hands over a finished anchor because its own
-	 * positions mean nothing to anyone else. The anchor is used verbatim at commit - never rebuilt
-	 * against `text`, which is the source dialect the selection was not made in.
+	 * The visual editor's version of beginAdd: it hands over a rendered-dialect anchor because its
+	 * own positions mean nothing to anyone else.
+	 *
+	 * The anchor is converted to SOURCE dialect here, at the gesture, against the live text - the
+	 * source file is the source of truth, and a stored quote sliced from it resolves exactly in
+	 * the source editor and survives the loose search back into every visual view. Three tiers:
+	 *  1. the rendered quote found in source (the normalized search strips the markup between the
+	 *     two dialects) -> re-anchor to exactly the source text it covers;
+	 *  2. not findable whole (the selection crossed math, a citation chip, an atom): locate the
+	 *     longest fragment that IS findable and downgrade to the enclosing source BLOCK - a
+	 *     whole-block note beats a thread only one view can ever place;
+	 *  3. nothing locatable at all: keep the rendered anchor (the visual editor can still draw
+	 *     it, and the panel explains the detachment) - now the rare last resort.
 	 */
 	beginAddAnchored(anchor: CommentAnchor | null): void {
 		if (!this.file || !anchor) return;
+		const text = this.fresh();
+		const d = this.dialect();
+		const hay = prepareLoose(text, d);
+		const hit = resolveAnchor(text, anchor) ?? resolveAnchorLooseIn(hay, anchor);
+		if (hit) {
+			anchor = buildAnchor(text, hit.from, hit.to);
+		} else {
+			const frag = resolveFragment(hay, anchor.quote);
+			if (frag) {
+				const b = blockBounds(text, frag.from, frag.to);
+				if (b.to > b.from) anchor = buildAnchor(text, b.from, b.to);
+			}
+		}
 		this.pending = { quote: anchor.quote, anchor };
 		this.selected = null;
 	}
@@ -306,13 +337,14 @@ export class CommentsController {
 		if (!p.anchor) return;
 		const id = await this.writeOpen(p.anchor, body);
 		if (!id) return;
-		// Source-mode threads get their highlight now. Re-resolved rather than pushing the
-		// beginAdd offsets: the composer window may have seen remote edits, and the anchor search
-		// lands on the text wherever it sits NOW. Visual-editor anchors get no push - their
-		// offsets are not source offsets, and the visual side re-resolves off the list changing.
-		if (p.from !== undefined) {
+		// The new thread gets its highlight now. Re-resolved rather than pushing the beginAdd
+		// offsets: the composer window may have seen remote edits, and the anchor search lands on
+		// the text wherever it sits NOW. Visual-editor anchors are source-dialect too since
+		// beginAddAnchored converts them, so the same resolve serves both origins (the visual side
+		// still re-resolves for itself off the list changing).
+		{
 			const text = this.fresh();
-			const hit = resolveAnchor(text, p.anchor) ?? resolveAnchorLoose(text, p.anchor);
+			const hit = resolveAnchor(text, p.anchor) ?? resolveAnchorLoose(text, p.anchor, this.dialect());
 			if (hit) this.ranges = [...this.ranges, { id, from: hit.from, to: hit.to, resolved: false }];
 		}
 		this.selected = id;
@@ -405,7 +437,7 @@ export class CommentsController {
 		await this.store.append(event);
 		if (event.t === 'open' && event.file === this.file) {
 			const text = this.fresh();
-			const hit = resolveAnchor(text, event.anchor) ?? resolveAnchorLoose(text, event.anchor);
+			const hit = resolveAnchor(text, event.anchor) ?? resolveAnchorLoose(text, event.anchor, this.dialect());
 			if (hit) this.ranges = [...this.ranges, { id: event.id, from: hit.from, to: hit.to, resolved: false }];
 			else this.orphaned = new Set([...this.orphaned, event.id]);
 		} else if (event.t === 'resolve') {

@@ -23,6 +23,8 @@ import {
 	prepareLoose,
 	resolveAnchor,
 	resolveAnchorLooseIn,
+	resolveFragment,
+	type AnchorDialect,
 	type CommentAnchor,
 	type LooseHaystack
 } from '$lib/comments/anchor';
@@ -97,17 +99,23 @@ export function flattenDoc(doc: PMNode): FlatDoc {
 /**
  * Place every thread in the rendered document, or report it as not visible in this view.
  *
- * Tiered, most precise first, and no tier guesses:
+ * Tiered, most precise first:
  *  1. the quote in the rendered text as-is (source offsets only feed the fast path/tie-break,
  *     where a miss costs one string compare);
- *  2. the quote through normalizeForMatch, which is what lets a quote survive line wraps,
- *     escapes and ligatures - the normal fate of any multi-line selection;
- *  3. not visible in this view. The panel still lists the thread and says so; the source editor
- *     still places it. Same behaviour in every dialect - an earlier block-demotion tier washed
- *     the containing block instead, and a highlight over a whole table claiming to be a comment
- *     on it read as noise, not as placement.
+ *  2. the quote through normalizeForMatch with the file's dialect, which is what lets a quote
+ *     survive line wraps, escapes, ligatures AND the inline markup between the two dialects -
+ *     the normal fate of any selection;
+ *  3. a quote that crossed an atom (math, a citation chip): its longest text fragment locates
+ *     it, and the highlight covers the enclosing BLOCKS - the same block granularity the
+ *     controller downgrades such anchors to at creation, so both views agree on the extent;
+ *  4. not visible in this view. The panel still lists the thread and says so; the source editor
+ *     still places it.
  */
-export function resolvePmComments(doc: PMNode, threads: CommentThread[]): { ranges: PmCommentRange[]; lost: string[] } {
+export function resolvePmComments(
+	doc: PMNode,
+	threads: CommentThread[],
+	dialect: AnchorDialect = 'tex'
+): { ranges: PmCommentRange[]; lost: string[] } {
 	const { text, index } = flattenDoc(doc);
 	const ranges: PmCommentRange[] = [];
 	const lost: string[] = [];
@@ -117,7 +125,7 @@ export function resolvePmComments(doc: PMNode, threads: CommentThread[]): { rang
 	for (const t of threads) {
 		let hit = resolveAnchor(text, t.anchor);
 		if (!hit) {
-			hay ??= prepareLoose(text);
+			hay ??= prepareLoose(text, dialect);
 			hit = resolveAnchorLooseIn(hay, t.anchor);
 		}
 		if (hit) {
@@ -126,6 +134,23 @@ export function resolvePmComments(doc: PMNode, threads: CommentThread[]): { rang
 			if (from !== undefined && to !== undefined && to > from) {
 				ranges.push({ id: t.id, from, to, resolved: t.resolved });
 				continue;
+			}
+		}
+		// tier 3: the fragment places the thread, the enclosing textblocks carry the highlight
+		hay ??= prepareLoose(text, dialect);
+		const frag = resolveFragment(hay, t.anchor.quote);
+		if (frag) {
+			const from = index[frag.from];
+			const to = frag.to > frag.from ? index[frag.to - 1] + 1 : from;
+			if (from !== undefined && to !== undefined && to > from) {
+				try {
+					const $a = doc.resolve(from);
+					const $b = doc.resolve(to - 1);
+					ranges.push({ id: t.id, from: $a.start(), to: $b.end(), resolved: t.resolved });
+					continue;
+				} catch {
+					/* an edge position the resolver rejects falls through to lost */
+				}
 			}
 		}
 		lost.push(t.id);
