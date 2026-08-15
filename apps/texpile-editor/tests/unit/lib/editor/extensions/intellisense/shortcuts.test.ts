@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
-import { computeToggleWrap, computeWrapBlock } from '../../../../../../src/lib/editor/extensions/intellisense/shortcuts';
+import { computeToggleWrap, computeWrapBlock, computeLink } from '../../../../../../src/lib/editor/extensions/intellisense/shortcuts';
 
 function apply(doc: string, anchor: number, head: number, fn: (state: EditorState) => ReturnType<typeof computeToggleWrap>) {
 	const state = EditorState.create({ doc, selection: { anchor, head } });
@@ -43,5 +43,21 @@ describe('toggle-wrap keyboard shortcuts', () => {
 		const doc = 'quoted text';
 		const next = apply(doc, 0, doc.length, (s) => computeWrapBlock(s, '\\begin{quote}\n', '\n\\end{quote}'));
 		expect(next.doc.toString()).toBe('\\begin{quote}\nquoted text\n\\end{quote}');
+	});
+});
+
+describe('computeLink', () => {
+	it('a selection becomes the label, with the URL placeholder selected for typing over', () => {
+		const state = EditorState.create({ doc: 'click me', selection: { anchor: 0, head: 5 } });
+		const next = state.update(computeLink(state)).state;
+		expect(next.doc.toString()).toBe('\\href{https://}{click} me');
+		expect(next.doc.sliceString(next.selection.main.from, next.selection.main.to)).toBe('https://');
+	});
+
+	it('an empty cursor inserts the full skeleton with a placeholder label', () => {
+		const state = EditorState.create({ doc: '', selection: { anchor: 0 } });
+		const next = state.update(computeLink(state)).state;
+		expect(next.doc.toString()).toBe('\\href{https://}{text}');
+		expect(next.doc.sliceString(next.selection.main.from, next.selection.main.to)).toBe('https://');
 	});
 });

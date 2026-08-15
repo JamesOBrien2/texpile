@@ -10,16 +10,34 @@
 	import { isMac } from '$lib/platform';
 	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
 	const appVersion = __APP_VERSION__; // injected by Vite from package.json
-	import { toggleMark } from 'prosemirror-commands';
 	import { createMathField } from '$lib/editor/extensions/mathlivebridge/mlcommands';
 	import { computeMathAttrs } from '$lib/editor/extensions/mathlivebridge/mlview.svelte';
 	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
 	import { createTableNode } from '$lib/editor/utils/tableUtils';
 	import { typTableNode } from '$lib/typst/visual/blockInsertItems';
+	import { mdTableNode } from '$lib/markdown/blockInsertItems';
+	import { toggleLinkCommand } from './toolbar/markState';
+	import { computeLink as texLink, computeWrapBlock } from '$lib/editor/extensions/intellisense/shortcuts';
+	import { tableLatex } from './toolbar/tableLatex';
+	import { insertSnippetAtCursor } from './toolbar/sourceInsert';
+	import {
+		computeFence as mdFence,
+		computeTableSkeleton as mdTable,
+		computeImage as mdImage,
+		computeHr as mdHr,
+		computeLink as mdLink
+	} from '$lib/markdown/sourceInsert';
+	import {
+		computeFence as typFence,
+		computeTableSkeleton as typTable,
+		computeFigureSkeleton as typFigure,
+		computeHr as typHr,
+		computeLink as typLink
+	} from '$lib/typst/visual/sourceInsert';
 	import { startImageUpload } from '$lib/editor/extensions/image';
 	import { createLocalImageSettings } from '$lib/editor/extensions/image/imageplugin.svelte';
 	import { hasVisualMode, isRawTextKind, formatOf, type FileKind } from '$lib/workspace/documentBuffer.svelte';
-	import { run, insertNode, activeCm, cmReplace, editSelect, formatSelect } from './menuBarCommands';
+	import { run, insertNode, activeCm, cmReplace, cmApply, editSelect, formatSelect } from './menuBarCommands';
 	import { checkForUpdate, updateModalOpen, updateState } from '$lib/updates';
 	import { whatsNewOpen, hasUnseenWhatsNew } from '$lib/whatsNew';
 	import { preferencesOpen, dictionaryOpen, shortcutsOpen } from '$lib/stores/dialogStore';
@@ -261,46 +279,36 @@
 		else if (dialect === 'tex' && MATH_ENVS[value]) insertMathEnvironment(MATH_ENVS[value]);
 	}
 
-	// what Insert writes into the source editor, per dialect (environment/citation/link handled
-	// below because they prompt or read state first)
-	const CM_INSERT: Record<'tex' | 'md' | 'typ', Partial<Record<string, [string, string?]>>> = {
-		tex: {
-			code: ['\\begin{verbatim}\n', '\n\\end{verbatim}'],
-			table: ['\\begin{tabular}{ccc}\n  a & b & c \\\\\n  d & e & f \\\\\n\\end{tabular}'],
-			image: ['\\includegraphics{', '}'],
-			hrule: ['\\rule{\\linewidth}{0.4pt}']
-		},
-		typ: {
-			code: ['```\n', '\n```'],
-			table: ['#table(\n  columns: 3,\n  [], [], [],\n  [], [], [],\n)'],
-			image: ['#image("', '")'],
-			hrule: ['#line(length: 100%)']
-		},
-		md: {
-			code: ['```\n', '\n```'],
-			table: ['| a | b | c |\n| --- | --- | --- |\n| d | e | f |'],
-			image: ['![](', ')'],
-			hrule: ['---']
-		}
-	};
-
 	async function insertSelect(value: string) {
+		// Source mode dispatches the SAME compute*/skeleton edits the source toolbars use, so the
+		// menu and the toolbar cannot drift apart: links leave the URL placeholder selected instead
+		// of raising a prompt, fences grow past inner backticks with the caret on the info slot,
+		// tables and rules land on their own lines, and images insert the full dialect skeleton.
 		const cm = activeCm();
 		if (cm) {
-			const snippet = CM_INSERT[dialect][value];
-			if (snippet) {
-				cmReplace(cm, snippet[0], snippet[1] ?? '');
-				return;
-			}
+			const s = cm.state;
 			switch (value) {
-				case 'link': {
-					const href = await askText(m.menubar_prompt_link_url(), 'https://');
-					if (!href) break;
-					if (dialect === 'tex') cmReplace(cm, `\\href{${href}}{`, '}');
-					else if (dialect === 'typ') cmReplace(cm, `#link("${href}")[`, ']');
-					else cmReplace(cm, '[', `](${href})`);
+				case 'code':
+					if (dialect === 'tex') cmApply(cm, computeWrapBlock(s, '\\begin{verbatim}\n', '\n\\end{verbatim}'));
+					else cmApply(cm, dialect === 'typ' ? typFence(s) : mdFence(s));
 					break;
-				}
+				case 'table':
+					// the toolbar dropdowns' default shape (the dropdown itself is where sizes live)
+					if (dialect === 'tex') insertSnippetAtCursor(cm, tableLatex({ rows: 3, cols: 3, float: true, rules: true, header: true }));
+					else cmApply(cm, dialect === 'typ' ? typTable(s) : mdTable(s));
+					break;
+				case 'image':
+					if (dialect === 'tex') cmReplace(cm, '\\includegraphics{', '}');
+					else cmApply(cm, dialect === 'typ' ? typFigure(s) : mdImage(s));
+					break;
+				case 'hrule':
+					if (dialect === 'tex') cmApply(cm, computeWrapBlock(s, '\\rule{\\linewidth}{0.4pt}', ''));
+					else cmApply(cm, dialect === 'typ' ? typHr(s) : mdHr(s));
+					break;
+				case 'link':
+					if (dialect === 'tex') cmApply(cm, texLink(s));
+					else cmApply(cm, dialect === 'typ' ? typLink(s) : mdLink(s));
+					break;
 				case 'citation': {
 					const key = get(referenceStore)?.[0]?.key ?? 'key';
 					if (dialect === 'tex') cmReplace(cm, `\\autocite{${key}}`);
@@ -319,13 +327,18 @@
 		}
 		switch (value) {
 			case 'code':
-				// typst code blocks are fences; the tex default env would serialize as \begin{verbatim}
-				if (dialect === 'typ') insertNode((state) => state.schema.nodes.code_block.createAndFill({ env: 'fence', args: '' }));
-				else run(createCodeBlock());
+				// the schemas default md/typ code blocks to fences, so one command serves all three
+				run(createCodeBlock());
 				break;
 			case 'table':
+				// each dialect's own default table: md's createTableNode crashed here (its schema has
+				// no table_caption) and always numbered a table markdown cannot number
 				insertNode((state) =>
-					dialect === 'typ' ? typTableNode(state.schema) : (createTableNode(state.schema, 3, 3) as unknown as PMNode)
+					dialect === 'typ'
+						? typTableNode(state.schema)
+						: dialect === 'md'
+							? mdTableNode(state.schema)
+							: (createTableNode(state.schema, 3, 3) as unknown as PMNode)
 				);
 				break;
 			case 'image':
@@ -340,24 +353,14 @@
 			case 'hrule':
 				insertNode((state) => state.schema.nodes.horizontal_rule.create());
 				break;
-			case 'link': {
-				const href = await askText(m.menubar_prompt_link_url(), 'https://');
-				// the open editor's own link mark: tex, md and typ are three different Schema objects
-				if (href)
-					run((state, dispatch) => {
-						const mark = state.schema.marks.link;
-						if (!mark) return false;
-						// no selection: toggleMark would only arm a stored mark - the menu looked like
-						// it did nothing. Insert the URL itself as the linked text instead, the way
-						// every editor's insert-link behaves on a bare caret.
-						if (state.selection.empty) {
-							dispatch?.(state.tr.replaceSelectionWith(state.schema.text(href, [mark.create({ href })]), false).scrollIntoView());
-							return true;
-						}
-						return toggleMark(mark, { href, title: null })(state, dispatch);
-					});
+			case 'link':
+				// the toolbars' link command: placeholder linked text with the caret inside, so the
+				// link tooltip opens for the URL edit - the same popup either way in, no modal prompt
+				run((state, dispatch) => {
+					const mark = state.schema.marks.link;
+					return mark ? toggleLinkCommand(mark)(state, dispatch) : false;
+				});
 				break;
-			}
 			case 'citation': {
 				const key = get(referenceStore)?.[0]?.key ?? 'key';
 				insertNode((state) =>

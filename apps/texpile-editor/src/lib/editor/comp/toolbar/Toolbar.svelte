@@ -21,7 +21,7 @@
 		BoxSelect,
 		Eye
 	} from '@lucide/svelte';
-	import { selectParentNode, toggleMark, wrapIn } from 'prosemirror-commands';
+	import { selectParentNode, toggleMark } from 'prosemirror-commands';
 	import { undo, redo } from 'prosemirror-history';
 	import { createWrapInListCommand } from 'prosemirror-flat-list';
 	import type { EditorState, Transaction } from 'prosemirror-state';
@@ -31,7 +31,7 @@
 	import { markIsActive, activeMarkColor, toggleLinkCommand } from './markState';
 	import { displaySearchBarStore, editorViewStore, rawEditorActiveStore } from '../../../stores/editorStore';
 	import { schema } from '$lib/schema/schema';
-	import { setHeadingLevel } from '../../helperCommands';
+	import { setHeadingLevel, toggleBlockQuote } from '../../helperCommands';
 	import HeadingDropdown from './HeadingDropdown.svelte';
 	import SupSubDropdown from './SupSubDropdown.svelte';
 	import { createCodeBlock } from '../../extensions/codemirrorbridge/cmcommands';
@@ -249,7 +249,9 @@
 						{@render iconButton(m.blockmenu_numbered_list(), false, orderedList, ListOrdered)}
 					{/snippet}
 					{#snippet tb_quote()}
-						{@render iconButton(m.blockmenu_quote(), false, wrapIn(schema.nodes.blockquote), Quote)}
+						<!-- toggleBlockQuote, not wrapIn: the Format menu toggles, and a second press
+						     must unquote rather than nest a quote inside a quote -->
+						{@render iconButton(m.blockmenu_quote(), false, toggleBlockQuote(), Quote)}
 					{/snippet}
 					{#snippet tb_math()}
 						<div>

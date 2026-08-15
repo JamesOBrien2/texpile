@@ -24,7 +24,7 @@
 	} from '@lucide/svelte';
 	import type { EditorState, TransactionSpec } from '@codemirror/state';
 	import { sourceCmView } from '$lib/stores/editorStore';
-	import { computeToggleWrap, computeWrapBlock } from '$lib/editor/extensions/intellisense/shortcuts';
+	import { computeToggleWrap, computeWrapBlock, computeLink } from '$lib/editor/extensions/intellisense/shortcuts';
 	import SourceTableDropdown from './SourceTableDropdown.svelte';
 	import SourceMathDropdown from './SourceMathDropdown.svelte';
 	import ToolbarOverflow from './ToolbarOverflow.svelte';
@@ -186,12 +186,7 @@
 	{#snippet st_inserts()}
 		<ul class="flex items-center gap-1 sm:gap-1.5">
 			<li class="toolbarButton hover:preset-tonal">
-				<button
-					onclick={run((s) => computeWrapBlock(s, '\\href{https://}{', '}'))}
-					class="flex items-center p-1"
-					aria-label={m.mdtoolbar_link()}
-					title={m.mdtoolbar_link()}
-				>
+				<button onclick={run(computeLink)} class="flex items-center p-1" aria-label={m.mdtoolbar_link()} title={m.mdtoolbar_link()}>
 					<LinkIcon class="h-4.5 w-4.5" />
 				</button>
 			</li>

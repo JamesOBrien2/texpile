@@ -19,7 +19,7 @@
 		Minus,
 		BoxSelect
 	} from '@lucide/svelte';
-	import { selectParentNode, toggleMark, wrapIn } from 'prosemirror-commands';
+	import { selectParentNode, toggleMark } from 'prosemirror-commands';
 	import { undo, redo } from 'prosemirror-history';
 	import { createWrapInListCommand } from 'prosemirror-flat-list';
 	import type { EditorState, Transaction } from 'prosemirror-state';
@@ -34,7 +34,7 @@
 	import MathToolbar, { mathToolbarState } from '$lib/editor/comp/toolbar/MathToolbar.svelte';
 	import MathDropdown from '$lib/editor/comp/toolbar/MathDropdown.svelte';
 	import ToolbarOverflow from '$lib/editor/comp/toolbar/ToolbarOverflow.svelte';
-	import { setHeadingLevel } from '$lib/editor/helperCommands';
+	import { setHeadingLevel, toggleBlockQuote } from '$lib/editor/helperCommands';
 	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -218,7 +218,8 @@
 					{@render iconButton(m.blockmenu_numbered_list(), false, orderedList, ListOrdered)}
 				{/snippet}
 				{#snippet tb_quote()}
-					{@render iconButton(m.blockmenu_quote(), false, wrapIn(typSchema.nodes.blockquote), Quote)}
+					<!-- toggleBlockQuote, not wrapIn: a second press must unquote, not nest -->
+					{@render iconButton(m.blockmenu_quote(), false, toggleBlockQuote(), Quote)}
 				{/snippet}
 				{#snippet tb_math()}
 					<div>

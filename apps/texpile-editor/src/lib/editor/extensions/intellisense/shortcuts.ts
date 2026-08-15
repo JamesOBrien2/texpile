@@ -4,7 +4,7 @@
 // muscle memory carries over between Source and Visual instead of copying LaTeX Workshop's own
 // leader-key (Ctrl+L, Ctrl+B) scheme, which nothing else in this app uses.
 import { keymap, type EditorView } from '@codemirror/view';
-import type { EditorState, Extension, TransactionSpec } from '@codemirror/state';
+import { EditorSelection, type EditorState, type Extension, type TransactionSpec } from '@codemirror/state';
 
 /** finds the nearest \keyword{...} enclosing `pos`, if any (single level, no nested-\keyword lookup). */
 function findEnclosingMacro(text: string, pos: number, keyword: string): { from: number; to: number; inner: string } | null {
@@ -90,6 +90,22 @@ export function computeWrapBlock(state: EditorState, before: string, after: stri
 	return {
 		changes: { from, to, insert: before + selected + after },
 		selection: { anchor: from + before.length, head: from + before.length + selected.length },
+		scrollIntoView: true
+	};
+}
+
+/** `\href{https://}{label}`: label = the selection (or 'text'), the URL left selected for typing
+ *  over — the same shape the md/typ source links insert, so all three source bars behave alike. */
+export function computeLink(state: EditorState): TransactionSpec {
+	const range = state.selection.main;
+	const selected = state.sliceDoc(range.from, range.to);
+	const label = selected || 'text';
+	const url = 'https://';
+	const insert = `\\href{${url}}{${label}}`;
+	const urlStart = range.from + 6; // past "\href{"
+	return {
+		changes: { from: range.from, to: range.to, insert },
+		selection: EditorSelection.range(urlStart, urlStart + url.length),
 		scrollIntoView: true
 	};
 }

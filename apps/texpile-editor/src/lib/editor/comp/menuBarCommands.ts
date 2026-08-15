@@ -12,6 +12,10 @@ import { undo, redo } from 'prosemirror-history';
 import { toggleMark } from 'prosemirror-commands';
 import { toggleHeading, toggleBlockQuote } from '$lib/editor/helperCommands';
 import { editorViewStore, displaySearchBarStore, viewMode, sourceCmView } from '$lib/stores/editorStore';
+import { computeToggleWrap, computeWrapBlock } from '$lib/editor/extensions/intellisense/shortcuts';
+import { computeToggleDelim as mdDelim, computeHeadingLine as mdHeading, computeQuoteLines as mdQuote } from '$lib/markdown/sourceInsert';
+import { computeToggleDelim as typDelim, computeWrap as typWrap, computeHeadingLine as typHeading } from '$lib/typst/visual/sourceInsert';
+import type { TransactionSpec } from '@codemirror/state';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 
@@ -53,6 +57,13 @@ export function activeCm(): CMView | null {
 	return cm && cm.dom.isConnected ? cm : null;
 }
 
+/** dispatches a computed edit (the source toolbars' compute* functions), then refocuses - the
+ *  menu and the toolbar run the SAME edit, so they cannot drift apart again. */
+export function cmApply(cm: CMView, spec: TransactionSpec) {
+	cm.dispatch({ scrollIntoView: true, ...spec });
+	cm.focus();
+}
+
 /** wraps the CM selection with before/after (or inserts at the cursor), then refocuses. */
 export function cmReplace(cm: CMView, before: string, after = '') {
 	const { from, to } = cm.state.selection.main;
@@ -83,46 +94,35 @@ export function editSelect(value: string) {
 	else if (value === 'find') displaySearchBarStore.update((v) => !v);
 }
 
-// what Format writes into the source editor, per dialect. Headings and quotes are line-start
-// markers in typst/markdown, so those entries prefix rather than wrap.
-const CM_FORMAT: Record<MenuDialect, Partial<Record<string, [string, string]>>> = {
-	tex: {
-		bold: ['\\textbf{', '}'],
-		italic: ['\\textit{', '}'],
-		underline: ['\\underline{', '}'],
-		code: ['\\texttt{', '}'],
-		h1: ['\\section{', '}'],
-		h2: ['\\subsection{', '}'],
-		h3: ['\\subsubsection{', '}'],
-		quote: ['\\begin{quote}\n', '\n\\end{quote}']
-	},
-	typ: {
-		bold: ['*', '*'],
-		italic: ['_', '_'],
-		underline: ['#underline[', ']'],
-		code: ['`', '`'],
-		h1: ['= ', ''],
-		h2: ['== ', ''],
-		h3: ['=== ', ''],
-		quote: ['#quote(block: true)[', ']']
-	},
-	// markdown has no underline; the menu hides the item
-	md: {
-		bold: ['**', '**'],
-		italic: ['*', '*'],
-		code: ['`', '`'],
-		h1: ['# ', ''],
-		h2: ['## ', ''],
-		h3: ['### ', ''],
-		quote: ['> ', '']
-	}
-};
-
 export function formatSelect(value: string, dialect: MenuDialect = 'tex') {
+	// Source mode dispatches the SAME compute* edits the source toolbars use, so a menu item and
+	// its toolbar button cannot behave differently: bold TOGGLES (the old snippet table only ever
+	// wrapped, so Bold on bold text nested another \textbf), headings set/replace/toggle their
+	// level in place, and md quoting marks whole lines.
 	const cm = activeCm();
 	if (cm) {
-		const wrap = CM_FORMAT[dialect][value];
-		if (wrap) cmReplace(cm, wrap[0], wrap[1]);
+		const s = cm.state;
+		if (dialect === 'tex') {
+			const MACRO: Partial<Record<string, string>> = { bold: 'textbf', italic: 'textit', underline: 'underline', code: 'texttt' };
+			const H: Partial<Record<string, string>> = { h1: 'section', h2: 'subsection', h3: 'subsubsection' };
+			if (MACRO[value]) cmApply(cm, computeToggleWrap(s, MACRO[value]));
+			else if (H[value]) cmApply(cm, computeWrapBlock(s, `\\${H[value]}{`, '}'));
+			else if (value === 'quote') cmApply(cm, computeWrapBlock(s, '\\begin{quote}\n', '\n\\end{quote}'));
+		} else if (dialect === 'typ') {
+			const DELIM: Partial<Record<string, string>> = { bold: '*', italic: '_', code: '`' };
+			const LEVEL: Partial<Record<string, number>> = { h1: 1, h2: 2, h3: 3 };
+			if (DELIM[value]) cmApply(cm, typDelim(s, DELIM[value]));
+			else if (value === 'underline') cmApply(cm, typWrap(s, '#underline[', ']'));
+			else if (LEVEL[value]) cmApply(cm, typHeading(s, LEVEL[value]));
+			else if (value === 'quote') cmApply(cm, typWrap(s, '#quote(block: true)[', ']'));
+		} else {
+			// markdown has no underline; the menu hides the item
+			const DELIM: Partial<Record<string, string>> = { bold: '**', italic: '*', code: '`' };
+			const LEVEL: Partial<Record<string, number>> = { h1: 1, h2: 2, h3: 3 };
+			if (DELIM[value]) cmApply(cm, mdDelim(s, DELIM[value]));
+			else if (LEVEL[value]) cmApply(cm, mdHeading(s, LEVEL[value]));
+			else if (value === 'quote') cmApply(cm, mdQuote(s));
+		}
 		return;
 	}
 	switch (value) {

@@ -8,7 +8,7 @@
 	import { EditorView } from 'prosemirror-view';
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { keymap } from 'prosemirror-keymap';
-	import { baseKeymap, toggleMark, wrapIn } from 'prosemirror-commands';
+	import { baseKeymap, toggleMark } from 'prosemirror-commands';
 	import { undo as historyUndo, redo as historyRedo, history } from 'prosemirror-history';
 	import { gapCursor } from 'prosemirror-gapcursor';
 	import { dropCursor } from 'prosemirror-dropcursor';
@@ -21,7 +21,7 @@
 	import { isMac } from '$lib/platform';
 	import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
 	import { preferences } from '$lib/stores/preferencesStore.svelte';
-	import { toggleHeading } from '$lib/editor/helperCommands';
+	import { toggleHeading, toggleBlockQuote } from '$lib/editor/helperCommands';
 	import { createMathField } from '$lib/editor/extensions/mathlivebridge/mlcommands';
 	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
 	import { cmarrowHandlers } from '$lib/editor/extensions/codemirrorbridge/cmarrowhandler';
@@ -144,7 +144,7 @@
 				'Mod-i': toggleMark(mdSchema.marks.em),
 				'Mod-`': toggleMark(mdSchema.marks.code),
 				'Mod-Shift-x': toggleMark(mdSchema.marks.s),
-				'Mod-Shift-b': wrapIn(mdSchema.nodes.blockquote),
+				'Mod-Shift-b': toggleBlockQuote(),
 				'Mod-Shift-`': createCodeBlock(),
 				// Word/Docs convention, same as the tex editor; markdown gets all six levels
 				'Mod-Alt-0': toggleHeading(0),

@@ -1,3 +1,4 @@
+import { lift } from 'prosemirror-commands';
 import type { Command, EditorState, Transaction } from 'prosemirror-state';
 
 export function toggleHeading(level: number): Command {
@@ -57,11 +58,16 @@ export function toggleBlockQuote() {
 	return (state: EditorState, dispatch: (tr: Transaction) => void) => {
 		// state.schema, not the tex import: the menu bar runs this against whichever editor is open
 		const blockquoteType = state.schema.nodes.blockquote;
+		// already inside a blockquote: lift back out, so the shared quote action (toolbars, Format
+		// menu, Mod-Shift-b) is a true toggle instead of nesting quote-in-quote on a second press
+		const { $from } = state.selection;
+		for (let d = $from.depth; d > 0; d--) {
+			if ($from.node(d).type === blockquoteType) return lift(state, dispatch);
+		}
 		const { from, to } = state.selection;
 		let transactionDispatched = false;
 
 		const tr = state.tr;
-		// only wraps; unwrapping an existing blockquote is not implemented
 		state.doc.nodesBetween(from, to, (node, pos) => {
 			const wrapper = blockquoteType.createAndFill(null, node);
 			if (wrapper) {
