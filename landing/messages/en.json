@@ -122,7 +122,7 @@
 	"faq_q_internet": "Does it need an internet connection?",
 	"faq_a_internet": "No. The editor, spell check, compiling, and PDF preview all run locally. Nothing leaves your machine unless you start a shared session, which is end to end encrypted.",
 	"faq_q_collab": "Can I work with other people?",
-	"faq_a_collab": "Yes, this is experimental. Share a folder for real time editing, and others join with a code. It is end to end encrypted, so the relay server only forwards data it cannot read.",
+	"faq_a_collab": "Yes. Share a folder for real time editing, and others join with a code. It is end to end encrypted, so the relay server only forwards data it cannot read.",
 	"faq_q_rewrite": "Will it rewrite my LaTeX?",
 	"faq_a_rewrite": "No. The importer preserves every construct it does not understand as raw LaTeX, and saving a document you have not touched reproduces the file byte for byte. Only the specific blocks you edit are regenerated.",
 	"faq_q_latex_installed": "Do I need LaTeX installed?",

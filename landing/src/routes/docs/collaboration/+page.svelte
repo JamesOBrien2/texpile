@@ -29,9 +29,7 @@
 
 <div class="mt-6 space-y-4">
 	<Where rows={where} />
-	<Note
-		body={'Real-time collaboration is experimental. Everything else in Texpile works fully offline; this is the one feature that uses the network.'}
-	/>
+	<Note body={'Everything else in Texpile works fully offline; real-time collaboration is the one feature that uses the network.'} />
 </div>
 
 <Figure

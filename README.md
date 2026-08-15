@@ -30,7 +30,7 @@ Type in source view and the page re-typesets with your own LuaLaTeX and updates 
 
 https://github.com/user-attachments/assets/7a2d7997-fe6c-4837-bbe5-1aaa5e0c90b7
 
-## Shared sessions (experimental)
+## Shared sessions
 
 Share a folder for real time editing, no account needed. Start a session to get a code; others join with it from the home screen and edit alongside you, in the visual editor or in source. Everything is end to end encrypted, so the relay server only forwards data it cannot read. You run the compile with your own toolchain, and guests see the resulting PDF.
 

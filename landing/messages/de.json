@@ -122,7 +122,7 @@
 	"faq_q_internet": "Ist eine Internetverbindung nötig?",
 	"faq_a_internet": "Nein. Editor, Rechtschreibprüfung, Kompilieren und PDF-Vorschau laufen vollständig lokal. Nichts verlässt Ihren Rechner, außer Sie starten eine geteilte Sitzung, die Ende-zu-Ende-verschlüsselt ist.",
 	"faq_q_collab": "Kann ich mit anderen zusammenarbeiten?",
-	"faq_a_collab": "Ja, das ist experimentell. Teile einen Ordner zum gemeinsamen Bearbeiten in Echtzeit, und andere treten mit einem Code bei. Es ist Ende-zu-Ende-verschlüsselt, das Relay leitet nur Daten weiter, die es nicht lesen kann.",
+	"faq_a_collab": "Ja. Teile einen Ordner zum gemeinsamen Bearbeiten in Echtzeit, und andere treten mit einem Code bei. Es ist Ende-zu-Ende-verschlüsselt, das Relay leitet nur Daten weiter, die es nicht lesen kann.",
 	"faq_q_rewrite": "Wird mein LaTeX umgeschrieben?",
 	"faq_a_rewrite": "Nein. Alles, was der Importer nicht versteht, bleibt als rohes LaTeX erhalten. Speichern Sie ein Dokument, das Sie nicht angefasst haben, entsteht die Datei Byte für Byte identisch neu. Nur die Blöcke, die Sie tatsächlich bearbeitet haben, werden neu erzeugt.",
 	"faq_q_latex_installed": "Muss LaTeX installiert sein?",
