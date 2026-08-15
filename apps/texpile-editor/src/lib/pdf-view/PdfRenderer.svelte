@@ -273,7 +273,7 @@
 				viewerState.searchTotal = 0;
 			}
 		},
-		download: async () => {}, // download is handled by PdfViewer, not the renderer
+		savePdf: async () => {}, // saving is handled by PdfViewer, not the renderer
 		enterPresentationMode: async () => {
 			presentationMode.setCurrentPage(viewerState.currentPage);
 			return presentationMode.request();

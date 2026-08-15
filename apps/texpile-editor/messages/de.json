@@ -574,8 +574,6 @@
 	"tutorial_create_desc": "Tutorial-Projekt in {root} erstellen?",
 	"tutorial_create": "Erstellen",
 	"tutorial_pick_empty_desc": "Wählen Sie einen leeren Ordner, um darin das Tutorial-Projekt zu erstellen.",
-	"mobilebanner_limited_support": "Die Unterstützung für mobile Geräte ist derzeit eingeschränkt. Verwenden Sie einen größeren Bildschirm für eine bessere Erfahrung.",
-	"mobilebanner_dismiss_aria": "Hinweis zu mobilen Geräten schließen",
 	"globalsearch_placeholder": "Im Ordner suchen",
 	"globalsearch_match_case": "Groß-/Kleinschreibung beachten",
 	"globalsearch_use_regex": "Regulären Ausdruck verwenden",

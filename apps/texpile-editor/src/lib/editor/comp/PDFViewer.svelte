@@ -3,6 +3,7 @@
 	import { PdfViewer, PdfToolbar, PdfRenderer, type PdfSource, type PdfViewerActions } from '$lib/pdf-view';
 	import PdfActionsBridge from './PdfActionsBridge.svelte';
 	import { pdfStore } from '$lib/stores/pdfStore';
+	import { savePdfBytes } from '$lib/workspace/fileSystem';
 	import { resolvedMode } from '$lib/theme';
 	import { layout } from '$lib/storage/layout';
 	import { onMount } from 'svelte';
@@ -99,7 +100,8 @@
 {:else if pdfSource}
 	{@const dark = $resolvedMode === 'dark'}
 	<div class="flex h-full w-full flex-col">
-		<PdfViewer src={pdfSource} documentKey={docKey} downloadFilename={filename}>
+		<!-- the viewer holds the bytes but not the native bridge, so the save dialog is injected here -->
+		<PdfViewer src={pdfSource} documentKey={docKey} downloadFilename={filename} onSavePdf={savePdfBytes}>
 			<PdfToolbar />
 			<PdfActionsBridge onActions={(a) => (actions = a)} />
 			<!-- darkMode inverts the page canvases; the chrome always follows the app theme via `dark`.

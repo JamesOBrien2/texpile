@@ -96,6 +96,7 @@ interface TexpileNative {
 	onDraftPreempted?: (cb: (info: { root: string }) => void) => () => void;
 	draftSavePdf: (body: { root: string; defaultName: string; to?: string }) => Promise<{ saved: boolean; path?: string }>;
 	savePdfAs?: (body: { src: string; defaultPath: string; to?: string }) => Promise<{ saved: boolean; path?: string }>;
+	savePdfBytes?: (body: { bytes: Uint8Array; defaultName: string; to?: string }) => Promise<{ saved: boolean; path?: string }>;
 	gitStatus: (root: string) => Promise<GitStatusResult>;
 	gitShow: (path: string) => Promise<GitShowResult>;
 	gitInit: (dir: string) => Promise<GitOpResult>;
@@ -232,6 +233,15 @@ export async function revealItem(path: string): Promise<void> {
  */
 export async function savePdfAs(src: string, defaultPath: string): Promise<{ saved: boolean; path?: string }> {
 	return (await native()?.savePdfAs?.({ src, defaultPath })) ?? { saved: false };
+}
+
+/**
+ * Offer PDF bytes the renderer is holding through a native save dialog. Used where there is no
+ * file to point `savePdfAs` at: a collaboration guest only ever has the document in memory.
+ * `{saved: false}` again covers both a cancelled dialog and a non-desktop shell.
+ */
+export async function savePdfBytes(bytes: Uint8Array, defaultName: string): Promise<{ saved: boolean; path?: string }> {
+	return (await native()?.savePdfBytes?.({ bytes, defaultName })) ?? { saved: false };
 }
 
 export async function readTextFile(path: string): Promise<string> {

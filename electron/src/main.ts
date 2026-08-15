@@ -696,6 +696,25 @@ handleFsE('shell:savePdfAs', async (e, body: { src: string; defaultPath: string;
 	fs.copyFileSync(body.src, dest);
 	return { saved: true, path: dest };
 });
+// Save PDF bytes the renderer is holding. Byte-based rather than path-based (unlike
+// shell:savePdfAs above) because the PDF viewer's source is not always a file on disk: a
+// collaboration guest receives the document over the wire and never has a local copy of it.
+handleFsE('shell:savePdfBytes', async (e, body: { bytes: Uint8Array; defaultName: string; to?: string }) => {
+	const bytes = body?.bytes;
+	if (!ArrayBuffer.isView(bytes) || bytes.byteLength === 0) throw new Error('No PDF data to save.');
+	let dest = body.to;
+	if (!dest) {
+		const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender) ?? undefined!, {
+			title: 'Save PDF',
+			defaultPath: body.defaultName,
+			filters: [{ name: 'PDF', extensions: ['pdf'] }]
+		});
+		if (res.canceled || !res.filePath) return { saved: false };
+		dest = res.filePath;
+	}
+	fs.writeFileSync(dest, bytes);
+	return { saved: true, path: dest };
+});
 handleFs('git:status', gitService.gitStatus);
 handleFs('git:show', gitService.gitShowHead);
 handleFs('git:init', gitService.gitInit);

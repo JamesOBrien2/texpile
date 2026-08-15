@@ -132,8 +132,6 @@
 	import { Toast } from '@skeletonlabs/skeleton-svelte';
 	import { toaster } from '$lib/modals/toaster-svelte';
 	import ConfirmHost from '$lib/modals/ConfirmHost.svelte';
-
-	import MobileSupportBanner from '$lib/components/MobileSupportBanner.svelte';
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -155,12 +153,6 @@
 
 <ConfirmHost />
 
-<div class="pointer-events-none fixed inset-x-0 top-0 z-[1100] flex flex-col">
-	<div class="pointer-events-auto">
-		<MobileSupportBanner />
-	</div>
-</div>
-
 {#if route.path === '/'}
 	<StartView />
 {:else if route.path === '/workspace'}
@@ -176,13 +168,6 @@
 	<WhatsNewModal bind:open={$whatsNewOpen} entries={whatsNewEntries} />
 {/if}
 <UpdateAvailableModal />
-
-<noscript>
-	<div class="fixed inset-x-0 bottom-0 border-t-4 border-red-500 bg-gray-100 p-4 text-red-700" role="alert">
-		<h1 class="mb-2 text-xl font-bold">JavaScript Required</h1>
-		<p>This website requires JavaScript to function properly. Please enable JavaScript in your browser settings.</p>
-	</div>
-</noscript>
 
 <style>
 	/*

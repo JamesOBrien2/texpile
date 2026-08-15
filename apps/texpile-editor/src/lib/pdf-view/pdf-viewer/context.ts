@@ -26,6 +26,8 @@ export interface PdfViewerState {
 	isSearching: boolean;
 
 	presentationMode: PresentationModeState;
+	/** false when the host passed no save handler, so the toolbar omits the button entirely */
+	canSavePdf: boolean;
 }
 
 export interface PdfViewerActions {
@@ -41,7 +43,7 @@ export interface PdfViewerActions {
 	searchNext: () => void;
 	searchPrevious: () => void;
 	clearSearch: () => void;
-	download: (filename?: string) => Promise<void>;
+	savePdf: (filename?: string) => Promise<void>;
 	enterPresentationMode: () => Promise<boolean>;
 	exitPresentationMode: () => Promise<void>;
 	/** SyncTeX forward search: scroll to + briefly highlight a position on a page (PDF points, top-left origin). */

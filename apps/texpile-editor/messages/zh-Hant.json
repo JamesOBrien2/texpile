@@ -574,8 +574,6 @@
 	"tutorial_create_desc": "要在 {root} 中建立教學專案嗎？",
 	"tutorial_create": "建立",
 	"tutorial_pick_empty_desc": "請選擇一個空資料夾來建立教學專案。",
-	"mobilebanner_limited_support": "行動裝置支援目前有限。請使用較大的螢幕以獲得更好的體驗。",
-	"mobilebanner_dismiss_aria": "關閉行動裝置提示",
 	"globalsearch_placeholder": "在資料夾中搜尋",
 	"globalsearch_match_case": "區分大小寫",
 	"globalsearch_use_regex": "使用正規表示式",

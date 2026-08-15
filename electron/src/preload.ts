@@ -168,6 +168,8 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	draftSavePdf: (body: { root: string; defaultName: string; to?: string }) => invokeFs('draft:savePdf', body),
 	/** Save an already-produced PDF via a save dialog -> { saved, path? }. */
 	savePdfAs: (body: { src: string; defaultPath: string; to?: string }) => invokeFs('shell:savePdfAs', body),
+	/** Save PDF bytes the viewer holds (a guest has no file on disk) -> { saved, path? }. */
+	savePdfBytes: (body: { bytes: Uint8Array; defaultName: string; to?: string }) => invokeFs('shell:savePdfBytes', body),
 
 	/** per-file git status + branch -> { ok, branch?, entries? }. */
 	gitStatus: (root: string) => invokeFs('git:status', root),

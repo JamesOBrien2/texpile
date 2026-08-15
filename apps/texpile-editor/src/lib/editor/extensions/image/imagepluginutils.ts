@@ -2,7 +2,6 @@ import { PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { Schema } from 'prosemirror-model';
 import { generateLabel } from '$lib/editor/utils/label';
-import { trackFeatureUsed } from '$lib/plausible';
 import type { ImagePluginSettings, ImagePluginState, InsertImagePlaceholder, RemoveImagePlaceholder } from './types';
 
 export const dataURIToFile = (dataURI: string, name: string) => {
@@ -81,7 +80,6 @@ export const startImageUpload = (
 	schema: Schema,
 	pos?: number
 ) => {
-	trackFeatureUsed('figure');
 	// fresh object identity is the upload id
 	const id = {};
 

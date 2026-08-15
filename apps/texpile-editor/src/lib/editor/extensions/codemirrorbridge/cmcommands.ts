@@ -1,9 +1,7 @@
 import { NodeSelection, type EditorState, type Transaction } from 'prosemirror-state';
-import { trackFeatureUsed } from '$lib/plausible';
 
 export function createCodeBlock(): (state: EditorState, dispatch: (tr: Transaction) => void) => boolean {
 	return function (state: EditorState, dispatch: (tr: Transaction) => void): boolean {
-		trackFeatureUsed('code_block');
 		const { from } = state.selection;
 		const codeBlockNode = state.schema.nodes.code_block.createAndFill();
 

@@ -1,10 +1,8 @@
 import { EditorState, NodeSelection, Transaction } from 'prosemirror-state';
-import { trackFeatureUsed } from '$lib/plausible';
 
 export function createMathField(createblock = false) {
 	return function (state: EditorState, dispatch: (tr: Transaction) => void): boolean {
 		const { from, to } = state.selection;
-		trackFeatureUsed('equation');
 
 		if (createblock) {
 			// state.schema, not the tex schema import: this command serves both editors, and

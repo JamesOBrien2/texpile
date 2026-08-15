@@ -574,8 +574,6 @@
 	"tutorial_create_desc": "要在 {root} 中创建教程项目吗？",
 	"tutorial_create": "创建",
 	"tutorial_pick_empty_desc": "请选择一个空文件夹来创建教程项目。",
-	"mobilebanner_limited_support": "移动端支持目前有限。请使用更大的屏幕以获得更好的体验。",
-	"mobilebanner_dismiss_aria": "关闭移动端提示",
 	"globalsearch_placeholder": "在文件夹中搜索",
 	"globalsearch_match_case": "区分大小写",
 	"globalsearch_use_regex": "使用正则表达式",

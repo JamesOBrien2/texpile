@@ -574,8 +574,6 @@
 	"tutorial_create_desc": "Create the tutorial project in {root}?",
 	"tutorial_create": "Create",
 	"tutorial_pick_empty_desc": "Pick an empty folder to create the tutorial project in.",
-	"mobilebanner_limited_support": "Mobile support is currently limited. Use a larger screen for a better experience.",
-	"mobilebanner_dismiss_aria": "Dismiss mobile notice",
 	"globalsearch_placeholder": "Search in folder",
 	"globalsearch_match_case": "Match case",
 	"globalsearch_use_regex": "Use regular expression",

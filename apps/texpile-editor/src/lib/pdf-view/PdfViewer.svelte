@@ -21,8 +21,14 @@
 		documentKey?: string | number;
 		/** Initial scale (default: 1.0) */
 		scale?: number;
-		/** Custom filename for PDF download (default: extracted from URL or 'document.pdf') */
+		/** Default filename offered when saving (default: extracted from URL or 'document.pdf') */
 		downloadFilename?: string;
+		/**
+		 * Where the PDF goes when the user saves it. Injected rather than called directly: this
+		 * package is a dependency OF the app, so it must not reach back into the app's native
+		 * bridge. Omit it and the toolbar hides its save button rather than offering a dead one.
+		 */
+		onSavePdf?: (bytes: Uint8Array, defaultName: string) => unknown;
 		/** Callback when PDF fails to load */
 		onerror?: (error: string) => void;
 		class?: string;
@@ -30,7 +36,16 @@
 		children?: Snippet;
 	}
 
-	let { src, documentKey, scale: initialScale = 1.0, downloadFilename, onerror, class: className = '', children }: Props = $props();
+	let {
+		src,
+		documentKey,
+		scale: initialScale = 1.0,
+		downloadFilename,
+		onSavePdf,
+		onerror,
+		class: className = '',
+		children
+	}: Props = $props();
 
 	// download needs its own copy of binary source data (PDF.js detaches ArrayBuffers);
 	// set by PdfRenderer before it hands the data to PDF.js
@@ -47,46 +62,44 @@
 		searchCurrent: 0,
 		searchTotal: 0,
 		isSearching: false,
-		presentationMode: PresentationModeState.NORMAL
+		presentationMode: PresentationModeState.NORMAL,
+		canSavePdf: untrack(() => !!onSavePdf)
 	});
 
 	let rendererActions: PdfViewerActions | null = null;
 
-	async function downloadPdf(filenameOverride?: string) {
-		const downloadName =
+	/**
+	 * Hand the PDF to whoever is hosting this viewer. This is a desktop app: the document is
+	 * already a file (or, for a guest, bytes we hold), so it gets SAVED somewhere the user picks,
+	 * not "downloaded". Bytes rather than a path because a guest has no local copy to point at.
+	 */
+	async function savePdf(filenameOverride?: string) {
+		if (!onSavePdf) return;
+
+		const defaultName =
 			filenameOverride || downloadFilename || (typeof src === 'string' ? src.split('/').pop() : 'document.pdf') || 'document.pdf';
 
-		let blob: Blob;
+		let bytes: Uint8Array | null = null;
 
 		if (typeof src === 'string') {
-			// fetch first: the download attribute is ignored for cross-origin URLs
 			try {
-				const response = await fetch(src);
-				blob = await response.blob();
-			} catch {
-				// fallback for same-origin URLs if fetch fails
-				const link = document.createElement('a');
-				link.href = src;
-				link.download = downloadName;
-				link.click();
+				bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
+			} catch (err) {
+				console.error('Cannot save PDF: source could not be read', err);
 				return;
 			}
 		} else if (src instanceof Blob) {
-			blob = src;
+			bytes = new Uint8Array(await src.arrayBuffer());
 		} else if (srcDataForDownload) {
 			// the pre-copied data; the original buffer gets detached by PDF.js
-			blob = new Blob([srcDataForDownload], { type: 'application/pdf' });
-		} else {
-			console.error('Cannot download: no valid source data available');
-			return;
+			bytes = new Uint8Array(srcDataForDownload);
 		}
 
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = downloadName;
-		link.click();
-		URL.revokeObjectURL(url);
+		if (!bytes?.byteLength) {
+			console.error('Cannot save PDF: no valid source data available');
+			return;
+		}
+		await onSavePdf(bytes, defaultName);
 	}
 
 	const actions: PdfViewerActions = {
@@ -106,7 +119,7 @@
 		searchNext: () => rendererActions?.searchNext(),
 		searchPrevious: () => rendererActions?.searchPrevious(),
 		clearSearch: () => rendererActions?.clearSearch(),
-		download: downloadPdf,
+		savePdf,
 		enterPresentationMode: async () => {
 			if (rendererActions) {
 				return rendererActions.enterPresentationMode();

@@ -8,7 +8,7 @@
 		Search,
 		ChevronLeft,
 		ChevronRight,
-		Download,
+		Save,
 		Presentation,
 		MoreHorizontal
 	} from '@lucide/svelte';
@@ -20,7 +20,7 @@
 	let searchInput = $state('');
 
 	// Collapse into a trailing "..." rather than scrolling controls out of reach. Only the optional
-	// ones move: rotate and presentation and download. Page number, zoom and search always stay on
+	// ones move: rotate and presentation and save. Page number, zoom and search always stay on
 	// the bar. Deliberately a copy of the app's ToolbarOverflow rather than an import - this package
 	// is a dependency OF that app, so the dependency cannot point the other way.
 	// collapse order, first goes first. Only the search box and Fit Width are missing from this
@@ -221,9 +221,13 @@
 			<button onclick={() => actions.enterPresentationMode()} aria-label="Presentation Mode" title="Presentation Mode">
 				<Presentation size={16} />
 			</button>
-			<button onclick={() => actions.download()} aria-label="Download PDF" title="Download">
-				<Download size={16} />
-			</button>
+			{#if viewerState.canSavePdf}
+				<!-- "Save", not "Download": the PDF is already on this machine (or in memory for a
+					 guest), so this writes a copy wherever the user picks. -->
+				<button onclick={() => actions.savePdf()} aria-label="Save PDF" title="Save PDF">
+					<Save size={16} />
+				</button>
+			{/if}
 		</div>
 	{/snippet}
 

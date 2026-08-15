@@ -1,10 +1,8 @@
 import type { Schema } from 'prosemirror-model';
 import { generateLabel } from './label';
-import { trackFeatureUsed } from '$lib/plausible';
 
 /** builds a table node; numbered tables get a table_wrapper with caption and notes. */
 export function createTableNode(schema: Schema, rows: number, cols: number, isNumbered = true) {
-	trackFeatureUsed('table');
 	function createEmptyParagraph(schema: Schema) {
 		return schema.nodes.paragraph.createAndFill();
 	}
