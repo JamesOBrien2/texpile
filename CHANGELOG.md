@@ -5,6 +5,10 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+- fix: saving a PDF from the preview toolbar opens a proper save dialog instead of downloading the file
+- fix: the "mobile support is limited" notice no longer appears when the window is narrow
+- fix: the math keyboard button no longer appears on laptops with a touchscreen
+
 ## [0.17.0] - 2026-08-15
 
 - feat: Typst support: visual editor, tinymist live preview, and click-to-jump sync in both directions

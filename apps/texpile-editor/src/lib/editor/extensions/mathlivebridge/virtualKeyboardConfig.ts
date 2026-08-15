@@ -290,12 +290,16 @@ export function texpileKeyboardLayouts(): (VirtualKeyboardLayout | VirtualKeyboa
 	return [basicLayout(), calculusLayout(), algebraLayout(), trigLayout(), symbolsLayout(), 'alphabetic'];
 }
 
-function isTouchDevice(): boolean {
-	if (typeof window === 'undefined') return false;
-	return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-}
-
-/** installs texpile layouts, hides the keyboard toggle on non-touch devices. */
+/**
+ * Installs texpile layouts and hides mathlive's built-in keyboard toggle.
+ *
+ * Hidden unconditionally, not just on non-touch machines. The toggle used to be shown wherever
+ * `maxTouchPoints > 0`, which on a touchscreen Windows laptop is a desktop user - so the same
+ * build showed a different math field depending on the hardware it happened to run on. Texpile's
+ * own toolbar button for the keyboard was removed (see MathToolbar), so leaving mathlive's one
+ * visible on some machines exposed a control the app no longer offers. The layouts stay wired up:
+ * re-adding the toolbar item is all it takes to bring the keyboard back deliberately.
+ */
 export function configureMathVirtualKeyboard(): void {
 	if (typeof window !== 'undefined' && 'mathVirtualKeyboard' in window) {
 		const keyboard = window.mathVirtualKeyboard;
@@ -303,14 +307,12 @@ export function configureMathVirtualKeyboard(): void {
 		// mathlive wants plain strings, so the layouts can't be built any earlier than this
 		loadSettings().then(() => (keyboard.layouts = texpileKeyboardLayouts()));
 
-		if (!isTouchDevice()) {
-			const style = document.createElement('style');
-			style.textContent = `
-				math-field::part(virtual-keyboard-toggle) {
-					display: none !important;
-				}
-			`;
-			document.head.appendChild(style);
-		}
+		const style = document.createElement('style');
+		style.textContent = `
+			math-field::part(virtual-keyboard-toggle) {
+				display: none !important;
+			}
+		`;
+		document.head.appendChild(style);
 	}
 }
