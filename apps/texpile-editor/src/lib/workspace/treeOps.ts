@@ -11,7 +11,7 @@
 // A provider without trash support (a guest session) simply removes and records nothing, so undo is
 // never offered for something that cannot be reversed.
 import { get } from 'svelte/store';
-import { workspaceRoot, activeFilePath } from './workspaceStore';
+import { workspaceRoot, activeFilePath, mainFile } from './workspaceStore';
 import { tabs } from './tabs.svelte';
 import { docPositions } from './docPositions';
 import { joinPath, dirname, basename, samePath, type TreeEntry } from './fileSystem';
@@ -50,6 +50,9 @@ export interface TreeOpsDeps {
 	afterPathMoved?(oldPath: string, newPath: string): void;
 	retargetPendingSave(from: string, to: string): void;
 	discardPendingSave(): void;
+	/** the main file moved (new path) or was deleted (null): repoint the choice and persist it.
+	 * Absent on surfaces without a main-file concept (a guest's session tree). */
+	retargetMainFile?(next: string | null): void;
 }
 
 export class TreeOps {
@@ -287,6 +290,10 @@ export class TreeOps {
 			this.deps.discardPendingSave(); // don't let a queued autosave write the file back after we delete it
 			activeFilePath.set(null); // clears the editor buffers via the load effect
 		}
+		// deleting the main file clears the choice: a pointer at a deleted path fails every
+		// compile lane silently, while a cleared one brings the pick-a-main flow back
+		const main = get(mainFile);
+		if (main && (samePath(main, path) || main.startsWith(path + sep))) this.deps.retargetMainFile?.(null);
 		tabs.closeUnder(path);
 		docPositions.forget(path);
 	}
@@ -301,6 +308,12 @@ export class TreeOps {
 		const sep = from.includes('\\') ? '\\' : '/';
 		if (active === from) activeFilePath.set(to);
 		else if (active && active.startsWith(from + sep)) activeFilePath.set(to + active.slice(from.length));
+		// the main-file pointer follows too: compile, draft mode and the typst preview all target
+		// it, and a rename that left it on the dead path failed every lane with no way to recover
+		// short of re-picking. Covers the file itself and a main inside a renamed folder.
+		const main = get(mainFile);
+		if (main && samePath(main, from)) this.deps.retargetMainFile?.(to);
+		else if (main && main.startsWith(from + sep)) this.deps.retargetMainFile?.(to + main.slice(from.length));
 	}
 
 	/** delete one entry, backing it up first when that is possible. */

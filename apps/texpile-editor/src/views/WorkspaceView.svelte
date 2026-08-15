@@ -677,7 +677,10 @@
 			saver.retarget(from, to);
 			retargetDiskStamp(from, to); // the guard's stamp must follow the rename too
 		},
-		discardPendingSave: () => saver.discard()
+		discardPendingSave: () => saver.discard(),
+		// the full set-main flow (store + config.json + macros + visual re-derive), so a renamed
+		// main behaves exactly as if the user had starred the new path themselves
+		retargetMainFile: (next) => void applyMainFile(next)
 	});
 
 	// $state (not const) because descendants bind into these objects' fields: svelte needs an
