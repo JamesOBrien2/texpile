@@ -14,6 +14,7 @@
 		List,
 		ListOrdered,
 		ListChecks,
+		Link as LinkIcon,
 		Quote,
 		Table as TableIcon,
 		Minus,
@@ -26,7 +27,7 @@
 	import { mdSchema } from './schema';
 	import { mdTableNode } from './blockInsertItems';
 	import MdHeadingDropdown from './MdHeadingDropdown.svelte';
-	import { markIsActive } from '$lib/editor/comp/toolbar/markState';
+	import { markIsActive, toggleLinkCommand } from '$lib/editor/comp/toolbar/markState';
 	import { displaySearchBarStore, editorViewStore, rawEditorActiveStore } from '$lib/stores/editorStore';
 	import MathToolbar, { mathToolbarState } from '$lib/editor/comp/toolbar/MathToolbar.svelte';
 	import MathDropdown from '$lib/editor/comp/toolbar/MathDropdown.svelte';
@@ -74,7 +75,7 @@
 		e.preventDefault();
 	}
 
-	let active = $state<{ strong?: boolean; em?: boolean; s?: boolean; code?: boolean }>({});
+	let active = $state<{ strong?: boolean; em?: boolean; s?: boolean; code?: boolean; link?: boolean }>({});
 	let headingLevel = $state(0);
 	$effect(() => {
 		if (!$editorViewStore) return;
@@ -83,7 +84,8 @@
 			strong: markIsActive(st, mdSchema.marks.strong),
 			em: markIsActive(st, mdSchema.marks.em),
 			s: markIsActive(st, mdSchema.marks.s),
-			code: markIsActive(st, mdSchema.marks.code)
+			code: markIsActive(st, mdSchema.marks.code),
+			link: markIsActive(st, mdSchema.marks.link)
 		};
 		const node = st.selection.$from.node(st.selection.$from.depth);
 		headingLevel = node?.type?.name === 'heading' ? Number(node.attrs.level) : 0;
@@ -172,7 +174,10 @@
 					{@render iconButton(m.mdtoolbar_strike(), !!active.s, toggleMark(mdSchema.marks.s), Strikethrough)}
 				{/snippet}
 				{#snippet tb_codeMark()}
-					{@render iconButton(m.blockmenu_code_block(), !!active.code, toggleMark(mdSchema.marks.code), Code)}
+					{@render iconButton(m.menubar_format_inline_code(), !!active.code, toggleMark(mdSchema.marks.code), Code)}
+				{/snippet}
+				{#snippet tb_link()}
+					{@render iconButton(m.mdtoolbar_link(), !!active.link, toggleLinkCommand(mdSchema.marks.link), LinkIcon)}
 				{/snippet}
 				{#snippet tb_bullet()}
 					{@render iconButton(m.blockmenu_bullet_list(), false, bulletList, List)}
@@ -213,6 +218,7 @@
 						{ id: 'italic', pinned: true, render: tb_italic },
 						{ id: 'strike', pinned: true, render: tb_strike },
 						{ id: 'codeMark', render: tb_codeMark },
+						{ id: 'link', render: tb_link },
 						{ id: 'bullet', render: tb_bullet },
 						{ id: 'ordered', render: tb_ordered },
 						{ id: 'task', render: tb_task },

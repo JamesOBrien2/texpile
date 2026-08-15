@@ -343,7 +343,19 @@
 			case 'link': {
 				const href = await askText(m.menubar_prompt_link_url(), 'https://');
 				// the open editor's own link mark: tex, md and typ are three different Schema objects
-				if (href) run((state, dispatch) => toggleMark(state.schema.marks.link, { href, title: null })(state, dispatch));
+				if (href)
+					run((state, dispatch) => {
+						const mark = state.schema.marks.link;
+						if (!mark) return false;
+						// no selection: toggleMark would only arm a stored mark - the menu looked like
+						// it did nothing. Insert the URL itself as the linked text instead, the way
+						// every editor's insert-link behaves on a bare caret.
+						if (state.selection.empty) {
+							dispatch?.(state.tr.replaceSelectionWith(state.schema.text(href, [mark.create({ href })]), false).scrollIntoView());
+							return true;
+						}
+						return toggleMark(mark, { href, title: null })(state, dispatch);
+					});
 				break;
 			}
 			case 'citation': {

@@ -247,7 +247,7 @@
 			{:else if kind === 'typ'}
 				<TypstToolbar />
 			{:else}
-				<Toolbar minimal />
+				<Toolbar />
 			{/if}
 		</div>
 	{:else if loadedPath && structured && viewMode === 'source'}

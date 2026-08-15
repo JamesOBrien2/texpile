@@ -1,46 +1,48 @@
 <script lang="ts">
-	import { preventDefault } from 'svelte/legacy';
-
-	import { Search, Undo, Redo, Bold, Underline, Italic, Code, BoxSelect, Eye } from '@lucide/svelte';
-	import { selectParentNode } from 'prosemirror-commands';
+	// The tex editor's toolbar. The three visual toolbars (tex here, MarkdownToolbar,
+	// TypstToolbar) share one SHELL - search + undo/redo groups, the same ToolbarOverflow gaps
+	// and button metrics - and one canonical item ORDER: heading | bold italic underline/strike |
+	// sup/sub colors | inline code, link | lists | quote | math table code-block hr | select
+	// block. Each bar renders only what its schema can hold, but an item present in two bars
+	// must sit in the same place and behave the same way in both.
+	import {
+		Search,
+		Undo,
+		Redo,
+		Bold,
+		Underline,
+		Italic,
+		Code,
+		List,
+		ListOrdered,
+		Link as LinkIcon,
+		Quote,
+		Minus,
+		BoxSelect,
+		Eye
+	} from '@lucide/svelte';
+	import { selectParentNode, toggleMark, wrapIn } from 'prosemirror-commands';
+	import { undo, redo } from 'prosemirror-history';
+	import { createWrapInListCommand } from 'prosemirror-flat-list';
+	import type { EditorState, Transaction } from 'prosemirror-state';
 	import ToolbarTable from './ToolbarTable.svelte';
 	import TextColorDropdown from './TextColorDropdown.svelte';
 	import HighlightDropdown from './HighlightDropdown.svelte';
-	import { markIsActive, activeMarkColor } from './markState';
+	import { markIsActive, activeMarkColor, toggleLinkCommand } from './markState';
 	import { displaySearchBarStore, editorViewStore, rawEditorActiveStore } from '../../../stores/editorStore';
-	import { previewStore } from '$lib/stores/previewStore';
 	import { schema } from '$lib/schema/schema';
 	import { setHeadingLevel } from '../../helperCommands';
 	import HeadingDropdown from './HeadingDropdown.svelte';
 	import SupSubDropdown from './SupSubDropdown.svelte';
 	import { createCodeBlock } from '../../extensions/codemirrorbridge/cmcommands';
-	import { toggleMark } from 'prosemirror-commands';
 	import MathDropdown from './MathDropdown.svelte';
 	import MathToolbar, { mathToolbarState } from './MathToolbar.svelte';
-	import { undo, redo } from 'prosemirror-history';
-	import { currentlyCompilingStore } from '$lib/stores/pdfStore';
+	import ToolbarOverflow from './ToolbarOverflow.svelte';
 	import { isReadOnly } from '$lib/stores/permissionStore';
 	import { onMount } from 'svelte';
-	import MobileActionBar from './MobileActionBar.svelte';
-	import ToolbarOverflow from './ToolbarOverflow.svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
-		// hides the Preview/Compile buttons
-		minimal?: boolean;
-	}
-
-	let { minimal = false }: Props = $props();
-
-	let isCompiling = $derived($currentlyCompilingStore);
-	let isPreviewVisible = $derived($previewStore.isVisible);
-
 	let isMathfieldActive = $state(false);
-
-	type ActiveCommandsType = { strong?: boolean; em?: boolean; u?: boolean; sup?: boolean; sub?: boolean };
-	let activeCommands: ActiveCommandsType = $state({});
-	let currentHeadingLevel = $state(0);
-	let currentHeadingNumbered = $state(true);
 
 	// Whether a mathfield is focused - which decides whether MathToolbar exists at all.
 	//
@@ -74,16 +76,28 @@
 		};
 	});
 
-	function keepEditorFocus(cmd: (state, dispatch) => boolean) {
+	type Cmd = (state: EditorState, dispatch: (tr: Transaction) => void) => boolean;
+	function keepEditorFocus(cmd: Cmd) {
 		return (e: MouseEvent) => {
 			e.preventDefault();
+			if (!$editorViewStore) return;
 			cmd($editorViewStore.state, $editorViewStore.dispatch);
 			$editorViewStore.focus();
 		};
 	}
+	// preventDefault on mousedown anywhere in the toolbar so clicks never steal focus from
+	// PM/mathfield; otherwise Skeleton's Popover loses the focus race on close and the next
+	// keystroke goes nowhere. click handlers still fire.
+	function preventEditorFocusLoss(e: MouseEvent) {
+		e.preventDefault();
+	}
 
+	type ActiveCommandsType = { strong?: boolean; em?: boolean; u?: boolean; code?: boolean; link?: boolean; sup?: boolean; sub?: boolean };
+	let activeCommands: ActiveCommandsType = $state({});
 	let activeTextColor = $state<string | null>(null);
 	let activeHighlightColor = $state<string | null>(null);
+	let currentHeadingLevel = $state(0);
+	let currentHeadingNumbered = $state(true);
 
 	$effect(() => {
 		if ($editorViewStore) {
@@ -91,6 +105,8 @@
 				strong: markIsActive($editorViewStore.state, schema.marks.strong),
 				em: markIsActive($editorViewStore.state, schema.marks.em),
 				u: markIsActive($editorViewStore.state, schema.marks.u),
+				code: markIsActive($editorViewStore.state, schema.marks.code),
+				link: markIsActive($editorViewStore.state, schema.marks.link),
 				sup: markIsActive($editorViewStore.state, schema.marks.sup),
 				sub: markIsActive($editorViewStore.state, schema.marks.sub)
 			};
@@ -110,58 +126,22 @@
 		$editorViewStore.focus();
 	}
 
-	// read breakpoints from CSS variables so logic stays in sync with the Tailwind config
-	function getCssBreakpoint(name: string, fallback: number): number {
-		if (typeof window === 'undefined') return fallback;
-		const v = getComputedStyle(document.documentElement).getPropertyValue(name)?.trim();
-		const px = v?.endsWith('px') ? parseFloat(v) : Number(v);
-		return Number.isFinite(px) && px! > 0 ? (px as number) : fallback;
-	}
-	const mdBp = getCssBreakpoint('--breakpoint-md', 768);
-	// preview only at >= md; the mobile action bar handles smaller screens
-	function isPreviewAllowed() {
-		if (typeof window === 'undefined') return true;
-		return window.matchMedia(`(min-width: ${mdBp}px)`).matches;
-	}
+	const bulletList = createWrapInListCommand({ kind: 'bullet' });
+	const orderedList = createWrapInListCommand({ kind: 'ordered' });
 
-	function togglePreview() {
-		if (!isPreviewAllowed()) return; // keep behavior in sync with visibility
-		previewStore.update((state) => ({ ...state, isVisible: !state.isVisible }));
-		const element = document.querySelector('.wrapper');
-		if ($previewStore.isVisible) {
-			element?.classList.add('moble-box');
-			element?.classList.remove('box-show');
-		} else {
-			element?.classList.add('box-show');
-			element?.classList.remove('moble-box');
-		}
-	}
-
-	function showPreview() {
-		if (!isPreviewAllowed()) return; // no preview below sm breakpoint
-		previewStore.update((state) => ({ ...state, isVisible: true }));
-		const element = document.querySelector('.wrapper');
-		element?.classList.add('moble-box');
-		element?.classList.remove('box-show');
-	}
-
-	function handleCompile() {
-		if (isCompiling) return;
-
-		if (isPreviewAllowed()) showPreview();
-		currentlyCompilingStore.set(true);
-
-		// EditorView.svelte listens for this event
-		window.dispatchEvent(new CustomEvent('compile'));
-	}
-
-	// preventDefault on mousedown anywhere in the toolbar so clicks never steal focus from
-	// PM/mathfield; otherwise Skeleton's Popover loses the focus race on close and the next
-	// keystroke goes nowhere. click handlers still fire.
-	function preventEditorFocusLoss(e: MouseEvent) {
-		e.preventDefault();
-	}
+	const insertHr: Cmd = (state, dispatch) => {
+		dispatch(state.tr.replaceSelectionWith(schema.nodes.horizontal_rule.create()).scrollIntoView());
+		return true;
+	};
 </script>
+
+{#snippet iconButton(label: string, isActive: boolean, cmd: Cmd, IconComp: typeof Bold, iconClass = 'h-5 w-5')}
+	<div class={`toolbarButton ${isActive ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
+		<button onclick={keepEditorFocus(cmd)} class="flex items-center p-1" aria-label={label} title={label}>
+			<IconComp class={iconClass} />
+		</button>
+	</div>
+{/snippet}
 
 <div class="flex min-w-0 flex-1 items-center gap-3 sm:gap-4" data-keep-caret role="presentation" onmousedown={preventEditorFocusLoss}>
 	<div class="flex min-w-0 flex-1 items-center">
@@ -219,38 +199,20 @@
 						</div>
 					{/snippet}
 					{#snippet tb_bold()}
-						<div class={`toolbarButton ${activeCommands.strong ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
-							<button
-								onclick={keepEditorFocus((s, d) => toggleMark(schema.marks.strong)(s, d))}
-								class="flex items-center p-1"
-								aria-label={m.toolbar_bold_aria()}
-							>
-								<Bold class="h-5 w-5" />
-							</button>
-						</div>
-					{/snippet}
-					{#snippet tb_underline()}
-						<div class={`toolbarButton ${activeCommands.u ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
-							<button
-								onclick={keepEditorFocus((s, d) => toggleMark(schema.marks.u)(s, d))}
-								class="flex items-center p-1"
-								aria-label={m.toolbar_underline_aria()}
-							>
-								<!-- nudged down 1.5px, lucide's U glyph rides high of the other icons' center line -->
-								<Underline class="h-5 w-5 translate-y-[1.5px]" />
-							</button>
-						</div>
+						{@render iconButton(m.toolbar_bold_aria(), !!activeCommands.strong, toggleMark(schema.marks.strong), Bold)}
 					{/snippet}
 					{#snippet tb_italic()}
-						<div class={`toolbarButton ${activeCommands.em ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
-							<button
-								onclick={keepEditorFocus((s, d) => toggleMark(schema.marks.em)(s, d))}
-								class="flex items-center p-1"
-								aria-label={m.toolbar_italic_aria()}
-							>
-								<Italic class="h-5 w-5" />
-							</button>
-						</div>
+						{@render iconButton(m.toolbar_italic_aria(), !!activeCommands.em, toggleMark(schema.marks.em), Italic)}
+					{/snippet}
+					{#snippet tb_underline()}
+						<!-- nudged down 1.5px, lucide's U glyph rides high of the other icons' center line -->
+						{@render iconButton(
+							m.toolbar_underline_aria(),
+							!!activeCommands.u,
+							toggleMark(schema.marks.u),
+							Underline,
+							'h-5 w-5 translate-y-[1.5px]'
+						)}
 					{/snippet}
 					{#snippet tb_supsub()}
 						<div>
@@ -274,6 +236,21 @@
 							<HighlightDropdown {activeHighlightColor} />
 						</div>
 					{/snippet}
+					{#snippet tb_codeMark()}
+						{@render iconButton(m.menubar_format_inline_code(), !!activeCommands.code, toggleMark(schema.marks.code), Code)}
+					{/snippet}
+					{#snippet tb_link()}
+						{@render iconButton(m.mdtoolbar_link(), !!activeCommands.link, toggleLinkCommand(schema.marks.link), LinkIcon)}
+					{/snippet}
+					{#snippet tb_bullet()}
+						{@render iconButton(m.blockmenu_bullet_list(), false, bulletList, List)}
+					{/snippet}
+					{#snippet tb_ordered()}
+						{@render iconButton(m.blockmenu_numbered_list(), false, orderedList, ListOrdered)}
+					{/snippet}
+					{#snippet tb_quote()}
+						{@render iconButton(m.blockmenu_quote(), false, wrapIn(schema.nodes.blockquote), Quote)}
+					{/snippet}
 					{#snippet tb_math()}
 						<div>
 							<MathDropdown />
@@ -284,30 +261,14 @@
 							<ToolbarTable />
 						</div>
 					{/snippet}
-					{#snippet tb_code()}
-						<div class="toolbarButton hover:preset-tonal">
-							<button
-								class="flex items-center p-1"
-								onclick={() => {
-									createCodeBlock()($editorViewStore.state, $editorViewStore.dispatch);
-								}}
-								aria-label={m.toolbar_insert_code_block_aria()}
-							>
-								<Code class="h-5 w-5" />
-							</button>
-						</div>
+					{#snippet tb_codeBlock()}
+						{@render iconButton(m.toolbar_insert_code_block_aria(), false, createCodeBlock(), Code)}
+					{/snippet}
+					{#snippet tb_hr()}
+						{@render iconButton(m.mdtoolbar_hr(), false, insertHr, Minus)}
 					{/snippet}
 					{#snippet tb_selectblock()}
-						<div class="toolbarButton hover:preset-tonal">
-							<button
-								class="flex items-center p-1"
-								onclick={keepEditorFocus(selectParentNode)}
-								aria-label={m.toolbar_select_block_aria()}
-								title={m.toolbar_select_parent_block_title()}
-							>
-								<BoxSelect class="h-5 w-5" />
-							</button>
-						</div>
+						{@render iconButton(m.toolbar_select_block_aria(), false, selectParentNode, BoxSelect)}
 					{/snippet}
 
 					<ToolbarOverflow
@@ -316,14 +277,20 @@
 						items={[
 							{ id: 'heading', pinned: true, render: tb_heading },
 							{ id: 'bold', pinned: true, render: tb_bold },
-							{ id: 'underline', pinned: true, render: tb_underline },
 							{ id: 'italic', pinned: true, render: tb_italic },
+							{ id: 'underline', pinned: true, render: tb_underline },
 							{ id: 'supsub', render: tb_supsub },
 							{ id: 'textcolor', render: tb_textcolor },
 							{ id: 'highlight', render: tb_highlight },
+							{ id: 'codeMark', render: tb_codeMark },
+							{ id: 'link', render: tb_link },
+							{ id: 'bullet', render: tb_bullet },
+							{ id: 'ordered', render: tb_ordered },
+							{ id: 'quote', render: tb_quote },
 							{ id: 'math', render: tb_math },
 							{ id: 'table', render: tb_table },
-							{ id: 'code', render: tb_code },
+							{ id: 'codeBlock', render: tb_codeBlock },
+							{ id: 'hr', render: tb_hr },
 							{ id: 'selectblock', render: tb_selectblock }
 						]}
 					/>
@@ -331,71 +298,12 @@
 			{/if}
 		</div>
 	</div>
-
-	{#if !minimal}
-		<div class="flex-1"></div>
-
-		<ul class="mt-4 flex items-center gap-4 sm:mt-0">
-			<li class="hidden md:block">
-				<button
-					class="text-blue border-blue hover:bg-blue font-Work-Sans flex h-9 w-full items-center justify-center rounded border text-sm font-semibold transition-all duration-500 ease-in-out hover:text-white sm:w-[83px]"
-					onclick={preventDefault(togglePreview)}
-				>
-					{isPreviewVisible ? m.toolbar_hide() : m.toolbar_preview()}
-				</button>
-			</li>
-			<li class="hidden md:block">
-				<button
-					data-tour="compile-button"
-					data-compiling={isCompiling}
-					onclick={preventDefault(handleCompile)}
-					disabled={isCompiling}
-					class="border-blue bg-blue hover:text-blue font-Work-Sans flex h-9 w-full items-center justify-center rounded border text-sm font-semibold text-white transition-all duration-500 ease-in-out hover:bg-transparent disabled:cursor-not-allowed disabled:opacity-50 sm:w-[125px]"
-				>
-					{#if isCompiling}
-						<span class="loader"></span>
-						{m.toolbar_compiling()}
-					{:else}
-						{m.toolbar_compile()}
-					{/if}
-				</button>
-			</li>
-		</ul>
-	{/if}
 </div>
-
-{#if !minimal}
-	<MobileActionBar />
-{/if}
 
 <style lang="postcss">
 	@reference "../../../../app.css";
 
 	.toolbarButton {
 		@apply rounded-base transition-all ease-in-out;
-	}
-
-	.loader {
-		border: 2px solid #f3f3f3;
-		border-top: 2px solid #3498db;
-		border-radius: 50%;
-		width: 14px;
-		height: 14px;
-		animation: spin 1s linear infinite;
-		margin-right: 8px;
-	}
-
-	@keyframes spin {
-		0% {
-			transform: rotate(0deg);
-		}
-		100% {
-			transform: rotate(360deg);
-		}
-	}
-
-	button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
 	}
 </style>

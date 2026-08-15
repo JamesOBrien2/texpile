@@ -15,10 +15,11 @@
 		List,
 		ListOrdered,
 		Link as LinkIcon,
-		SquareRadical,
+		Quote,
+		Minus,
 		BoxSelect
 	} from '@lucide/svelte';
-	import { selectParentNode, toggleMark } from 'prosemirror-commands';
+	import { selectParentNode, toggleMark, wrapIn } from 'prosemirror-commands';
 	import { undo, redo } from 'prosemirror-history';
 	import { createWrapInListCommand } from 'prosemirror-flat-list';
 	import type { EditorState, Transaction } from 'prosemirror-state';
@@ -28,12 +29,12 @@
 	import SupSubDropdown from '$lib/editor/comp/toolbar/SupSubDropdown.svelte';
 	import TextColorDropdown from '$lib/editor/comp/toolbar/TextColorDropdown.svelte';
 	import HighlightDropdown from '$lib/editor/comp/toolbar/HighlightDropdown.svelte';
-	import { markIsActive, activeMarkColor } from '$lib/editor/comp/toolbar/markState';
+	import { markIsActive, activeMarkColor, toggleLinkCommand } from '$lib/editor/comp/toolbar/markState';
 	import { displaySearchBarStore, editorViewStore, rawEditorActiveStore } from '$lib/stores/editorStore';
 	import MathToolbar, { mathToolbarState } from '$lib/editor/comp/toolbar/MathToolbar.svelte';
+	import MathDropdown from '$lib/editor/comp/toolbar/MathDropdown.svelte';
 	import ToolbarOverflow from '$lib/editor/comp/toolbar/ToolbarOverflow.svelte';
 	import { setHeadingLevel } from '$lib/editor/helperCommands';
-	import { createMathField } from '$lib/editor/extensions/mathlivebridge/mlcommands';
 	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -107,9 +108,10 @@
 	const bulletList = createWrapInListCommand({ kind: 'bullet' });
 	const orderedList = createWrapInListCommand({ kind: 'ordered' });
 
-	// toggling ON applies a placeholder href; the link plugin's tooltip is where it gets edited
-	const toggleLink: Cmd = (state, dispatch) =>
-		toggleMark(typSchema.marks.link, { href: 'https://', title: null, bare: false })(state, dispatch);
+	const insertHr: Cmd = (state, dispatch) => {
+		dispatch(state.tr.replaceSelectionWith(typSchema.nodes.horizontal_rule.create()).scrollIntoView());
+		return true;
+	};
 </script>
 
 {#snippet iconButton(label: string, isActive: boolean, cmd: Cmd, IconComp: typeof Bold)}
@@ -197,13 +199,10 @@
 					</div>
 				{/snippet}
 				{#snippet tb_codeMark()}
-					{@render iconButton(m.blockmenu_code_block(), !!active.code, toggleMark(typSchema.marks.code), Code)}
+					{@render iconButton(m.menubar_format_inline_code(), !!active.code, toggleMark(typSchema.marks.code), Code)}
 				{/snippet}
 				{#snippet tb_link()}
-					{@render iconButton(m.mdtoolbar_link(), !!active.link, toggleLink, LinkIcon)}
-				{/snippet}
-				{#snippet tb_math()}
-					{@render iconButton(m.srctoolbar_inline_math_aria(), false, createMathField(), SquareRadical)}
+					{@render iconButton(m.mdtoolbar_link(), !!active.link, toggleLinkCommand(typSchema.marks.link), LinkIcon)}
 				{/snippet}
 				{#snippet tb_bullet()}
 					{@render iconButton(m.blockmenu_bullet_list(), false, bulletList, List)}
@@ -211,11 +210,22 @@
 				{#snippet tb_ordered()}
 					{@render iconButton(m.blockmenu_numbered_list(), false, orderedList, ListOrdered)}
 				{/snippet}
+				{#snippet tb_quote()}
+					{@render iconButton(m.blockmenu_quote(), false, wrapIn(typSchema.nodes.blockquote), Quote)}
+				{/snippet}
+				{#snippet tb_math()}
+					<div>
+						<MathDropdown />
+					</div>
+				{/snippet}
 				{#snippet tb_table()}
 					<TypstToolbarTable />
 				{/snippet}
 				{#snippet tb_codeBlock()}
 					{@render iconButton(m.blockmenu_code_block(), false, createCodeBlock(), Code)}
+				{/snippet}
+				{#snippet tb_hr()}
+					{@render iconButton(m.mdtoolbar_hr(), false, insertHr, Minus)}
 				{/snippet}
 				{#snippet tb_selectblock()}
 					{@render iconButton(m.toolbar_select_block_aria(), false, selectParentNode, BoxSelect)}
@@ -236,9 +246,11 @@
 						{ id: 'link', render: tb_link },
 						{ id: 'bullet', render: tb_bullet },
 						{ id: 'ordered', render: tb_ordered },
+						{ id: 'quote', render: tb_quote },
 						{ id: 'math', render: tb_math },
 						{ id: 'table', render: tb_table },
 						{ id: 'codeBlock', render: tb_codeBlock },
+						{ id: 'hr', render: tb_hr },
 						{ id: 'selectblock', render: tb_selectblock }
 					]}
 				/>

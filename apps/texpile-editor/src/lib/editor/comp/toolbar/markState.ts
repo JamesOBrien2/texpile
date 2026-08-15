@@ -1,4 +1,5 @@
-import type { EditorState } from 'prosemirror-state';
+import { toggleMark } from 'prosemirror-commands';
+import type { Command, EditorState } from 'prosemirror-state';
 import type { MarkType } from 'prosemirror-model';
 
 export function markIsActive(state: EditorState, type: MarkType): boolean {
@@ -21,4 +22,22 @@ export function activeMarkColor(state: EditorState, type: MarkType): string | nu
 		if (mark) color = mark.attrs.color;
 	});
 	return color;
+}
+
+/**
+ * The toolbars' link toggle, shared by all three dialects (each passes its own schema's mark).
+ *
+ * On a bare caret outside a link, toggleMark would only arm a stored mark - the button looked
+ * like it did nothing - so insert the placeholder itself as linked text instead; the link
+ * tooltip is where the href gets edited either way. A selection toggles the mark on it.
+ */
+export function toggleLinkCommand(type: MarkType): Command {
+	return (state, dispatch) => {
+		if (state.selection.empty && !markIsActive(state, type)) {
+			const text = state.schema.text('https://', [type.create({ href: 'https://' })]);
+			dispatch?.(state.tr.replaceSelectionWith(text, false).scrollIntoView());
+			return true;
+		}
+		return toggleMark(type, { href: 'https://', title: null })(state, dispatch);
+	};
 }
