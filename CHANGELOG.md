@@ -5,14 +5,16 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
-## [0.17.0] - 2026-08-10
+## [0.17.0] - 2026-08-15
 
-- feat: added Typst support
-- feat: added visual Markdown support
-- feat: added comment support
-- feat: Zotero integration
-- feat: Allow preview to be popped up
-- feat: general UI enhancement
+- feat: Typst support: visual editor, tinymist live preview, and click-to-jump sync in both directions
+- feat: visual Markdown editing
+- feat: review comments on LaTeX, Markdown and Typst documents, also in shared sessions
+- feat: Zotero citation integration: insert citations from the right-click menu or command palette, with a toggle in the new Integrations preferences tab
+- feat: undo/redo for file tree operations
+- feat: project build settings now live in .texpile/config.json inside the workspace and migrate automatically from 0.16.1
+- feat: many UI enhancements
+- fix: many collaboration, editor, and preview stability fixes
 
 ## [0.16.1] - 2026-08-02
 
