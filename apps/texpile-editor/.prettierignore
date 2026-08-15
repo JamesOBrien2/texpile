@@ -13,6 +13,10 @@ src/lib/paraglide/
 tests/fixtures/lang/*.jsonl
 tests/fixtures/lang/*.pages.json
 
+# comment-anchor fuzz corpora: realistic documents kept byte-exact as authored, so the fuzz
+# exercises the markup people actually write rather than prettier's normalization of it
+tests/fixtures/comments/
+
 # inlang regenerates everything here except settings.json (see project.inlang/.gitignore), in its
 # own formatting, so prettier must not police it
 project.inlang/*
