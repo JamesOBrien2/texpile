@@ -112,6 +112,12 @@ html[data-mode='dark'] .ProseMirror {
 .ProseMirror .pm-selected-node {
 	background-color: var(--editor-selection);
 }
+/* an <hr> is a border line over a zero-height content box, so the background above paints
+   nothing visible: a crossed divider wears its selection as a band around the line instead
+   (box-shadow, so no layout shift) */
+.ProseMirror hr.pm-selected-node {
+	box-shadow: 0 0 0 0.3em var(--editor-selection);
+}
 [data-mode='dark'] .cm-panels {
 	background-color: var(--color-surface-900);
 	color: var(--color-surface-100);
@@ -389,6 +395,11 @@ html[data-mode='dark'] .cm-comment-add:hover {
 }
 .TexpileEditor .pm-comment-focused {
 	background-color: rgba(234, 179, 8, 0.3);
+}
+/* the selection being commented on, held visible while the composer owns the focus (an
+   unfocused ProseMirror hides the native selection); selection-blue, not thread-yellow */
+.TexpileEditor .pm-comment-pending {
+	background-color: rgba(59, 130, 246, 0.22);
 }
 
 /* Hold a scroll container's scrollbar 3px in from its right edge, for panes that sit against a

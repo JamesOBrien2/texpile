@@ -191,6 +191,7 @@
 			commentThreads={panes.comments.filter((t) => t.file === panes.commentFile)}
 			selectedComment={panes.commentSelected}
 			onAddComment={actions.beginComment}
+			commentPendingActive={!!panes.commentPending}
 			onInsertCitation={panes.zoteroCite ? actions.insertZoteroCitation : undefined}
 			onAddCommentAnchored={actions.beginCommentAnchored}
 			onCommentsPlaced={actions.visualCommentsPlaced}

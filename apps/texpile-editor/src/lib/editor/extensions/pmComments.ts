@@ -161,10 +161,15 @@ export function resolvePmComments(
 interface PmCommentsState {
 	ranges: PmCommentRange[];
 	focused: string | null;
+	/** the selection a composer is being written for: held visible while the editor is blurred */
+	pending: { from: number; to: number } | null;
 	deco: DecorationSet;
 }
 
-type PmCommentsMeta = { type: 'set'; ranges: PmCommentRange[] } | { type: 'focus'; id: string | null };
+type PmCommentsMeta =
+	| { type: 'set'; ranges: PmCommentRange[] }
+	| { type: 'focus'; id: string | null }
+	| { type: 'pending'; range: { from: number; to: number } | null };
 
 export const pmCommentsKey = new PluginKey<PmCommentsState>('texpile-comments');
 
@@ -176,6 +181,16 @@ export function setPmComments(view: EditorView, ranges: PmCommentRange[]): void 
 /** which thread the reader is looking at, so its highlight can be picked out from the rest */
 export function focusPmComment(view: EditorView, id: string | null): void {
 	view.dispatch(view.state.tr.setMeta(pmCommentsKey, { type: 'focus', id } satisfies PmCommentsMeta));
+}
+
+/**
+ * Tint (or stop tinting) the selection a comment is being composed for. The browser hides the
+ * native selection the moment the composer takes focus, which read as "my selection vanished";
+ * the decoration keeps the commented text visible until the composer commits or cancels.
+ */
+export function setPmCommentPending(view: EditorView, range: { from: number; to: number } | null): void {
+	if ((pmCommentsKey.getState(view.state)?.pending ?? null) === range) return;
+	view.dispatch(view.state.tr.setMeta(pmCommentsKey, { type: 'pending', range } satisfies PmCommentsMeta).setMeta('addToHistory', false));
 }
 
 /**
@@ -219,19 +234,18 @@ export function pmCommentAt(state: EditorState, pos: number): PmCommentRange | n
 	return best;
 }
 
-function build(doc: PMNode, ranges: PmCommentRange[], focused: string | null): DecorationSet {
-	return DecorationSet.create(
-		doc,
-		ranges
-			// resolved threads draw nothing, same as the source editor: the argument is over
-			.filter((r) => !r.resolved)
-			.map((r) =>
-				Decoration.inline(r.from, r.to, {
-					class: `pm-comment${r.id === focused ? ' pm-comment-focused' : ''}`,
-					'data-comment': r.id
-				})
-			)
-	);
+function build(doc: PMNode, ranges: PmCommentRange[], focused: string | null, pending: { from: number; to: number } | null): DecorationSet {
+	const decos = ranges
+		// resolved threads draw nothing, same as the source editor: the argument is over
+		.filter((r) => !r.resolved)
+		.map((r) =>
+			Decoration.inline(r.from, r.to, {
+				class: `pm-comment${r.id === focused ? ' pm-comment-focused' : ''}`,
+				'data-comment': r.id
+			})
+		);
+	if (pending && pending.to > pending.from) decos.push(Decoration.inline(pending.from, pending.to, { class: 'pm-comment-pending' }));
+	return DecorationSet.create(doc, decos);
 }
 
 /**
@@ -265,11 +279,13 @@ export function pmComments({ onSelect, onAdd, addLabel = 'Comment' }: PmComments
 	const state = new Plugin<PmCommentsState>({
 		key: pmCommentsKey,
 		state: {
-			init: () => ({ ranges: [], focused: null, deco: DecorationSet.empty }),
+			init: () => ({ ranges: [], focused: null, pending: null, deco: DecorationSet.empty }),
 			apply(tr, value) {
 				const meta = tr.getMeta(pmCommentsKey) as PmCommentsMeta | undefined;
-				if (meta?.type === 'set') return { ...value, ranges: meta.ranges, deco: build(tr.doc, meta.ranges, value.focused) };
-				if (meta?.type === 'focus') return { ...value, focused: meta.id, deco: build(tr.doc, value.ranges, meta.id) };
+				if (meta?.type === 'set') return { ...value, ranges: meta.ranges, deco: build(tr.doc, meta.ranges, value.focused, value.pending) };
+				if (meta?.type === 'focus') return { ...value, focused: meta.id, deco: build(tr.doc, value.ranges, meta.id, value.pending) };
+				if (meta?.type === 'pending')
+					return { ...value, pending: meta.range, deco: build(tr.doc, value.ranges, value.focused, meta.range) };
 				if (!tr.docChanged) return value;
 				// A comment covers the text it was made about, and nothing typed after the fact at
 				// its edges: bias 1 on `from` and -1 on `to` both point AWAY from the range, so
@@ -283,7 +299,14 @@ export function pmComments({ onSelect, onAdd, addLabel = 'Comment' }: PmComments
 					const to = tr.mapping.map(r.to, -1);
 					if (to > from) mapped.push({ ...r, from, to });
 				}
-				return { ...value, ranges: mapped, deco: build(tr.doc, mapped, value.focused) };
+				// the pending tint follows edits the same way, and collapses away if its text goes
+				let pending = value.pending;
+				if (pending) {
+					const from = tr.mapping.map(pending.from, 1);
+					const to = tr.mapping.map(pending.to, -1);
+					pending = to > from ? { from, to } : null;
+				}
+				return { ...value, ranges: mapped, pending, deco: build(tr.doc, mapped, value.focused, pending) };
 			}
 		},
 		props: {
@@ -370,7 +393,12 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 			};
 			button(label, COMMENT_ICON, '26px', () => {
 				const sel = view.state.selection;
-				if (sel instanceof TextSelection && !sel.empty) onAdd(buildPmAnchor(view.state.doc, sel.from, sel.to));
+				if (!(sel instanceof TextSelection) || sel.empty) return;
+				const anchor = buildPmAnchor(view.state.doc, sel.from, sel.to);
+				onAdd(anchor);
+				// the composer is about to take focus and the browser will hide the native
+				// selection with it; pin the commented text under a decoration until it closes
+				if (anchor) setPmCommentPending(view, { from: sel.from, to: sel.to });
 			});
 			button(m.comments_pill_off(), X_ICON, '20px', () => {
 				updateSettings({ commentPill: false });

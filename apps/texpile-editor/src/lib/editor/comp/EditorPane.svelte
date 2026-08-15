@@ -105,6 +105,8 @@
 		onAddCommentAnchored?: (anchor: import('$lib/comments/anchor').CommentAnchor | null) => void;
 		/** threads the visual editor could not draw, so the panel can label them "not in this view" */
 		onCommentsPlaced?: (lost: string[]) => void;
+		/** a comment composer is open; keeps the commented selection tinted in the visual editor */
+		commentPendingActive?: boolean;
 		onSelectComment?: (id: string, from: 'text' | 'gutter' | 'visual') => void;
 
 		onToggleDiffLayout: () => void;
@@ -162,6 +164,7 @@
 		onInsertCitation,
 		onAddCommentAnchored,
 		onCommentsPlaced,
+		commentPendingActive = false,
 		onSelectComment,
 		onToggleDiffLayout,
 		onRefreshDiff,
@@ -382,6 +385,7 @@
 									{onSelectComment}
 									onAddComment={onAddCommentAnchored}
 									{onCommentsPlaced}
+									{commentPendingActive}
 									addCommentLabel={m.comments_add()}
 								/>
 							{:else if kind === 'typ'}
@@ -402,6 +406,7 @@
 									onAddComment={onAddCommentAnchored}
 									{onInsertCitation}
 									{onCommentsPlaced}
+									{commentPendingActive}
 									addCommentLabel={m.comments_add()}
 								/>
 							{:else}
@@ -420,6 +425,7 @@
 									onAddComment={onAddCommentAnchored}
 									{onInsertCitation}
 									{onCommentsPlaced}
+									{commentPendingActive}
 									addCommentLabel={m.comments_add()}
 								/>
 							{/if}

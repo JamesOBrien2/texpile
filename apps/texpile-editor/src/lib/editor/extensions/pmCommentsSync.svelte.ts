@@ -7,7 +7,7 @@
 import type { EditorView } from 'prosemirror-view';
 import type { CommentThread } from '$lib/comments/log';
 import type { AnchorDialect } from '$lib/comments/anchor';
-import { setPmComments, focusPmComment, resolvePmComments, revealPmComment } from './pmComments';
+import { setPmComments, focusPmComment, resolvePmComments, revealPmComment, setPmCommentPending } from './pmComments';
 
 export interface PmCommentsSyncArgs {
 	/** the mounted view, or null until it exists */
@@ -24,6 +24,12 @@ export interface PmCommentsSyncArgs {
 	selected: () => string | null;
 	/** the threads that could not be drawn in this view, for the panel's "not in this view" */
 	onPlaced?: (lost: string[]) => void;
+	/**
+	 * A comment composer is open. The editor SETS its pending tint at the gesture (the pill or
+	 * context menu know the exact selection); this only clears it when the composer closes -
+	 * committed, cancelled, or abandoned by a file switch.
+	 */
+	pendingActive?: () => boolean;
 }
 
 export function syncPmComments(args: PmCommentsSyncArgs): void {
@@ -46,6 +52,13 @@ export function syncPmComments(args: PmCommentsSyncArgs): void {
 		const placed = resolvePmComments(v.state.doc, threads, args.dialect);
 		setPmComments(v, placed.ranges);
 		args.onPlaced?.(placed.lost);
+	});
+
+	$effect(() => {
+		const v = args.view();
+		const active = args.pendingActive?.() ?? false;
+		if (!v || active) return;
+		setPmCommentPending(v, null);
 	});
 
 	// Declared AFTER the placement effect on purpose: effects run in declaration order, so the ranges

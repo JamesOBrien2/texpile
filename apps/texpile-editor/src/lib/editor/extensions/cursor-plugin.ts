@@ -7,12 +7,15 @@ import { cursorInCm } from '$lib/stores/editorStore';
 
 const CM_NODE_TYPES = new Set(['raw_latex', 'code_block', 'block_math']);
 
-// inline forms and the include chip get the range highlight but don't participate in store sync
-// (includedoc is a contenteditable=false atom, so the browser skips it exactly like the CM leaves)
-const HIGHLIGHT_NODE_TYPES = new Set([...CM_NODE_TYPES, 'inline_math', 'inline_latex', 'includedoc']);
+// inline forms and the widget blocks get the range highlight but don't participate in store
+// sync. Membership = "the browser paints no native selection over it": includedoc and the
+// figure container are contenteditable=false, an <hr> has no text to paint. Chips (citation,
+// ref, typ_ref) are plain inline spans the browser paints on its own, so they stay out.
+const HIGHLIGHT_NODE_TYPES = new Set([...CM_NODE_TYPES, 'inline_math', 'inline_latex', 'includedoc', 'horizontal_rule', 'image']);
 
-/** a range selection fully inside one of these is editing, not crossing. */
-const EDITABLE_CM_TYPES = new Set(['code_block', 'raw_latex', 'inline_latex']);
+/** a range selection fully inside one of these is editing its content, not crossing it
+ *  (the CM islands, and a figure whose caption is being selected through the contentDOM hole) */
+const EDITABLE_CM_TYPES = new Set(['code_block', 'raw_latex', 'inline_latex', 'image']);
 
 function isCursorInCm(state: EditorState): boolean {
 	const $from = state.selection.$from;

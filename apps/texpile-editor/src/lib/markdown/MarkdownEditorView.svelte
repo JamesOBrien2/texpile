@@ -81,6 +81,8 @@
 		onAddComment?: (anchor: CommentAnchor | null) => void;
 		onCommentsPlaced?: (lost: string[]) => void;
 		addCommentLabel?: string;
+		/** a composer is open for a selection here; false clears the pending selection tint */
+		commentPendingActive?: boolean;
 	}
 
 	let {
@@ -98,7 +100,8 @@
 		onSelectComment,
 		onAddComment,
 		onCommentsPlaced,
-		addCommentLabel = 'Comment'
+		addCommentLabel = 'Comment',
+		commentPendingActive = false
 	}: Props = $props();
 
 	$effect(() => {
@@ -280,7 +283,8 @@
 		dialect: 'md',
 		epoch: () => docEpoch,
 		selected: () => selectedComment,
-		onPlaced: (lost) => onCommentsPlaced?.(lost)
+		onPlaced: (lost) => onCommentsPlaced?.(lost),
+		pendingActive: () => commentPendingActive
 	});
 
 	$effect(() => {

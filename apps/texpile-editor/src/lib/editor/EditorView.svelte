@@ -102,6 +102,8 @@
 		/** after each placement pass: the threads that could not be drawn in this view (every tier
 		 * failed), so the panel can say "not in this view" instead of implying they are gone */
 		onCommentsPlaced?: (lost: string[]) => void;
+		/** a composer is open for a selection here; false clears the pending selection tint */
+		commentPendingActive?: boolean;
 		/** pill label, translated by the caller */
 		addCommentLabel?: string;
 	}
@@ -121,7 +123,8 @@
 		onAddComment,
 		onInsertCitation,
 		onCommentsPlaced,
-		addCommentLabel = 'Comment'
+		addCommentLabel = 'Comment',
+		commentPendingActive = false
 	}: Props = $props();
 
 	$effect(() => {
@@ -358,7 +361,8 @@
 		dialect: 'tex',
 		epoch: () => docEpoch,
 		selected: () => selectedComment,
-		onPlaced: (lost) => onCommentsPlaced?.(lost)
+		onPlaced: (lost) => onCommentsPlaced?.(lost),
+		pendingActive: () => commentPendingActive
 	});
 
 	$effect(() => {

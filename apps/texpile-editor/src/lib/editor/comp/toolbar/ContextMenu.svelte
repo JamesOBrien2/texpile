@@ -22,7 +22,7 @@
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { BookMarked, Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal, MessageSquarePlus } from '@lucide/svelte';
 	import { TextSelection } from 'prosemirror-state';
-	import { buildPmAnchor } from '$lib/editor/extensions/pmComments';
+	import { buildPmAnchor, setPmCommentPending } from '$lib/editor/extensions/pmComments';
 	import type { CommentAnchor } from '$lib/comments/anchor';
 	import Kbd from '$lib/components/Kbd.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -448,9 +448,13 @@
 							disabled={!hasTextSelection}
 							onclick={() =>
 								handleItemClick(() => {
-									const { state } = $editorViewStore;
-									const sel = state.selection;
-									if (sel instanceof TextSelection && !sel.empty) onAddComment(buildPmAnchor(state.doc, sel.from, sel.to));
+									const view = $editorViewStore;
+									const sel = view.state.selection;
+									if (!(sel instanceof TextSelection) || sel.empty) return;
+									const anchor = buildPmAnchor(view.state.doc, sel.from, sel.to);
+									onAddComment(anchor);
+									// keep the commented text visible once the composer takes focus
+									if (anchor) setPmCommentPending(view, { from: sel.from, to: sel.to });
 								})}
 							onmousedown={(e) => e.preventDefault()}
 						>
