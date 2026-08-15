@@ -98,6 +98,27 @@ export function computeFence(state: EditorState): TransactionSpec {
 	};
 }
 
+/** wrap each selection in an asymmetric pair (#underline[...], #super[...], #quote[...]);
+ * empty selections get the pair with the cursor inside. */
+export function computeWrap(state: EditorState, before: string, after: string): TransactionSpec {
+	const changes: Change[] = [];
+	let newSelectionPos: number | null = null;
+	for (const range of sortedRanges(state)) {
+		const selected = state.doc.sliceString(range.from, range.to);
+		changes.push({ from: range.from, to: range.to, insert: before + selected + after });
+		if (range.empty) newSelectionPos = range.from + before.length;
+	}
+	return { changes, ...(newSelectionPos != null ? { selection: EditorSelection.cursor(newSelectionPos) } : {}) };
+}
+
+/** `#line(length: 100%)` on its own line after the cursor's line. */
+export function computeHr(state: EditorState): TransactionSpec {
+	const line = state.doc.lineAt(state.selection.main.head);
+	const lead = line.length > 0 ? '\n\n' : '';
+	const insert = `${lead}#line(length: 100%)\n`;
+	return { changes: { from: line.to, to: line.to, insert } };
+}
+
 /** `#link("url")[selection]` with the url placeholder selected. */
 export function computeLink(state: EditorState): TransactionSpec {
 	const range = state.selection.main;

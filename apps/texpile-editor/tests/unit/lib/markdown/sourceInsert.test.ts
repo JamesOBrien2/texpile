@@ -3,9 +3,11 @@ import { EditorState, EditorSelection } from '@codemirror/state';
 import {
 	computeToggleDelim,
 	computeHeadingLine,
+	computeListLines,
 	computeQuoteLines,
 	computeFence,
 	computeLink,
+	computeImage,
 	computeMathBlock,
 	computeTableSkeleton,
 	computeHr
@@ -61,6 +63,39 @@ describe('computeHeadingLine', () => {
 	it('level 0 strips any heading', () => {
 		const s = state('#### deep', 3);
 		expect(apply(s, computeHeadingLine(s, 0))).toBe('deep');
+	});
+});
+
+describe('computeListLines', () => {
+	it('marks selected lines as a bullet list, second invoke strips', () => {
+		let s = state('one\ntwo', 0, 7);
+		s = s.update(computeListLines(s, 'bullet')).state;
+		expect(s.doc.toString()).toBe('- one\n- two');
+		s = s.update({ selection: EditorSelection.range(0, s.doc.length) }).state;
+		s = s.update(computeListLines(s, 'bullet')).state;
+		expect(s.doc.toString()).toBe('one\ntwo');
+	});
+	it('numbers ordered lines sequentially and skips blanks', () => {
+		const s = state('one\n\ntwo', 0, 8);
+		expect(apply(s, computeListLines(s, 'ordered'))).toBe('1. one\n\n2. two');
+	});
+	it('strips mixed existing numbering', () => {
+		const s = state('1. one\n2) two', 0, 13);
+		expect(apply(s, computeListLines(s, 'ordered'))).toBe('one\ntwo');
+	});
+});
+
+describe('computeImage', () => {
+	it('inserts a skeleton with the path selected', () => {
+		const s = state('', 0);
+		const spec = computeImage(s);
+		const next = s.update(spec).state;
+		expect(next.doc.toString()).toBe('![alt](image.png)');
+		expect(next.doc.sliceString(next.selection.main.from, next.selection.main.to)).toBe('image.png');
+	});
+	it('uses the selection as alt text', () => {
+		const s = state('figure one', 0, 10);
+		expect(apply(s, computeImage(s))).toBe('![figure one](image.png)');
 	});
 });
 

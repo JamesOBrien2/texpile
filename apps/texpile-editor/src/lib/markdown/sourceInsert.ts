@@ -87,6 +87,29 @@ export function computeQuoteLines(state: EditorState): TransactionSpec {
 	return { changes };
 }
 
+/** toggle a list marker on every selected line: '- ' bullets or '1. 2. …' numbering. Strips any
+ * existing marker of the same kind when every non-empty line already carries one. */
+export function computeListLines(state: EditorState, kind: 'bullet' | 'ordered'): TransactionSpec {
+	const range = state.selection.main;
+	const fromLine = state.doc.lineAt(range.from).number;
+	const toLine = state.doc.lineAt(range.to).number;
+	const lines = [];
+	for (let n = fromLine; n <= toLine; n++) lines.push(state.doc.line(n));
+	const re = kind === 'bullet' ? /^[-*+]\s/ : /^\d+[.)]\s/;
+	const allMarked = lines.every((l) => re.test(l.text) || l.text === '');
+	const changes: Change[] = [];
+	let counter = 1;
+	for (const line of lines) {
+		if (allMarked) {
+			const m = re.exec(line.text);
+			if (m) changes.push({ from: line.from, to: line.from + m[0].length, insert: '' });
+		} else if (line.text !== '') {
+			changes.push({ from: line.from, to: line.from, insert: kind === 'bullet' ? '- ' : `${counter++}. ` });
+		}
+	}
+	return { changes };
+}
+
 /** wrap the selection in a fenced code block; empty selection leaves the cursor on the info line. */
 export function computeFence(state: EditorState): TransactionSpec {
 	const range = state.selection.main;
@@ -110,6 +133,20 @@ export function computeLink(state: EditorState): TransactionSpec {
 	return {
 		changes: { from: range.from, to: range.to, insert },
 		selection: EditorSelection.range(urlStart, urlStart + 3)
+	};
+}
+
+/** `![alt](path)` with the path placeholder selected; a selection becomes the alt text. */
+export function computeImage(state: EditorState): TransactionSpec {
+	const range = state.selection.main;
+	const selected = state.doc.sliceString(range.from, range.to);
+	const alt = selected || 'alt';
+	const path = 'image.png';
+	const insert = `![${alt}](${path})`;
+	const pathStart = range.from + alt.length + 4; // past "![alt]("
+	return {
+		changes: { from: range.from, to: range.to, insert },
+		selection: EditorSelection.range(pathStart, pathStart + path.length)
 	};
 }
 

@@ -3,7 +3,25 @@
 	// (Mod-b/i/u/`/./,/Shift-b/Shift-`/Alt-1-2-3/m/Shift-m), for people who don't know the chords.
 	// unlike the Visual toolbar, buttons don't show an "active" state, which would need re-parsing
 	// the buffer around the cursor on every selection change, not worth it for a first pass.
-	import { Bold, Italic, Underline, Code, Superscript, Subscript, Quote, Sigma } from '@lucide/svelte';
+	//
+	// The three source toolbars (tex here, MarkdownSourceToolbar, TypstSourceToolbar) share one
+	// group layout: format (inline wraps) | headings | blocks (lists, quote, code, math) |
+	// inserts (link, table, image, hr). Each writes its own dialect's syntax.
+	import {
+		Bold,
+		Italic,
+		Underline,
+		Code,
+		Superscript,
+		Subscript,
+		List,
+		ListOrdered,
+		Quote,
+		Sigma,
+		Link as LinkIcon,
+		Image as ImageIcon,
+		Minus
+	} from '@lucide/svelte';
 	import type { EditorState, TransactionSpec } from '@codemirror/state';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { computeToggleWrap, computeWrapBlock } from '$lib/editor/extensions/intellisense/shortcuts';
@@ -114,6 +132,26 @@
 		<ul class="border-surface-300-700 flex items-center gap-1 border-r pr-1.5 sm:gap-1.5 sm:pr-2">
 			<li class="toolbarButton hover:preset-tonal">
 				<button
+					onclick={run((s) => computeWrapBlock(s, '\\begin{itemize}\n  \\item ', '\n\\end{itemize}'))}
+					class="flex items-center p-1"
+					aria-label={m.blockmenu_bullet_list()}
+					title={m.blockmenu_bullet_list()}
+				>
+					<List class="h-4.5 w-4.5" />
+				</button>
+			</li>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeWrapBlock(s, '\\begin{enumerate}\n  \\item ', '\n\\end{enumerate}'))}
+					class="flex items-center p-1"
+					aria-label={m.blockmenu_numbered_list()}
+					title={m.blockmenu_numbered_list()}
+				>
+					<ListOrdered class="h-4.5 w-4.5" />
+				</button>
+			</li>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
 					onclick={run((s) => computeWrapBlock(s, '\\begin{quote}\n', '\n\\end{quote}'))}
 					class="flex items-center p-1"
 					aria-label={m.srctoolbar_quote_block_aria()}
@@ -142,12 +180,42 @@
 					<Sigma class="h-4.5 w-4.5" />
 				</button>
 			</li>
+			<li><SourceMathDropdown /></li>
 		</ul>
 	{/snippet}
 	{#snippet st_inserts()}
 		<ul class="flex items-center gap-1 sm:gap-1.5">
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeWrapBlock(s, '\\href{https://}{', '}'))}
+					class="flex items-center p-1"
+					aria-label={m.mdtoolbar_link()}
+					title={m.mdtoolbar_link()}
+				>
+					<LinkIcon class="h-4.5 w-4.5" />
+				</button>
+			</li>
 			<li><SourceTableDropdown /></li>
-			<li><SourceMathDropdown /></li>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeWrapBlock(s, '\\includegraphics{', '}'))}
+					class="flex items-center p-1"
+					aria-label={m.menubar_insert_image()}
+					title={m.menubar_insert_image()}
+				>
+					<ImageIcon class="h-4.5 w-4.5" />
+				</button>
+			</li>
+			<li class="toolbarButton hover:preset-tonal">
+				<button
+					onclick={run((s) => computeWrapBlock(s, '\\rule{\\linewidth}{0.4pt}', ''))}
+					class="flex items-center p-1"
+					aria-label={m.mdtoolbar_hr()}
+					title={m.mdtoolbar_hr()}
+				>
+					<Minus class="h-4.5 w-4.5" />
+				</button>
+			</li>
 		</ul>
 	{/snippet}
 

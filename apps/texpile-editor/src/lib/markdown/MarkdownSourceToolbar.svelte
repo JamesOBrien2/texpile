@@ -3,16 +3,32 @@
 	// binds, for people who don't know them. The SHELL mirrors the LaTeX SourceToolbar (groups,
 	// borders, icon metrics); the actions write markdown, not LaTeX. No active-state highlighting,
 	// same trade-off as the tex source bar.
-	import { Bold, Italic, Strikethrough, Code, Quote, Link as LinkIcon, SquareRadical, Table as TableIcon, Minus } from '@lucide/svelte';
+	import {
+		Bold,
+		Italic,
+		Strikethrough,
+		Code,
+		List,
+		ListOrdered,
+		Quote,
+		Link as LinkIcon,
+		SquareRadical,
+		Sigma,
+		Table as TableIcon,
+		Image as ImageIcon,
+		Minus
+	} from '@lucide/svelte';
 	import type { EditorState, TransactionSpec } from '@codemirror/state';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import ToolbarOverflow from '$lib/editor/comp/toolbar/ToolbarOverflow.svelte';
 	import {
 		computeToggleDelim,
 		computeHeadingLine,
+		computeListLines,
 		computeQuoteLines,
 		computeFence,
 		computeLink,
+		computeImage,
 		computeMathBlock,
 		computeTableSkeleton,
 		computeHr
@@ -81,8 +97,23 @@
 	{/snippet}
 	{#snippet st_blocks()}
 		<ul class="border-surface-300-700 flex items-center gap-1 border-r pr-1.5 sm:gap-1.5 sm:pr-2">
+			{@render iconButton(
+				m.blockmenu_bullet_list(),
+				run((s) => computeListLines(s, 'bullet')),
+				List
+			)}
+			{@render iconButton(
+				m.blockmenu_numbered_list(),
+				run((s) => computeListLines(s, 'ordered')),
+				ListOrdered
+			)}
 			{@render iconButton(m.blockmenu_quote(), run(computeQuoteLines), Quote)}
 			{@render iconButton(m.blockmenu_code_block(), run(computeFence), Code)}
+			{@render iconButton(
+				m.srctoolbar_inline_math_aria(),
+				run((s) => computeToggleDelim(s, '$')),
+				Sigma
+			)}
 			{@render iconButton(m.blockmenu_math_block(), run(computeMathBlock), SquareRadical)}
 		</ul>
 	{/snippet}
@@ -90,6 +121,7 @@
 		<ul class="flex items-center gap-1 sm:gap-1.5">
 			{@render iconButton(m.mdtoolbar_link(), run(computeLink), LinkIcon)}
 			{@render iconButton(m.blockmenu_table(), run(computeTableSkeleton), TableIcon)}
+			{@render iconButton(m.menubar_insert_image(), run(computeImage), ImageIcon)}
 			{@render iconButton(m.mdtoolbar_hr(), run(computeHr), Minus)}
 		</ul>
 	{/snippet}

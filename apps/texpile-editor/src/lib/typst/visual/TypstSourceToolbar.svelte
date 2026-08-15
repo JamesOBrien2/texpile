@@ -2,19 +2,36 @@
 	// Typst source-mode toolbar: the typst sibling of MarkdownSourceToolbar. The SHELL mirrors the
 	// LaTeX SourceToolbar (groups, borders, icon metrics); every action writes Typst markup into
 	// the CodeMirror view. No active-state highlighting, same trade-off as the other source bars.
-	import { Bold, Italic, Code, List, ListOrdered, Link as LinkIcon, SquareRadical, Image as ImageIcon } from '@lucide/svelte';
+	import {
+		Bold,
+		Italic,
+		Underline,
+		Code,
+		Superscript,
+		Subscript,
+		List,
+		ListOrdered,
+		Quote,
+		Link as LinkIcon,
+		SquareRadical,
+		Sigma,
+		Image as ImageIcon,
+		Minus
+	} from '@lucide/svelte';
 	import type { EditorState, TransactionSpec } from '@codemirror/state';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import ToolbarOverflow from '$lib/editor/comp/toolbar/ToolbarOverflow.svelte';
 	import TypstSourceTableDropdown from './TypstSourceTableDropdown.svelte';
 	import {
 		computeToggleDelim,
+		computeWrap,
 		computeHeadingLine,
 		computeListLines,
 		computeFence,
 		computeLink,
 		computeMathBlock,
-		computeFigureSkeleton
+		computeFigureSkeleton,
+		computeHr
 	} from './sourceInsert';
 	import { m } from '$lib/paraglide/messages';
 
@@ -51,14 +68,24 @@
 				Italic
 			)}
 			{@render iconButton(
+				m.srctoolbar_underline_aria(),
+				run((s) => computeWrap(s, '#underline[', ']')),
+				Underline
+			)}
+			{@render iconButton(
 				m.srctoolbar_monospace_aria(),
 				run((s) => computeToggleDelim(s, '`')),
 				Code
 			)}
 			{@render iconButton(
-				m.srctoolbar_inline_math_aria(),
-				run((s) => computeToggleDelim(s, '$')),
-				SquareRadical
+				m.srctoolbar_superscript_aria(),
+				run((s) => computeWrap(s, '#super[', ']')),
+				Superscript
+			)}
+			{@render iconButton(
+				m.srctoolbar_subscript_aria(),
+				run((s) => computeWrap(s, '#sub[', ']')),
+				Subscript
 			)}
 		</ul>
 	{/snippet}
@@ -90,7 +117,17 @@
 				run((s) => computeListLines(s, '+ ')),
 				ListOrdered
 			)}
+			{@render iconButton(
+				m.blockmenu_quote(),
+				run((s) => computeWrap(s, '#quote(block: true)[', ']')),
+				Quote
+			)}
 			{@render iconButton(m.blockmenu_code_block(), run(computeFence), Code)}
+			{@render iconButton(
+				m.srctoolbar_inline_math_aria(),
+				run((s) => computeToggleDelim(s, '$')),
+				Sigma
+			)}
 			{@render iconButton(m.blockmenu_math_block(), run(computeMathBlock), SquareRadical)}
 		</ul>
 	{/snippet}
@@ -101,6 +138,7 @@
 				<TypstSourceTableDropdown />
 			</li>
 			{@render iconButton(m.menubar_insert_image(), run(computeFigureSkeleton), ImageIcon)}
+			{@render iconButton(m.mdtoolbar_hr(), run(computeHr), Minus)}
 		</ul>
 	{/snippet}
 
