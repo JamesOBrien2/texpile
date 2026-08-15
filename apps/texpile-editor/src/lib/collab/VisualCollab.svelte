@@ -59,6 +59,11 @@
 	// set by a local visual edit: the doc's orig stamps predate it, so the next quiet moment
 	// re-parses purely to refresh them (content usually identical, attrs-only patch)
 	let origStale = false;
+	// a self-restamp whose patch would rebuild the block the caret is in, held back so the editor
+	// never jumps under the user's hands; flushed by publishCursor (the caret left the block), the
+	// focusout listener (the editor blurred), or a remote edit's own patch through the same path
+	let deferredRestamp = false;
+	let deferredIndex = -1;
 
 	/** WorkspaceView calls this from the visual editor's onChange (a local edit just serialized). */
 	export function noteLocalEdit(): void {
@@ -69,6 +74,7 @@
 	/** and this when a full re-parse landed (fresh stamps everywhere). */
 	export function noteFreshParse(): void {
 		origStale = false;
+		deferredRestamp = false;
 	}
 
 	function scheduleRemotePatch(delay = Math.max(150, remoteParseMs * 2)) {
@@ -98,13 +104,42 @@
 		const oldPreLen = bodyOffset();
 		const oldSource = api.texSource;
 		const newDoc = normalizeParsedDoc(parsed.doc);
+		// A pure self-restamp (no remote edit waiting) whose patch would rebuild the block the
+		// caret sits in: hold it. Applying here is what made the editor visibly jump ~1s after
+		// typing anything that parses into a different structure (text spilling out of a raw
+		// island, a line becoming a list). Nothing is at stake while we wait - the source is
+		// already current - so converge when the caret leaves the block (publishCursor), the
+		// editor blurs (the focusout effect), or a collaborator's edit forces a real patch.
+		if (snapshot === oldSource) {
+			const head = v.state.selection.head;
+			const guarded = protectCaretBlock(v.state.doc, newDoc, head);
+			const patch = computeBlockPatch(v.state.doc, guarded);
+			const focused = v.dom.ownerDocument.activeElement;
+			if (patch && head > patch.from && head < patch.to && focused && v.dom.contains(focused)) {
+				deferredRestamp = true;
+				deferredIndex = v.state.doc.resolve(head).index(0);
+				return; // origStale stays set; the flush triggers re-schedule
+			}
+		}
 		api.texSource = snapshot;
 		api.lastParsedSource = snapshot;
 		applyRemotePatch(v, newDoc, oldSource, snapshot, oldPreLen, bodyOffsetOf(parsed));
 		api.adopt(parsed, v.state.doc);
 		origStale = false;
+		deferredRestamp = false;
 		scheduleRemoteCursorRender(); // fresh stamps: re-map peers' carets onto the patched doc
 		if (snapshot !== oldSource) api.commit(p, snapshot);
+	}
+
+	// same walk as EditorView's doc-swap helper: the pane that actually scrolls the editor
+	function scrollParent(el: HTMLElement | null): HTMLElement | null {
+		let cur = el?.parentElement ?? null;
+		while (cur) {
+			const oy = getComputedStyle(cur).overflowY;
+			if ((oy === 'auto' || oy === 'scroll') && cur.scrollHeight > cur.clientHeight) return cur;
+			cur = cur.parentElement;
+		}
+		return null;
 	}
 
 	// the mount path's normalization, applied to a fresh parse so it diffs cleanly against the live doc.
@@ -153,7 +188,32 @@
 			const pos = sourceOffsetToPmPos(tr.doc, map, srcOffset, strip());
 			if (pos != null) tr.setSelection(TextSelection.near(tr.doc.resolve(pos)));
 		}
+		// Hold the view still across the patch: replacing blocks changes heights, and everything
+		// below a resized block shifts on screen - the "jump". Anchor the topmost visible position
+		// before the dispatch and give the shift back to the scroller after, so the line the user
+		// is looking at stays put whether the patch landed above, below, or at the caret. Covers
+		// remote edits too: a collaborator editing above your viewport no longer moves your view.
+		const scroller = scrollParent(v.dom);
+		let anchor: { pos: number; top: number } | null = null;
+		if (scroller) {
+			try {
+				const rect = scroller.getBoundingClientRect();
+				const probe = v.posAtCoords({ left: rect.left + rect.width / 2, top: rect.top + 1 });
+				if (probe) anchor = { pos: probe.pos, top: v.coordsAtPos(probe.pos).top };
+			} catch {
+				anchor = null; // no coords for the probe; the patch applies without compensation
+			}
+		}
 		v.dispatch(tr);
+		if (scroller && anchor) {
+			try {
+				const mapped = Math.min(tr.mapping.map(anchor.pos), v.state.doc.content.size);
+				const dy = v.coordsAtPos(mapped).top - anchor.top;
+				if (dy !== 0) scroller.scrollTop += dy;
+			} catch {
+				/* the anchor vanished in the restructure; leave the scroll where the browser put it */
+			}
+		}
 	}
 
 	// watch the open file's Y.Text; our own edits carry EDIT_ORIGIN (and seeds SEED_ORIGIN),
@@ -175,11 +235,33 @@
 		});
 		return () => {
 			t.unobserve(onRemote);
+			deferredRestamp = false; // per-file state; the next bind starts clean
 			if (remotePatchTimer) {
 				clearTimeout(remotePatchTimer);
 				remotePatchTimer = null;
 			}
 		};
+	});
+
+	// deferred-restamp flush on blur: focusout bubbles up out of the CM islands too, so this fires
+	// for "clicked out of the editor" wherever the focus sat. The timeout lets focus settle first,
+	// so a hop between two islands (out of one, into the next) does not read as a blur.
+	$effect(() => {
+		const v = $editorViewStore;
+		if (!v) return;
+		const dom = v.dom;
+		const onFocusOut = () => {
+			setTimeout(() => {
+				if (!deferredRestamp || v.isDestroyed) return;
+				const focused = dom.ownerDocument.activeElement;
+				if (!focused || !dom.contains(focused)) {
+					deferredRestamp = false;
+					scheduleRemotePatch(150);
+				}
+			}, 0);
+		};
+		dom.addEventListener('focusout', onFocusOut);
+		return () => dom.removeEventListener('focusout', onFocusOut);
 	});
 
 	// ---- presence: our caret out, peers' carets in ----
@@ -196,6 +278,14 @@
 			const binding = session.collabFor(path);
 			const v = get(editorViewStore);
 			if (!binding || !v || !active()) return;
+			// the held self-restamp applies once the caret leaves its block (see runRemotePatch)
+			if (deferredRestamp) {
+				const head = Math.min(v.state.selection.head, v.state.doc.content.size);
+				if (v.state.doc.resolve(head).index(0) !== deferredIndex) {
+					deferredRestamp = false;
+					scheduleRemotePatch(150);
+				}
+			}
 			const map = buildBlockMap(v.state.doc, bodyOffset());
 			const sel = v.state.selection;
 			let a = pmPosToSourceOffset(v.state.doc, map, sel.anchor);
