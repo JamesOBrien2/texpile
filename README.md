@@ -7,7 +7,7 @@
 
 &nbsp;
 
-Texpile is a modern, local, offline LaTeX editor for Windows, macOS, and Linux. Its visual editor shows your document as formatted text, math, tables, and figures while you write, and a live preview compiled by your own TeX distribution updates as you type. Drop into source view whenever you want. No account, no cloud, your documents never leave your machine.
+A modern, desktop editor for LaTeX, Typst, and Markdown. For Windows, macOS, and Linux. Edit visually, or in source with advanced intellisense. 100% offline, no account.
 
 [![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdl.texpile.com%2Flatest.json&query=%24.version&label=version&prefix=v&color=blue)](https://texpile.com/download)
 [![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-green)](https://texpile.com/download)
@@ -18,49 +18,41 @@ Texpile is a modern, local, offline LaTeX editor for Windows, macOS, and Linux. 
 
 ---
 
+![Texpile editing a LaTeX project, with the PDF preview and comments open](docs/images/overview.webp)
+
 ## Visual editor
 
-Edit your document as formatted text, math, tables, and figures. The same file opens in source view whenever you want it.
+Texpile's visual editor supports LaTeX, Typst, and Markdown. Texpile stores them as plain `.tex`, `.typ`, and `.md` files, respectively. Texpile's visual editor covers complicated elements such as citations, cell-merging tables, multirow equations, and more.
 
-![The Texpile visual editor](landing/src/lib/assets/showcase/editor-visual.webp)
+![The Texpile visual editor](docs/images/visual-editing.webp)
 
-## Live preview
+## Live preview for LaTeX
 
-Type in source view and the page re-typesets with your own LuaLaTeX and updates in place, patched in milliseconds. Math, TikZ, and pgfplots figures render live.
+Type in source view and the page re-typesets with your own LuaLaTeX. Many updates, such as text changes, are rendered instantly.
 
 https://github.com/user-attachments/assets/7a2d7997-fe6c-4837-bbe5-1aaa5e0c90b7
 
-## Shared sessions
+## Shared sessions (real time collaboration)
 
-Share a folder for real time editing, no account needed. Start a session to get a code; others join with it from the home screen and edit alongside you, in the visual editor or in source. Everything is end to end encrypted, so the relay server only forwards data it cannot read. You run the compile with your own toolchain, and guests see the resulting PDF.
+Share a folder for real time editing, no account needed. Start a session (File > Shared Session) to get a code; others join with it from the home screen and edit alongside you, in the visual editor or in source. Everything is end to end encrypted, so the relay server only forwards data it cannot read.
 
-## Download
+## Comments
 
-Installers for all three platforms are on [texpile.com/download](https://texpile.com/download), or directly:
+Texpile supports adding comments, and you can add them in both the visual and the source editor.
 
-| Platform         | Link                                                                   |
-| ---------------- | ---------------------------------------------------------------------- |
-| Windows          | [dl.texpile.com/latest/windows](https://dl.texpile.com/latest/windows) |
-| macOS            | [dl.texpile.com/latest/mac](https://dl.texpile.com/latest/mac)         |
-| Linux (AppImage) | [dl.texpile.com/latest/linux](https://dl.texpile.com/latest/linux)     |
-| Linux (.deb)     | [dl.texpile.com/latest/deb](https://dl.texpile.com/latest/deb)         |
+## Installation
 
-Editing works out of the box. To compile PDFs, install a TeX distribution (TeX Live, MiKTeX, or MacTeX) and Texpile runs it for you.
+Download the installer for your platform from [texpile.com/download](https://texpile.com/download), then follow the guide for it:
 
-## More features
+- [Windows](https://texpile.com/docs/installation/windows)
+- [macOS](https://texpile.com/docs/installation/macos)
+- [Linux](https://texpile.com/docs/installation/linux)
 
-- **Your `.tex` file stays yours.** There is no internal document format. Saving a file you did not change writes back the exact same bytes. Editing one paragraph regenerates only that block; the rest of the file, including your preamble and any LaTeX the editor does not model, is preserved verbatim.
-- **Compile with your own toolchain.** The Compile button runs your command (`latexmk`, `pdflatex`, a Makefile, anything) in a built-in terminal. Multi-file projects are supported, with automatic main file detection.
-- **Compile errors as a Problems list.** The LaTeX log (and BibTeX/biber logs) are parsed into errors and warnings with file and line, shown in a panel and inline in the source editor.
-- **PDF preview with SyncTeX.** Jump from text to PDF and from PDF back to the exact source line.
-- **References.** A `.bib` editor and `@`-citation autocomplete.
-- **Source control.** Side-by-side diff against the last commit, staging, and commits, built on your existing git repository.
-- **Spell check** runs locally via [Harper](https://github.com/Automattic/harper).
-- **Starters** for blank articles, APA, and MLA documents.
+Editing works out of the box. To compile PDFs you also need a TeX distribution for LaTeX, or tinymist for Typst.
 
 ## Privacy
 
-Your documents stay on your disk. The app's only background network traffic is the update check, which you can turn off in Preferences. The exception is a shared session you start or join: that data flows through a relay server, end to end encrypted so the relay cannot read it.
+Your documents stay on your disk. The app's only background network traffic is the update check, which you can turn off in Preferences. Shared sessions are end to end encrypted, so Texpile can never see your data.
 
 ## Community
 
@@ -70,7 +62,7 @@ Questions, bugs, or feedback? Join the [Discord](https://discord.com/invite/7wan
 
 Beyond its package dependencies, Texpile vendors or derives from the following projects:
 
-- [LaTeX Workshop](https://github.com/James-Yu/LaTeX-Workshop) (MIT). The editor's autocomplete, hover, and folding are modeled on its IntelliSense, and its completion data (commands, packages, classes, and key-value option lists) is vendored into the editor. Details in [VENDORED-LICENSES](apps/texpile-editor/src/lib/editor/extensions/intellisense/data/VENDORED-LICENSES.md).
+- [LaTeX Workshop](https://github.com/James-Yu/LaTeX-Workshop) (MIT). Texpile's intellisense for LaTeX is largely derived from LaTeX Workshop.
 - [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0). The live preview's Type1 font parsing is adapted from it.
 
 ## License
