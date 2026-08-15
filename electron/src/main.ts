@@ -14,6 +14,7 @@ import * as previewRelay from './typst-preview-relay';
 import * as toolchain from './toolchain';
 import * as updates from './updates';
 import { startWorkspaceWatch, stopWorkspaceWatch } from './fs-watch';
+import { isAllowedFontPath } from './font-t1map';
 import * as mcp from './mcp/server';
 import { publishWindowState, forgetWindow, type WindowState } from './mcp/state';
 import { deliverResponse } from './mcp/bridge';
@@ -262,8 +263,11 @@ function registerProtocolHandlers(): void {
 		// texfile:// is a different origin than app://bundle, so pdf.js's fetch needs CORS
 		const cors = { 'Access-Control-Allow-Origin': '*' };
 		// every request must land inside a claimed workspace root (VS Code's localResourceRoots):
-		// nothing renderer-reachable may turn texfile:// into an arbitrary-file read primitive
-		if (!(await insideClaimedRoot(p))) return new Response('Forbidden', { status: 403, headers: cors });
+		// nothing renderer-reachable may turn texfile:// into an arbitrary-file read primitive.
+		// Exception: the exact font paths the compile pipeline attached to draft font records
+		// (TeX trees, system fonts) -- outside every root, and the live preview draws nothing
+		// without them.
+		if (!(await insideClaimedRoot(p)) && !isAllowedFontPath(p)) return new Response('Forbidden', { status: 403, headers: cors });
 		try {
 			const st = await fs.promises.stat(p);
 			if (!st.isFile()) return new Response('Not found', { status: 404, headers: cors });

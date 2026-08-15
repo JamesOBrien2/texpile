@@ -7,8 +7,27 @@
 // in the main process froze the whole UI during compile-result processing.
 import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+// Font files live OUTSIDE every workspace root (TeX trees, system fonts), so the
+// texfile:// claimed-root confinement would 403 the renderer's fetches and every
+// records-drawn page would paint no glyphs at all. Admit exactly the paths this module
+// attaches to font records -- an exact-match set, so the workspace confinement stays the
+// only path-prefix rule.
+const FONT_EXT = /\.(pfb|enc|otf|ttf|ttc)$/i;
+const allowedFonts = new Set<string>();
+const fontKey = (p: string) => {
+	const n = path.normalize(p);
+	return process.platform === 'win32' ? n.toLowerCase() : n;
+};
+function registerFontPath(p: string | null | undefined): void {
+	if (p && FONT_EXT.test(p)) allowedFonts.add(fontKey(p));
+}
+export function isAllowedFontPath(p: string): boolean {
+	return allowedFonts.has(fontKey(p));
+}
 
 const kpseCache = new Map<string, Promise<string | null>>();
 function kpsewhich(file: string): Promise<string | null> {
@@ -58,7 +77,10 @@ const DRAWABLE = /\.(otf|ttf|ttc)$/i;
 /** Adds `t1` ({ pfb, enc } abs paths) to a font record the renderer can't parse directly. */
 export async function resolveType1(rec: any): Promise<void> {
 	if (!rec || rec.t !== 'font') return;
-	if (rec.file && DRAWABLE.test(rec.file)) return;
+	if (rec.file && DRAWABLE.test(rec.file)) {
+		registerFontPath(rec.file);
+		return;
+	}
 	const name = String(rec.name || '');
 	if (!name) return;
 	const e = (await loadMap())?.get(name);
@@ -66,6 +88,8 @@ export async function resolveType1(rec: any): Promise<void> {
 	const pfb = await kpsewhich(e.pfb);
 	if (!pfb) return;
 	rec.t1 = { pfb, enc: e.enc ? await kpsewhich(e.enc) : null };
+	registerFontPath(rec.t1.pfb);
+	registerFontPath(rec.t1.enc);
 }
 
 /** Line-wise variant for the page-record strings the compile service returns. */
