@@ -61,6 +61,9 @@ export interface AppSettings {
 	 *  have the dock stolen on every build; the topbar Problems badge stays as the passive signal.
 	 *  Personal ergonomics, so it lives here and not in the project's config. */
 	openDockOnCompile: boolean;
+	/** the Zotero citation picker (Insert menu, palette, topbar). On by default: it only probes
+	 *  Zotero when invoked, so leaving it available costs nothing until it is used. */
+	zoteroEnabled: boolean;
 	/** modal keybindings for the source editor and code blocks. */
 	editorKeymap: 'default' | 'vim' | 'emacs';
 	/** UI display language. Not the LaTeX document language (see DocumentLanguage). */
@@ -103,6 +106,7 @@ const DEFAULTS: AppSettings = {
 	visualMaxWidth: 768,
 	typstPreviewFollow: false,
 	openDockOnCompile: true,
+	zoteroEnabled: true,
 	editorKeymap: 'default',
 	uiLocale: 'en',
 	collabRelayUrl: DEFAULT_COLLAB_RELAY_URL,

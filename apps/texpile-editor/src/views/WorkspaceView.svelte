@@ -1494,7 +1494,9 @@
 	// The open file's dialect must match the main's engine: the imported entries land in the
 	// bibliography the MAIN file declares, so a .typ scratch file open in a LaTeX project has
 	// nowhere sensible to point its citation.
-	const canZoteroCite = () => !guest && zoteroAvailable() && !!$mainFile && (mainIsTypst ? kind === 'typ' : kind === 'tex');
+	// zoteroEnabled gates every entry point (editor context menu, command palette) through this one predicate
+	const canZoteroCite = () =>
+		$settings.zoteroEnabled !== false && !guest && zoteroAvailable() && !!$mainFile && (mainIsTypst ? kind === 'typ' : kind === 'tex');
 	const insertZoteroCitation = () => {
 		if (!canZoteroCite()) return;
 		void insertCitationFromZotero({

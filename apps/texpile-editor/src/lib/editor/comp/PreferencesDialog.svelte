@@ -52,7 +52,7 @@
 	// One category on screen at a time, rather than every setting in one scroll. The list had grown
 	// past the point where "wrap long lines" and "editor width" could be told apart at a glance -
 	// which editor, and which of them, was only answerable by reading the hint under each.
-	type Category = 'appearance' | 'editor' | 'toolchain' | 'startup' | 'ai';
+	type Category = 'appearance' | 'editor' | 'toolchain' | 'integrations' | 'startup' | 'ai';
 	let category = $state<Category>('appearance');
 	const categories: { id: Category; label: string }[] = [
 		{ id: 'appearance', label: m.prefs_appearance() },
@@ -67,6 +67,9 @@
 		// that made LaTeX look like more than a probe list were duplicates of switches in the
 		// compile-command dialog.
 		{ id: 'toolchain', label: m.prefs_group_toolchain() },
+		// external apps Texpile TALKS TO, as opposed to Toolchain's programs it runs. One row per
+		// integration, each an on/off; whatever setup the app itself needs lives in its hint.
+		{ id: 'integrations', label: m.prefs_group_integrations() },
 		{ id: 'startup', label: m.prefs_group_startup() },
 		{ id: 'ai', label: m.prefs_group_ai() }
 	];
@@ -440,6 +443,10 @@
 						     misses. A second copy of $PATH kept in app settings is one more place for it to be
 						     wrong, and the row above already says whether the OS's answer worked. -->
 						{@render toolRows('general', m.prefs_group_vcs())}
+					{:else if category === 'integrations'}
+						{@render toggleRow(m.prefs_zotero(), m.prefs_zotero_note(), $settings.zoteroEnabled !== false, (v) =>
+							updateSettings({ zoteroEnabled: v })
+						)}
 					{:else if category === 'startup'}
 						{@render toggleRow(m.prefs_reopen_last_folder(), '', $settings.reopenLastFolder, (v) =>
 							updateSettings({ reopenLastFolder: v })
