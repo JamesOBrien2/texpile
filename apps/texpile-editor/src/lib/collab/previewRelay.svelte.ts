@@ -46,6 +46,7 @@ class PreviewRelayController {
 	 */
 	onTaskUnreachable: (() => void) | null = null;
 	private fastCloses = 0;
+	private pageFetchFails = 0;
 	private lastUnreachableAt = 0;
 
 	private legs = new Map<number, GuestLeg>(); // guest clientID -> its one leg
@@ -106,6 +107,7 @@ class PreviewRelayController {
 		this.host = host;
 		this.pageHtml = null;
 		this.fastCloses = 0; // a new task starts with a clean record
+		this.pageFetchFails = 0;
 		if (host) {
 			for (const leg of this.legs.values()) if (leg.relayId === 0) this.dial(leg);
 			// the askers whose page request predated the task; this is their answer arriving
@@ -127,8 +129,23 @@ class PreviewRelayController {
 		}
 		if (this.pageHtml === null) {
 			const res = await this.bridge()?.previewPageHtml(this.host);
-			if (!res?.ok || !res.html) return;
+			if (!res?.ok || !res.html) {
+				// An address is held but its HTTP side did not answer: the task is dead. The legs'
+				// fast-close detector can never see this - without the page no viewer ever opens a
+				// leg - so this was the one dead-task shape that never self-healed (a preview left
+				// from before the session shared, guests asking forever). Keep the ask pending (it
+				// must go on counting as demand) and treat repeated failures like refused dials.
+				this.pendingAskers.set(from, Date.now());
+				this.updateDemand();
+				if (++this.pageFetchFails >= 2 && Date.now() - this.lastUnreachableAt > 10_000) {
+					this.pageFetchFails = 0;
+					this.lastUnreachableAt = Date.now();
+					this.onTaskUnreachable?.();
+				}
+				return;
+			}
 			this.pageHtml = res.html;
+			this.pageFetchFails = 0;
 		}
 		this.pendingAskers.delete(from);
 		this.updateDemand();

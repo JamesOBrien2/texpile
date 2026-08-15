@@ -102,7 +102,8 @@
 		isDirty,
 		mainFile,
 		setMainFile,
-		setLastFile
+		setLastFile,
+		effectiveCompileFormat
 	} from '$lib/workspace/workspaceStore';
 	import { refreshGitStatus } from '$lib/workspace/gitStore';
 	import { insertCitationFromZotero, zoteroAvailable } from '$lib/zotero/insertFromZotero';
@@ -835,6 +836,19 @@
 		const main = $mainFile;
 		if (main) compileCommand = resolveCompileCommand(main);
 	});
+	// Problems are per-engine: switching the main between LaTeX and Typst would otherwise leave the
+	// old engine's entries on the panel until the next compile happens to overwrite them. Cleared on
+	// the lane change and re-shared, so a session's guests drop them at the same moment. Host-only:
+	// a guest's panel mirrors the host's shared intel, never its own lane.
+	let problemsLane = effectiveCompileFormat(get(mainFile));
+	$effect(() => {
+		const lane = effectiveCompileFormat($mainFile);
+		if (guest || lane === problemsLane) return;
+		problemsLane = lane;
+		typstLiveDiags.clear();
+		compileLog.set(null);
+		shareCompileState();
+	});
 	// guests: surface the host's shared compile diagnostics through the same Problems UI the
 	// host has (the raw log never crosses the wire; this rebuilds the parsed shape from intel)
 	// guests: surface the host's shared compile diagnostics through the same Problems UI the host
@@ -1217,6 +1231,7 @@
 	$effect(() => previewRelay.prune(collabHost.peerIds));
 	// guests flip between stream and pushed PDF off this flag (late joiners read it from doc state)
 	$effect(() => {
+		void collabHost.peerIds; // re-assert per join, belt and braces; the write is change-gated
 		if (collabHost.active && !guest) collabHost.advertiseTypstPreview(typstPreviewWanted);
 	});
 

@@ -35,6 +35,8 @@
 		compiling: boolean;
 		/** the preview pane is (or is about to be) a Typst live preview; see WorkspaceView */
 		typstPreviewWanted: boolean;
+		/** guest only: the host streams its live Typst preview, so there is no compile to request */
+		guestTypstOffered?: boolean;
 		pdfPaneOpen: boolean;
 		draftPaused: boolean;
 		saving: boolean;
@@ -72,6 +74,7 @@
 		terminalAvailable,
 		compiling,
 		typstPreviewWanted,
+		guestTypstOffered = false,
 		pdfPaneOpen,
 		draftPaused,
 		saving,
@@ -287,8 +290,12 @@
 		{/if}
 		{#if guest}
 			<!-- guest: ask the host to compile (its toolchain), in the same spot and style as the
-			     host's Compile so the bar reads the same on both sides -->
-			{#if loadedPath && kind === 'tex'}
+			     host's Compile so the bar reads the same on both sides. Hidden while the host
+			     streams a live Typst preview: the stream already follows every keystroke, so a
+			     compile request has nothing to produce (the host's Compile only re-opens its
+			     preview pane there). .typ shows it too - a Typst project compiled by shell (the
+			     Preview switch off) pushes its PDF exactly as a LaTeX one does. -->
+			{#if loadedPath && (kind === 'tex' || kind === 'typ') && !guestTypstOffered}
 				<button class="btn btn-xs preset-tonal-primary gap-1.5" onclick={onRequestCompile} title={m.session_request_compile()}>
 					<Play class="size-4" />
 					{m.session_request_compile()}

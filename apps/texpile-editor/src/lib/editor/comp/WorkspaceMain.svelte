@@ -115,6 +115,7 @@
 		terminalAvailable={termDock.available}
 		compiling={compiler.compiling}
 		{typstPreviewWanted}
+		{guestTypstOffered}
 		pdfPaneOpen={layout.pdfPaneOpen}
 		draftPaused={draft.paused}
 		saving={saver.saving}
