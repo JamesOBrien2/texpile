@@ -52,6 +52,12 @@ nodes.heading = {
 	...base.heading,
 	parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({ tag: `h${level}`, attrs: { level } }))
 };
+// a code block created without attrs (shared toolbar button, keybind) must be a FENCE here, not
+// tex's verbatim: fences take an info string, so the language picker works on every md block
+nodes.code_block = {
+	...base.code_block,
+	attrs: { lang: { default: '' }, env: { default: 'fence' }, args: { default: '' } }
+};
 nodes.raw_latex = {
 	...base.raw_latex,
 	attrs: { ...base.raw_latex.attrs, lang: { default: 'latex' } }

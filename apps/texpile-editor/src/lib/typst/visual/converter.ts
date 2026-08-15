@@ -452,7 +452,8 @@ function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 					const content = src.slice(innerFrom, innerTo).replace(/^\n/, '').replace(/\n$/, '');
 					const info = lang ? src.slice(lang.from, lang.to) : '';
 					segs.push({
-						blocks: [el('code_block', { lang: info || 'Typst', env: 'fence', args: info }, txtNodes(content))],
+						// no info string means NO language recorded: plain text, no settings chip
+						blocks: [el('code_block', { lang: info, env: 'fence', args: info }, txtNodes(content))],
 						from: k.from,
 						to: k.to
 					});

@@ -110,7 +110,9 @@ export const nodes = {
 		marks: '',
 		group: 'block',
 		attrs: {
-			lang: { default: 'Markdown' },
+			// '' = no language recorded: plain text, and the settings popover shows no chip. The old
+			// 'Markdown' default painted markdown colours over every fresh verbatim block.
+			lang: { default: '' },
 			// which verbatim-family environment this came from (verbatim/lstlisting/minted) and its
 			// verbatim args, so the serializer reconstructs the same environment
 			env: { default: 'verbatim' },

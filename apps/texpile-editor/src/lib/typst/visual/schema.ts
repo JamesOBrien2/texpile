@@ -61,6 +61,12 @@ nodes.heading = {
 	...base.heading,
 	parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({ tag: `h${level}`, attrs: { level } }))
 };
+// a code block created without attrs (shared toolbar button, keybind) must be a FENCE here, not
+// tex's verbatim: typst raw fences take an info string, so the language picker works everywhere
+nodes.code_block = {
+	...base.code_block,
+	attrs: { lang: { default: '' }, env: { default: 'fence' }, args: { default: '' } }
+};
 // the raw islands carry Typst source, not LaTeX; `lang` follows mdSchema's precedent
 nodes.raw_latex = {
 	...base.raw_latex,
