@@ -86,7 +86,8 @@ jobs:
         shell: bash
 
       # the PowerShell module electron-builder uses for Azure Trusted Signing; a named up-front step
-      # turns a PSGallery hiccup into an obvious failure. Version matches electron-builder@25.1.8.
+      # turns a PSGallery hiccup into an obvious failure. electron-builder@26 asks the gallery for
+      # >= 0.5.0 (25.1.8 pinned 0.4.1), so match its floor rather than a hard pin.
       # Installed with PSResourceGet, which ships with the runner's PowerShell 7 and reaches the
       # gallery on its own: PowerShellGet v2 first has to bootstrap a NuGet provider, and when that
       # fails PSGallery is never registered, so Set-PSRepository dies with "No repository with the
@@ -95,15 +96,22 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Install-PSResource -Name TrustedSigning -Version 0.4.1 -Repository PSGallery -TrustRepository -Scope CurrentUser -ErrorAction Stop
+          Install-PSResource -Name TrustedSigning -Version '[0.5.0,)' -Repository PSGallery -TrustRepository -Scope CurrentUser -ErrorAction Stop
           # import here too: a module that installs but won't load should fail this step, not the build
-          Import-Module TrustedSigning -RequiredVersion 0.4.1 -ErrorAction Stop
+          Import-Module TrustedSigning -MinimumVersion 0.5.0 -ErrorAction Stop
           Write-Host "TrustedSigning $((Get-Module TrustedSigning).Version) ready"
 
       # creds come from the AZURE_* secrets, account/profile/endpoint from repo variables. The
       # RFC-3161 timestamp is essential: Trusted Signing certs live ~3 days, so untimestamped
       # signatures die when the cert lapses. Use the long --config.<path> form: pwsh tokenizes
       # -c.<path> into `-c` plus a bogus config file path (ENOENT).
+      #
+      # publisherName is REQUIRED by electron-builder@26 (25.1.8 had no such field for Azure, and
+      # nothing derives it from the signing service). It must equal the certificate subject's CN
+      # verbatim, because it is written into app-update.yml and electron-updater checks the
+      # downloaded installer's Authenticode publisher against it before running it. The timestamp
+      # keys are camelCase here for the same reason: 26 reads timestampRfc3161/timestampDigest and
+      # forwards anything else through untouched.
       - name: Build & sign installer (Windows / Azure Trusted Signing)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -113,8 +121,9 @@ jobs:
           --config.win.azureSignOptions.endpoint=${{ vars.AZURE_ENDPOINT }}
           --config.win.azureSignOptions.codeSigningAccountName=${{ vars.AZURE_CODE_SIGNING_ACCOUNT }}
           --config.win.azureSignOptions.certificateProfileName=${{ vars.AZURE_CERT_PROFILE }}
-          --config.win.azureSignOptions.TimestampRfc3161=http://timestamp.acs.microsoft.com
-          --config.win.azureSignOptions.TimestampDigest=SHA256
+          "--config.win.azureSignOptions.publisherName=Texpile LLC"
+          --config.win.azureSignOptions.timestampRfc3161=http://timestamp.acs.microsoft.com
+          --config.win.azureSignOptions.timestampDigest=SHA256
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
