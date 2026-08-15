@@ -357,9 +357,13 @@
 		if (guest && collabGuest.status === 'online') collabGuest.requestComments();
 	});
 	$effect(() => {
-		// keyed on doc.path alone. NOT on the text, because while the editor is live CodeMirror maps
-		// the decorations through each transaction - exactly - and re-searching on top of that could
-		// snap a range onto another copy of the quote mid-edit.
+		// keyed on doc.path AND the view mode - NOT on the text, because while the editor is live
+		// CodeMirror maps the decorations through each transaction - exactly - and re-searching on
+		// top of that could snap a range onto another copy of the quote mid-edit. The mode matters
+		// because leaving source unmounts the editor and CM's exactly-mapped ranges go with it, so
+		// re-entering must re-search the current text rather than replay the pre-mount list (which
+		// after edits can even point past the end of the file).
+		void modes.mode;
 		commentsCtl.reanchor(doc.path, untrack(commentText));
 	});
 	// macro-defining text from the main file's include chain, fed to the parser (see workspace/project.ts)

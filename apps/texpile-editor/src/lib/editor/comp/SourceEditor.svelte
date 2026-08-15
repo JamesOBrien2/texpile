@@ -643,6 +643,11 @@
 		const v = view;
 		if (!v || !onAddComment || list === lastRanges) return;
 		lastRanges = list;
+		// A list that does not fit this document was resolved against some other text - the previous
+		// file's during a switch, or a stale snapshot of this one - and stays wrong for this doc
+		// forever (every legitimate refresh is a new array). Consumed but not dispatched, so the
+		// field keeps whatever CodeMirror has been mapping exactly.
+		if (list.some((r) => r.from < 0 || r.to > v.state.doc.length)) return;
 		v.dispatch({ effects: setCommentRanges.of(list) });
 	});
 

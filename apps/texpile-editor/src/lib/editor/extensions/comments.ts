@@ -46,7 +46,13 @@ const focusedThread = StateField.define<string | null>({
 const commentRanges = StateField.define<CommentRange[]>({
 	create: () => [],
 	update(ranges, tr) {
-		for (const e of tr.effects) if (e.is(setCommentRanges)) return e.value;
+		// Adoption validates against THIS document. The controller resolves ranges against its own
+		// text, which can be another file's (a mount adopting mid-switch) or a longer, stale copy of
+		// this one - and a single out-of-range position makes the gutter's lineAt() throw inside
+		// every later transaction, wedging the whole editor. Dropped rather than clamped: clamped it
+		// would highlight text the comment was never about; the next reanchor re-supplies the rest.
+		for (const e of tr.effects)
+			if (e.is(setCommentRanges)) return e.value.filter((r) => r.from >= 0 && r.to > r.from && r.to <= tr.newDoc.length);
 		if (!tr.docChanged) return ranges;
 		// A comment covers the text it was made about, and nothing typed after the fact at its
 		// edges: assoc 1 on `from` and -1 on `to` both point AWAY from the range, so text inserted
