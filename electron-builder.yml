@@ -87,13 +87,18 @@ deb:
 
 mac:
   # one universal (x64 + arm64) dmg so Intel Macs are covered; a host-arch build on the arm64
-  # runner ships an arm64-only dmg. node-pty has both darwin prebuilds, so the merge succeeds.
+  # runner ships an arm64-only dmg. node-pty ships both darwin prebuilds in each staging build.
   # The zip exists only for the updater (Squirrel.Mac consumes it; latest-mac.yml needs it).
   target:
     - target: dmg
       arch: universal
     - target: zip
       arch: universal
+  # The universal merge refuses any Mach-O that is byte-identical in the x64 and arm64 staging
+  # builds unless whitelisted here. node-pty's prebuilds are exactly that: the npm package carries
+  # BOTH single-arch darwin prebuilds, so each staging build holds the identical pair (the runtime
+  # dlopens only its own arch's dir). Without this the merge dies on prebuilds/darwin-arm64/pty.node.
+  x64ArchFiles: '**/node_modules/node-pty/prebuilds/**'
   # built names ARE the download names. latest-mac.yml records these exact filenames, so a
   # CI-side rename would break the updater feed; keep them canonical at the source.
   artifactName: ${productName}-${version}.${ext}
