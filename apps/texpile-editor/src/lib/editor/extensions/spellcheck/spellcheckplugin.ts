@@ -1,10 +1,11 @@
 import { Plugin } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { get } from 'svelte/store';
 import { createProofreadPlugin, createSpellCheckEnabledStore } from 'prosemirror-proofread';
 import { lintText, syncDocumentDictionary } from '$lib/editor/extensions/harper/linter';
 import { createHarperSuggestionBox } from '$lib/editor/extensions/harper/suggestionBoxFactory';
 import './suggestion.css';
-import { editorConfigStore } from '$lib/stores/editorStore';
+import { editorConfigStore, editorViewStore } from '$lib/stores/editorStore';
 
 const spellcheckenabled = createSpellCheckEnabledStore(() => false);
 
@@ -67,9 +68,27 @@ export const spellClickBoundaryPlugin = new Plugin({
 	}
 });
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * lintText, held back while an IME composition is active.
+ *
+ * prosemirror-proofread dispatches a full decoration rebuild the moment lint results arrive, and
+ * landing that under a composition aborts it on macOS (Windows happens to recover) - with a CJK
+ * input method the editor became untypeable. Every composition keystroke changes the composed
+ * node, whose cache entry is invalidated, so the plugin's check() always funnels through here
+ * mid-composition; stalling the result defers the whole dispatch chain to after compositionend.
+ * Capped so a stuck composing flag cannot dam the linter forever.
+ */
+async function lintTextAfterComposition(text: string) {
+	const res = await lintText(text);
+	for (let i = 0; i < 100 && get(editorViewStore)?.composing; i++) await sleep(150);
+	return res;
+}
+
 export const proofreadPlugin = createProofreadPlugin(
 	500,
-	lintText,
+	lintTextAfterComposition,
 	createHarperSuggestionBox,
 	spellcheckenabled,
 	undefined, // getCustomText

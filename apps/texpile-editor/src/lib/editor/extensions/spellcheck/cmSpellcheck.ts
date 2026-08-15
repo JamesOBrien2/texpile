@@ -146,6 +146,13 @@ class SpellPlugin {
 
 	private async lintPass() {
 		if (!this.enabled) return;
+		// Never start a pass under an active IME composition: the rebuild at the end replaces
+		// marked ranges near the caret, which aborts the composition on macOS (Windows happens to
+		// recover). The commit fires update() again, so deferring loses nothing.
+		if (this.view.composing) {
+			this.schedule(DEBOUNCE_MS);
+			return;
+		}
 		const gen = ++this.gen;
 		const src = docText(this.view.state.doc);
 		const language = this.view.state.facet(spellLanguage);
@@ -223,6 +230,12 @@ class SpellPlugin {
 		}
 		// drop cache entries for paragraphs no longer in the doc so the map stays bounded
 		for (const key of this.cache.keys()) if (!live.has(key)) this.cache.delete(key);
+		// a composition that STARTED while the worker linted: hold the rebuilt set (the cache is
+		// warm, so the deferred pass is cheap) rather than killing the composition with it
+		if (this.view.composing) {
+			this.schedule(DEBOUNCE_MS);
+			return;
+		}
 		this.decorations = builder.finish();
 		this.view.dispatch({});
 	}
