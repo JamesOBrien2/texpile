@@ -1378,9 +1378,10 @@
 	 * forwardFromCursor does for .tex; the position must sit in text to resolve (tinymist's
 	 * jump_from_cursor), same as follow.
 	 */
-	/** The sync button and "Show in preview" stay visible on a compiled Typst PDF; the click
-	 * explains why nothing can jump there instead of silently no-oping. Typst has no SyncTeX:
-	 * only tinymist's live preview can resolve a source position. */
+	/** The rendered sync entry points only exist when a preview target should too (WorkspaceMain's
+	 * canSync gate), but wanted is not attached - tinymist may still be starting or have died -
+	 * and MCP's syncToLine bypasses the gate entirely. Typst has no SyncTeX: only the live
+	 * preview can resolve a source position, so explain the miss instead of silently no-oping. */
 	function typstSyncUnavailable(): boolean {
 		if (typstScrollTarget() !== null) return false;
 		toaster.info({ title: m.typst_sync_preview_only_title(), description: m.typst_sync_preview_only_desc(), duration: 5000 });
@@ -1640,7 +1641,7 @@
 	);
 
 	// F12 on an \input{...} target: resolve like LaTeX would (current dir, then root, .tex added)
-	const jumpToInclude = (name: string) => jumpToIncludeTarget(name, doc.path, statFile);
+	const jumpToInclude = (name: string) => jumpToIncludeTarget(name, doc.path, statFile, guest);
 	// keep the label registry, the embedded bibitem refs, and the cross-mode undo history fresh
 	$effect(() => {
 		void doc.texSource; // dependency: re-arm the debounce on every source change

@@ -5,7 +5,7 @@ import { get } from 'svelte/store';
 import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
 import { typSchema } from '$lib/typst/visual/schema';
 import { activeFilePath, workspaceRoot } from '$lib/workspace/workspaceStore';
-import { basename, dirname, joinPath, relativeTo, toLf, fromLf, type Eol } from '$lib/workspace/fileSystem';
+import { basename, dirname, joinPath, normalizePath, relativeTo, toLf, fromLf, underRoot, type Eol } from '$lib/workspace/fileSystem';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 
@@ -124,11 +124,16 @@ export function insertTypstIncludeAtCursor(newFilePath: string, loadedPath: stri
 }
 
 /** F12 on an \input{...} target: resolve the way LaTeX would - current dir, then the project
- * root, adding .tex when the name has no extension. */
+ * root, adding .tex when the name has no extension. Candidates are normalized ('..' collapsed)
+ * because a guest's stat is a string match against the manifest, not a filesystem call - raw
+ * `sub/../lib.tex` matched nothing and every relative link on a guest was a dead click.
+ * `guest` turns the OTHER dead click into an explanation: a target that leaves the workspace
+ * root is the host's disk, which a session never shares, and silence read as a broken app. */
 export async function jumpToInclude(
 	name: string,
 	loadedPath: string | null,
-	stat: (p: string) => Promise<{ exists: boolean }>
+	stat: (p: string) => Promise<{ exists: boolean }>,
+	guest = false
 ): Promise<void> {
 	const root = get(workspaceRoot);
 	const base = loadedPath ? dirname(loadedPath) : null;
@@ -138,11 +143,14 @@ export async function jumpToInclude(
 	for (const dir of [base, root]) {
 		if (!dir) continue;
 		for (const n of names) {
-			const path = joinPath(dir, n);
+			const path = normalizePath(joinPath(dir, n));
 			if ((await stat(path)).exists) {
 				activeFilePath.set(path);
 				return;
 			}
 		}
+	}
+	if (guest && root && !underRoot(root, normalizePath(joinPath(base ?? root, names[0])))) {
+		toaster.info({ title: m.guest_link_outside_title(), description: m.guest_link_outside_desc(), duration: 5000 });
 	}
 }

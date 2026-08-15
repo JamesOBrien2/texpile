@@ -319,6 +319,31 @@ export function joinPath(dir: string, rel: string): string {
 	return `${dir.replace(/[\\/]+$/, '')}${sep}${cleanRel}`;
 }
 
+/**
+ * Collapse '.' and '..' segments without touching the filesystem. Native calls resolve these
+ * themselves, but string-matched paths (a guest's manifest lookups, tree highlights) need the
+ * canonical form. A '..' that would climb past the first segment is KEPT, so a caller can still
+ * see the path escaping its base instead of getting a silently reanchored one.
+ */
+export function normalizePath(p: string): string {
+	const sep = p.includes('\\') ? '\\' : '/';
+	const isRootSeg = (s: string) => s === '' || /^[A-Za-z]:$/.test(s);
+	const out: string[] = [];
+	for (const part of p.split(/[\\/]/)) {
+		if (part === '.' || (part === '' && out.length > 0)) continue;
+		if (part === '..' && out.length && out[out.length - 1] !== '..' && !isRootSeg(out[out.length - 1])) out.pop();
+		else out.push(part);
+	}
+	return out.join(sep);
+}
+
+/** is `p` the workspace root or inside it, separator- and case-insensitively */
+export function underRoot(root: string, p: string): boolean {
+	const r = root.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+	const q = p.replace(/\\/g, '/').toLowerCase();
+	return q === r || q.startsWith(r + '/');
+}
+
 /** untitled.tex -> untitled1.tex when taken, so a pre-filled "New" name can't collide. */
 export function freeName(name: string, taken: Iterable<string>): string {
 	const used = new Set([...taken].map((n) => n.toLowerCase()));

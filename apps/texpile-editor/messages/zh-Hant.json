@@ -161,6 +161,8 @@
 	"imageoverlay_typst_width_note": "Typst 長度：70%、5cm、120pt 或 auto。留空使用圖片原始尺寸。",
 	"typst_sync_preview_only_title": "Typst 僅在預覽模式下支援同步",
 	"typst_sync_preview_only_desc": "編譯後的 Typst PDF 不含同步資料。請在編譯設定中開啟預覽，以便從原始碼跳轉。",
+	"guest_link_outside_title": "檔案未共享",
+	"guest_link_outside_desc": "此連結指向共享資料夾之外的檔案。訪客只能開啟共享資料夾內的檔案。",
 	"wsview_source_label": "原始碼",
 	"wsview_sync_to_pdf_title": "同步到 PDF（SyncTeX 正向搜尋）",
 	"wsview_sync_to_pdf_aria": "同步到 PDF",
