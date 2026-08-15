@@ -6,7 +6,7 @@
 // keep their node identity (NodeViews, decorations and the caret survive).
 
 import type { Node as PMNode } from 'prosemirror-model';
-import { Mark } from 'prosemirror-model';
+import { Fragment, Mark } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
 
 export interface BlockPatch {
@@ -50,6 +50,84 @@ export function computeBlockPatch(oldDoc: PMNode, newDoc: PMNode): BlockPatch | 
 	const nodes: PMNode[] = [];
 	for (let i = start; i < endB; i++) nodes.push(newDoc.child(i));
 	return { from, to, nodes };
+}
+
+/** the node with its LAST descendant text's trailing spaces/tabs removed; null when it was only
+ *  whitespace text. Descends through the last child so a list's final item trims too. */
+function trimTrailingWs(node: PMNode): PMNode | null {
+	if (node.isText) {
+		const trimmed = (node.text ?? '').replace(/[ \t]+$/, '');
+		if (trimmed === node.text) return node;
+		return trimmed ? (node as PMNode & { withText(t: string): PMNode }).withText(trimmed) : null;
+	}
+	if (node.childCount === 0) return node;
+	const kids: PMNode[] = [];
+	for (let i = 0; i < node.childCount - 1; i++) kids.push(node.child(i));
+	const last = trimTrailingWs(node.child(node.childCount - 1));
+	if (last) kids.push(last);
+	return node.copy(Fragment.fromArray(kids));
+}
+
+/** a textblock holding nothing, or only whitespace text (a paragraph mid-creation) */
+function isWhitespaceOnlyTextblock(node: PMNode): boolean {
+	if (!node.isTextblock) return false;
+	for (let i = 0; i < node.childCount; i++) {
+		const c = node.child(i);
+		if (!c.isText || /\S/.test(c.text ?? '')) return false;
+	}
+	return true;
+}
+
+/**
+ * The block being TYPED IN must survive a re-parse of the serialized source. Serialize->parse is
+ * lossy exactly at a block's in-progress tail — every dialect's parser drops trailing inline
+ * whitespace, and a whitespace-only paragraph serializes to nothing at all — so the collab
+ * re-parse (VisualCollab.runRemotePatch) would otherwise clobber what the user just typed: the
+ * trailing space vanishes under the caret, and a freshly opened paragraph is deleted outright.
+ *
+ * Returns `newDoc` with the caret's top-level block grafted back in when its only divergence from
+ * the parse is that insignificant tail (content stays live, attrs adopt the parse's), or with the
+ * dropped whitespace-only block re-inserted. Anything structurally different — including every
+ * genuine remote edit to that block — passes through untouched. Only trailing-whitespace loss in
+ * the caret block is shielded, so a real remote deletion of other text still applies.
+ */
+export function protectCaretBlock(oldDoc: PMNode, newDoc: PMNode, head: number): PMNode {
+	if (head < 0 || head > oldDoc.content.size || oldDoc.childCount === 0) return newDoc;
+	const ci = oldDoc.resolve(head).index(0);
+	if (ci >= oldDoc.childCount) return newDoc;
+	const oldB = oldDoc.child(ci);
+	// indices only correspond while everything before the caret block matches both docs
+	for (let i = 0; i < ci; i++) {
+		if (i >= newDoc.childCount || !blockEq(oldDoc.child(i), newDoc.child(i))) return newDoc;
+	}
+	// The serializer dropped a whitespace-only caret block entirely: put it back. Keyed on the
+	// block AT the caret index rather than on child counts, because the parse may come back the
+	// same length anyway (normalization appends a trailing paragraph where the dropped block was
+	// removed mid-doc). Skipped when the parse kept a matching whitespace-only block there.
+	if (isWhitespaceOnlyTextblock(oldB)) {
+		const kept = ci < newDoc.childCount && newDoc.child(ci).type === oldB.type && isWhitespaceOnlyTextblock(newDoc.child(ci));
+		if (!kept && newDoc.childCount <= oldDoc.childCount) {
+			const kids: PMNode[] = [];
+			for (let i = 0; i < newDoc.childCount; i++) {
+				if (i === ci) kids.push(oldB);
+				kids.push(newDoc.child(i));
+			}
+			if (ci >= newDoc.childCount) kids.push(oldB);
+			return newDoc.copy(Fragment.fromArray(kids));
+		}
+	}
+	if (newDoc.childCount !== oldDoc.childCount) return newDoc;
+	const newB = newDoc.child(ci);
+	if (blockEq(oldB, newB)) return newDoc;
+	if (oldB.type !== newB.type || !Mark.sameSet(oldB.marks, newB.marks) || !attrsEqualExceptOrig(oldB.attrs, newB.attrs)) return newDoc;
+	const trimmed = trimTrailingWs(oldB);
+	if (!trimmed || !trimmed.content.eq(newB.content)) return newDoc;
+	// graft: keep the live content (with its trailing whitespace), adopt the parse's attrs
+	const kids: PMNode[] = [];
+	for (let i = 0; i < newDoc.childCount; i++) {
+		kids.push(i === ci ? newB.type.create(newB.attrs, oldB.content, oldB.marks) : newDoc.child(i));
+	}
+	return newDoc.copy(Fragment.fromArray(kids));
 }
 
 /** after the replace, restamp kept blocks whose attrs (orig.start, seq, group ids) went stale

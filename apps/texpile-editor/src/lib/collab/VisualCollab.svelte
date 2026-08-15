@@ -12,7 +12,7 @@
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { fixTables } from 'prosemirror-tables';
 	import { buildTrailingParagraphTr } from '$lib/editor/extensions/trailing-paragraph-plugin';
-	import { computeBlockPatch, syncOrigAttrs } from '$lib/editor/blockPatch';
+	import { computeBlockPatch, protectCaretBlock, syncOrigAttrs } from '$lib/editor/blockPatch';
 	import { setRemoteCursors, type RemotePeerSel } from '$lib/editor/extensions/remoteCursors';
 	import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/sourceMap';
 	import { stripFor } from '$lib/markdown/sourceMap';
@@ -127,6 +127,9 @@
 		oldPreLen: number,
 		newPreLen: number
 	): void {
+		// the block being typed in must not lose its in-progress tail to the re-parse: trailing
+		// whitespace and still-empty paragraphs don't survive serialize->parse in any dialect
+		newDoc = protectCaretBlock(v.state.doc, newDoc, v.state.selection.head);
 		const patch = computeBlockPatch(v.state.doc, newDoc);
 		// caret inside the replaced range: re-anchor it through the source (outside it, PM maps it)
 		let srcOffset: number | null = null;
