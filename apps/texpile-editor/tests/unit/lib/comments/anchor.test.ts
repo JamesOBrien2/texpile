@@ -180,6 +180,16 @@ describe('resolveFragment + blockBounds', () => {
 		expect(source.slice(b.from, b.to)).toBe('Inline math like $E=mc^2$ sits mid-sentence.');
 	});
 
+	it('spans every block the selection crossed, not just the longest fragment', () => {
+		const source = 'Alpha paragraph one.\n\nBeta has $x^2$ inside.\n\nGamma paragraph three.\n\nUnrelated tail.\n';
+		// the rendered selection crossed all three blocks; the math atom broke the whole-quote match
+		const quote = 'paragraph one.\nBeta has ￼ inside.\nGamma paragraph';
+		const hit = resolveFragment(prepareLoose(source, 'tex'), quote);
+		expect(hit).not.toBeNull();
+		const b = blockBounds(source, hit!.from, hit!.to);
+		expect(source.slice(b.from, b.to)).toBe('Alpha paragraph one.\n\nBeta has $x^2$ inside.\n\nGamma paragraph three.');
+	});
+
 	it('declines a quote with no locatable fragment', () => {
 		const source = 'Prose only, nothing else.\n';
 		expect(resolveFragment(prepareLoose(source, 'tex'), '￼')).toBeNull();

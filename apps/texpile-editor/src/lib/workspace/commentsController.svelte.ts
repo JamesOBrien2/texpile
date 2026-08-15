@@ -5,14 +5,13 @@
 // this needs anything from it but the workspace root and a way to open a file.
 import { CommentStore, relativeTo } from '$lib/comments/store.svelte';
 import {
-	blockBounds,
 	buildAnchor,
 	dialectOfPath,
 	prepareLoose,
 	resolveAnchor,
 	resolveAnchorLoose,
 	resolveAnchorLooseIn,
-	resolveFragment,
+	toSourceAnchor,
 	type CommentAnchor,
 	type LooseHaystack
 } from '$lib/comments/anchor';
@@ -293,35 +292,16 @@ export class CommentsController {
 
 	/**
 	 * The visual editor's version of beginAdd: it hands over a rendered-dialect anchor because its
-	 * own positions mean nothing to anyone else.
-	 *
-	 * The anchor is converted to SOURCE dialect here, at the gesture, against the live text - the
-	 * source file is the source of truth, and a stored quote sliced from it resolves exactly in
-	 * the source editor and survives the loose search back into every visual view. Three tiers:
-	 *  1. the rendered quote found in source (the normalized search strips the markup between the
-	 *     two dialects) -> re-anchor to exactly the source text it covers;
-	 *  2. not findable whole (the selection crossed math, a citation chip, an atom): locate the
-	 *     longest fragment that IS findable and downgrade to the enclosing source BLOCK - a
-	 *     whole-block note beats a thread only one view can ever place;
-	 *  3. nothing locatable at all: keep the rendered anchor (the visual editor can still draw
-	 *     it, and the panel explains the detachment) - now the rare last resort.
+	 * own positions mean nothing to anyone else. Converted to SOURCE dialect right here, at the
+	 * gesture, against the live text - the source file is the source of truth, and a stored quote
+	 * sliced from it resolves exactly in the source editor and survives the loose search back into
+	 * every visual view. Precise when the quote crosses only markup, the enclosing block when it
+	 * crossed an atom, detached only when nothing at all is locatable (see toSourceAnchor).
 	 */
 	beginAddAnchored(anchor: CommentAnchor | null): void {
 		if (!this.file || !anchor) return;
-		const text = this.fresh();
-		const d = this.dialect();
-		const hay = prepareLoose(text, d);
-		const hit = resolveAnchor(text, anchor) ?? resolveAnchorLooseIn(hay, anchor);
-		if (hit) {
-			anchor = buildAnchor(text, hit.from, hit.to);
-		} else {
-			const frag = resolveFragment(hay, anchor.quote);
-			if (frag) {
-				const b = blockBounds(text, frag.from, frag.to);
-				if (b.to > b.from) anchor = buildAnchor(text, b.from, b.to);
-			}
-		}
-		this.pending = { quote: anchor.quote, anchor };
+		const converted = toSourceAnchor(this.fresh(), this.dialect(), anchor);
+		this.pending = { quote: converted.anchor.quote, anchor: converted.anchor };
 		this.selected = null;
 	}
 

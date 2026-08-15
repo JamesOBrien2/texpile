@@ -122,7 +122,11 @@ export function dialectOfPath(path: string): AnchorDialect {
 export function normalizeForMatch(s: string, dialect: AnchorDialect = 'tex'): { text: string; map: number[] } {
 	const map: number[] = [];
 	let text = '';
+	// consecutive spaces collapse IN THE CANONICAL TEXT, not just in the raw scan: a dropped
+	// token between two whitespace runs ("a | b", "{ }") would otherwise leave a double space on
+	// one side of the match and a single on the other
 	const emit = (ch: string, at: number) => {
+		if (ch === ' ' && text.endsWith(' ')) return;
 		text += ch;
 		map.push(at);
 	};
@@ -165,8 +169,27 @@ export function normalizeForMatch(s: string, dialect: AnchorDialect = 'tex'): { 
 				i += s[i + 1] === ' ' ? 2 : 1;
 				continue;
 			}
-			if ((c === '-' || c === '+' || (md && c === '*')) && (s[i + 1] === ' ' || s[i + 1] === '\t')) {
+			// whole lines that are pure structure - a setext underline (===/---), a thematic
+			// break, a table separator row (|:---|---:|) - render as nothing at all
+			if (md && (c === '=' || c === '-' || c === '|' || c === ':')) {
+				let j = i;
+				let dashes = 0;
+				while (j < s.length && s[j] !== '\n' && ' \t|:-='.includes(s[j])) {
+					if (s[j] === '-' || s[j] === '=') dashes++;
+					j++;
+				}
+				if ((j >= s.length || s[j] === '\n') && dashes >= 2) {
+					i = j;
+					continue;
+				}
+			}
+			if ((c === '-' || c === '+' || (md && c === '*') || (typ && c === '/')) && (s[i + 1] === ' ' || s[i + 1] === '\t')) {
 				i += 2;
+				// a task checkbox rides the bullet: its box is a widget on the rendered side
+				if (md && s[i] === '[' && (s[i + 1] === ' ' || s[i + 1] === 'x' || s[i + 1] === 'X') && s[i + 2] === ']') {
+					i += 3;
+					if (s[i] === ' ') i++;
+				}
 				continue;
 			}
 			if (md && c >= '0' && c <= '9') {
@@ -201,7 +224,13 @@ export function normalizeForMatch(s: string, dialect: AnchorDialect = 'tex'): { 
 		if (c === '\\') {
 			const next = s[i + 1];
 			if (tex) {
-				if (next !== undefined && '&%$#_{}'.includes(next)) {
+				// escaped braces drop like their raw twins below (the rendered side holds bare
+				// braces, which the brace rule strips); the other escapes emit their character
+				if (next === '{' || next === '}') {
+					i += 2;
+					continue;
+				}
+				if (next !== undefined && '&%$#_'.includes(next)) {
 					emit(next, i);
 					i += 2;
 					continue;
@@ -213,21 +242,66 @@ export function normalizeForMatch(s: string, dialect: AnchorDialect = 'tex'): { 
 					continue;
 				}
 				// any other \word command drops: its ARGUMENT is the prose the rendered side shows
-				// (\emph{x} -> x once the braces below go too). A command whose argument is not
-				// prose (\cite, \label) leaves residue that simply fails to match - honest.
+				// (\emph{x} -> x once the braces below go too). \href additionally drops its URL
+				// argument, whose text the rendered side never shows. A command whose argument is
+				// not prose (\cite, \label) leaves residue that simply fails to match - honest.
 				if (isLetter(next)) {
+					const cmd = i;
 					i++;
 					while (isLetter(s[i])) i++;
 					if (s[i] === '*') i++;
+					if (s.slice(cmd, i) === '\\href' && s[i] === '{') {
+						const close = s.indexOf('}', i + 1);
+						if (close !== -1 && close - i < 2048) i = close + 1;
+					}
 					continue;
 				}
 			} else if (isPunct(next)) {
-				emit(next, i); // md/typ backslash escape: the rendered side holds the bare character
+				// md/typ backslash escape: the rendered side holds the bare character - except the
+				// characters each dialect drops outright below, which must vanish escaped or not
+				// (the raw twin on the rendered side is dropped by the marker rules, so emitting
+				// the escaped one here would leave the two sides unequal). `\\` renders as a lone
+				// backslash, which the rendered side swallows as an escape prefix - drop both.
+				if ((md && '*_`[]|<>\\'.includes(next)) || (typ && '*_`[]#\\'.includes(next))) {
+					i += 2;
+					continue;
+				}
+				emit(next, i);
 				i += 2;
+				continue;
+			}
+			if (md || typ) {
+				i++; // a stray backslash renders as nothing (line-break backslash included)
 				continue;
 			}
 			emit(c, i++);
 			continue;
+		}
+		// a closed set of HTML entities markdown renders as plain characters; anything else stays
+		// literal and simply fails to match (the block fallback carries it)
+		if (md && c === '&') {
+			const ent = /^&(amp|lt|gt|quot|apos|#39|nbsp|copy|reg|mdash|ndash|hellip|times|deg);/.exec(s.slice(i, i + 8));
+			if (ent) {
+				const ch = {
+					amp: '&',
+					lt: '',
+					gt: '',
+					quot: '"',
+					apos: "'",
+					'#39': "'",
+					nbsp: ' ',
+					copy: '©',
+					reg: '®',
+					mdash: '—',
+					ndash: '–',
+					hellip: '…',
+					times: '×',
+					deg: '°'
+				}[ent[1]];
+				if (ch) emit(ch, i);
+				i += ent[0].length;
+				continue;
+			}
 		}
 		// dashes and ellipsis canonicalize UP to the unicode character the visual editor's input
 		// rules produce; quotes canonicalize DOWN to ascii, because the rendered side may hold
@@ -259,19 +333,77 @@ export function normalizeForMatch(s: string, dialect: AnchorDialect = 'tex'): { 
 			continue;
 		}
 		// md/typ inline markers vanish from both sides alike: emphasis asterisks/underscores, and
-		// md link brackets (a "](url)" goes whole - the rendered side shows only the link's text)
+		// md link brackets (a "](url)" goes whole - the rendered side shows only the link's text).
+		// md also drops pipes (table syntax) and angle brackets (autolinks, raw HTML) - dropped on
+		// BOTH sides, including their escaped and entity forms above, so the match stays symmetric.
 		if ((md || typ) && (c === '*' || c === '_')) {
 			i++;
 			continue;
+		}
+		if (md && (c === '|' || c === '<' || c === '>')) {
+			i++;
+			continue;
+		}
+		// typst structure that renders as nothing: content-block brackets (#underline[x] shows x),
+		// function heads (#underline, #text - their argument lists stay as residue and fall to the
+		// block tier), and <labels>
+		if (typ && (c === '[' || c === ']')) {
+			i++;
+			continue;
+		}
+		if (typ && c === '#') {
+			// a function head (#underline, #text) and its parenthesized arguments render as
+			// nothing - only the [content] shows, and the bracket rule above uncovers it. A bare
+			// hash drops too, matching the rendered side where literal hashes come from \#.
+			i++;
+			if (isLetter(s[i])) {
+				while (isLetter(s[i]) || s[i] === '.' || (s[i] >= '0' && s[i] <= '9') || s[i] === '_') i++;
+				if (s[i] === '(') {
+					let depth = 0;
+					let j = i;
+					for (; j < s.length && j - i < 512; j++) {
+						if (s[j] === '(') depth++;
+						else if (s[j] === ')' && --depth === 0) break;
+					}
+					if (depth === 0 && s[j] === ')') i = j + 1;
+				}
+			}
+			continue;
+		}
+		if (typ && c === '<') {
+			const m = /^<[a-zA-Z_][\w:.-]*>/.exec(s.slice(i, i + 64));
+			if (m) {
+				i += m[0].length;
+				continue;
+			}
+		}
+		// a closed ATX heading's trailing hashes ("### Title ###") render as nothing
+		if (md && c === '#') {
+			let j = i;
+			while (s[j] === '#') j++;
+			let k = j;
+			while (s[k] === ' ' || s[k] === '\t') k++;
+			if (k >= s.length || s[k] === '\n') {
+				i = j;
+				continue;
+			}
 		}
 		if (md && c === '[') {
 			i++;
 			continue;
 		}
 		if (md && c === ']') {
+			// the "](destination)" or "][label]" after a link's text renders as nothing
 			if (s[i + 1] === '(') {
 				const close = s.indexOf(')', i + 2);
 				if (close !== -1 && close - i < 1024) {
+					i = close + 1;
+					continue;
+				}
+			}
+			if (s[i + 1] === '[') {
+				const close = s.indexOf(']', i + 2);
+				if (close !== -1 && close - i < 256) {
 					i = close + 1;
 					continue;
 				}
@@ -380,19 +512,24 @@ function occurrences(text: string, needle: string): number[] {
  */
 const ATOM_SYNTAX: Record<AnchorDialect, string> = {
 	tex: '￼|\\$[^$]*\\$|\\\\\\((?:[^\\\\]|\\\\[^)])*?\\\\\\)|\\\\\\[(?:[^\\\\]|\\\\[^\\]])*?\\\\\\]|\\\\[a-zA-Z]+\\*?(?:\\[[^\\]]*\\])?(?:\\{[^{}]*\\})+',
-	md: '￼|!\\[[^\\]]*\\]\\([^)]*\\)|`[^`]+`|\\$[^$]*\\$',
-	typ: '￼|\\$[^$]*\\$|@[\\w:.-]+|#[a-zA-Z_][\\w.]*(?:\\([^()]*\\))?'
+	md: '￼|!\\[[^\\]]*\\]\\([^)]*\\)|`[^`]+`|\\$[^$]*\\$|&#?[a-zA-Z0-9]{2,10};|</?[a-zA-Z][^>\\n]{0,80}>',
+	typ: '￼|\\$[^$]*\\$|@[\\w:.-]+|#[a-zA-Z_][\\w.]*(?:\\([^()]*\\))?|<[a-zA-Z_][\\w:.-]*>'
 };
 
 /**
- * Find WHERE a quote lives when the quote itself cannot: split it at atom spans, search the
- * longest surviving fragment (then the next, and so on), each with the quote's own surrounding
- * text as context. The hit places the FRAGMENT only - the caller expands it to the enclosing
- * block, which is the honest granularity for a selection that crossed content the text search
- * cannot carry.
+ * Find WHERE a quote lives when the quote itself cannot: split it at atom spans AND at block
+ * boundaries (the newlines flattenDoc put between blocks), and resolve each fragment with the
+ * quote's own surrounding text as context. The newline split is what makes the fallback general:
+ * whatever construct broke the whole-quote match, some block of the selection is usually plain
+ * enough to place.
+ *
+ * The result SPANS every fragment that resolved, first hit to last - a selection across three
+ * paragraphs downgrades to all three, not just the one its longest piece is in. That trust only
+ * holds while the hits land in the quote's own order; out-of-order hits mean some fragment
+ * matched a lookalike elsewhere, and then only the longest fragment's hit is believed.
  */
 export function resolveFragment(h: LooseHaystack, quote: string): ResolvedAnchor | null {
-	const split = new RegExp(ATOM_SYNTAX[h.dialect], 'g');
+	const split = new RegExp(ATOM_SYNTAX[h.dialect] + '|\\n+', 'g');
 	const frags: { text: string; at: number }[] = [];
 	let last = 0;
 	for (let m = split.exec(quote); m !== null; m = split.exec(quote)) {
@@ -401,19 +538,50 @@ export function resolveFragment(h: LooseHaystack, quote: string): ResolvedAnchor
 	}
 	if (last < quote.length) frags.push({ text: quote.slice(last), at: last });
 	if (frags.length === 1 && frags[0].at === 0 && frags[0].text === quote) return null; // nothing to split: the whole quote already missed
-	frags.sort((a, b) => b.text.length - a.text.length);
-	for (const f of frags) {
-		if (f.text.trim().length < MIN_QUOTE) continue;
-		const hit = resolveAnchorLooseIn(h, {
+	const resolve = (f: { text: string; at: number }) =>
+		resolveAnchorLooseIn(h, {
 			quote: f.text,
 			prefix: quote.slice(Math.max(0, f.at - CONTEXT), f.at),
 			suffix: quote.slice(f.at + f.text.length, f.at + f.text.length + CONTEXT),
 			start: 0,
 			end: 0
 		});
-		if (hit) return hit;
+	const hits: ResolvedAnchor[] = [];
+	let longest: { hit: ResolvedAnchor; len: number } | null = null;
+	for (const f of frags) {
+		if (f.text.trim().length < MIN_QUOTE) continue;
+		const hit = resolve(f);
+		if (!hit) continue;
+		hits.push(hit);
+		if (!longest || f.text.length > longest.len) longest = { hit, len: f.text.length };
 	}
-	return null;
+	if (!hits.length) return null;
+	const ordered = hits.every((x, i) => i === 0 || x.from >= hits[i - 1].from);
+	if (ordered) return { from: hits[0].from, to: Math.max(...hits.map((x) => x.to)), exact: false };
+	return longest!.hit;
+}
+
+/**
+ * The whole creation-time conversion: a rendered-dialect anchor (from a visual editor) becomes a
+ * SOURCE-dialect one - precise when the quote survives the dialect boundary, the enclosing block
+ * when only a fragment does, unchanged (detached) when nothing at all is locatable. Lives here
+ * rather than in the controller so it is a pure function tests can hammer with generated
+ * selections.
+ */
+export function toSourceAnchor(
+	text: string,
+	dialect: AnchorDialect,
+	a: CommentAnchor
+): { anchor: CommentAnchor; tier: 'precise' | 'block' | 'detached' } {
+	const hay = prepareLoose(text, dialect);
+	const hit = resolveAnchor(text, a) ?? resolveAnchorLooseIn(hay, a);
+	if (hit) return { anchor: buildAnchor(text, hit.from, hit.to), tier: 'precise' };
+	const frag = resolveFragment(hay, a.quote);
+	if (frag) {
+		const b = blockBounds(text, frag.from, frag.to);
+		if (b.to > b.from) return { anchor: buildAnchor(text, b.from, b.to), tier: 'block' };
+	}
+	return { anchor: a, tier: 'detached' };
 }
 
 /**
