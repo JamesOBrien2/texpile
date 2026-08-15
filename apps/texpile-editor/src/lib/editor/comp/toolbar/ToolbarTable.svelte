@@ -36,6 +36,10 @@
 		highlightedCells = getHighlightedCells();
 	}
 
+	function preventFocusLoss(e: MouseEvent) {
+		e.preventDefault(); // keep the caret in the ProseMirror view
+	}
+
 	function insertTable() {
 		if (!$editorViewStore.state || !$editorViewStore.dispatch) {
 			console.error('Editor state or dispatch function is not available');
@@ -52,69 +56,93 @@
 	}
 </script>
 
-<Popover {open} onOpenChange={(e) => (open = e.open)} positioning={{ placement: 'bottom-start', offset: { mainAxis: 0 } }}>
-	<Popover.Trigger class="toolbarButton rounded p-1 hover:bg-surface-200-800">
-		<button aria-label={m.tbar_insert_table_aria()} title={m.tbar_insert_table_aria()} class="flex items-center justify-center">
-			<Table class="h-5 w-5 text-surface-800-200" />
-		</button>
+<Popover
+	{open}
+	onOpenChange={(e) => (open = e.open)}
+	positioning={{ placement: 'bottom-start', offset: { mainAxis: 0 } }}
+	autoFocus={false}
+>
+	<!-- same trigger chrome as the typ/md table dropdowns: tonal while open, preset hover -->
+	<Popover.Trigger>
+		<div class={`toolbarButton ${open ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
+			<button
+				class="flex items-center p-1"
+				aria-label={m.tbar_insert_table_aria()}
+				title={m.tbar_insert_table_aria()}
+				onmousedown={preventFocusLoss}
+			>
+				<Table class="h-5 w-5" />
+			</button>
+		</div>
 	</Popover.Trigger>
 
 	<Portal>
 		<Popover.Positioner class="z-floating-ui">
 			<Popover.Content class="card bg-surface-50-950 border-surface-300-700 border p-3 shadow-lg">
-				<p class="mb-2 text-center text-sm">{hoveredCells.rows}x{hoveredCells.cols}</p>
-				<div class="mb-3 grid grid-cols-10 gap-1">
-					{#each highlightedCells as cell}
-						<button
-							type="button"
-							class="h-6 w-6 rounded"
-							class:bg-surface-200-800={!cell.highlighted}
-							class:bg-blue={cell.highlighted}
-							onmouseenter={() => handleMouseOver(cell.row, cell.col)}
-							onfocus={() => handleMouseOver(cell.row, cell.col)}
-							onclick={insertTable}
-							aria-label={m.tbar_insert_table_size_aria({ rows: cell.row, cols: cell.col })}
-						></button>
-					{/each}
-				</div>
+				<!-- the content is portalled outside the toolbar, so it needs its own focus guard -->
+				<div role="presentation" onmousedown={preventFocusLoss}>
+					<p class="mb-2 text-center text-sm">{hoveredCells.rows}x{hoveredCells.cols}</p>
+					<div class="mb-3 grid grid-cols-10 gap-1">
+						{#each highlightedCells as cell (`${cell.row}-${cell.col}`)}
+							<button
+								type="button"
+								class="h-6 w-6 rounded"
+								class:bg-surface-200-800={!cell.highlighted}
+								class:bg-blue={cell.highlighted}
+								onmouseenter={() => handleMouseOver(cell.row, cell.col)}
+								onfocus={() => handleMouseOver(cell.row, cell.col)}
+								onclick={insertTable}
+								aria-label={m.tbar_insert_table_size_aria({ rows: cell.row, cols: cell.col })}
+							></button>
+						{/each}
+					</div>
 
-				{#if tableCaptionEnabled}
-					<Switch
-						name="numbered-table"
-						checked={numberedState}
-						onCheckedChange={(e) => (numberedState = e.checked)}
-						class="flex cursor-pointer items-center justify-between text-sm"
-					>
-						<Switch.Label>{m.tbar_numbered_table()}</Switch.Label>
-						<Switch.Control class="preset-filled-surface-200-800 data-[state=checked]:preset-filled-primary-500">
-							<Switch.Thumb />
-						</Switch.Control>
-						<Switch.HiddenInput />
-					</Switch>
-				{:else}
-					<Tooltip positioning={{ placement: 'top' }} openDelay={200}>
-						<Tooltip.Trigger class="w-full">
-							<Switch
-								name="numbered-table"
-								checked={false}
-								disabled
-								class="flex cursor-not-allowed items-center justify-between text-sm opacity-50"
-							>
-								<Switch.Label>{m.tbar_numbered_table()}</Switch.Label>
-								<Switch.Control class="preset-filled-surface-200-800">
-									<Switch.Thumb />
-								</Switch.Control>
-								<Switch.HiddenInput />
-							</Switch>
-						</Tooltip.Trigger>
-						<Portal>
-							<Tooltip.Positioner class="z-floating-ui">
-								<Tooltip.Content class="card preset-filled p-2 text-sm">{m.tbar_feature_not_enabled()}</Tooltip.Content>
-							</Tooltip.Positioner>
-						</Portal>
-					</Tooltip>
-				{/if}
+					{#if tableCaptionEnabled}
+						<Switch
+							name="numbered-table"
+							checked={numberedState}
+							onCheckedChange={(e) => (numberedState = e.checked)}
+							class="flex cursor-pointer items-center justify-between text-sm"
+						>
+							<Switch.Label>{m.tbar_numbered_table()}</Switch.Label>
+							<Switch.Control class="preset-filled-surface-200-800 data-[state=checked]:preset-filled-primary-500">
+								<Switch.Thumb />
+							</Switch.Control>
+							<Switch.HiddenInput />
+						</Switch>
+					{:else}
+						<Tooltip positioning={{ placement: 'top' }} openDelay={200}>
+							<Tooltip.Trigger class="w-full">
+								<Switch
+									name="numbered-table"
+									checked={false}
+									disabled
+									class="flex cursor-not-allowed items-center justify-between text-sm opacity-50"
+								>
+									<Switch.Label>{m.tbar_numbered_table()}</Switch.Label>
+									<Switch.Control class="preset-filled-surface-200-800">
+										<Switch.Thumb />
+									</Switch.Control>
+									<Switch.HiddenInput />
+								</Switch>
+							</Tooltip.Trigger>
+							<Portal>
+								<Tooltip.Positioner class="z-floating-ui">
+									<Tooltip.Content class="card preset-filled p-2 text-sm">{m.tbar_feature_not_enabled()}</Tooltip.Content>
+								</Tooltip.Positioner>
+							</Portal>
+						</Tooltip>
+					{/if}
+				</div>
 			</Popover.Content>
 		</Popover.Positioner>
 	</Portal>
 </Popover>
+
+<style lang="postcss">
+	@reference "../../../../app.css";
+
+	.toolbarButton {
+		@apply rounded-base transition-all ease-in-out;
+	}
+</style>

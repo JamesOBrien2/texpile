@@ -114,10 +114,10 @@
 	};
 </script>
 
-{#snippet iconButton(label: string, isActive: boolean, cmd: Cmd, IconComp: typeof Bold)}
+{#snippet iconButton(label: string, isActive: boolean, cmd: Cmd, IconComp: typeof Bold, iconClass = 'h-5 w-5')}
 	<div class={`toolbarButton ${isActive ? 'preset-tonal-primary' : 'hover:preset-tonal'}`}>
 		<button onclick={keepEditorFocus(cmd)} class="flex items-center p-1" aria-label={label} title={label}>
-			<IconComp class="h-5 w-5" />
+			<IconComp class={iconClass} />
 		</button>
 	</div>
 {/snippet}
@@ -173,7 +173,14 @@
 					{@render iconButton(m.toolbar_italic_aria(), !!active.em, toggleMark(typSchema.marks.em), Italic)}
 				{/snippet}
 				{#snippet tb_underline()}
-					{@render iconButton(m.toolbar_underline_aria(), !!active.u, toggleMark(typSchema.marks.u), Underline)}
+					<!-- nudged down 1.5px, lucide's U glyph rides high of the other icons' center line -->
+					{@render iconButton(
+						m.toolbar_underline_aria(),
+						!!active.u,
+						toggleMark(typSchema.marks.u),
+						Underline,
+						'h-5 w-5 translate-y-[1.5px]'
+					)}
 				{/snippet}
 				{#snippet tb_supsub()}
 					<div>

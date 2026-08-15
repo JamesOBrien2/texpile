@@ -16,7 +16,6 @@
 		ListChecks,
 		Link as LinkIcon,
 		Quote,
-		Table as TableIcon,
 		Minus,
 		BoxSelect
 	} from '@lucide/svelte';
@@ -25,7 +24,7 @@
 	import { createWrapInListCommand } from 'prosemirror-flat-list';
 	import type { EditorState, Transaction } from 'prosemirror-state';
 	import { mdSchema } from './schema';
-	import { mdTableNode } from './blockInsertItems';
+	import MarkdownToolbarTable from './MarkdownToolbarTable.svelte';
 	import MdHeadingDropdown from './MdHeadingDropdown.svelte';
 	import { markIsActive, toggleLinkCommand } from '$lib/editor/comp/toolbar/markState';
 	import { displaySearchBarStore, editorViewStore, rawEditorActiveStore } from '$lib/stores/editorStore';
@@ -99,11 +98,6 @@
 
 	const insertHr: Cmd = (state, dispatch) => {
 		dispatch(state.tr.replaceSelectionWith(mdSchema.nodes.horizontal_rule.create()).scrollIntoView());
-		return true;
-	};
-
-	const insertTable: Cmd = (state, dispatch) => {
-		dispatch(state.tr.replaceSelectionWith(mdTableNode(mdSchema)).scrollIntoView());
 		return true;
 	};
 
@@ -197,7 +191,9 @@
 					</div>
 				{/snippet}
 				{#snippet tb_table()}
-					{@render iconButton(m.blockmenu_table(), false, insertTable, TableIcon)}
+					<div>
+						<MarkdownToolbarTable />
+					</div>
 				{/snippet}
 				{#snippet tb_codeBlock()}
 					{@render iconButton(m.blockmenu_code_block(), false, createCodeBlock(), Code)}

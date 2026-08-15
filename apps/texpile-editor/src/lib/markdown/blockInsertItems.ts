@@ -19,12 +19,17 @@ import {
 import type { BlockInsertItem } from '$lib/editor/extensions/blockInsertItems';
 import { m } from '$lib/paraglide/messages';
 
-/** GFM tables need a header row: 1 header + 2 body rows, 2 columns. */
-export function mdTableNode(schema: Schema): PMNode {
+/** GFM tables need a header row; the defaults give 1 header + 2 body rows, 2 columns. */
+export function mdTableNode(schema: Schema, rows = 3, cols = 2): PMNode {
 	const p = () => schema.nodes.paragraph.createAndFill()!;
 	const cell = (type: 'table_header' | 'table_cell') => schema.nodes[type].createAndFill(null, p())!;
-	const row = (type: 'table_header' | 'table_cell') => schema.nodes.table_row.create(null, [cell(type), cell(type)]);
-	return schema.nodes.table.create(null, [row('table_header'), row('table_cell'), row('table_cell')]);
+	const row = (type: 'table_header' | 'table_cell') =>
+		schema.nodes.table_row.create(
+			null,
+			Array.from({ length: Math.max(1, cols) }, () => cell(type))
+		);
+	// `rows` counts the header row: a GFM pipe table always has one, the rest are body rows
+	return schema.nodes.table.create(null, [row('table_header'), ...Array.from({ length: Math.max(1, rows - 1) }, () => row('table_cell'))]);
 }
 
 const listItem = (schema: Schema, kind: 'bullet' | 'ordered' | 'task') =>

@@ -224,7 +224,7 @@
 		menuLabel={m.toolbar_more_actions_aria()}
 		items={[
 			{ id: 'format', pinned: true, render: st_format },
-			{ id: 'headings', render: st_headings },
+			{ id: 'headings', pinned: true, render: st_headings },
 			{ id: 'blocks', render: st_blocks },
 			{ id: 'inserts', render: st_inserts }
 		]}

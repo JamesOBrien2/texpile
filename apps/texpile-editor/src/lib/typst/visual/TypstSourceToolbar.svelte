@@ -46,10 +46,10 @@
 	}
 </script>
 
-{#snippet iconButton(label: string, action: (e: MouseEvent) => void, IconComp: typeof Bold)}
+{#snippet iconButton(label: string, action: (e: MouseEvent) => void, IconComp: typeof Bold, iconClass = 'h-4.5 w-4.5')}
 	<li class="toolbarButton hover:preset-tonal">
 		<button onclick={action} class="flex items-center p-1" aria-label={label} title={label}>
-			<IconComp class="h-4.5 w-4.5" />
+			<IconComp class={iconClass} />
 		</button>
 	</li>
 {/snippet}
@@ -67,10 +67,12 @@
 				run((s) => computeToggleDelim(s, '_')),
 				Italic
 			)}
+			<!-- nudged down 1px, lucide's U glyph rides high of the other icons' center line -->
 			{@render iconButton(
 				m.srctoolbar_underline_aria(),
 				run((s) => computeWrap(s, '#underline[', ']')),
-				Underline
+				Underline,
+				'h-4.5 w-4.5 translate-y-[1px]'
 			)}
 			{@render iconButton(
 				m.srctoolbar_monospace_aria(),
