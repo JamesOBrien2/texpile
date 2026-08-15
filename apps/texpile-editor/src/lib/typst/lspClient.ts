@@ -54,6 +54,16 @@ const bridge = () => (typeof window !== 'undefined' ? window.texpileTypst : unde
 /** True when the tinymist bridge exists at all (it does not in the browser dev server). */
 export const typstBridgeAvailable = () => !!bridge();
 
+/** does a tinymist binary actually resolve on this machine? A failed preview start branches on
+ *  this: "install tinymist" is actionable, "no preview address" is not. */
+export async function tinymistResolved(): Promise<boolean> {
+	try {
+		return !!(await bridge()?.resolve());
+	} catch {
+		return false;
+	}
+}
+
 function createTransport(): Transport {
 	const handlers = new Set<(value: string) => void>();
 	const b = bridge();

@@ -53,6 +53,7 @@
 		killTypstPreview,
 		formatTypstDocument,
 		typstBridgeAvailable,
+		tinymistResolved,
 		setPreviewJumpHandler,
 		setTypstDiagnosticsHandler,
 		scrollTypstPreview,
@@ -83,7 +84,7 @@
 	import { publishWindowState } from '$lib/workspace/mcpPublish';
 	import { attachMcpCommands } from '$lib/workspace/mcpCommands';
 	import { setPaletteActions } from '$lib/workspace/commandPalette.svelte';
-	import { preferencesOpen } from '$lib/stores/dialogStore';
+	import { preferencesOpen, openToolchainPrefs } from '$lib/stores/dialogStore';
 	import { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 	import { TerminalDockState } from '$lib/workspace/terminalDockState.svelte';
 	import { CompileSettings } from '$lib/workspace/compileSettings.svelte';
@@ -114,6 +115,7 @@
 	import { SavePipeline } from '$lib/workspace/savePipeline.svelte';
 	import { diskChangedSince, recordDiskStamp, retargetDiskStamp } from '$lib/workspace/diskStamp';
 	import { CompilePipeline, resolveCompileCommand, relFromRoot } from '$lib/workspace/compilePipeline.svelte';
+	import { compileBaseDir } from '$lib/workspace/compileCommand';
 	import { TreeOps } from '$lib/workspace/treeOps';
 	import { settings } from '$lib/settings';
 	import { detectMainFile, gatherProjectMacros } from '$lib/workspace/project';
@@ -737,7 +739,12 @@
 	let dockView = $state<'terminal' | 'problems' | 'comments'>('terminal');
 	// Draft mode: bump to trigger a DraftView recompile; the derived root/main feed it.
 	let draftTrigger = $state(0);
-	let draftRoot = $derived($workspaceRoot ?? '');
+	// The draft engine runs where the SHELL compile would run: under `latexmk -cd` the project's
+	// relative \input/\includegraphics paths are authored against the main file's folder, so the
+	// warm lualatex must resolve them from there too - and everything downstream (the _draft/
+	// build dir, the synctex paths, bib seeding, image resolution) keys off this same base.
+	// Without -cd this IS the workspace root, unchanged; draft never imposes -cd on its own.
+	let draftRoot = $derived(compileBaseDir(compileCommand, $workspaceRoot, $mainFile) ?? '');
 	let draftMainRel = $derived.by(() => {
 		if (mainPrompt.confirmed !== true) return ''; // hold the first live compile until the main file is confirmed
 		// the MAIN file only - never the focused one. The old `?? doc.path` fallback meant that
@@ -745,7 +752,7 @@
 		// compiling a chapter fragment as if it were the document. Mainless now shows the pane's
 		// pick-a-main message instead (mainUnset), so an empty rel here just means "off".
 		const target = $mainFile;
-		return $workspaceRoot && target ? relFromRoot(target, $workspaceRoot) : '';
+		return draftRoot && target ? relFromRoot(target, draftRoot) : '';
 	});
 	// like the file tree's "Set as main file" (star badge included).
 	// Tri-state: null = unresolved for the current folder; the modal never auto-opens on
@@ -801,7 +808,9 @@
 	let daemonRoot: string | null = null;
 	$effect(() => {
 		const active = $compileConfig.latex.liveMode && layout.pdfPaneOpen && !draftPaused;
-		const root = $workspaceRoot;
+		// the DRAFT root, not the workspace root: under -cd it is the main file's folder, so
+		// re-pointing the main at another folder must reap the old folder's warm daemon too
+		const root = draftRoot;
 		if (daemonActive && (!active || root !== daemonRoot)) native()?.draftStop?.();
 		daemonActive = active;
 		daemonRoot = root;
@@ -924,7 +933,21 @@
 			// follows typing without a save. Deliberately no flushSaves() here: needing one would mean
 			// we had started a standalone `tinymist preview`, which reads the file instead.
 			const target = await startTypstPreview(root, file);
-			if (!target) throw new Error('tinymist did not return a preview address');
+			if (!target) {
+				// "tinymist isn't installed" gets the same tool-missing toast the shell compile
+				// shows (name + the Toolchain prefs action); only a resolved-but-failed start
+				// falls through to the generic failure below
+				if (!(await tinymistResolved())) {
+					toaster.error({
+						title: m.compile_tool_missing_title(),
+						description: m.compile_tool_missing({ tool: 'tinymist' }),
+						duration: 8000,
+						action: { label: m.compile_tool_missing_action(), onClick: openToolchainPrefs }
+					});
+					return;
+				}
+				throw new Error('tinymist did not return a preview address');
+			}
 			typstPreviewAttachedFile = file;
 			typstPreviewHost = target.host;
 			typstPreviewTask = target.taskId;
