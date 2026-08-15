@@ -87,22 +87,20 @@
 		draftRef: DraftView | null;
 	} = $props();
 
-	// One gate for the docked chip and the popped-out button. Guest: the open file must match what
-	// the host's pane shows - a streamed Typst preview syncs .typ files, a pushed PDF syncs .tex
-	// ones (via the host's SyncTeX data). Host: same rule against the main file's engine; Typst
-	// syncs only through the live preview (no SyncTeX in its PDFs), so a shell-compiled .typ gets
-	// no button either, and diff has no caret to sync.
-	const syncToCursor = $derived(
-		(
-			guest
-				? guestTypstOffered
-					? kind === 'typ'
-					: kind === 'tex'
-				: (mainIsTypst ? kind === 'typ' && typstPreviewWanted : kind === 'tex') && modes.mode !== 'diff'
-		)
-			? (actions.syncForward as () => void)
-			: null
+	// One gate for every forward-sync entry point: the docked chip, the popped-out button, and
+	// the context menu's "Show in preview/PDF". Guest: the open file must match what the host's
+	// pane shows - a streamed Typst preview syncs .typ files, a pushed PDF syncs .tex ones (via
+	// the host's SyncTeX data). Host: same rule against the main file's engine; Typst syncs only
+	// through the live preview (no SyncTeX in its PDFs), so a shell-compiled .typ gets no entry
+	// points at all, and diff has no caret to sync.
+	const canSync = $derived(
+		guest
+			? guestTypstOffered
+				? kind === 'typ'
+				: kind === 'tex'
+			: (mainIsTypst ? kind === 'typ' && typstPreviewWanted : kind === 'tex') && modes.mode !== 'diff'
 	);
+	const syncToCursor = $derived(canSync ? (actions.syncForward as () => void) : null);
 </script>
 
 <main
@@ -181,7 +179,7 @@
 			onVisualChange={actions.onVisualChange}
 			onVisualSelection={actions.onVisualSelection}
 			onEditFrontmatter={actions.onEditFrontmatter}
-			onSyncToPdf={actions.syncToPdf}
+			onSyncToPdf={canSync ? actions.syncToPdf : undefined}
 			onHistoryBoundary={actions.historyStep}
 			onJumpToFile={actions.jumpToFile}
 			onOpenFileAt={actions.openFileAt}

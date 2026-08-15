@@ -85,7 +85,8 @@
 		/** visual-editor caret movement (shared-session presence). */
 		onVisualSelection?: () => void;
 		onEditFrontmatter: (kind: string, inner: string) => void;
-		onSyncToPdf: (line: number) => void;
+		/** absent when no preview target can resolve the jump (WorkspaceMain's canSync gate) */
+		onSyncToPdf?: (line: number) => void;
 		onHistoryBoundary: (dir: 'undo' | 'redo') => boolean;
 		onJumpToFile: (name: string) => void;
 		onOpenFileAt: (file: string, line: number, selectText?: string) => void;
