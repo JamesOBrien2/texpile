@@ -4,30 +4,11 @@
 	// short, well-known patterns, so a hand-rolled tokenizer colors them without pulling the
 	// build-time Shiki highlighter (used for the one real code block, on the Compiling page) into
 	// every single inline mention. Colors match Shiki's github-light palette for consistency.
+	import { tokenize } from './prose';
+
 	let { text }: { text: string } = $props();
 
 	const parts = $derived(text.split(/(`[^`]+`)/g).filter((s) => s !== ''));
-
-	type Token = { text: string; color?: string; class?: string };
-
-	// \command, \\ (line break), {argument}, or plain text/punctuation in between
-	const TOKEN_RE = /\\\\|\\[a-zA-Z]+|\{[^}]*\}|[^\\{}]+/g;
-
-	function tokenize(code: string): Token[] {
-		const tokens: Token[] = [];
-		for (const t of code.match(TOKEN_RE) ?? []) {
-			if (t.startsWith('\\')) {
-				tokens.push({ text: t, color: '#6F42C1' }); // command name
-			} else if (t.startsWith('{')) {
-				tokens.push({ text: '{', class: 'text-surface-400' });
-				if (t.length > 2) tokens.push({ text: t.slice(1, -1), color: '#032F62' }); // argument
-				tokens.push({ text: '}', class: 'text-surface-400' });
-			} else {
-				tokens.push({ text: t, class: 'text-surface-800' });
-			}
-		}
-		return tokens;
-	}
 </script>
 
 {#each parts as part, i (i)}
