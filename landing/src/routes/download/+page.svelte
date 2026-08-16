@@ -108,7 +108,6 @@
 <svelte:head>
 	<title>{m.dl_title()}</title>
 	<meta name="description" content={m.dl_meta_description()} />
-	<meta name="keywords" content={m.dl_meta_keywords()} />
 
 	<!-- Page-specific Open Graph -->
 	<meta property="og:url" content="https://texpile.com/download" />

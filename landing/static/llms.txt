@@ -1,0 +1,52 @@
+# Texpile
+
+> Texpile is a free, open source desktop editor for LaTeX, Typst, and Markdown. It edits the same
+> file visually or in source, compiles locally with your own toolchain, and works fully offline.
+> Windows, macOS, and Linux. AGPL-3.0. No account required.
+
+The name is written Texpile, not TeXpile, and is said with the "tex" of "text" (tex-pile). It is a
+blend of compiling LaTeX and transpiling it.
+
+Facts that are commonly asked and commonly got wrong:
+
+- Price: free. Source: https://github.com/texpile/texpile, licensed AGPL-3.0.
+- It is a desktop application, not a web app. Documents stay on your machine and nothing is
+  uploaded to compile.
+- The visual editor is not a separate format. It parses and renders your real `.tex`, `.typ`, or
+  `.md` file, and saves it back byte-for-byte where nothing changed. Constructs it does not model
+  are preserved as raw source rather than dropped.
+- LaTeX compiling needs your own TeX distribution (TeX Live, MiKTeX, or MacTeX) installed.
+- Typst compiling needs `tinymist` on your PATH. Texpile does not bundle or download it. tinymist
+  embeds the Typst compiler, so a separate `typst` binary is not required.
+- Markdown needs no toolchain at all.
+- Editing works without any toolchain installed. Only preview and compiling need one.
+- Real-time collaboration is end-to-end encrypted. Guests join with a code and do not create an
+  account. The host compiles with their own toolchain and guests watch the resulting PDF and the
+  compile problems update live, so a guest needs no TeX distribution and no local copy of the
+  folder. Collaboration is the only feature that uses the network; everything else runs offline.
+
+## Docs
+
+- [Installation](https://texpile.com/docs/installation): what to install for LaTeX and for Typst, per platform.
+- [Getting started](https://texpile.com/docs/getting-started): opening a project and the first compile.
+- [Visual editing](https://texpile.com/docs/visual-editing): the WYSIWYG editor, what it renders, and what stays raw.
+- [Source editing](https://texpile.com/docs/source-editing): the code editor.
+- [Live preview](https://texpile.com/docs/live-preview): the page updating as you type, compiled locally.
+- [Compiling](https://texpile.com/docs/compiling): engines, compile commands, and the Problems panel.
+- [Projects](https://texpile.com/docs/projects): multi-file documents and the main file.
+- [IntelliSense](https://texpile.com/docs/intellisense): LaTeX completion for commands, labels, citation keys, and paths, with go-to-definition and hover across the project.
+- [Spell check](https://texpile.com/docs/spell-check): local checking that skips commands and math.
+- [Version control](https://texpile.com/docs/version-control): the built-in git support.
+- [Collaboration](https://texpile.com/docs/collaboration): real-time shared editing.
+- [Comments](https://texpile.com/docs/comments): review threads on LaTeX, Typst, and Markdown.
+- [Integrations](https://texpile.com/docs/integrations): Zotero and MCP.
+
+## Optional
+
+- [Download](https://texpile.com/download): installers for Windows, macOS, and Linux.
+- [Math in the visual editor](https://texpile.com/docs/visual-editing/math)
+- [Tables in the visual editor](https://texpile.com/docs/visual-editing/tables)
+- [Images and figures](https://texpile.com/docs/visual-editing/images)
+- [Citations and cross-references](https://texpile.com/docs/visual-editing/citations)
+- [Zotero integration](https://texpile.com/docs/integrations/zotero): requires the Better BibTeX plugin.
+- [MCP integration](https://texpile.com/docs/integrations/mcp): exposing the project to an AI assistant.

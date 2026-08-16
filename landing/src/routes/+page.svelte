@@ -107,7 +107,14 @@
 		m.home_jsonld_feature_6()
 	];
 
-	// escape for embedding in a <script type="application/ld+json"> block below
+	// escape for embedding in a <script type="application/ld+json"> block below.
+	//
+	// No `offers` and no `aggregateRating`, deliberately. Google's software app rich result requires
+	// name + offers.price + one of aggregateRating/review, and we have no review data to give it, so
+	// the rich result is out of reach whatever we put here. An offers block without a price is
+	// invalid and ignored; inventing a rating to satisfy the third requirement is a manual-action
+	// risk. What is left is still valid schema.org and still feeds entity understanding - Google
+	// states outright that structured data it does not use for a rich result does no harm.
 	const jsonLd = JSON.stringify({
 		'@context': 'https://schema.org',
 		'@type': 'SoftwareApplication',
@@ -116,10 +123,6 @@
 		url: 'https://texpile.com',
 		applicationCategory: 'ProductivityApplication',
 		operatingSystem: 'Windows, macOS, Linux',
-		offers: {
-			'@type': 'Offer',
-			availability: 'https://schema.org/InStock'
-		},
 		creator: {
 			'@type': 'Organization',
 			name: 'Texpile'
@@ -131,7 +134,6 @@
 <svelte:head>
 	<title>{m.home_title()}</title>
 	<meta name="description" content={m.home_meta_description()} />
-	<meta name="keywords" content={m.home_meta_keywords()} />
 
 	<!-- Page-specific Open Graph -->
 	<meta property="og:url" content="https://texpile.com/" />
