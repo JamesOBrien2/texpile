@@ -27,7 +27,7 @@
 <div class="mt-10 space-y-10">
 	<Section
 		title={'Resizing'}
-		body={'Select the image and drag the handles that appear at its corners and edges. Size snaps to fractions of the text width, so it stays a clean value in the LaTeX rather than an odd decimal. Preferences › Image resize step sets how coarse that snapping is (10%, 25%, or 50%).'}
+		body={'Select the image and drag the handles at its corners and edges. Size snaps to fractions of the text width; Preferences › Image resize step sets how coarse that snapping is (10%, 25%, or 50%).'}
 	/>
 	<Section
 		title={'Caption and numbering'}

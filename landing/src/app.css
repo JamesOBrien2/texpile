@@ -8,14 +8,57 @@
 /* Texpile brand theme (navy #0B2949, blue #0088F7, cyan #00D6F9) */
 @import './texpile-theme.css';
 
-/* brand typeface (Poppins), self-hosted */
+/* brand typeface (Poppins), self-hosted. 300 is display-only: Poppins at 700 reads as stock
+   marketing copy at hero sizes, so the big type steps DOWN in weight as it steps up in size. */
+@import '@fontsource/poppins/300.css';
 @import '@fontsource/poppins/400.css';
 @import '@fontsource/poppins/500.css';
 @import '@fontsource/poppins/600.css';
 @import '@fontsource/poppins/700.css';
 
+/* "ink" = the dark bands (hero, download, footer). Derived from the brand navy rather than a
+   neutral black, so a white editor screenshot sitting on it reads as lit rather than cut out. */
+@theme {
+	--color-ink-700: #0f3a63;
+	--color-ink-800: #0b2949;
+	--color-ink-900: #071b32;
+	--color-ink-950: #04101f;
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 html {
 	scroll-behavior: smooth;
+}
+
+/* Display type: large, light, tightly tracked. One utility so the hero and every section
+   heading share a scale instead of each picking its own size/weight pair. */
+.display {
+	font-weight: 300;
+	letter-spacing: -0.035em;
+	line-height: 1.05;
+}
+
+.display strong,
+.display em {
+	font-style: normal;
+	font-weight: 500;
+}
+
+/* Sections fade up as they enter. `.reveal` is the pre-state, cleared by `.shown` from the
+   reveal action. Gated on `.js` (set in app.html before first paint) and on reduced-motion, so
+   in either of those cases the pre-state never applies and nothing can stay stuck invisible. */
+@media (prefers-reduced-motion: no-preference) {
+	:where(.js) .reveal {
+		opacity: 0;
+		transform: translateY(18px);
+		transition:
+			opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+			transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+
+	:where(.js) .reveal.shown {
+		opacity: 1;
+		transform: none;
+	}
 }

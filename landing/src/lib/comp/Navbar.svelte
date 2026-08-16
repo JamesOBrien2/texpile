@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { Github, Globe, Check } from '@lucide/svelte';
 	import LogoDark from '$lib/assets/Logo-dark.svg';
+	import LogoLight from '$lib/assets/Logo-light.svg';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
-	import type { Pathname } from '$app/types';
+	import { base } from '$app/paths';
 	import { Menu, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { locales, localizeHref, getLocale, type Locale } from '$lib/paraglide/runtime';
 	import { m } from '$lib/paraglide/messages';
@@ -14,20 +14,22 @@
 	const navLinks = [
 		{ href: '/#features', label: m.nav_features() },
 		{ href: '/docs', label: m.nav_docs() },
-		{ href: '/download', label: m.nav_download() },
-		{ href: '/#faq', label: m.nav_faq() }
+		{ href: '/download', label: m.nav_download() }
 	];
 
 	const currentLocale = getLocale();
 
 	// full document navigation (not client-side routing), same as every other locale switch on this site.
 	// details.value is always one of `locales` (that's all the menu ever renders), hence the cast.
-	// The Pathname cast is a lie by construction and always was: localizeHref returns a rewritten
-	// URL (/de/docs/mcp) whose locale prefix hooks.ts strips again, so it is never one of the route
-	// pathnames resolve() is typed against. resolve() is still what applies `base`.
+	//
+	// `base` rather than resolve(): localizeHref returns a rewritten URL (/de/docs/mcp) whose locale
+	// prefix hooks.ts strips again, so it is never one of the route pathnames resolve() is typed
+	// against. Casting it to Pathname was a lie that only type-checked by accident — resolve()'s
+	// ResolveArgs is a distributive conditional, so a union argument expands to a union of tuples
+	// that no single call can satisfy. Applying `base` is all resolve() did for us anyway.
 	function onLocaleSelect(details: { value: string }) {
 		const href = localizeHref(page.url.pathname, { locale: details.value as Locale });
-		window.location.href = resolve(href as Pathname);
+		window.location.href = base + href;
 	}
 
 	let atTop = $state(true);
@@ -37,22 +39,36 @@
 		onScroll();
 		return () => window.removeEventListener('scroll', onScroll);
 	});
+
+	// Only the home page opens on the ink hero, and only until you scroll off it. route.id is
+	// locale-independent (hooks.ts strips the prefix before routing), so this holds in all four.
+	const overInk = $derived(page.route.id === '/' && atTop);
 </script>
 
+<!-- The header is in normal flow, not overlaid, so "transparent" shows the page background rather
+	 than whatever section is below it. Over the ink hero it therefore has to paint ink itself,
+	 or it reads as a white bar sitting on top of a dark band. -->
 <header
-	class="sticky top-0 z-50 border-b backdrop-blur-sm transition-colors duration-200 {atTop
-		? 'border-transparent bg-transparent'
-		: 'border-surface-200 bg-surface-50/95'}"
+	class="sticky top-0 z-50 border-b backdrop-blur-sm transition-colors duration-200 {overInk
+		? 'bg-ink-900 border-transparent'
+		: atTop
+			? 'border-transparent bg-transparent'
+			: 'border-surface-200 bg-surface-50/95'}"
 >
 	<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 		<nav class="relative flex h-16 items-center justify-between">
 			<a href="/" class="flex items-center">
-				<img src={LogoDark} alt={m.nav_logo_alt()} class="h-8" />
+				<img src={overInk ? LogoLight : LogoDark} alt={m.nav_logo_alt()} class="h-8" />
 			</a>
 
 			<div class="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
 				{#each navLinks as link (link.href)}
-					<a href={link.href} class="text-surface-700 hover:text-primary-600 font-medium transition-colors">
+					<a
+						href={link.href}
+						class="font-medium transition-colors {overInk
+							? 'text-surface-200 hover:text-white'
+							: 'text-surface-700 hover:text-primary-600'}"
+					>
 						{link.label}
 					</a>
 				{/each}
@@ -61,7 +77,9 @@
 			<div class="flex items-center gap-4">
 				<Menu onSelect={onLocaleSelect} positioning={{ placement: 'bottom-end' }}>
 					<Menu.Trigger
-						class="text-surface-600 hover:text-surface-950 flex items-center gap-1.5 text-sm font-medium transition-colors"
+						class="flex items-center gap-1.5 text-sm font-medium transition-colors {overInk
+							? 'text-surface-300 hover:text-white'
+							: 'text-surface-600 hover:text-surface-950'}"
 						aria-label={m.nav_languages_aria()}
 					>
 						<Globe class="h-4 w-4" />
@@ -94,7 +112,9 @@
 					href="https://discord.com/invite/7wanVzCBWf"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="text-surface-600 hover:text-surface-950 flex items-center transition-colors"
+					class="flex items-center transition-colors {overInk
+						? 'text-surface-300 hover:text-white'
+						: 'text-surface-600 hover:text-surface-950'}"
 					aria-label={m.nav_discord_aria()}
 				>
 					<svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -107,7 +127,9 @@
 					href="https://github.com/texpile/texpile"
 					target="_blank"
 					rel="noopener noreferrer"
-					class="text-surface-600 hover:text-surface-950 flex items-center transition-colors"
+					class="flex items-center transition-colors {overInk
+						? 'text-surface-300 hover:text-white'
+						: 'text-surface-600 hover:text-surface-950'}"
 					aria-label={m.nav_github_aria()}
 				>
 					<Github class="h-5 w-5" />

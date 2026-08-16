@@ -58,7 +58,7 @@
 	/>
 	<Section
 		title={'Inline math preview'}
-		body={'Equations preview as you write them, rendered with your own macros so a formula built from your definitions still shows correctly. Click away or press Esc to dismiss it, and turn it off entirely from Preferences › Math preview.'}
+		body={'Equations preview as you write them, using your own macros. Click away or press Esc to dismiss it, and turn it off from Preferences › Math preview.'}
 	/>
 	<Section
 		title={'Navigation'}

@@ -30,7 +30,7 @@
 <header>
 	<h1 class="text-surface-900 text-3xl font-bold md:text-4xl">{'Compiling'}</h1>
 	<p class="text-surface-600 mt-4 text-lg leading-relaxed">
-		{'Texpile does not ship a TeX distribution and does not compile in the cloud. It runs the compile command you choose, on your machine, and shows you what came back.'}
+		{'Texpile runs the compile command you choose, on your machine, and shows you what came back.'}
 	</p>
 </header>
 
@@ -78,7 +78,7 @@
 
 	<Section
 		title={'Problems panel'}
-		body={'Texpile reads the compile log and the bibliography log and lists errors and warnings with plain-language explanations. Click a problem to jump to its line; a bibliography warning jumps to the entry in the .bib file. Even a large log does not stall the app. Toggle the panel from the Problems tab in the terminal dock, or the warning or error badge beside the Visual / Source toggle in the top right corner.'}
+		body={'Errors and warnings from the compile and bibliography logs, in plain language. Click one to jump to its line; a bibliography warning jumps to the entry in the .bib file. Toggle the panel from the Problems tab in the terminal dock, or the warning or error badge beside the Visual / Source toggle in the top right corner.'}
 	>
 		<Figure src={problemsShot} alt={'The Problems panel listing a compile error and warnings'} />
 	</Section>

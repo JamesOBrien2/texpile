@@ -73,7 +73,7 @@ linux:
     - AppImage
     - deb
   category: Office
-  synopsis: A local, offline LaTeX editor
+  synopsis: A local, offline editor for LaTeX, Typst, and Markdown
   icon: build/icons
 
 # built names are the download names here too (latest-linux.yml records them, see mac note)

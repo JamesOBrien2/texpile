@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Download, Github } from '@lucide/svelte';
-	import ShowcaseToggle from './ShowcaseToggle.svelte';
+	import HeroShot from './HeroShot.svelte';
 	import { detectOS, type OS } from '$lib/os';
 	import { m } from '$lib/paraglide/messages';
 
@@ -15,26 +15,27 @@
 	let os = $state<OS | null>(null);
 	const downloadLabel = $derived(os ? m.dl_download_for({ name: OS_NAME[os] }) : m.word_download());
 
-	// split on * so translators can move the accent word instead of us splitting the sentence into keys
-	const headingParts = m.hero_heading().split('*');
-
 	onMount(() => {
 		os = detectOS();
 	});
 </script>
 
-<section id="top" class="bg-primary-50 overflow-hidden">
+<!-- The one dark band at the top of the page. A white editor screenshot on ink is the highest
+	 contrast composition available here, and it is also just what the app looks like. -->
+<section id="top" class="bg-ink-900 overflow-hidden">
 	<div class="container mx-auto px-4 pt-20 pb-14 sm:px-6 md:pt-28 lg:px-8">
-		<div class="mx-auto max-w-4xl space-y-7 text-center">
-			<h1 class="text-surface-950 text-4xl leading-[1.1] font-bold tracking-tight sm:text-5xl lg:text-6xl">
-				{#each headingParts as part, i (i)}{#if i % 2}<span class="text-primary-600">{part}</span>{:else}{part}{/if}{/each}
-			</h1>
+		<!-- 6xl, not 5xl: "LaTeX and Typst" spelled out needs the wider measure to stay on two lines
+			 in English and German. A third line pushes the CTA and the product shot out of the fold. -->
+		<div class="mx-auto max-w-6xl space-y-8 text-center">
+			<!-- No accent colour in the headline on purpose: the download button is then the only
+				 saturated thing in the fold, so it wins the eye instead of competing with 77px of cyan. -->
+			<h1 class="display text-[clamp(2.5rem,6vw,5.25rem)] text-balance text-white">{m.hero_heading()}</h1>
 
-			<p class="text-surface-800 mx-auto max-w-3xl text-lg leading-relaxed">
+			<p class="text-surface-400 mx-auto max-w-xl text-sm leading-relaxed text-pretty sm:text-base">
 				{m.hero_body()}
 			</p>
 
-			<div class="flex flex-col items-center gap-4">
+			<div class="flex flex-col items-center gap-5">
 				<div class="flex flex-wrap items-center justify-center gap-3">
 					<a
 						href="/download"
@@ -47,18 +48,18 @@
 						href="https://github.com/texpile/texpile"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="rounded-base border-surface-300 text-surface-900 hover:bg-surface-100 inline-flex items-center gap-2 border bg-white px-7 py-3 font-semibold transition-colors"
+						class="rounded-base inline-flex items-center gap-2 border border-white/15 px-7 py-3 font-semibold text-white transition-colors hover:bg-white/10"
 					>
 						<Github class="h-5 w-5" />
 						{m.hero_cta_github()}
 					</a>
 				</div>
-				<p class="text-surface-800 font-mono text-xs">{m.hero_tagline()}</p>
+				<p class="text-surface-400 font-mono text-xs">{m.hero_tagline()}</p>
 			</div>
 		</div>
 	</div>
 
-	<div class="pb-20 md:pb-24">
-		<ShowcaseToggle />
+	<div class="pb-20 md:pb-28">
+		<HeroShot />
 	</div>
 </section>

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import LogoLight from '$lib/assets/Logo-light.svg';
 </script>
 
-<footer class="bg-surface-900 text-surface-100 py-12">
+<footer class="bg-ink-950 text-surface-100 py-14">
 	<div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
 		<div class="grid grid-cols-1 gap-8 md:grid-cols-3">
 			<div class="space-y-4">
-				<h3 class="text-xl font-bold text-white">{m.footer_brand()}</h3>
+				<img src={LogoLight} alt={m.footer_brand()} class="h-7" />
 				<p class="text-surface-300">{m.footer_tagline()}</p>
 			</div>
 
@@ -42,7 +43,7 @@
 			</div>
 		</div>
 
-		<div class="border-surface-700 mt-8 border-t pt-8 text-center">
+		<div class="mt-10 border-t border-white/10 pt-8 text-center">
 			<!-- no whitespace between the three parts: CJK locales must not get a space around the
 			     link or before their fullwidth comma, so each locale carries its own spacing -->
 			<p class="text-surface-400">

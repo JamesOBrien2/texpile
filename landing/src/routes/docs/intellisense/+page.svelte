@@ -50,7 +50,7 @@
 	</Section>
 	<Section
 		title={'Across the whole project'}
-		body={"Macros are gathered from the main file's chain of `\\input` and `\\usepackage`, so a chapter fragment is understood with the same definitions the main file has. Labels and citation keys come from every file in the folder."}
+		body={'Macros come from the main file and everything it `\\input`s or `\\usepackage`s, so a chapter file completes with the same definitions. Labels and citation keys come from every file in the folder.'}
 	/>
 	<Section
 		title={'Definitions and hover'}

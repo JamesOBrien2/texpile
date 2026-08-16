@@ -1,5 +1,6 @@
 import {
 	HardDriveDownload,
+	Type,
 	Monitor,
 	Apple,
 	TerminalSquare,
@@ -13,6 +14,9 @@ import {
 	GitBranch,
 	Users,
 	Bot,
+	MessageSquare,
+	Plug,
+	Library,
 	Sigma,
 	Image,
 	Table,
@@ -37,12 +41,31 @@ export const TOPICS: Topic[] = [
 	{
 		slug: 'installation',
 		title: 'Installation',
-		blurb: 'Install Texpile, then a TeX distribution for it to compile with.',
+		blurb: 'Install Texpile, then a compiler for the format you write in.',
 		icon: HardDriveDownload,
 		children: [
-			{ slug: 'windows', title: 'Windows', blurb: 'The installer, then TeX Live or MiKTeX.', icon: Monitor },
-			{ slug: 'macos', title: 'macOS', blurb: 'The .dmg, then MacTeX or BasicTeX.', icon: Apple },
-			{ slug: 'linux', title: 'Linux', blurb: 'The .deb or AppImage, then TeX Live.', icon: TerminalSquare }
+			{
+				slug: 'latex',
+				title: 'LaTeX',
+				blurb: 'A TeX distribution: TeX Live, MacTeX, or MiKTeX.',
+				icon: Sigma,
+				children: [
+					{ slug: 'windows', title: 'Windows', blurb: 'TeX Live from CTAN, or MiKTeX.', icon: Monitor },
+					{ slug: 'macos', title: 'macOS', blurb: 'MacTeX, or BasicTeX for a smaller install.', icon: Apple },
+					{ slug: 'linux', title: 'Linux', blurb: 'TeX Live from apt, or from upstream.', icon: TerminalSquare }
+				]
+			},
+			{
+				slug: 'typst',
+				title: 'Typst',
+				blurb: 'One program, tinymist.',
+				icon: Type,
+				children: [
+					{ slug: 'windows', title: 'Windows', blurb: 'winget, or the standalone installer.', icon: Monitor },
+					{ slug: 'macos', title: 'macOS', blurb: 'Homebrew, or the standalone installer.', icon: Apple },
+					{ slug: 'linux', title: 'Linux', blurb: 'The installer script, or Homebrew.', icon: TerminalSquare }
+				]
+			}
 		]
 	},
 	{
@@ -100,7 +123,7 @@ export const TOPICS: Topic[] = [
 	{
 		slug: 'intellisense',
 		title: 'Intellisense',
-		blurb: 'Completion, go-to-definition, and hover, built from a static parse of the whole project.',
+		blurb: 'Completion, go-to-definition, and hover across your whole project.',
 		icon: Sparkles
 	},
 	{
@@ -122,16 +145,31 @@ export const TOPICS: Topic[] = [
 		icon: GitBranch
 	},
 	{
+		slug: 'comments',
+		title: 'Comments',
+		blurb: 'Select anything and leave a comment; threads follow the text as it changes.',
+		icon: MessageSquare
+	},
+	{
 		slug: 'collaboration',
 		title: 'Real-time collaboration',
 		blurb: 'Edit a folder with other people in real time, end to end encrypted, with no account.',
 		icon: Users
 	},
 	{
-		slug: 'mcp',
-		title: 'AI assistants (MCP)',
-		blurb: 'Let Claude Code or Codex read your editor state and drive the app, locally.',
-		icon: Bot
+		slug: 'integrations',
+		title: 'Integrations',
+		blurb: 'Other programs Texpile can talk to on your machine.',
+		icon: Plug,
+		children: [
+			{ slug: 'zotero', title: 'Zotero', blurb: 'Insert citations from your library; needs the Better BibTeX plugin.', icon: Library },
+			{
+				slug: 'mcp',
+				title: 'AI assistants (MCP)',
+				blurb: 'Let Claude Code or Codex read your editor state and drive the app, locally.',
+				icon: Bot
+			}
+		]
 	}
 ];
 
@@ -144,13 +182,20 @@ interface FlatEntry {
 }
 
 /** depth-first flattening (parent immediately followed by its children), for the pager and route
- * lookups. Computed once at module load; TOPICS is static per page render. */
+ * lookups. Computed once at module load; TOPICS is static per page render.
+ *
+ * Recursive rather than two nested loops, so nesting depth is a property of TOPICS alone: the
+ * install pages are three deep (installation/latex/windows) and nothing here has to know that. */
 const FLAT: FlatEntry[] = (() => {
 	const out: FlatEntry[] = [];
-	for (const t of TOPICS) {
-		out.push({ topic: t, path: t.slug, parent: null });
-		for (const c of t.children ?? []) out.push({ topic: c, path: `${t.slug}/${c.slug}`, parent: t });
-	}
+	const walk = (topics: Topic[], prefix: string, parent: Topic | null) => {
+		for (const t of topics) {
+			const path = prefix ? `${prefix}/${t.slug}` : t.slug;
+			out.push({ topic: t, path, parent });
+			walk(t.children ?? [], path, t);
+		}
+	};
+	walk(TOPICS, '', null);
 	return out;
 })();
 

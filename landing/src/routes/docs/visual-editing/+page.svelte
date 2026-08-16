@@ -50,7 +50,7 @@
 
 <div class="mt-6 space-y-4">
 	<Note
-		body={'It is WYSIWYM, not WYSIWYG: what you see is what you mean, not a pixel preview of the compiled page. A heading looks like a heading and a numbered equation looks numbered, but the exact fonts, spacing, and layout come from your LaTeX engine and preamble, not the editor. For that, see Live preview.'}
+		body={'A heading looks like a heading and a numbered equation looks numbered, but the exact fonts, spacing, and layout come from your engine and preamble. For those, see Live preview.'}
 	/>
 	<Where rows={where} />
 </div>
@@ -98,10 +98,7 @@
 		<KeyTable rows={keys} />
 	</Section>
 
-	<Section
-		title={'Visual editor features'}
-		body={'Five parts of the visual editor go deep enough for their own page: equation numbering and per-line labels, resizing and captioning images, merging table cells from a settings panel, the shared @ picker for citations and cross-references, and selecting a whole block, then its parent, from the toolbar.'}
-	>
+	<Section title={'Visual editor features'} body={'Five parts have their own page.'}>
 		<div class="grid gap-4 sm:grid-cols-2">
 			{#each blocks as block (block.slug)}
 				{@const Icon = block.icon}

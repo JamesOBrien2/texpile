@@ -43,10 +43,7 @@
 		title={'Joining'}
 		body={'The host shares a folder from File › Shared session and gets a code. Everyone else picks Join session on the start screen and enters it. There is no account and no sign-up on either side, and a guest does not need the folder, a TeX distribution, or even a project of their own.'}
 	/>
-	<Section
-		title={'Encryption'}
-		body={'Sessions are end to end encrypted. The relay server forwards data it cannot read, so the content of your document is never available to it.'}
-	/>
+	<Section title={'Encryption'} body={'Sessions are end to end encrypted.'} />
 	<Section
 		title={'What guests see'}
 		body={'Guests co-edit in both the visual and source editors and see where everyone else is working, cursors and selections included.'}
@@ -57,6 +54,6 @@
 	/>
 	<Section
 		title={'What a guest cannot do'}
-		body={"Actions that belong to the host's machine, such as starting a compile or changing the compile command, are left out of a guest's menus rather than failing when used."}
+		body={"Actions that belong to the host's machine, such as starting a compile or changing the compile command, are left out of a guest's menus."}
 	/>
 </div>

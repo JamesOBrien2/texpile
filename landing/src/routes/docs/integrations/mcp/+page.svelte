@@ -31,7 +31,7 @@
 <DocsHead
 	title={'AI assistants (MCP)'}
 	description={'Texpile exposes a local MCP server so Claude Code, Codex, and other assistants can read your editor state and compile errors and drive the editor.'}
-	path="/docs/mcp"
+	path="/docs/integrations/mcp"
 />
 
 <header>
@@ -71,10 +71,7 @@
 		</div>
 	</Section>
 
-	<Section
-		title={'What an assistant can do'}
-		body={'The server offers a small, deliberate set of actions rather than general access to your disk.'}
-	>
+	<Section title={'What an assistant can do'} body={'A small set of actions, not general access to your disk.'}>
 		<Bullets items={tools} />
 		<div class="mt-4">
 			<Note
@@ -83,15 +80,9 @@
 		</div>
 	</Section>
 
-	<Section
-		title={'During a shared session'}
-		body={"The server is local to whichever machine is running Texpile, so it only ever shows what is open in that machine's own window. In a real-time collaboration session, that means only the host can connect an assistant to it; guests do not get one of their own."}
-	/>
+	<Section title={'In a shared session'} body={'Host only.'} />
 
-	<Section
-		title={'Local only'}
-		body={'The server listens on 127.0.0.1 and is reachable only from your own machine. Texpile itself sends nothing anywhere.'}
-	>
+	<Section title={'Local only'} body={'The server is reachable only from your own machine, and Texpile sends nothing anywhere.'}>
 		<Note
 			body={'What your assistant does with what it reads is between you and your assistant. If it is a cloud model, your document content reaches that provider the same way it would if you pasted it in.'}
 		/>

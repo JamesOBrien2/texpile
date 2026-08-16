@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ChevronDown, ChevronLeft, ChevronRight, BookOpen } from '@lucide/svelte';
 	import { page } from '$app/state';
-	import { TOPICS, hrefFor, siblings, lookup } from '$lib/docs/nav';
+	import { TOPICS, hrefFor, siblings, lookup, type Topic } from '$lib/docs/nav';
 
 	let { children } = $props();
 
@@ -32,7 +32,9 @@
 		</details>
 
 		<aside class="hidden lg:block">
-			<nav class="sticky top-20">
+			<!-- the tree is tall enough with a branch expanded to pass a short laptop viewport, and a
+			     sticky element that overflows is simply cut off, so it scrolls within itself -->
+			<nav class="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
 				<a
 					href="/docs"
 					class="mb-3 flex items-center gap-2 px-3 text-xs font-semibold tracking-wide uppercase {isIndex
@@ -83,36 +85,36 @@
 	</div>
 </div>
 
-{#snippet navList()}
-	<ul class="space-y-0.5">
-		{#each TOPICS as topic (topic.slug)}
+<!--
+	Recursive, so the depth of the tree lives in TOPICS and not here. The install pages are three
+	levels deep (installation > latex > windows); everything else is one or two.
+
+	Grandchildren render only under the branch the reader is inside. Showing all of them at once put
+	25 rows in a sidebar that has to stay under one screen, and a reader installing Typst has no use
+	for the three LaTeX platform pages.
+-->
+{#snippet navItems(topics: Topic[], prefix: string, depth: number)}
+	<ul class={depth === 0 ? 'space-y-0.5' : 'border-surface-200 mt-0.5 mb-1 ml-3 space-y-0.5 border-l pl-3'}>
+		{#each topics as topic (topic.slug)}
+			{@const path = prefix ? `${prefix}/${topic.slug}` : topic.slug}
+			{@const onPath = slug === path || slug.startsWith(`${path}/`)}
 			<li>
 				<a
-					href={hrefFor(topic.slug)}
-					class="rounded-base block px-3 py-1.5 text-sm transition-colors {topic.slug === slug
+					href={hrefFor(path)}
+					class="rounded-base block px-3 text-sm transition-colors {depth === 0 ? 'py-1.5' : 'py-1'} {path === slug
 						? 'bg-primary-50 text-primary-700 font-medium'
-						: 'text-surface-600 hover:bg-surface-100 hover:text-surface-900'}"
+						: `${depth === 0 ? 'text-surface-600' : 'text-surface-500'} hover:bg-surface-100 hover:text-surface-900`}"
 				>
 					{topic.title}
 				</a>
-				{#if topic.children}
-					<ul class="mt-0.5 mb-1 ml-3 space-y-0.5 border-l border-surface-200 pl-3">
-						{#each topic.children as child (child.slug)}
-							{@const childPath = `${topic.slug}/${child.slug}`}
-							<li>
-								<a
-									href={hrefFor(childPath)}
-									class="rounded-base block px-3 py-1 text-sm transition-colors {childPath === slug
-										? 'bg-primary-50 text-primary-700 font-medium'
-										: 'text-surface-500 hover:bg-surface-100 hover:text-surface-900'}"
-								>
-									{child.title}
-								</a>
-							</li>
-						{/each}
-					</ul>
+				{#if topic.children && (depth === 0 || onPath)}
+					{@render navItems(topic.children, path, depth + 1)}
 				{/if}
 			</li>
 		{/each}
 	</ul>
+{/snippet}
+
+{#snippet navList()}
+	{@render navItems(TOPICS, '', 0)}
 {/snippet}

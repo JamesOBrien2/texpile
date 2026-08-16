@@ -42,13 +42,12 @@ Texpile supports adding comments, and you can add them in both the visual and th
 
 ## Installation
 
-Download the installer for your platform from [texpile.com/download](https://texpile.com/download), then follow the guide for it:
+Download the installer for your platform from [texpile.com/download](https://texpile.com/download), then install a compiler for the format you write in:
 
-- [Windows](https://texpile.com/docs/installation/windows)
-- [macOS](https://texpile.com/docs/installation/macos)
-- [Linux](https://texpile.com/docs/installation/linux)
+- [LaTeX](https://texpile.com/docs/installation/latex) — a TeX distribution: TeX Live, MacTeX, or MiKTeX
+- [Typst](https://texpile.com/docs/installation/typst) — one program, tinymist
 
-Editing works out of the box. To compile PDFs you also need a TeX distribution for LaTeX, or tinymist for Typst.
+Editing works out of the box; the compiler is only needed to produce a PDF. Markdown needs neither.
 
 ## Privacy
 

@@ -6,9 +6,14 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const DOC_SLUGS = [
 	'',
 	'/installation',
-	'/installation/windows',
-	'/installation/macos',
-	'/installation/linux',
+	'/installation/latex',
+	'/installation/latex/windows',
+	'/installation/latex/macos',
+	'/installation/latex/linux',
+	'/installation/typst',
+	'/installation/typst/windows',
+	'/installation/typst/macos',
+	'/installation/typst/linux',
 	'/getting-started',
 	'/live-preview',
 	'/visual-editing',
@@ -23,8 +28,11 @@ const DOC_SLUGS = [
 	'/compiling',
 	'/projects',
 	'/version-control',
+	'/comments',
 	'/collaboration',
-	'/mcp'
+	'/integrations',
+	'/integrations/zotero',
+	'/integrations/mcp'
 ];
 const NON_BASE_LOCALES = ['zh-Hans', 'zh-Hant', 'de'];
 const localizedDocs = NON_BASE_LOCALES.flatMap((l) => DOC_SLUGS.map((s) => `/${l}/docs${s}`));

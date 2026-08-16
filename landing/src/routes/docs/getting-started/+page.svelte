@@ -45,7 +45,7 @@
 <div class="space-y-10">
 	<Section
 		title={'Open a folder'}
-		body={'There is no import step and no project format. Texpile opens on a start screen rather than an empty editor: choose Open Folder… and the file explorer fills with the .tex, .bib, and image files it finds. Folders you have opened before are listed under Recent, and your last folder reopens the next time you launch, on the file you left open.'}
+		body={'There is no import step and no project format. Choose Open Folder… on the start screen and the file explorer fills with the .tex, .bib, and image files it finds. Folders you have opened before are listed under Recent, and your last folder reopens the next time you launch, on the file you left open.'}
 	>
 		<Note
 			body={'New to Texpile? The start screen has a "New here? Try the tutorial" link that builds a small worked example in a folder you pick, so you have something real to edit.'}
@@ -53,7 +53,7 @@
 	</Section>
 	<Section
 		title={'The main file'}
-		body={'A multi-file paper has one main .tex holding the preamble and `\\begin{document}`. Texpile picks it automatically, by conventional name or by looking for `\\begin{document}`. Right-click any file in the explorer to set it yourself. The main file is badged with a star and remembered per folder.'}
+		body={'A multi-file paper has one main .tex holding the preamble and `\\begin{document}`. Texpile picks it automatically. Right-click any file in the explorer to set it yourself. The main file is badged with a star and remembered per folder.'}
 	>
 		<Figure src={mainFileShot} alt={'Right-clicking a file to set it as the main file, with the current main file starred'} narrow />
 	</Section>
@@ -82,9 +82,7 @@
 		title={'Autosave'}
 		body={'Autosave is on by default. Turn it off in Preferences and Texpile saves only when you press Ctrl+S, warning you before you switch files.'}
 	>
-		<Note
-			body={'Live preview and hosting a shared session both depend on the file on disk being current, so autosave stays on while either is active.'}
-		/>
+		<Note body={'Autosave stays on while live preview or a shared session is running.'} />
 	</Section>
 	<Section
 		title={'Producing a PDF'}

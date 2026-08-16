@@ -6,29 +6,22 @@
 </script>
 
 <DocsHead
-	title={'Installation on Windows'}
-	description={'Install Texpile on Windows, then install TeX Live (or MiKTeX) so Texpile can compile your PDFs.'}
-	path="/docs/installation/windows"
+	title={'Installing LaTeX on Windows'}
+	description={'Install TeX Live or MiKTeX on Windows so Texpile can compile LaTeX documents.'}
+	path="/docs/installation/latex/windows"
 />
 
 <header>
-	<h1 class="text-surface-900 text-3xl font-bold md:text-4xl">{'Windows'}</h1>
+	<h1 class="text-surface-900 text-3xl font-bold md:text-4xl">{'LaTeX on Windows'}</h1>
 	<p class="text-surface-600 mt-4 text-lg leading-relaxed">
-		{'Both installers are graphical and both configure themselves, so there is nothing to add to your PATH by hand on this platform.'}
+		{'The installer is graphical and configures itself, so there is nothing to add to your PATH by hand on this platform.'}
 	</p>
 </header>
 
 <div class="mt-10 space-y-10">
-	<Section title={'1. Install Texpile'} body={'Download the installer and run it. Texpile appears in the Start menu when it finishes.'}>
-		<a href="/download" class="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1.5 font-medium transition-colors">
-			{'Download Texpile'}
-			<ArrowRight class="h-4 w-4" />
-		</a>
-	</Section>
-
 	<Section
-		title={'2. Install TeX Live'}
-		body={'Download `install-tl-windows.exe` from CTAN and run it. It unpacks itself, then starts the installer proper; an Advanced button exposes the scheme and directory options if you want a smaller install or a different location. When it finishes it adds the TeX Live binaries to your search path for you.'}
+		title={'Install TeX Live'}
+		body={'Download `install-tl-windows.exe` from CTAN and run it. An Advanced button has the scheme and directory options if you want a smaller install or a different location. It adds TeX Live to your search path when it finishes.'}
 	>
 		<div class="flex flex-wrap gap-x-6 gap-y-2">
 			<a
@@ -57,11 +50,11 @@
 	</Section>
 
 	<Section
-		title={'3. Check it worked'}
+		title={'Check it worked'}
 		body={'The installer edits the search path, so a Command Prompt that was already open will not see TeX until you close and reopen it. Texpile reads the environment when it launches, so restart Texpile too.'}
 	>
 		<a
-			href="/docs/installation"
+			href="/docs/installation/latex"
 			class="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1.5 font-medium transition-colors"
 		>
 			{'Checking the install'}

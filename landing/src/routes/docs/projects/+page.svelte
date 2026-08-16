@@ -61,7 +61,7 @@
 	<Section title={'Tabs'} body={'Open files appear as tabs above the editor, and your open tabs come back when you reopen the folder.'} />
 	<Section
 		title={'Multi-file documents'}
-		body={"Fragments pulled in with `\\input` parse using the main file's macros and packages, so a chapter file is understood the way the main file would understand it rather than as an orphan."}
+		body={"Files pulled in with `\\input` are read with the main file's macros and packages, so a chapter opens on its own without losing them."}
 	/>
 	<Section
 		title={'Table of contents'}

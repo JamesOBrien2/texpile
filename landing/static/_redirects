@@ -1,0 +1,28 @@
+# Cloudflare Pages redirects. Served from the build root; adapter-static copies static/ verbatim.
+#
+# The install docs used to be split by platform (/docs/installation/windows) and are now split by
+# format (/docs/installation/latex). The old URLs were in the sitemap, so they are redirected rather
+# than left to 404. They land on the installation index because a platform alone does not say which
+# compiler the reader wanted.
+/docs/installation/windows /docs/installation 301
+/docs/installation/macos /docs/installation 301
+/docs/installation/linux /docs/installation 301
+
+/de/docs/installation/windows /de/docs/installation 301
+/de/docs/installation/macos /de/docs/installation 301
+/de/docs/installation/linux /de/docs/installation 301
+
+/zh-Hans/docs/installation/windows /zh-Hans/docs/installation 301
+/zh-Hans/docs/installation/macos /zh-Hans/docs/installation 301
+/zh-Hans/docs/installation/linux /zh-Hans/docs/installation 301
+
+/zh-Hant/docs/installation/windows /zh-Hant/docs/installation 301
+/zh-Hant/docs/installation/macos /zh-Hant/docs/installation 301
+/zh-Hant/docs/installation/linux /zh-Hant/docs/installation 301
+
+# MCP moved under Integrations. Unlike the install pages this one has an exact new home, so it
+# redirects to the page itself rather than to a parent.
+/docs/mcp /docs/integrations/mcp 301
+/de/docs/mcp /de/docs/integrations/mcp 301
+/zh-Hans/docs/mcp /zh-Hans/docs/integrations/mcp 301
+/zh-Hant/docs/mcp /zh-Hant/docs/integrations/mcp 301
