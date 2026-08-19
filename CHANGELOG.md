@@ -5,9 +5,13 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
-- fix: saving a PDF from the preview toolbar opens a proper save dialog instead of downloading the file
-- fix: the "mobile support is limited" notice no longer appears when the window is narrow
-- fix: the math keyboard button no longer appears on laptops with a touchscreen
+## [0.17.1] - 2026-08-19
+
+- feat: Typst tables in the visual editor: merge and split cells, and drag to resize columns
+- feat: Typst completions, hover help, and live error underlines for guests in a shared session, with no Typst tools installed on their machine
+- fix: accepting a Typst completion could leave the cursor before the inserted word
+- fix: LaTeX and Markdown tables no longer show a column resize handle that could not be saved
+- fix: removed the legacy window size warning
 
 ## [0.17.0] - 2026-08-15
 
