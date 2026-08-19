@@ -11,11 +11,12 @@ import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { writable } from 'svelte/store';
 import { applyTextEdits, type LspTextEdit } from './textEdits';
+import { normalizeCompletionJson } from './completionNormalize';
 
 // @codemirror/lsp-client caps its SIGNATURE tooltips but not its hover tooltips, and tinymist's
 // hover for a builtin is the function's whole documentation page - unconstrained, that renders
 // as a window-wide wall of text. Same box the signature tooltip gets, a little roomier.
-const lspHoverTheme = EditorView.baseTheme({
+export const lspHoverTheme = EditorView.baseTheme({
 	'.cm-lsp-hover-tooltip': {
 		maxWidth: '38em',
 		maxHeight: '16em',
@@ -69,9 +70,11 @@ function createTransport(): Transport {
 	const b = bridge();
 	// one subscription to the bridge, fanned out here: the client may subscribe and unsubscribe
 	// repeatedly over its life, and re-registering an IPC listener each time would leak them
-	b?.onMessage((json) => {
-		if (handleShowDocument(json, b)) return;
-		observeDiagnostics(json);
+	b?.onMessage((raw) => {
+		if (handleShowDocument(raw, b)) return;
+		observeDiagnostics(raw);
+		// field-less "snippets" become plain text here, or accepting one strands the caret
+		const json = normalizeCompletionJson(raw);
 		for (const h of handlers) h(json);
 	});
 	return {
@@ -522,9 +525,24 @@ export function setTypstDiagnosticsHandler(h: ((path: string, diags: TypstDiagno
 	diagnosticsHandler = h;
 }
 
+/**
+ * The same stream, for listeners that must run whatever the editor is doing.
+ *
+ * Separate from the handler above because that one is a single slot owned by the Problems panel
+ * and only armed in Preview mode. A collaboration host has to forward diagnostics to its guests
+ * regardless of which mode it happens to be in - a guest's squiggles cannot depend on whether
+ * somebody else has a preview pane open.
+ */
+const diagnosticsListeners = new Set<(path: string, diags: TypstDiagnostic[]) => void>();
+
+export function addTypstDiagnosticsListener(fn: (path: string, diags: TypstDiagnostic[]) => void): () => void {
+	diagnosticsListeners.add(fn);
+	return () => diagnosticsListeners.delete(fn);
+}
+
 function observeDiagnostics(json: string): void {
 	// cheap substring gate first: this runs on EVERY server message, most of which are not this
-	if (!diagnosticsHandler || !json.includes('"textDocument/publishDiagnostics"')) return;
+	if ((!diagnosticsHandler && diagnosticsListeners.size === 0) || !json.includes('"textDocument/publishDiagnostics"')) return;
 	let msg: { method?: string; params?: { uri?: string; diagnostics?: TypstDiagnostic[] } };
 	try {
 		msg = JSON.parse(json);
@@ -532,7 +550,10 @@ function observeDiagnostics(json: string): void {
 		return;
 	}
 	if (msg.method !== 'textDocument/publishDiagnostics' || !msg.params?.uri) return;
-	diagnosticsHandler(pathFromUri(msg.params.uri), msg.params.diagnostics ?? []);
+	const path = pathFromUri(msg.params.uri);
+	const diags = msg.params.diagnostics ?? [];
+	diagnosticsHandler?.(path, diags);
+	for (const fn of diagnosticsListeners) fn(path, diags);
 }
 
 /** Tear the server down (folder switch, no editors left, or the window going away). */
@@ -554,6 +575,19 @@ export function stopTypstClient(): void {
  *
  * The server stops once nothing is using it, after a grace period — see IDLE_GRACE_MS.
  */
+/**
+ * Take a reference without opening an editor, for a user that is not one.
+ *
+ * A collaboration guest's requests are served by this server, but the guest has no editor HERE to
+ * hold it open. Without this the host closing its last .typ tab starts the idle timer and reclaims
+ * the server out from under every guest in the session - intellisense that works, then stops
+ * thirty seconds later for no reason the guest can see.
+ */
+export function acquireTypstLsp(): void {
+	holders++;
+	cancelIdleStop();
+}
+
 export function releaseTypstLsp(): void {
 	holders = Math.max(0, holders - 1);
 	if (holders > 0) return;

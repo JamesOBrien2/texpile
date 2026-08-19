@@ -321,6 +321,25 @@ function restOnlySpace(kids: SyntaxNode[], j: number): boolean {
 	return true;
 }
 
+/**
+ * A call stands alone in its paragraph when nothing but an optional trailing `<label>` follows it.
+ * Returns that label node (null when there is none) plus the index to resume from; null means real
+ * content follows, so the call is inline rather than a block of its own.
+ *
+ * Shared by the modelled path and the raw-island fallback deliberately. When only figureSeg knew
+ * about trailing labels, `#figure(table(...)) <tab-x>` whose table was too rich to model fell out
+ * of the fallback too (a Label is not whitespace) and degraded into a paragraph of inline chips -
+ * a 17-line block crammed into an inline span. Byte fidelity survived, which is why the round-trip
+ * tests stayed green; only the node shape was wrong.
+ */
+function aloneWithLabel(kids: SyntaxNode[], after: number): { label: SyntaxNode | null; next: number } | null {
+	let j = after;
+	if (kids[j]?.name === 'Space' && kids[j + 1]?.name === 'Label') j++;
+	const label = kids[j]?.name === 'Label' ? kids[j] : null;
+	if (label) j++;
+	return restOnlySpace(kids, j) ? { label, next: j } : null;
+}
+
 function headingSeg(k: SyntaxNode, src: string): Seg {
 	const marker = childOf(k, 'HeadingMarker');
 	const level = Math.min(6, Math.max(1, marker ? marker.to - marker.from : 1));
@@ -470,19 +489,25 @@ function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 					i++;
 				} else if (next && buf.length === 0) {
 					const fig = figureSeg(kids, i, src) ?? tableSeg(kids, i, src) ?? quoteSeg(kids, i, src);
+					const alone = aloneWithLabel(kids, i + 2);
 					if (fig) {
 						segs.push(fig.seg);
 						i = fig.next - 1;
-					} else if (restOnlySpace(kids, i + 2) && src.slice(next.from, next.to) === 'line(length: 100%)') {
-						// the canonical full-width divider, byte-exact; any other #line stays raw
+					} else if (alone && !alone.label && src.slice(next.from, next.to) === 'line(length: 100%)') {
+						// the canonical full-width divider, byte-exact; any other #line stays raw. A
+						// LABELLED one stays raw too - horizontal_rule has nowhere to keep the label,
+						// so swallowing it here would delete it on the next save
 						segs.push({ blocks: [el('horizontal_rule')], from: k.from, to: next.to });
 						i++;
-					} else if (restOnlySpace(kids, i + 2) && !linkParts(next, src) && !markCallParts(next, src)) {
-						// a call standing alone in its paragraph (#lorem, unmodeled #figure): raw block.
-						// links and mark calls are inline content even alone - a fully-underlined
-						// paragraph serializes as a lone #underline[..] and must parse back as prose
-						segs.push({ blocks: [rawBlock(src.slice(k.from, next.to))], from: k.from, to: next.to });
-						i++;
+					} else if (alone && !linkParts(next, src) && !markCallParts(next, src)) {
+						// a call standing alone in its paragraph (#lorem, unmodeled #figure): raw block,
+						// with any trailing <label> swallowed into the island so it stays byte-exact AND
+						// stays one block. links and mark calls are inline content even alone - a fully
+						// underlined paragraph serializes as a lone #underline[..] and must parse back
+						// as prose
+						const end = alone.label ?? next;
+						segs.push({ blocks: [rawBlock(src.slice(k.from, end.to))], from: k.from, to: end.to });
+						i = alone.next - 1;
 					} else {
 						buf.push(k);
 					}
@@ -632,14 +657,9 @@ function figureSeg(kids: SyntaxNode[], i: number, src: string): { seg: Seg; next
 	const parts = figureParts(call, src);
 	const tParts = parts ? null : tableFigureParts(call, src);
 	if (!parts && !tParts) return null;
-	let j = i + 2;
-	if (kids[j]?.name === 'Space' && kids[j + 1]?.name === 'Label') j++;
-	let labelNode: SyntaxNode | null = null;
-	if (kids[j]?.name === 'Label') {
-		labelNode = kids[j];
-		j++;
-	}
-	if (!restOnlySpace(kids, j)) return null;
+	const alone = aloneWithLabel(kids, i + 2);
+	if (!alone) return null;
+	const labelNode = alone.label;
 	const label = labelNode ? src.slice(labelNode.from + 1, labelNode.to - 1) : null;
 	let node: PMNode;
 	if (parts) {
@@ -662,17 +682,90 @@ function figureSeg(kids: SyntaxNode[], i: number, src: string): { seg: Seg; next
 		node = el('table_wrapper', { label, showNotes: false }, [el('table_caption', null, caption), table]);
 	}
 	const to = (labelNode ?? call).to;
-	return { seg: { blocks: [node], from: hash.from, to }, next: j };
+	return { seg: { blocks: [node], from: hash.from, to }, next: alone.next };
 }
 
 const ARG_PUNCT = ['LeftParen', 'RightParen', 'Comma', 'Space'];
 
-/** a `[content]` argument -> one table cell; anything else is not a cell. */
-function contentBlockCell(cb: SyntaxNode, src: string, headerCell: boolean): PMNode | null {
+/**
+ * One table cell. `[content]` is the ordinary form; a bare expression is equally legal Typst and
+ * shows up constantly in real tables (`$x$, [Position], [m]`), so an Equation is accepted too and
+ * normalised to a one-paragraph cell. An edited table re-emits it as `[$x$]`, which Typst lays out
+ * identically - and an UNEDITED one never regenerates at all, because the orig machinery re-emits
+ * its original bytes.
+ */
+function contentBlockCell(cb: SyntaxNode, src: string, headerCell: boolean, attrs: Record<string, unknown> | null = null): PMNode | null {
+	const type = headerCell ? 'table_header' : 'table_cell';
+	if (cb.name === 'Equation') return el(type, attrs, [el('paragraph', null, convertInline([cb], src, []))]);
 	if (cb.name !== 'ContentBlock') return null;
 	const markup = childOf(cb, 'Markup');
 	const blocks = markup ? convertMarkup(children(markup), src).flatMap((s) => s.blocks) : [];
-	return el(headerCell ? 'table_header' : 'table_cell', null, ensureBlocks(blocks));
+	const body = cellBlocks(blocks);
+	return body ? el(type, attrs, body) : null;
+}
+
+/**
+ * Table cells accept `paragraph+` and nothing else (see cellContent in schema.ts).
+ *
+ * The equation case is not hypothetical: an edited table re-emits a bare `$x$` cell as `[$x$]`,
+ * and an equation alone in its markup comes back as DISPLAY math, which a cell cannot hold. It is
+ * demoted here, carrying its verbatim `typst` attr across so it still re-emits as `$x$`. Without
+ * this the table round-trips once and then builds an invalid node on the second pass.
+ *
+ * Anything else block-level (a list, a quote, a nested table) has no cell representation at all,
+ * and null keeps the WHOLE table a raw island rather than quietly dropping the content.
+ */
+function cellBlocks(blocks: PMNode[]): PMNode[] | null {
+	const out: PMNode[] = [];
+	for (const b of blocks) {
+		if (b.type.name === 'paragraph') {
+			out.push(b);
+		} else if (b.type.name === 'block_math') {
+			const inner: PMNode[] = [];
+			b.forEach((k) => inner.push(k as PMNode));
+			out.push(el('paragraph', null, [el('inline_math', { typst: b.attrs.typst, latexOrig: b.attrs.latexOrig }, inner)]));
+		} else {
+			return null;
+		}
+	}
+	return ensureBlocks(out);
+}
+
+/** the `table.<name>` of a `table.hline()` / `table.cell(..)[..]` call, or null if it isn't one. */
+function tableMethod(n: SyntaxNode, src: string): string | null {
+	if (n.name !== 'FuncCall' || n.firstChild?.name !== 'FieldAccess') return null;
+	const name = src.slice(n.firstChild.from, n.firstChild.to);
+	return name.startsWith('table.') ? name : null;
+}
+
+/** `table.cell(colspan: 2, rowspan: 3)[body]` -> the cell plus its span. Only colspan/rowspan are
+ *  modelled; a cell carrying anything else (fill:, align:, inset:) is not one this can rebuild. */
+function spannedCell(call: SyntaxNode, src: string, headerCell: boolean): { cell: PMNode; colspan: number; rowspan: number } | null {
+	const args = call.firstChild?.nextSibling;
+	if (!args || args.name !== 'Args') return null;
+	let colspan = 1;
+	let rowspan = 1;
+	let body: SyntaxNode | null = null;
+	for (const a of children(args).filter((c) => !ARG_PUNCT.includes(c.name))) {
+		if (a.name === 'Named') {
+			const ident = a.firstChild;
+			const key = ident && ident.name === 'Ident' ? src.slice(ident.from, ident.to) : '';
+			const value = children(a).find((c) => !['Ident', 'Colon', 'Space'].includes(c.name));
+			if (!value || value.name !== 'Int') return null;
+			const n = parseInt(src.slice(value.from, value.to), 10);
+			if (!Number.isFinite(n) || n < 1 || n > 100) return null;
+			if (key === 'colspan') colspan = n;
+			else if (key === 'rowspan') rowspan = n;
+			else return null;
+		} else if (!body) {
+			body = a;
+		} else {
+			return null; // a second positional argument is not a shape this rebuilds
+		}
+	}
+	if (!body) return null;
+	const cell = contentBlockCell(body, src, headerCell, { colspan, rowspan, colwidth: null });
+	return cell ? { cell, colspan, rowspan } : null;
 }
 
 /** `columns: 3` or `columns: (auto, 1fr, ...)` -> how many columns the cell stream wraps at. */
@@ -693,15 +786,25 @@ interface TableParts {
 	colspec: string;
 	/** the align: value, verbatim, when the source had one */
 	align: string | null;
+	/** every other named argument (stroke:, fill:, gutter:), verbatim and in source order */
+	extraArgs: string[];
 	header: PMNode[] | null;
+	/** the table.hline() calls sitting above row i, verbatim */
+	rowRules: string[][];
+	/** the table.hline() calls after the last row */
+	bottomRules: string[];
 	rows: PMNode[][];
 }
 
 /**
- * The simple-grid subset: `#table(columns: ..., [cell], [cell], ...)`, optionally with an
- * `align:` right after and one leading `table.header(...)`. Any other argument — stroke:,
- * fill:, gutter:, spanned cells, spreads — means the call stays a raw island the serializer
- * can't damage.
+ * The editable-grid subset: `#table(columns: ..., [cell], ...)`, plus the parts a real table
+ * actually uses - any named arguments (kept verbatim), `table.header(...)`, `table.hline()` at row
+ * boundaries, `table.cell(colspan:/rowspan:)` and bare expression cells like `$x$`.
+ *
+ * What still stays a raw island: `table.vline` / `table.footer` (no row model for them), an hline
+ * in the MIDDLE of a row, a `table.cell` carrying anything beyond colspan/rowspan, and a cell
+ * stream that overflows its declared column count. The serializer has to be able to rebuild
+ * whatever is accepted here, so anything it cannot re-emit must not be accepted.
  */
 function tableParts(call: SyntaxNode, src: string): TableParts | null {
 	if (call.name !== 'FuncCall') return null;
@@ -719,57 +822,135 @@ function tableParts(call: SyntaxNode, src: string): TableParts | null {
 	const cols = columnCount(value, src);
 	if (cols == null) return null;
 
+	// the remaining named arguments, in source order. align: is pulled out because it carries a
+	// per-column staleness rule the serializer enforces; the rest only have to survive.
 	let idx = 1;
 	let align: string | null = null;
-	const maybeAlign = real[1];
-	if (maybeAlign?.name === 'Named') {
-		const aIdent = maybeAlign.firstChild;
-		if (!aIdent || aIdent.name !== 'Ident' || src.slice(aIdent.from, aIdent.to) !== 'align') return null;
-		const aValue = children(maybeAlign).find((c) => !['Ident', 'Colon', 'Space'].includes(c.name));
-		if (!aValue || !['Array', 'Ident', 'FieldAccess'].includes(aValue.name)) return null;
-		align = src.slice(aValue.from, aValue.to);
-		idx = 2;
+	const extraArgs: string[] = [];
+	for (; idx < real.length && real[idx].name === 'Named'; idx++) {
+		const a = real[idx];
+		const aIdent = a.firstChild;
+		const key = aIdent && aIdent.name === 'Ident' ? src.slice(aIdent.from, aIdent.to) : '';
+		if (key === 'columns') return null; // a second columns: is not a shape this rebuilds
+		if (key === 'align' && align == null) {
+			const aValue = children(a).find((c) => !['Ident', 'Colon', 'Space'].includes(c.name));
+			if (!aValue || !['Array', 'Ident', 'FieldAccess'].includes(aValue.name)) return null;
+			align = src.slice(aValue.from, aValue.to);
+		} else {
+			extraArgs.push(src.slice(a.from, a.to));
+		}
 	}
+
+	// Occupancy carried into the BODY grid. Seeded during header parsing because a header cell may
+	// have a rowspan reaching down into the body (merging a header cell with the one below it makes
+	// exactly that), and the body walk has to know those columns are already taken. Body row 0 is
+	// grid row 1, so a header rowspan of R covers body rows 0..R-2.
+	const covered = new Set<string>();
+	const at = (rr: number, cc: number) => `${rr},${cc}`;
 
 	let header: PMNode[] | null = null;
 	const h = real[idx];
-	if (h?.name === 'FuncCall' && h.firstChild?.name === 'FieldAccess' && src.slice(h.firstChild.from, h.firstChild.to) === 'table.header') {
-		const hArgs = h.firstChild.nextSibling;
+	if (h && tableMethod(h, src) === 'table.header') {
+		const hArgs = h.firstChild!.nextSibling;
 		if (!hArgs || hArgs.name !== 'Args') return null;
 		header = [];
+		// width, not cell count: a merged header cell covers several columns, so counting cells
+		// would pad the row out past the grid and push real cells off the end
+		let width = 0;
 		for (const cell of children(hArgs).filter((c) => !ARG_PUNCT.includes(c.name))) {
-			const n = contentBlockCell(cell, src, true);
+			const method = tableMethod(cell, src);
+			if (method && method !== 'table.cell') return null;
+			const span = method === 'table.cell' ? spannedCell(cell, src, true) : null;
+			if (method === 'table.cell' && !span) return null;
+			const n = span ? span.cell : contentBlockCell(cell, src, true);
 			if (!n) return null;
 			header.push(n);
+			const colspan = span?.colspan ?? 1;
+			for (let dr = 1; dr < (span?.rowspan ?? 1); dr++) for (let dc = 0; dc < colspan; dc++) covered.add(at(dr - 1, width + dc));
+			width += colspan;
 		}
-		if (header.length > cols) return null;
-		while (header.length < cols) header.push(el('table_header', null, [el('paragraph')]));
+		if (width > cols) return null;
+		while (width < cols) {
+			header.push(el('table_header', null, [el('paragraph')]));
+			width++;
+		}
 		idx++;
 	}
 
-	const flat: PMNode[] = [];
-	for (; idx < real.length; idx++) {
-		const n = contentBlockCell(real[idx], src, false);
-		if (!n) return null;
-		flat.push(n);
-	}
-	if (flat.length === 0 && !header) return null;
+	// Walk the flat cell stream into a grid. `covered` (declared above, already seeded with any
+	// header rowspans) marks the positions a rowspan from an EARLIER row owns - within-row colspans
+	// are handled by advancing the cursor instead, so a row's width stays sum(colspan) + covered,
+	// with nothing counted twice.
 	const rows: PMNode[][] = [];
-	for (let r = 0; r < flat.length; r += cols) rows.push(flat.slice(r, r + cols));
+	const rowRules: string[][] = [];
+	let pending: string[] = [];
+	let r = 0;
+	let c = 0;
+	const advance = () => {
+		for (;;) {
+			while (c < cols && covered.has(at(r, c))) c++;
+			if (c < cols) return;
+			r++;
+			c = 0;
+		}
+	};
+
+	for (; idx < real.length; idx++) {
+		const item = real[idx];
+		const method = tableMethod(item, src);
+		if (method === 'table.hline') {
+			// a rule only has a place in a row model at a row boundary
+			if (c !== 0 && c < cols) return null;
+			if (c >= cols) {
+				r++;
+				c = 0;
+			}
+			pending.push(src.slice(item.from, item.to));
+			continue;
+		}
+		if (method && method !== 'table.cell') return null;
+		const span = method === 'table.cell' ? spannedCell(item, src, false) : null;
+		if (method === 'table.cell' && !span) return null;
+		const cell = span ? span.cell : contentBlockCell(item, src, false);
+		if (!cell) return null;
+		const colspan = span?.colspan ?? 1;
+		const rowspan = span?.rowspan ?? 1;
+		advance();
+		if (c + colspan > cols) return null; // the cell overruns the declared grid
+		while (rows.length <= r) {
+			rows.push([]);
+			rowRules.push([]);
+		}
+		if (pending.length) {
+			rowRules[r].push(...pending);
+			pending = [];
+		}
+		rows[r].push(cell);
+		for (let dr = 1; dr < rowspan; dr++) for (let dc = 0; dc < colspan; dc++) covered.add(at(r + dr, c + dc));
+		c += colspan;
+	}
+	if (rows.length === 0 && !header) return null;
+
 	// pad the last row so the grid stays rectangular (PM tables need it; typst tolerates it)
-	const last = rows[rows.length - 1];
-	if (last) while (last.length < cols) last.push(el('table_cell', null, [el('paragraph')]));
-	return { colspec: src.slice(value.from, value.to), align, header, rows };
+	const lastRow = rows.length - 1;
+	if (lastRow >= 0) {
+		let width = rows[lastRow].reduce((w, cell) => w + Number(cell.attrs.colspan ?? 1), 0);
+		for (let cc = 0; cc < cols; cc++) if (covered.has(at(lastRow, cc))) width++;
+		while (width < cols) {
+			rows[lastRow].push(el('table_cell', null, [el('paragraph')]));
+			width++;
+		}
+	}
+	return { colspec: src.slice(value.from, value.to), align, extraArgs, header, rowRules, bottomRules: pending, rows };
 }
 
 function buildTableNode(t: TableParts): PMNode | null {
 	const rowNodes: PMNode[] = [];
 	if (t.header) rowNodes.push(el('table_row', { topRules: '' }, t.header));
-	for (const r of t.rows) rowNodes.push(el('table_row', { topRules: '' }, r));
+	t.rows.forEach((cells, i) => rowNodes.push(el('table_row', { topRules: '', typRules: t.rowRules[i] ?? [] }, cells)));
 	if (rowNodes.length === 0) return null;
-	return el('table', { env: null, colspec: t.colspec, typAlign: t.align }, rowNodes);
+	return el('table', { env: null, colspec: t.colspec, typAlign: t.align, typArgs: t.extraArgs, typBottomRules: t.bottomRules }, rowNodes);
 }
-
 /** a `#table(...)` standing alone in its paragraph becomes a real, editable table node. */
 function tableSeg(kids: SyntaxNode[], i: number, src: string): { seg: Seg; next: number } | null {
 	const hash = kids[i];

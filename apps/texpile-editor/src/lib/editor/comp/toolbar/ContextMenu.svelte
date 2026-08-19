@@ -36,8 +36,10 @@
 		onInsertCitation?: () => void;
 	}
 	let { dialect = 'latex', onAddComment, onInsertCitation }: Props = $props();
-	// merged cells have no pipe-table syntax, so the markdown editor loses merge/split
-	const cellMerging = $derived(dialect === 'latex');
+	// merged cells have no pipe-table syntax, so the markdown editor loses merge/split. Everywhere
+	// else has a spanning form the serializer emits: \multicolumn/\multirow in LaTeX,
+	// table.cell(colspan:/rowspan:) in Typst.
+	const cellMerging = $derived(dialect !== 'markdown');
 
 	let isVisible: boolean = $state(false);
 	let isOnTable: boolean = $state(false);

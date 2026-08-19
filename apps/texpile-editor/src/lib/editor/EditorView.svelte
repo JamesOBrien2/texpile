@@ -18,7 +18,8 @@
 	import { preferences } from '$lib/stores/preferencesStore.svelte';
 	import { menuUpdatePlugin } from './extensions/toolbarlistenerplugin';
 	import { dropCursor } from 'prosemirror-dropcursor';
-	import { columnResizing, fixTables, tableEditing, goToNextCell } from 'prosemirror-tables';
+	import { fixTables, tableEditing, goToNextCell } from 'prosemirror-tables';
+	import { tableViewOnly } from '$lib/editor/extensions/table/tableViewOnly';
 	import 'prosemirror-view/style/prosemirror.css';
 	import 'prosemirror-tables/style/tables.css';
 	import 'prosemirror-gapcursor/style/gapcursor.css';
@@ -142,7 +143,10 @@
 			gapCursor(),
 			// drop cursor is inline-styled (not CSS-targetable) and its default black vanishes on dark
 			dropCursor({ color: 'var(--color-primary-500)', width: 2 }),
-			columnResizing(),
+			// TableView without the drag: a LaTeX column width lives in the colspec and only exists
+			// for p{}/tabularx columns, so a dragged l/c/r column had nowhere to be written and was
+			// discarded on the next parse. See tableViewOnly.
+			tableViewOnly,
 			tableEditing(),
 			...createListPlugins({ schema }),
 			history(),

@@ -54,9 +54,11 @@ nodes.heading = {
 };
 // a code block created without attrs (shared toolbar button, keybind) must be a FENCE here, not
 // tex's verbatim: fences take an info string, so the language picker works on every md block
+// base attrs first: ORIG_BLOCKS (schema.ts) adds `orig` to code_block, and replacing attrs
+// wholesale dropped it, so a fence never counted as pristine and always regenerated
 nodes.code_block = {
 	...base.code_block,
-	attrs: { lang: { default: '' }, env: { default: 'fence' }, args: { default: '' } }
+	attrs: { ...base.code_block.attrs, lang: { default: '' }, env: { default: 'fence' }, args: { default: '' } }
 };
 nodes.raw_latex = {
 	...base.raw_latex,

@@ -20,6 +20,7 @@
 	import { latexAutocomplete, latexIntellisense } from '$lib/editor/extensions/intellisense/intellisense';
 	import { foldMarkerDOM, foldMarkerTheme } from '$lib/editor/extensions/intellisense/fold';
 	import { mdSourceShortcuts } from '$lib/markdown/sourceExtensions';
+	import { typSourceShortcuts } from '$lib/typst/visual/sourceExtensions';
 	import { mdPathCompletion } from '$lib/markdown/pathCompletion';
 	import { cmSpellcheck } from '$lib/editor/extensions/spellcheck/cmSpellcheck';
 	import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
@@ -37,6 +38,9 @@
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
 	import { latex } from '$lib/editor/extensions/latex/latex';
 	import { releaseTypstLsp, typstLspExtension, typstServerGen } from '$lib/typst/lspClient';
+	import { typstGuestLspExtension, releaseGuestTypstLsp } from '$lib/typst/guestLspExtension';
+	import { collabGuest, guestSession } from '$lib/collab/guestStore.svelte';
+	import { guestRelPath } from '$lib/collab/sessionProvider';
 	import { workspaceRoot } from '$lib/workspace/workspaceStore';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { docText } from '$lib/editor/docText';
@@ -264,6 +268,11 @@
 	// diagnostics effect below). Plain `let`, not $state: the effect that reads it also depends on
 	// `diagnostics`, and a compile always follows the server attaching.
 	let typstLspActive = false;
+	// Tracked apart from typstLspActive only because the two hand their reference back to different
+	// places. For squiggle ownership they mean the same thing, and both suppress the compile log's:
+	// the host forwards tinymist's diagnostics down the session, so a guest's editor has a real
+	// server writing them and two writers would overwrite each other.
+	let typstGuestLspActive = false;
 
 	// vim / emacs bindings, filled in after mount because the packages are dynamically imported
 	const keymapConf = modalKeymapCompartment();
@@ -385,16 +394,17 @@
 							: /\.bib$/i.test(fileFor)
 								? [latexAutocomplete({ bib: true })]
 								: /\.typ$/i.test(fileFor)
-									? // Typst's completion/hover/diagnostics arrive over LSP from tinymist, filled
-										// into lspConf below once the server answers. Harper parses Typst natively,
-										// so it gets the source unmasked rather than through the LaTeX mask.
+									? // typst chords, matching the visual editor's. Completion/hover/diagnostics arrive
+										// over LSP from tinymist, filled into lspConf below once the server answers.
+										// Harper parses Typst natively, so it gets the source unmasked rather than
+										// through the LaTeX mask.
 										//
 										// The fold RAIL is mounted here, not with the language: the Typst parser is a
 										// dynamic import, so a gutter travelling with it appears a second late and
 										// shoves the text sideways on every .typ open. Mounted now it is there from
 										// the first frame, empty until the parse supplies ranges (the fold service
 										// itself does travel with the language, which is where the ranges live).
-										[cmSpellcheck('typst'), foldGutter({ markerDOM: foldMarkerDOM }), foldMarkerTheme]
+										[typSourceShortcuts(), cmSpellcheck('typst'), foldGutter({ markerDOM: foldMarkerDOM }), foldMarkerTheme]
 									: []),
 					lspConf.of([]),
 					synctexFlash(), // flash the line jumped to by SyncTeX inverse search / Find-in-Files
@@ -522,6 +532,34 @@
 
 	function armTypstLsp(): void {
 		if (!fileFor || !/\.typ$/i.test(fileFor)) return;
+		// A guest has no toolchain and no project on disk; the host answers instead, over the
+		// session. Its paths are already manifest-relative, which is what the host maps back.
+		if (guestSession.active) {
+			if (typstGuestLspActive) return;
+			// a guest's WorkspaceView runs on the synthetic 'session' root, so docPath arrives as
+			// `session/main.typ`; the host joins what we send onto its REAL root, and the extra
+			// segment would make every request miss
+			const rel = guestRelPath(fileFor);
+			if (!rel) return;
+			// Taken before the await so a second effect run cannot attach a duplicate; the await
+			// also carries us past onMount, where the EditorView is created (`view` is not
+			// reactive, so a synchronous attach here would bet on effect ordering and lose
+			// silently). Released again on any path that does not end up attached.
+			typstGuestLspActive = true;
+			void typstGuestLspExtension(collabGuest.lspPort(), rel).then((ext) => {
+				if (!ext) {
+					typstGuestLspActive = false;
+					return;
+				}
+				if (!view) {
+					typstGuestLspActive = false;
+					releaseGuestTypstLsp();
+					return;
+				}
+				view.dispatch({ effects: lspConf.reconfigure(ext) });
+			});
+			return;
+		}
 		void typstLspExtension(get(workspaceRoot), fileFor)
 			.then((ext) => {
 				if (!ext) return;
@@ -679,7 +717,7 @@
 		// and every keystroke. The server's are live and more precise, so it owns the editor's
 		// squiggles for .typ and the compile log keeps the Problems panel. Without a server (not
 		// installed) this stays the only source, which is better than nothing.
-		if (typstLspActive) return;
+		if (typstLspActive || typstGuestLspActive) return;
 		const doc = v.state.doc;
 		const valid = list.filter((d) => Number.isInteger(d.line) && d.line >= 1);
 		if (valid.length === 0 && lastDiagEmpty) return;
@@ -748,6 +786,10 @@
 		if (typstLspActive) {
 			typstLspActive = false;
 			releaseTypstLsp();
+		}
+		if (typstGuestLspActive) {
+			typstGuestLspActive = false;
+			releaseGuestTypstLsp();
 		}
 		unbindKeymap?.();
 		unbindKeymap = null;

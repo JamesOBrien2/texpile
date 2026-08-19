@@ -38,11 +38,12 @@ function buildTree(files: { rel: string; kind: 'text' | 'binary' }[], ghostDirs:
 
 // the guest's WorkspaceView runs on a synthetic root; strip it so paths are manifest-relative
 export const GUEST_ROOT = 'session';
-const toRel = (p: string) => {
+export const guestRelPath = (p: string) => {
 	const s = p.replace(/\\/g, '/');
 	if (s === GUEST_ROOT) return '';
 	return s.startsWith(GUEST_ROOT + '/') ? s.slice(GUEST_ROOT.length + 1) : s;
 };
+const toRel = guestRelPath;
 
 export const sessionProvider: WorkspaceProvider = {
 	caps: { manageTree: false, compile: false, git: false, format: false, search: false },

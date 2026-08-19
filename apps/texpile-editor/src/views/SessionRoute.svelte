@@ -5,6 +5,7 @@
 	import { collabGuest } from '$lib/collab/guestStore.svelte';
 	import { guestSession } from '$lib/collab/guestStore.svelte';
 	import { sessionProvider, GUEST_ROOT } from '$lib/collab/sessionProvider';
+	import { dropGuestTypstLsp } from '$lib/typst/guestLspExtension';
 	import SessionJoin from '$lib/collab/SessionJoin.svelte';
 	import WorkspaceView from './WorkspaceView.svelte';
 	import { workspaceRoot, activeFilePath, fileTree, texFiles } from '$lib/workspace/workspaceStore';
@@ -21,6 +22,9 @@
 		} else {
 			// left/ended: don't leak session state into a later host workspace
 			if (get(workspaceRoot) === GUEST_ROOT) {
+				// the LSP client's "server" was this session; fail anything still in flight rather
+				// than leave an editor waiting on a host that is gone
+				dropGuestTypstLsp();
 				workspaceRoot.set(null);
 				activeFilePath.set(null);
 				fileTree.set([]);

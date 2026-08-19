@@ -118,6 +118,15 @@ html[data-mode='dark'] .ProseMirror {
 .ProseMirror hr.pm-selected-node {
 	box-shadow: 0 0 0 0.3em var(--editor-selection);
 }
+/* prosemirror-tables paints its own cell overlay, hardcoded to rgba(200, 200, 255, 0.4): theme
+   blind, and the one selection in the editor that was not reading the variable above - a pale
+   lavender wash next to primary-tinted prose. td/th in the selector only to outspecify the
+   vendored rule without !important; its stylesheet is imported per editor component, so the
+   cascade order between it and this file is not something to rely on. */
+.ProseMirror td.selectedCell::after,
+.ProseMirror th.selectedCell::after {
+	background: var(--editor-selection);
+}
 [data-mode='dark'] .cm-panels {
 	background-color: var(--color-surface-900);
 	color: var(--color-surface-100);

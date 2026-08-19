@@ -9,6 +9,8 @@ import { previewRelay } from '$lib/collab/previewRelay.svelte';
 import { isSafeRel } from '$lib/collab/protocol';
 import { noteGuestJumpFreeze } from '$lib/typst/preview/followSignal';
 import { resolveGuestSyncRequest } from '$lib/workspace/syncTexNav';
+import { serveGuestLspRequest, diagnosticsNotificationForGuest } from '$lib/typst/guestLsp';
+import { typstClient, addTypstDiagnosticsListener, acquireTypstLsp, releaseTypstLsp, typstServerGen } from '$lib/typst/lspClient';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 import type { EditSession } from '$lib/collab/editSession';
@@ -97,6 +99,45 @@ export function attachSessionHandlers(session: EditSession, deps: SessionHandler
 		const reply = await resolveGuestSyncRequest(payload, root, pdf);
 		if (reply) collabHost.replyControl(reply, from);
 	};
+	// A guest's intellisense, answered by this machine's tinymist. On collabHost directly like
+	// comments: a guest has no server of its own to answer with, which is the point.
+	// Taken on the FIRST guest request rather than at session start: holding a reference eagerly
+	// would boot a ~90MB Typst server for a LaTeX-only session, on machines that may not even have
+	// tinymist. Released with the session.
+	let guestLspHeld = false;
+	// A server death zeroes the holder count outright (hookExit), which silently discards the
+	// reference this session took. Left uncorrected, the restart a guest request triggers runs
+	// unheld, and the host closing its last .typ tab reclaims it under the guests - the same
+	// works-then-stops the reference exists to prevent. Gen bumps only on genuine death, so this
+	// simply marks the reference as needing re-taking.
+	const stopGenWatch = typstServerGen.subscribe(() => {
+		guestLspHeld = false;
+	});
+	collabHost.onLspRequest = async (payload, from) => {
+		if (payload.kind !== 'lsp-request') return;
+		const root = get(workspaceRoot);
+		if (!root) return;
+		if (!guestLspHeld) {
+			guestLspHeld = true;
+			acquireTypstLsp();
+		}
+		const reply = await serveGuestLspRequest(payload, {
+			root,
+			client: () => typstClient(root),
+			flush: () => collabHost.flushPendingWrites(),
+			projectFiles: () => collabHost.sessionTextFiles()
+		});
+		collabHost.replyControl(reply, from);
+	};
+	// Diagnostics are pushed, not asked for, so they need their own tap rather than riding the
+	// request path. Broadcast: which guest is looking at which file is not tracked, and a
+	// diagnostic for a file nobody has open is a few bytes.
+	const stopDiagnostics = addTypstDiagnosticsListener((path, diags) => {
+		const root = get(workspaceRoot);
+		if (!root) return;
+		const frame = diagnosticsNotificationForGuest(path, diags, root);
+		if (frame) collabHost.broadcastControl(frame);
+	});
 	collabHost.onTypstScroll = (p, from) => {
 		if (!isSafeRel(p.file) || !Number.isFinite(p.line) || !Number.isFinite(p.character) || p.line < 0 || p.character < 0) return;
 		// deliver the resulting jump to only the asking guest, and hold it off the host's own pane
@@ -114,6 +155,10 @@ export function attachSessionHandlers(session: EditSession, deps: SessionHandler
 		collabHost.onCommentEvent = null;
 		collabHost.commentLog = null;
 		collabHost.onTypstScroll = null;
+		collabHost.onLspRequest = null;
+		stopGenWatch();
+		if (guestLspHeld) releaseTypstLsp();
+		stopDiagnostics();
 		previewRelay.detach();
 		void session.end();
 	};

@@ -63,9 +63,13 @@ nodes.heading = {
 };
 // a code block created without attrs (shared toolbar button, keybind) must be a FENCE here, not
 // tex's verbatim: typst raw fences take an info string, so the language picker works everywhere
+// Spread the base attrs first. ORIG_BLOCKS (schema.ts) adds `orig` to code_block's spec, and
+// replacing attrs wholesale silently dropped it - so a fence could never be recognised as pristine
+// and always regenerated, which forced a blank line between it and its neighbour. `#set page(..)`
+// directly above a ```` fence came back with a blank line inserted on every save.
 nodes.code_block = {
 	...base.code_block,
-	attrs: { lang: { default: '' }, env: { default: 'fence' }, args: { default: '' } }
+	attrs: { ...base.code_block.attrs, lang: { default: '' }, env: { default: 'fence' }, args: { default: '' } }
 };
 // the raw islands carry Typst source, not LaTeX; `lang` follows mdSchema's precedent
 nodes.raw_latex = {
@@ -78,9 +82,21 @@ nodes.inline_latex = {
 	toDOM: () => ['code', { class: 'inline-latex', title: 'Raw Typst (passed through unchanged)' }, 0]
 };
 // the verbatim align: argument, kept the way colspec keeps columns:
+//
+// typArgs holds every OTHER named argument (stroke:, fill:, gutter:, inset:) verbatim and in
+// source order. They are what used to force a whole table into a raw island: the grid model has
+// no field for them, but it does not need one to carry them across a round trip untouched.
+// typBottomRules is the run of table.hline() calls after the last row, the sibling of the
+// per-row typRules below (base.table's bottomRules holds LaTeX text, so Typst needs its own).
 nodes.table = {
 	...base.table,
-	attrs: { ...base.table.attrs, typAlign: { default: null } }
+	attrs: { ...base.table.attrs, typAlign: { default: null }, typArgs: { default: [] }, typBottomRules: { default: [] } }
+};
+// the table.hline() calls sitting immediately above this row, verbatim. Same split as above:
+// base.table_row's topRules carries \hline / \cline text and belongs to the LaTeX serializer
+nodes.table_row = {
+	...base.table_row,
+	attrs: { ...base.table_row.attrs, typRules: { default: [] } }
 };
 // math nodes hold LATEX content (what MathLive edits); `typst` is the original source and
 // `latexOrig` its parse-time translation - while they agree, the serializer re-emits `typst`

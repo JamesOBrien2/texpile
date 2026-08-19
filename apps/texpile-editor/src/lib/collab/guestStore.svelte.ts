@@ -55,6 +55,8 @@ class GuestCollabController {
 	private imageReq = new Set<string>(); // in-flight 'rel@rev' requests, so we ask once per revision
 	private syncResolvers = new Map<number, (r: ControlPayload) => void>();
 	private syncSeq = 0;
+	/** subscribers to host -> guest LSP traffic; a set because each open .typ editor has a transport */
+	private lspHandlers = new Set<(p: ControlPayload) => void>();
 	// intact master; `pdf` is always a copy, because pdf.js detaches the ArrayBuffer it renders and
 	// a re-render (pane re-open) would otherwise get an emptied buffer
 	private pdfMaster: Uint8Array | null = null;
@@ -126,6 +128,9 @@ class GuestCollabController {
 							this.syncResolvers.get(payload.reqId)?.(payload);
 							this.syncResolvers.delete(payload.reqId);
 						} else if (payload.kind === 'typst-jump') this.onTypstJump?.(payload);
+						else if (payload.kind === 'lsp-result' || payload.kind === 'lsp-notify') {
+							for (const h of this.lspHandlers) h(payload);
+						}
 					},
 					onStatus: (s) => {
 						if (s === 'connected') {
@@ -373,6 +378,21 @@ class GuestCollabController {
 	async syncForward(file: string, line: number): Promise<{ page: number; x: number; y: number; w?: number; h?: number } | null> {
 		const r = await this.syncRequest({ kind: 'synctex-forward', file, line });
 		return r && r.kind === 'synctex-forward-result' ? { page: r.page, x: r.x, y: r.y, w: r.w, h: r.h } : null;
+	}
+
+	/**
+	 * The session as an LSP transport's back end: a guest's intellisense is the host's tinymist,
+	 * reached over these frames. Sends are dropped when there is no session rather than queued -
+	 * a completion nobody is waiting for any more is not worth delivering late.
+	 */
+	lspPort(): { send(p: ControlPayload): void; subscribe(h: (p: ControlPayload) => void): () => void } {
+		return {
+			send: (p) => this.session?.sendControl(p),
+			subscribe: (h) => {
+				this.lspHandlers.add(h);
+				return () => this.lspHandlers.delete(h);
+			}
+		};
 	}
 
 	/** Typst src -> preview: ask the host to resolve this position; the jump comes back over the

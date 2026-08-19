@@ -12,7 +12,8 @@
 	import { undo as historyUndo, redo as historyRedo, history } from 'prosemirror-history';
 	import { gapCursor } from 'prosemirror-gapcursor';
 	import { dropCursor } from 'prosemirror-dropcursor';
-	import { columnResizing, fixTables, tableEditing, goToNextCell } from 'prosemirror-tables';
+	import { fixTables, tableEditing, goToNextCell } from 'prosemirror-tables';
+	import { tableViewOnly } from '$lib/editor/extensions/table/tableViewOnly';
 	import { createListPlugins, listInputRules, listKeymap, createIndentListCommand, createDedentListCommand } from 'prosemirror-flat-list';
 	import { inputRules, textblockTypeInputRule, wrappingInputRule, InputRule, undoInputRule } from 'prosemirror-inputrules';
 	import { search } from 'prosemirror-search';
@@ -128,7 +129,11 @@
 			markdownCopyPlugin,
 			gapCursor(),
 			dropCursor({ color: 'var(--color-primary-500)', width: 2 }),
-			columnResizing(),
+			// TableView WITHOUT columnResizing: a pipe table has no width syntax, so a dragged column
+			// could never be written to the file. It used to move on screen and be silently discarded
+			// on the next parse - a control that lied. The node view is kept because it is what
+			// renders the <colgroup>; only the drag handlers are gone.
+			tableViewOnly,
 			tableEditing(),
 			...createListPlugins({ schema: mdSchema }),
 			history(),

@@ -17,7 +17,10 @@
 	import { undo as historyUndo, redo as historyRedo, history } from 'prosemirror-history';
 	import { gapCursor } from 'prosemirror-gapcursor';
 	import { dropCursor } from 'prosemirror-dropcursor';
-	import { columnResizing, fixTables, tableEditing, goToNextCell } from 'prosemirror-tables';
+	import { fixTables, tableEditing, goToNextCell } from 'prosemirror-tables';
+	import { columnResizing } from '$lib/editor/extensions/table/columnResizing';
+	import { snapWidthToFr } from '$lib/editor/extensions/table/snapWidth';
+	import { captureColumnWidths } from '$lib/editor/extensions/table/captureColumnWidths';
 	import {
 		createListPlugins,
 		listKeymap,
@@ -190,7 +193,12 @@
 			typstCopyPlugin,
 			gapCursor(),
 			dropCursor({ color: 'var(--color-primary-500)', width: 2 }),
-			columnResizing(),
+			// Typst is the one dialect where a drag can be saved: `columns:` takes real lengths and
+			// fr. The drag snaps to that same grid (vendored columnResizing + snapWidthToFr);
+			// captureColumnWidths fills in the columns a drag leaves unsized, which is what
+			// the serializer needs to emit proportions instead of one fr beside two autos.
+			columnResizing({ snap: snapWidthToFr, redistribute: true }),
+			captureColumnWidths,
 			tableEditing(),
 			...createListPlugins({ schema: typSchema }),
 			history(),

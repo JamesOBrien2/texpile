@@ -53,6 +53,29 @@ export type ControlPayload =
 	// guest asks the host (the only disk-writer) to mutate a file; paths are manifest-relative
 	| { kind: 'file-op'; op: 'rename' | 'delete'; from: string; to?: string }
 	/**
+	 * Typst intellisense for a guest, answered by the HOST's tinymist.
+	 *
+	 * A guest has no typst toolchain and no project on disk. The host has both, and is already
+	 * looking at what the guest typed: materialize.ts writes guest edits through to the host's
+	 * disk, and tinymist picks those writes up by itself even for a file nobody has open
+	 * (measured). So this is a plain request relay - no document sync, no shadow filesystem, and
+	 * no assets to ship, which is what made the alternative keep sprouting gaps (.typ, then .bib,
+	 * then images, then fonts).
+	 *
+	 * `method` and `params` are LSP's own, verbatim, and `reqId` is the client's own JSON-RPC id
+	 * rather than a second counter. Documents are addressed by the `texpile-session:` scheme (see
+	 * sessionUri) so a URI that escapes the mapping fails loudly instead of resolving to some
+	 * unrelated real path on the host.
+	 */
+	// reqId is the client's own JSON-RPC id, carried verbatim - JSON-RPC allows strings there, and
+	// coercing one to a number yields NaN, which serialises to null and can never be matched back
+	| { kind: 'lsp-request'; reqId: number | string; method: string; params?: unknown }
+	| { kind: 'lsp-result'; reqId: number | string; ok: boolean; result?: unknown; error?: string }
+	// host -> guests, unsolicited: tinymist's live diagnostics. Measured to be published for files
+	// the host does not have open, so this is a straight relay rather than the host having to hold
+	// every guest's file open on their behalf.
+	| { kind: 'lsp-notify'; method: string; params?: unknown }
+	/**
 	 * One review-comment event, in both directions: a guest asking the host to append it, and the
 	 * host telling everyone it happened.
 	 *

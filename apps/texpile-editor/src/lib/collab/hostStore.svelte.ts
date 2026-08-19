@@ -77,6 +77,8 @@ class HostCollabController {
 	onPreview: ((p: PreviewPayload, from: number) => void) | null = null;
 	/** a guest asked its preview to follow a source position; workspaceSession wires this. */
 	onTypstScroll: ((p: { file: string; line: number; character: number }, from: number) => void) | null = null;
+	/** a guest's intellisense request, answered by the host's tinymist against the host's own files */
+	onLspRequest: ((payload: ControlPayload, from: number) => void) | null = null;
 	/** a guest asked for the raw preview page (blob 'typst-page'); previewRelay serves it. */
 	onPreviewPageRequest: ((from: number) => void) | null = null;
 	/** peer clientIDs, for pruning per-guest state (PeerInfo carries no id) */
@@ -137,6 +139,7 @@ class HostCollabController {
 						else if (payload.kind === 'file-op') void this.applyGuestFileOp(payload);
 						else if (payload.kind === 'comment-event') this.applyGuestComment(payload.event);
 						else if (payload.kind === 'typst-scroll') this.onTypstScroll?.(payload, from);
+						else if (payload.kind === 'lsp-request') this.onLspRequest?.(payload, from);
 					},
 					onBlobRequest: (name, from) => {
 						if (name === 'pdf') {
@@ -237,6 +240,18 @@ class HostCollabController {
 		if (rel) await this.materializer?.flush(rel);
 	}
 
+	/**
+	 * Land every pending guest-edit write, for a reader whose interest is not one file.
+	 *
+	 * A language request is that reader: completion inside `main.typ` is answered partly out of
+	 * whatever `lib.typ` imports, so flushing only the file named in the request would leave a
+	 * collaborator's just-typed export sitting in the debounce, unwritten and invisible.
+	 * Cheap when idle - only files with a write actually queued do anything.
+	 */
+	async flushPendingWrites(): Promise<void> {
+		if (this.active) await this.materializer?.flushAll();
+	}
+
 	/** the file the host holds in the visual editor (guests go read-only on it); null clears. */
 	setVisualLock(absPath: string | null): void {
 		if (!this.active || !this.materializer) return;
@@ -326,6 +341,28 @@ class HostCollabController {
 	/** host: reply to a specific guest (e.g. a resolved SyncTeX position). */
 	replyControl(payload: ControlPayload, to: number): void {
 		this.session?.sendControl(payload, to);
+	}
+
+	/** host: tell every guest at once (e.g. diagnostics, which are not anyone's request). */
+	broadcastControl(payload: ControlPayload): void {
+		if (this.active) this.session?.sendControl(payload);
+	}
+
+	/**
+	 * Every live co-edited text file, straight from the Y.Doc.
+	 *
+	 * This is the session's truth - ahead of the debounced disk write-through, and ahead of
+	 * tinymist's file watcher. The guest LSP responder rebuilds the server's open documents from
+	 * it, which is what lets a completion see a keystroke that landed milliseconds ago.
+	 */
+	sessionTextFiles(): { rel: string; text: string }[] {
+		if (!this.active || !this.doc) return [];
+		const out: { rel: string; text: string }[] = [];
+		for (const [rel, entry] of manifestOf(this.doc).entries()) {
+			if (entry.kind !== 'text' || entry.gone) continue;
+			out.push({ rel, text: textOf(this.doc, rel).toString() });
+		}
+		return out;
 	}
 
 	/** one hop of the preview relay, down to a guest. */

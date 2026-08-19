@@ -11,7 +11,9 @@ import { typSchema } from '$lib/typst/visual/schema';
 import { computeTableSkeleton } from '$lib/typst/visual/sourceInsert';
 import { typTableNode } from '$lib/typst/visual/blockInsertItems';
 import { sliceToTypst } from '$lib/typst/visual/clipboard';
-import { Slice } from 'prosemirror-model';
+import { Slice, type Node } from 'prosemirror-model';
+import { EditorState as EditorState_pm } from 'prosemirror-state';
+import { CellSelection, mergeCells } from 'prosemirror-tables';
 
 /** the no-edit save: parse then serialize, nothing touched. */
 function roundtrip(src: string): string {
@@ -19,7 +21,7 @@ function roundtrip(src: string): string {
 	return serializeTypstFile(parsed, parsed.doc);
 }
 
-const CORPUS: Record<string, string> = {
+export const CORPUS: Record<string, string> = {
 	basic: '= Title\n\nA paragraph with _em_, *strong*, `code`, and #link("https://x.example")[a link].\n',
 	headings: '= Title\n\nSome *bold* and _emph_ text.\n\n== Sub\n\n=== Deeper\n\nMore.\n',
 	lists: '- one\n- two\n  - nested\n- three\n\n+ first\n+ second\n\n/ term: definition\n',
@@ -48,7 +50,9 @@ const CORPUS: Record<string, string> = {
 		'#table(\n  columns: 3,\n  table.header([A], [B], [C]),\n  [a], [b *bold*], [c],\n  [d], [e], [f],\n)\n\n#table(columns: (auto, 1fr), align: (left, right), [x], [y])\n\n#table(\n  columns: 2,\n  stroke: none,\n  [kept], [raw],\n)\n',
 	quotes2: '#quote(block: true)[\n  Two roads diverged in a wood.\n]\n\n#quote[inline stays raw]\n',
 	hr: 'above\n\n#line(length: 100%)\n\nbelow\n\n#line(length: 50%)\n',
-	eqLabels: '$ E = m c^2 $ <eq:mass>\n\nSee @eq:mass.\n\n$ mat(1, 0; 0, 1) $ <eq:id>\n',
+	// the #set line is not decoration: typst refuses to reference an equation that is not numbered,
+	// so without it this fixture is source no compiler would accept
+	eqLabels: '#set math.equation(numbering: "(1)")\n\n$ E = m c^2 $ <eq:mass>\n\nSee @eq:mass.\n\n$ mat(1, 0; 0, 1) $ <eq:id>\n',
 	figures:
 		'#figure(image("plots/a.png"), caption: [A *bold* caption]) <fig:a>\n\n#figure(image("b.png", width: 70%))\n\n#image("c.svg")\n\n#figure(rect(), caption: [not an image])\n',
 	realWorld:
@@ -199,7 +203,7 @@ describe('converted document shape', () => {
 		expect(doc.child(3).type.name).toBe('raw_latex'); // rect() body: unmodeled, verbatim
 	});
 
-	it('simple-grid #table becomes an editable table; extra args stay raw', () => {
+	it('simple-grid #table becomes an editable table; unmodelled args ride along verbatim', () => {
 		const doc = docOf(
 			'#table(\n  columns: 2,\n  table.header([H1], [H2]),\n  [a], [b],\n)\n\n#table(columns: (auto, 1fr), align: (left, right), [x], [y])\n\n#table(columns: 2, stroke: none, [n], [o])\n'
 		);
@@ -213,7 +217,31 @@ describe('converted document shape', () => {
 		expect(tuple.type.name).toBe('table');
 		expect(tuple.attrs.colspec).toBe('(auto, 1fr)');
 		expect(tuple.attrs.typAlign).toBe('(left, right)');
-		expect(doc.child(2).type.name).toBe('raw_latex'); // stroke: is not modeled
+		// stroke: has no field in the grid model, but it does not have to: the table is editable
+		// and the argument is carried verbatim rather than costing the whole table its node
+		const stroked = doc.child(2);
+		expect(stroked.type.name).toBe('table');
+		expect(stroked.attrs.typArgs).toEqual(['stroke: none']);
+	});
+
+	it('a table argument the serializer cannot rebuild still costs the table its node', () => {
+		// the raw-island floor: vlines have no row model, so the whole call stays verbatim
+		expect(docOf('#table(columns: 2, table.vline(x: 1), [a], [b])\n').child(0).type.name).toBe('raw_latex');
+		// ...as does a merged cell carrying more than colspan/rowspan
+		expect(docOf('#table(columns: 2, table.cell(fill: red)[a], [b])\n').child(0).type.name).toBe('raw_latex');
+	});
+
+	it('hlines, merged cells and bare expression cells all survive a round trip', () => {
+		const src =
+			'#table(\n  columns: 3,\n  stroke: none,\n  table.hline(),\n  table.cell(colspan: 2)[*Q*], [*U*],\n  table.hline(start: 0, end: 2),\n  $x$, [Position], [m],\n  table.hline(),\n)\n';
+		const t = docOf(src).child(0);
+		expect(t.type.name).toBe('table');
+		expect(t.attrs.typBottomRules).toEqual(['table.hline()']);
+		expect(t.child(0).attrs.typRules).toEqual(['table.hline()']);
+		expect(t.child(1).attrs.typRules).toEqual(['table.hline(start: 0, end: 2)']);
+		expect(t.child(0).child(0).attrs.colspan).toBe(2);
+		expect(t.child(0).childCount).toBe(2); // a colspan'd cell plus one, not three
+		expect(roundtrip(src)).toBe(src);
 	});
 
 	it('#quote(block: true) becomes a blockquote; other quote forms stay raw', () => {
@@ -357,15 +385,17 @@ describe('converted document shape', () => {
 
 	it('a labeled equation carries its label; untranslatable ones keep it inside the raw island', () => {
 		const doc = docOf(CORPUS.eqLabels);
-		expect(doc.child(0).type.name).toBe('block_math');
-		expect(doc.child(0).attrs.label).toBe('eq:mass');
+		// found by type, not by index: the fixture opens with a #set line (typst will not reference
+		// an unnumbered equation) and positional assertions would only be measuring that preamble
+		const blocks: Node[] = [];
+		doc.forEach((n) => blocks.push(n));
+		const math = blocks.find((n) => n.type.name === 'block_math')!;
+		expect(math.attrs.label).toBe('eq:mass');
 		// the raw island absorbs the label bytes so nothing is lost
-		expect(doc.child(2).type.name).toBe('raw_latex');
-		expect(doc.child(2).textContent).toBe('$ mat(1, 0; 0, 1) $ <eq:id>');
+		const island = blocks.find((n) => n.type.name === 'raw_latex' && n.textContent.startsWith('$ mat'))!;
+		expect(island.textContent).toBe('$ mat(1, 0; 0, 1) $ <eq:id>');
 		// serializer re-emits the label after the closing dollar (stored typst, latex untouched)
-		const out = serializeToTypst(
-			typSchema.nodes.doc.create(null, [doc.child(0).type.create({ ...doc.child(0).attrs, orig: null }, doc.child(0).content)])
-		);
+		const out = serializeToTypst(typSchema.nodes.doc.create(null, [math.type.create({ ...math.attrs, orig: null }, math.content)]));
 		expect(out).toBe('$ E = m c^2 $ <eq:mass>');
 	});
 
@@ -482,5 +512,30 @@ describe('table inserters', () => {
 		expect(plain.child(0).child(0).type.name).toBe('table_cell');
 		const out = serializeToTypst(typSchema.nodes.doc.create(null, [plain]));
 		expect(out).not.toContain('table.header');
+	});
+});
+
+describe('merging cells through the real prosemirror-tables command', () => {
+	// The context menu offers Merge/Split for every dialect whose serializer has a spanning form
+	// (ContextMenu's cellMerging flag). Typst only earned that when table.cell(colspan:) started
+	// round-tripping, so this drives the ACTUAL command rather than trusting the flag.
+	it('produces a spanning cell that re-parses to the same table', () => {
+		const doc = typstToProseMirror('#table(\n  columns: 2,\n  [a], [b],\n  [c], [d],\n)\n').doc;
+		const state = EditorState_pm.create({ schema: typSchema, doc });
+		const cells: number[] = [];
+		doc.descendants((n, pos) => {
+			if (n.type.name === 'table_cell') cells.push(pos);
+		});
+		let out = '';
+		mergeCells(state.apply(state.tr.setSelection(CellSelection.create(doc, cells[0], cells[1]))), (tr) => {
+			out = serializeToTypst(tr.doc);
+		});
+		expect(out).toContain('table.cell(colspan: 2)');
+		// the merged table must survive a reparse unchanged, or the next save drifts
+		expect(serializeToTypst(typstToProseMirror(out).doc)).toBe(out);
+		const table = typstToProseMirror(out).doc.child(0);
+		expect(table.type.name).toBe('table');
+		expect(table.child(0).child(0).attrs.colspan).toBe(2);
+		expect(table.child(0).childCount).toBe(1); // one spanning cell, not two
 	});
 });
