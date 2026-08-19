@@ -21,3 +21,8 @@ tests/fixtures/comments/
 # own formatting, so prettier must not police it
 project.inlang/*
 !project.inlang/settings.json
+
+# local dev harness, untracked; present in working copies but never in the repo
+devtyp.html
+src/devtyp.ts
+public/tmp-fixture/
