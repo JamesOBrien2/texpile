@@ -83,13 +83,16 @@
 				// main routes files to the window already owning the folder, so a failed claim
 				// (folder open elsewhere) only happens in odd races; that window was focused
 				if (!(await claimWorkspace(root)).ok) return;
-				const { files } = await scanTexFiles(root);
-				const match = files.find((f) => f.path === filePath || f.path.toLowerCase() === filePath.toLowerCase());
+				// show the workspace immediately with the target file; the scan backfills the rest
 				workspaceRoot.set(root);
-				texFiles.set(files);
-				activeFilePath.set(match?.path ?? filePath);
+				texFiles.set([]);
+				activeFilePath.set(filePath);
 				addRecentFolder(root);
 				navigate('/workspace');
+				const { files } = await scanTexFiles(root);
+				const match = files.find((f) => f.path === filePath || f.path.toLowerCase() === filePath.toLowerCase());
+				texFiles.set(files);
+				if (match) activeFilePath.set(match.path);
 			} catch {
 				/* ignore an OS open we can't honor */
 			}
@@ -105,15 +108,18 @@
 			try {
 				loadWorkspace(); // stream the workspace chunk while the folder scans
 				if (!(await claimWorkspace(root)).ok) return;
+				// show the workspace immediately; the scan and last-file restore backfill it
+				workspaceRoot.set(root);
+				texFiles.set([]);
+				activeFilePath.set(null);
+				addRecentFolder(root);
+				navigate('/workspace');
 				const { files } = await scanTexFiles(root);
 				// reopen the file the user last had open in this folder, like the old restore did
 				const saved = savedLastFile(root);
 				const active = saved && (await statFile(saved)).exists ? saved : (files[0]?.path ?? null);
-				workspaceRoot.set(root);
 				texFiles.set(files);
 				activeFilePath.set(active);
-				addRecentFolder(root);
-				navigate('/workspace');
 			} catch {
 				/* folder is gone or unreadable: stay on the start screen */
 			}

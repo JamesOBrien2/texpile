@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	isTypstCommand,
+	drivesTypst,
 	buildTypstCommand,
 	typstJobName,
 	typstLogArg,
@@ -29,6 +30,22 @@ describe('isTypstCommand', () => {
 	it('does not match typst appearing as an argument', () => {
 		// a --root pointing at a folder called typst is not a typst command
 		expect(isTypstCommand('latexmk --root ./typst {main}')).toBe(false);
+	});
+});
+
+describe('drivesTypst', () => {
+	// the support case: an empty log after this command means "compiled clean", and treating it
+	// the TeX way ("never ran") left the previous failure on the Problems panel forever
+	it('sees through a leading cd, in every shell chain style', () => {
+		expect(drivesTypst('cd .. && tinymist compile --root . ./FOO/book.typ out.pdf 2>out.log')).toBe(true);
+		expect(drivesTypst('cd .. ; tinymist compile --root . {main}')).toBe(true);
+		expect(drivesTypst('cd .. & typst compile {main}')).toBe(true);
+	});
+
+	it('agrees with isTypstCommand on plain commands', () => {
+		expect(drivesTypst('tinymist compile --root . {main} out/main.pdf')).toBe(true);
+		expect(drivesTypst('latexmk -pdf {main}')).toBe(false);
+		expect(drivesTypst('cd .. && latexmk -pdf {main}')).toBe(false);
 	});
 });
 

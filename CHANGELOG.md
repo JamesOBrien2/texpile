@@ -5,6 +5,11 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+- fix: the first compile after picking a Typst main file in the confirmation dialog could run the LaTeX command instead
+- fix: a compile that finishes without writing its PDF or log now says where Texpile looked, instead of silently claiming success
+- feat: switching workspace shows the new workspace immediately; the file explorer and project fill in as they load
+- fix: a clean Typst compile behind a cd command now clears old entries from the Problems panel
+
 ## [0.17.1] - 2026-08-19
 
 - feat: Typst tables in the visual editor: merge and split cells, and drag to resize columns

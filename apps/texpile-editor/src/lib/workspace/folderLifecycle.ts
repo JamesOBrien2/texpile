@@ -65,21 +65,32 @@ export class FolderLifecycle {
 			// a shared session is tied to THIS folder's doc; swapping the root would leave it sharing
 			// the old folder invisibly, so end it before the swap
 			if (d.sessionActive() && root !== prevRoot) await d.endSession();
-			const { files } = await d.scanTexFiles(root);
 			d.resolveMainConfirm(root); // before the stores flip, so the modal effect can't see a stale state
 			d.flushSaves(); // autosave-on: persist the outgoing folder's queued edit before the swap
 			activeFilePath.set(null); // detach the old file so nothing re-tabs it under the new root
+			// Flip the shell NOW, before the scan: the new workspace renders immediately (empty
+			// explorer, its saved tabs) and the slow parts backfill below. On a big folder the scan
+			// takes seconds, and it used to run first, freezing the OLD workspace on screen.
 			workspaceRoot.set(root);
+			// the OLD main must not survive into the scan window: effects keyed on it (the existing-log
+			// loader, lane detection) would compute the previous folder's paths under the new root
+			mainFile.set(null);
 			tabs.bind(root, d.hostMode()); // rebind before refreshTree's prune, so tabs persist under the NEW root
 			docPositions.bind(root, d.hostMode());
-			texFiles.set(files);
+			texFiles.set([]);
+			fileTree.set([]);
 			addRecentFolder(root);
+			// old-folder shells and references must not serve the new root while the scan runs;
+			// both do their own (fast, superseding) work against the new root right away
+			if (root !== prevRoot) d.resetTerminals();
+			d.loadRefs(root);
 			// (no lastFolder write: the MAIN process maintains settings.openFolders for session restore)
+			const { files } = await d.scanTexFiles(root);
+			if (get(workspaceRoot) !== root) return; // a newer switch took over mid-scan
+			texFiles.set(files);
 			await d.refreshTree();
 			await this.initProject(root);
-			d.loadRefs(root);
-			activeFilePath.set(files[0]?.path ?? null);
-			if (root !== prevRoot) d.resetTerminals();
+			if (get(workspaceRoot) === root && !get(activeFilePath)) activeFilePath.set(files[0]?.path ?? null);
 		} catch (e) {
 			console.error('Failed to open folder:', e);
 		}

@@ -18,6 +18,23 @@ export function isTypstCommand(cmd: string): boolean {
 	return /^\s*(?:[^\s"']*[\\/])?(?:tinymist|typst)(?:\.exe)?(?:\s|$)/i.test(cmd);
 }
 
+/**
+ * isTypstCommand, but seeing through leading `cd <dir>` segments (`cd .. && tinymist ...`).
+ *
+ * NOT a drop-in for isTypstCommand: everything keyed on it (output detection, the preview gate,
+ * base directories) assumes the command runs at the folder root, which a cd makes false. This
+ * exists for the one question a cd cannot change - whether the engine treats an empty log as a
+ * clean run (Typst: stderr empty) or as "never ran" (TeX).
+ */
+export function drivesTypst(cmd: string): boolean {
+	const segments = cmd.split(/&&|\|\||[;&]/);
+	for (const seg of segments) {
+		if (/^\s*$/.test(seg) || /^\s*cd(?:\s|$)/i.test(seg)) continue;
+		return isTypstCommand(seg);
+	}
+	return false;
+}
+
 /** Split a command line into tokens, honouring quotes. Quotes are stripped from the result. */
 function tokenize(cmd: string): string[] {
 	const out: string[] = [];

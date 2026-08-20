@@ -10,7 +10,7 @@ import { DEFAULT_COMPILE_COMMAND, settings } from '$lib/settings';
 import { compileConfig } from './projectConfigSync.svelte';
 import { workspaceRoot, mainFile, texFiles, effectiveCompileFormat, savedMainFile } from './workspaceStore';
 import * as cc from './compileCommand';
-import { buildTypstCommand, isTypstCommand, typstLogArg } from './typstCommand';
+import { buildTypstCommand, drivesTypst, isTypstCommand, typstLogArg } from './typstCommand';
 import { basename, joinPath, samePath } from './fileSystem';
 import type { EditSession } from '$lib/collab/editSession';
 import { toaster } from '$lib/modals/toaster-svelte';
@@ -194,10 +194,14 @@ export class CompilePipeline {
 			});
 			return;
 		}
+		// Resolved fresh, not read from the cached deps command: the main-confirm dialog above
+		// re-enters this synchronously after setMainFile, before the $effect refreshing the cache
+		// runs - the stale cache once ran latexmk on a freshly chosen .typ main.
+		const cmd = resolveCompileCommand(get(mainFile)).trim();
 		// Live mode IS the incremental lualatex pipeline, so it cannot serve a Typst project. The
 		// setting is global and the user may arrive here with it left on from a LaTeX folder, so
 		// ignore it rather than trapping them - the terminal command below is the correct build.
-		if (get(compileConfig).latex.liveMode && !isTypstCommand(this.deps.getCompileCommand())) {
+		if (get(compileConfig).latex.liveMode && !isTypstCommand(cmd)) {
 			await this.deps.runDraftCompile();
 			return;
 		}
@@ -207,12 +211,11 @@ export class CompilePipeline {
 		//
 		// In a shared session too: the preview's data plane is relayed to guests (previewRelay), so
 		// opening it here is answering a guest's compile request, not ignoring it.
-		if (get(compileConfig).typst.preview && isTypstCommand(this.deps.getCompileCommand())) {
+		if (get(compileConfig).typst.preview && isTypstCommand(cmd)) {
 			this.deps.openTypstPreview();
 			return;
 		}
 		if (!this.deps.terminalAvailable()) return;
-		const cmd = this.deps.getCompileCommand().trim();
 		// no command yet: ask in the modal first
 		if (!cmd) {
 			this.deps.openCompileModal();
@@ -243,11 +246,11 @@ export class CompilePipeline {
 		// write the buffer to disk BEFORE compiling so SyncTeX indexes exactly what the editor
 		// holds; otherwise reverse search maps PDF clicks into a stale, differently formatted .tex
 		await this.deps.flushSaves();
-		const pdfPath = this.expectedPdfPath();
+		const pdfPath = this.expectedPdfPath(cmd);
 		const before = pdfPath ? (await this.deps.stat(pdfPath)).mtimeMs : 0; // baseline BEFORE compiling
-		const logPath = this.expectedLogPath();
+		const logPath = this.expectedLogPath(cmd);
 		const logBefore = logPath ? (await this.deps.stat(logPath)).mtimeMs : 0;
-		await this.ensureOutputDir();
+		await this.ensureOutputDir(cmd);
 		this.deps.refreshTree(); // the output/ folder may have just been created
 		// opt-out ergonomics: with the dock closed by choice, a compile should not reopen it. The
 		// button's own running state is the progress indicator then (see openDockOnCompile).
@@ -292,7 +295,8 @@ export class CompilePipeline {
 	// A zero-byte log means "the engine never really ran" for TeX, so it is ignored — but for Typst
 	// it means the opposite: stderr was empty, i.e. the document compiled clean. Without this the
 	// Problems panel would keep showing the previous failing run's errors after a good compile.
-	private logMayBeEmpty = (cmd = this.deps.getCompileCommand()): boolean => isTypstCommand(cmd);
+	// drivesTypst, not isTypstCommand: a `cd .. && tinymist ...` line compiles Typst all the same.
+	private logMayBeEmpty = (cmd = this.deps.getCompileCommand()): boolean => drivesTypst(cmd);
 
 	expectedLogPath = (cmd = this.deps.getCompileCommand()): string | null => {
 		const root = get(workspaceRoot);
@@ -405,20 +409,36 @@ export class CompilePipeline {
 				clearTimeout(this.logWatchTimer);
 				this.logWatchTimer = null;
 			}
+			let logAdvanced = false;
+			let pdfExists = true; // benefit of the doubt on an fs hiccup: no warning then
 			try {
 				if (logPath) {
 					const s = await this.deps.stat(logPath);
-					if (s.exists && (s.size > 0 || this.logMayBeEmpty()) && s.mtimeMs > logBefore)
-						await this.publishLogDiagnostics(logPath, s.mtimeMs);
+					logAdvanced = s.exists && (s.size > 0 || this.logMayBeEmpty()) && s.mtimeMs > logBefore;
+					if (logAdvanced) await this.publishLogDiagnostics(logPath, s.mtimeMs);
 				}
 				if (pdfPath) {
 					const s = await this.deps.stat(pdfPath);
+					pdfExists = s.exists;
 					if (s.exists && s.size > 0 && s.mtimeMs > pdfBefore) this.showCompiledPdf(pdfPath, s.mtimeMs);
 				}
 			} catch {
 				/* fs hiccup: the run still ended, the button must still reset */
 			}
-			await this.reportMissingTool(logPath);
+			const toolMissing = await this.reportMissingTool(logPath);
+			// The command exited, no log advanced and the watched PDF path holds nothing: the build
+			// wrote somewhere the app is not watching (a cd-prefixed command, say), and every panel
+			// would stay silent while the user reads that as "compiled ok". An up-to-date rebuild is
+			// exempt: its PDF exists. Say where we looked and point at the output overrides.
+			if (!toolMissing && pdfPath && !pdfExists && !logAdvanced) {
+				const root = get(workspaceRoot);
+				toaster.warning({
+					title: m.compile_no_output_title(),
+					description: m.compile_no_output({ path: root ? relFromRoot(pdfPath, root) : pdfPath }),
+					duration: 10000,
+					action: { label: m.compile_no_output_action(), onClick: () => this.deps.openCompileModal() }
+				});
+			}
 			this.endRun();
 			this.deps.refreshTree();
 		}, 400);
@@ -437,7 +457,7 @@ export class CompilePipeline {
 	 * Only on the marker-tracked path, because that is the only one that captures output at all
 	 * (see runCompile). With the completion marker off, this failure stays as silent as it was.
 	 */
-	private async reportMissingTool(logPath: string | null): Promise<void> {
+	private async reportMissingTool(logPath: string | null): Promise<boolean> {
 		const cmd = this.deps.getCompileCommand();
 		let program = missingProgram(this.compileStdout);
 		// a command that redirects stderr (the Typst default does) leaves the shell's own error in
@@ -461,20 +481,21 @@ export class CompilePipeline {
 				}
 			}
 		}
-		if (!program) return;
+		if (!program) return false;
 		toaster.error({
 			title: m.compile_tool_missing_title(),
 			description: m.compile_tool_missing({ tool: program }),
 			duration: 8000,
 			action: { label: m.compile_tool_missing_action(), onClick: openToolchainPrefs }
 		});
+		return true;
 	}
 
-	private async ensureOutputDir() {
+	private async ensureOutputDir(cmd = this.deps.getCompileCommand()) {
 		// the output dir is relative to where the command RUNS, which -cd moves into the main file's
 		// folder; joining the root there would create a stray empty output/ beside the workspace
-		const base = this.compileBaseDir();
-		const dir = cc.compileOutDir(this.deps.getCompileCommand());
+		const base = this.compileBaseDir(cmd);
+		const dir = cc.compileOutDir(cmd);
 		if (base && dir !== '.') {
 			try {
 				await this.deps.create(joinPath(base, dir), 'dir'); // mkdir -p, idempotent

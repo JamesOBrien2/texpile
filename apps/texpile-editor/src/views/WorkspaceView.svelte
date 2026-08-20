@@ -43,6 +43,7 @@
 	import SessionShareModal from '$lib/collab/SessionShareModal.svelte';
 	import VisualCollab from '$lib/collab/VisualCollab.svelte';
 	import { references, loadReferences } from '$lib/workspace/citations';
+	import { pdfStore } from '$lib/stores/pdfStore';
 	import { DocRegistries } from '$lib/workspace/docRegistries.svelte';
 	import { filePathStore } from '$lib/stores/editorStore';
 	import { sourceCmView } from '$lib/stores/editorStore';
@@ -837,10 +838,13 @@
 		return s.autosave !== false || get(compileConfig).latex.liveMode || (session.active && !guest);
 	}
 
-	// a new folder's diagnostics start blank, the previous folder's log is meaningless here
+	// a new folder starts blank: the previous folder's log, PDF and macros are meaningless here
+	// (the switch now flips the root before its scan, so these would otherwise linger on screen)
 	$effect(() => {
 		void $workspaceRoot; // dependency: re-run per folder
 		compileLog.set(null);
+		pdfStore.set(null); // initProject's loadExistingPdf refills it for the new folder
+		projectMacros = '';
 		dockView = 'terminal';
 		compiler.resetForFolder(); // any pollers still watching the previous folder's paths stand down
 		compileCommand = resolveCompileCommand(get(mainFile));
@@ -1368,6 +1372,9 @@
 			existingLogLoadedFor = null;
 			return;
 		}
+		// mid folder-switch (root flipped, scan pending): the fallbacks below would resolve the
+		// PREVIOUS folder's log and publish its problems here. The scan landing re-runs this.
+		if (!$mainFile && $texFiles.length === 0) return;
 		if (existingLogLoadedFor === root) return;
 		untrack(() => {
 			if (get(compileLog)) {

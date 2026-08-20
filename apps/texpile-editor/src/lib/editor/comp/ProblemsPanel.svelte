@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { CircleAlert, TriangleAlert, Box, FileCheck2, Info } from '@lucide/svelte';
 	import { compileLog, resolveLogPath } from '$lib/stores/compileLogStore';
+	import { mainFile, effectiveCompileFormat } from '$lib/workspace/workspaceStore';
 	import type { LogEntry } from '$lib/latex-log';
 	import { m } from '$lib/paraglide/messages';
 
@@ -28,7 +29,7 @@
 	{#if !log}
 		<div class="text-surface-500-400 flex flex-1 items-center justify-center gap-2 p-4">
 			<Info class="size-4" />
-			{m.problems_empty_state()}
+			{effectiveCompileFormat($mainFile) === 'typst' ? m.problems_empty_state_typst() : m.problems_empty_state()}
 		</div>
 	{:else}
 		<div class="border-surface-200-800 flex h-7 shrink-0 items-center gap-3 border-b px-2">
