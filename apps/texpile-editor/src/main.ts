@@ -8,12 +8,12 @@ import { loadSettings } from '$lib/settings';
 import { focusDoctor } from '$lib/debug/focusDoctor';
 import App from './App.svelte';
 
-// console.log is silenced unless window.texpile.debug (settable from DevTools)
-window.texpile = window.texpile || { debug: import.meta.env.DEV };
+// Silence console.log is from legacy webapp, not nesscarily needed for desktop app
+window.texpile = window.texpile || { debug: { log: import.meta.env.DEV } };
 window.texpileFocusDoctor = focusDoctor;
 const originalLog = console.log;
 console.log = (...args: unknown[]) => {
-	if (window.texpile?.debug) {
+	if (window.texpile?.debug?.log) {
 		originalLog.apply(console, args);
 	}
 };

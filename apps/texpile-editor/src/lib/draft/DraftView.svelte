@@ -609,6 +609,15 @@
 	// speed and run ONE full pass when the user pauses (an immediate recompile per keystroke lags)
 	let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
 	let pendingReconcile: (() => void | Promise<void>) | null = null;
+	// only complain if its slow
+	let refineStatusTimer: ReturnType<typeof setTimeout> | null = null;
+	function noteRefining(page: number) {
+		if (refineStatusTimer) clearTimeout(refineStatusTimer);
+		refineStatusTimer = setTimeout(() => {
+			refineStatusTimer = null;
+			if (provisionalPages.size) status = m.draft_status_refining({ page });
+		}, 2000);
+	}
 	function scheduleReconcile(onRecompile: (() => void | Promise<void>) | undefined, stage: string) {
 		pendingReconcile = onRecompile ?? null;
 		if (reconcileTimer) clearTimeout(reconcileTimer);
@@ -1277,50 +1286,59 @@
 			for (const b of ((sx && sx.boxes) || []) as any[]) if (b.page && !hintPages.includes(b.page)) hintPages.push(b.page);
 		}
 		const order = [...hintPages, ...pages.map((p) => p.n).filter((p) => !hintPages.includes(p))];
-		// tier 1: exact -- Nv contiguous rows, each glyph-identical to a calibration variant's row
-		for (const pageNo of order) {
-			if (rtlPage(pageNo)) continue; // record x-order is not the page's visual order here
-			const allG = pageRecords(pageNo).filter((x: any) => x.t === 'g');
-			if (!allG.length) continue;
-			for (const cl of colCandidates(allG, W, G)) {
-				const colL = cl - G,
-					colR = cl + W + G;
-				const rows = rowsOf(allG.filter((x: any) => x.x >= colL && x.x <= colR));
-				for (const v of varRows) {
-					const dRows = v.rows,
-						Nv = dRows.length;
-					// placement anchor: band left minus daemon left = the daemon box origin on the
-					// page (see locateForward's paraLeft note)
-					const dLeft = Math.min(...dRows.map((r) => r.left));
-					const starts: number[] = [];
-					for (let s = 0; s + Nv <= rows.length; s++) {
-						let okRun = true;
-						for (let i = 0; i < Nv && okRun; i++) {
-							if (!eqSeq(rows[s + i].cs, dRows[i].cs) || !eqX(rows[s + i], dRows[i])) okRun = false;
-							else if (i > 0 && rows[s + i].y - rows[s + i - 1].y > gap * 1.5) okRun = false;
-						}
-						if (okRun) starts.push(s);
-					}
-					if (starts.length > 1) return bail('ambiguous', { matches: starts.length, pageNo });
-					if (starts.length === 1) {
-						const s = starts[0];
-						const b1 = rows[s].y,
-							bk = rows[s + Nv - 1].y;
-						const paraLeft = Math.min(...rows.slice(s, s + Nv).map((r) => r.left)) - dLeft;
-						// C2: natural band spacing -> exact. Stretched spacing (flushbottom
-						// vertical justification) with content and x positions matching is still
-						// the right paragraph in the right place: splice with natural spacing as
-						// a close-enough PROVISIONAL and let the reconcile restore the stretch.
-						if (calGap && Nv > 1) {
-							const pg: number[] = [];
-							for (let i = 1; i < Nv; i++) pg.push(rows[s + i].y - rows[s + i - 1].y);
-							if (Math.abs(median(pg) - calGap) > 0.5) {
-								ev('locate-glyph-stretched', { pageNo, b1, bk, N: Nv });
-								return { pageNo, b1, bk, medGap: gap, paraLeft, W, colL, colR, indent: v.indent, approx: true };
+		// tier 1: Nv contiguous rows matching a calibration variant, row for row. Pass 1 is
+		// glyph-identical (can certify exact). Pass 2 tolerates digit-for-digit differences:
+		// the daemon's counters are deterministic but not the page's (a second theorem, a
+		// numbered equation), so a digit match is placement-true while the render differs --
+		// always approx, and never by counter NAME (redefined/user-defined counters included).
+		const digitSeq = (a: number[], b: number[]) =>
+			a.length === b.length && a.every((v, i) => v === b[i] || (v >= 0x30 && v <= 0x39 && b[i] >= 0x30 && b[i] <= 0x39));
+		for (const rowEq of [eqSeq, digitSeq]) {
+			for (const pageNo of order) {
+				if (rtlPage(pageNo)) continue; // record x-order is not the page's visual order here
+				const allG = pageRecords(pageNo).filter((x: any) => x.t === 'g');
+				if (!allG.length) continue;
+				for (const cl of colCandidates(allG, W, G)) {
+					const colL = cl - G,
+						colR = cl + W + G;
+					const rows = rowsOf(allG.filter((x: any) => x.x >= colL && x.x <= colR));
+					for (const v of varRows) {
+						const dRows = v.rows,
+							Nv = dRows.length;
+						// placement anchor: band left minus daemon left = the daemon box origin on the
+						// page (see locateForward's paraLeft note)
+						const dLeft = Math.min(...dRows.map((r) => r.left));
+						const starts: number[] = [];
+						for (let s = 0; s + Nv <= rows.length; s++) {
+							let okRun = true;
+							for (let i = 0; i < Nv && okRun; i++) {
+								if (!rowEq(rows[s + i].cs, dRows[i].cs) || !eqX(rows[s + i], dRows[i])) okRun = false;
+								else if (i > 0 && rows[s + i].y - rows[s + i - 1].y > gap * 1.5) okRun = false;
 							}
+							if (okRun) starts.push(s);
 						}
-						ev('locate-glyph-ok', { pageNo, b1, bk, N: Nv, indent: v.indent });
-						return { pageNo, b1, bk, medGap: gap, paraLeft, W, colL, colR, indent: v.indent };
+						if (starts.length > 1) return bail('ambiguous', { matches: starts.length, pageNo });
+						if (starts.length === 1) {
+							const s = starts[0];
+							const b1 = rows[s].y,
+								bk = rows[s + Nv - 1].y;
+							const paraLeft = Math.min(...rows.slice(s, s + Nv).map((r) => r.left)) - dLeft;
+							const digits = rowEq !== eqSeq;
+							// C2: natural band spacing -> exact. Stretched spacing (flushbottom
+							// vertical justification) with content and x positions matching is still
+							// the right paragraph in the right place: splice with natural spacing as
+							// a close-enough PROVISIONAL and let the reconcile restore the stretch.
+							if (calGap && Nv > 1) {
+								const pg: number[] = [];
+								for (let i = 1; i < Nv; i++) pg.push(rows[s + i].y - rows[s + i - 1].y);
+								if (Math.abs(median(pg) - calGap) > 0.5) {
+									ev('locate-glyph-stretched', { pageNo, b1, bk, N: Nv });
+									return { pageNo, b1, bk, medGap: gap, paraLeft, W, colL, colR, indent: v.indent, approx: true };
+								}
+							}
+							ev(digits ? 'locate-glyph-digits' : 'locate-glyph-ok', { pageNo, b1, bk, N: Nv, indent: v.indent });
+							return { pageNo, b1, bk, medGap: gap, paraLeft, W, colL, colR, indent: v.indent, ...(digits ? { approx: true } : {}) };
+						}
 					}
 				}
 			}
@@ -1619,7 +1637,8 @@
 				patchedPages.add(cal.pageNo);
 				showEditBand({ page: cal.pageNo, top: cal.b1 - h1, bottom: cal.bk + dk, colL: cal.colL, colR: cal.colR });
 				followEdit(cal.pageNo, cal.b1, cal.bk, cal.colL, cal.colR);
-				status = m.draft_status_refining({ page: cal.pageNo });
+				status = m.draft_status_patched({ page: cal.pageNo, ms: (performance.now() - t0).toFixed(0) });
+				noteRefining(cal.pageNo);
 				ev('provisional-split', { page: cal.pageNo, spillPage, kA, of: lineRecs.length });
 				if (!req.transient) scheduleReconcile(req.onRecompile, 'split');
 				return;
@@ -1682,6 +1701,8 @@
 					lastBelow
 				});
 				if (done) {
+					status = m.draft_status_patched({ page: cal.pageNo, ms: (performance.now() - t0).toFixed(0) });
+					noteRefining(cal.pageNo);
 					if (!req.transient) scheduleReconcile(req.onRecompile, 'overflow');
 					return;
 				}
@@ -1736,7 +1757,8 @@
 			if (provisionalStage) {
 				provisionalPages = new Set(provisionalPages).add(cal.pageNo); // tint until the recompile lands
 				ev('provisional', { stage: provisionalStage, page: cal.pageNo, delta: +delta.toFixed(1), transient: !!req.transient });
-				status = m.draft_status_refining({ page: cal.pageNo });
+				status = m.draft_status_patched({ page: cal.pageNo, ms: ms.toFixed(0) });
+				noteRefining(cal.pageNo);
 				// debounced reconcile: the provisional render carries the typing; ONE full pass
 				// runs after the user pauses instead of one per keystroke. Transient (repaired
 				// mid-typing) edits never schedule one -- the balanced keystroke that follows will.
@@ -1875,7 +1897,6 @@
 		provisionalPages = new Set(provisionalPages).add(cal.pageNo).add(pB);
 		showEditBand({ page: cal.pageNo, top: topA, bottom: cal.bk + dk, colL: cal.colL, colR: cal.colR });
 		followEdit(cal.pageNo, cal.b1, cal.bk + dk, cal.colL, cal.colR);
-		status = m.draft_status_refining({ page: cal.pageNo });
 		ev('provisional-split', { page: cal.pageNo, spillPage: pB, kA, of: lineRecs.length, moved: movedFrom.length, stage: 'overflow' });
 		return true;
 	}

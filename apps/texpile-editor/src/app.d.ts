@@ -100,7 +100,10 @@ declare global {
 
 	interface Window {
 		texpile: {
-			debug: boolean;
+			debug: {
+				log: boolean;
+				codemirror?: import('@codemirror/view').EditorView;
+			};
 		};
 		/** DevTools helper for the caret-vanished reports; see lib/debug/focusDoctor.ts. */
 		texpileFocusDoctor: () => Record<string, unknown>;

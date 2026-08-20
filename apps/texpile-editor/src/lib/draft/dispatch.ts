@@ -165,16 +165,26 @@ export const daemonReady = (raw: string): boolean => {
 	const t = stripTexComments(raw);
 	let depth = 0;
 	let dollars = 0;
+	let paren = 0; // \( \) inline math -- unclosed, the engine errors instead of hanging,
+	let brack = 0; // but the typeset still fails; route it through repair like $ instead
 	for (let i = 0; i < t.length; i++) {
 		const c = t[i];
-		if (c === '\\')
+		if (c === '\\') {
+			const n = t[i + 1];
+			if (n === '(') paren++;
+			else if (n === ')') {
+				if (--paren < 0) return false;
+			} else if (n === '[') brack++;
+			else if (n === ']') {
+				if (--brack < 0) return false;
+			}
 			i++; // skip the escaped char: \{ \} \$ \\ aren't grouping
-		else if (c === '{') depth++;
+		} else if (c === '{') depth++;
 		else if (c === '}') {
 			if (--depth < 0) return false;
 		} else if (c === '$') dollars++;
 	}
-	return depth === 0 && dollars % 2 === 0;
+	return depth === 0 && dollars % 2 === 0 && paren === 0 && brack === 0;
 };
 // Mid-typing repair: close still-open math/braces IN NESTING ORDER so the daemon can render
 // the partial result instantly ($x + y -> $x + y$; \textbf{par -> \textbf{par}). The closers
@@ -432,7 +442,12 @@ function structuralOf(
 	// list item re-wrapped with an appended \par would render INSIDE the list). Nothing
 	// here decides layout -- it only gates WHAT rides one engine typeset.
 	const mergeable = (p: Para) => plainProse(p) || !!p.head || (!!p.env && !/^(table|figure)\*?$/.test(p.env) && !p.wrap);
-	const insertable = (p: Para) => !p.env && !p.wrap && daemonReady(p.text);
+	// an unclosed \begin{env} swallows the buffer tail into one block; typesetting that
+	// (with \end{document} inside) can never render -- hold it back from the merged run.
+	// Repairable mid-typing states ($x + y, \section{Op) DO ride: buildPatch repairs the
+	// merged text and marks it transient, so partial math renders live while being typed.
+	const insertable = (p: Para) =>
+		mergeable(p) && (daemonReady(p.text) || repairForPreview(p.text) !== null) && !/\\end\{document\}/.test(p.text);
 	// Alignment scan: try every insert (or delete) position j inside the unmatched window and
 	// accept it when the rest of the window agrees except AT MOST ONE modified pair -- the
 	// pending-patch paragraph that never advanced the baseline (the normal state
@@ -472,7 +487,10 @@ function structuralOf(
 		const a = scan(true, k);
 		if (a) {
 			const run = newP.slice(a.j, a.j + k);
-			const runProse = run.every(plainProse) && run.every(insertable);
+			// mergeable, not plain prose: a freshly TYPED heading or env must ride the merged
+			// unit too (typing from scratch is headings + prose), rendering provisionally when
+			// its number is off. What the engine can't certify still falls to the full pass.
+			const runProse = run.every(insertable);
 			const joined = run.map((p) => p.text).join('\n\\par ');
 			if (a.mod === null) {
 				const prev = oldP[a.j - 1];
@@ -486,7 +504,9 @@ function structuralOf(
 				// modified paragraph's band (two separate splices alternated visually)
 				const modOld = oldP[a.mod];
 				const modNew = newP[a.mod];
-				if (plainProse(modOld) && plainProse(modNew) && runProse) {
+				// mergeable pair, not prose-only: mid-typing a heading the pending pair is
+				// "\sect" -> "\section{...", and prose typed after it must not go structural
+				if (mergeable(modOld) && insertable(modNew) && runProse) {
 					const merged: Para = { ...modNew, text: `${modNew.text}\n\\par ${joined}` };
 					const one = buildPatch(baseLines, modOld, merged);
 					if (one.kind === 'patch') return one;

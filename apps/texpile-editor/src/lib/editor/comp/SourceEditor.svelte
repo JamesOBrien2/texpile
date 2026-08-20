@@ -54,9 +54,6 @@
 	import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 	import * as Y from 'yjs';
 	import type { Awareness } from 'y-protocols/awareness';
-
-	// full-file CodeMirror editor. source-mode edits are written back verbatim, never through the
-	// parse/serialize round-trip. filename picks the syntax mode, defaulting to LaTeX.
 	import { ArrowRight, BookMarked, Scissors, Copy, ClipboardPaste, Search, MessageSquarePlus } from '@lucide/svelte';
 
 	// gotoLine: token makes repeat jumps to the same line re-fire; selectText anchors against line drift.
@@ -458,6 +455,7 @@
 				]
 			})
 		});
+		window.texpile.debug.codemirror = view;
 		view.focus();
 		// scrollTo above lands the saved line at the viewport top; this adds the remembered fraction of
 		// that line back so the restore is exact rather than snapped to a line boundary. Deferred by a

@@ -7,6 +7,22 @@ local walker = dofile((TEXPILE_ENGINE_DIR or ".") .. "/walker.lua")
 
 local current, announced
 
+-- Counter determinism: LaTeX counters step GLOBALLY, so they accumulate across requests
+-- (\begin{theorem} rendered 1, then 2, ...) and a repeat typeset could accidentally match
+-- the page's number and certify a splice with a soon-wrong digit. Snapshot EVERY count
+-- register after the preamble (no counter is known by name -- redefinitions and
+-- user-defined counters included) and restore before each typeset.
+local count_snap
+local function snap_counts()
+	count_snap = {}
+	for i = 0, 65535 do count_snap[i] = tex.count[i] end
+end
+local function restore_counts()
+	for i = 0, 65535 do
+		if tex.count[i] ~= count_snap[i] then tex.count[i] = count_snap[i] end
+	end
+end
+
 local function readline()
 	local l = io.stdin:read("*l")
 	if l then l = l:gsub("\r$", "") end
@@ -31,6 +47,7 @@ function texd_step()
 		local cw = tex.dimen["columnwidth"] or tex.dimen["textwidth"] or (345 * 65536)
 		local th = tex.dimen["textheight"] or (550 * 65536)
 		respond(string.format("texpile-warm@@READY %.4f %.4f", cw / 65536.0, th / 65536.0))
+		snap_counts()
 	end
 	-- hsize has NO invented default: the client sends it every request (falling back to
 	-- the READY-announced engine \columnwidth); a TEXT frame without one is refused
@@ -74,6 +91,7 @@ function texd_step()
 		respond(string.format('texpile-warm@@R {"ms":0,"lines":0,"glyphs":0,"error":%q}', badframe))
 		return
 	end
+	restore_counts()
 	current = { t0 = os.gettimeofday(), glyphs = want_glyphs }
 	-- the block reaches TeX through a real file read, not tex.print: input-line callbacks
 	-- (luatexja's CJK line-end handling under ctex) only run on file lines, and the document
@@ -85,7 +103,14 @@ function texd_step()
 	end
 	pf:write(table.concat(lines, "\n"))
 	pf:close()
-	tex.print("\\setbox0\\vbox\\bgroup\\hsize=" .. hsize .. "pt\\noindent\\input{_draft/texd-para.tex}\\par\\egroup\\directlua{texd_emit()}")
+	-- \@nobreak is set GLOBALLY by \@startsection, so a heading in one request made the next
+	-- request's heading skip its beforeskip (drawn ~15pt high). Kernel state, reset like the
+	-- counters; a pinned heading's own \@nobreaktrue still applies after this.
+	tex.print(
+		"\\makeatletter\\global\\@nobreakfalse\\makeatother\\setbox0\\vbox\\bgroup\\hsize="
+			.. hsize
+			.. "pt\\noindent\\input{_draft/texd-para.tex}\\par\\egroup\\directlua{texd_emit()}"
+	)
 end
 
 function texd_emit()

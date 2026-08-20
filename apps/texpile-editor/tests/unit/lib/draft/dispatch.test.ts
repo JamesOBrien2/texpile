@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decideEdit } from '$lib/draft/dispatch';
+import { decideEdit, daemonReady, repairForPreview } from '$lib/draft/dispatch';
 
 // The compound-alignment rules: an exact patch never advances the baseline, so "type in a
 // paragraph, then open a new one" must read as ONE merged engine typeset (prev + \par +
@@ -35,8 +35,19 @@ describe('decideEdit compound alignment', () => {
 		expect(d.text).toBe('\\begin{quote}\nquoted words\n\\end{quote}\n\\par \\noindent Fresh flush paragraph.');
 	});
 
-	it('sends a heading insert to the full pass (no JS-placed splice exists)', () => {
+	it('rides a heading insert on the previous block (typing from scratch is headings + prose)', () => {
 		const src = DOC.replace('Beta four', '\\section{Fresh}\n\nBeta four');
+		const d = decideEdit(DOC, src);
+		expect(d.kind).toBe('patch');
+		if (d.kind !== 'patch') return;
+		expect(d.orig).toBe('Alpha one two three.');
+		// the heading ships verbatim inside the merged unit; its number is the engine's
+		// (deterministic via the daemon counter reset) and certifies via the reconcile
+		expect(d.text).toBe('Alpha one two three.\n\\par \\section{Fresh}');
+	});
+
+	it('still sends a float insert to the full pass', () => {
+		const src = DOC.replace('Beta four', '\\begin{table}\nx\n\\end{table}\n\nBeta four');
 		const d = decideEdit(DOC, src);
 		expect(d.kind).toBe('structural');
 	});
@@ -98,5 +109,39 @@ describe('decideEdit compound alignment', () => {
 		const merged = decideEdit(DOC, DOC.replace('Beta four', 'Fresh inserted paragraph.\n\nBeta four'));
 		expect(merged.kind).toBe('patch');
 		if (merged.kind === 'patch') expect(merged.cmdChanged).toBe(false);
+	});
+});
+
+describe('mid-typing math balance', () => {
+	it('treats unclosed \\( and \\[ as not ready, like an odd $', () => {
+		expect(daemonReady('open \\(x + y')).toBe(false);
+		expect(daemonReady('open \\[x + y')).toBe(false);
+		expect(daemonReady('closed \\(x + y\\) fine')).toBe(true);
+		expect(daemonReady('a stray closer \\) alone')).toBe(false);
+		// \\[2pt] is a line break argument, not display math
+		expect(daemonReady('broken line \\\\[2pt] more')).toBe(true);
+	});
+
+	it('repairs \\( in nesting order with $ and braces', () => {
+		expect(repairForPreview('\\(x + \\textbf{y')).toBe('\\(x + \\textbf{y\n}\\)');
+		expect(repairForPreview('mismatch \\(x }')).toBeNull();
+	});
+
+	it('rides a mid-math NEW paragraph on the merged run as a transient', () => {
+		const src = DOC.replace('Beta four', 'The identity $e^{i\\pi\n\nBeta four');
+		const d = decideEdit(DOC, src);
+		expect(d.kind).toBe('patch');
+		if (d.kind !== 'patch') return;
+		expect(d.transient).toBe(true);
+		// buildPatch repaired the merged text: closers in nesting order on their own line
+		expect(d.text).toBe('Alpha one two three.\n\\par The identity $e^{i\\pi\n}$');
+	});
+
+	it('rides a mid-heading state on the merged run as a transient', () => {
+		const src = DOC.replace('Beta four', '\\section{Openin\n\nBeta four');
+		const d = decideEdit(DOC, src);
+		expect(d.kind).toBe('patch');
+		if (d.kind !== 'patch') return;
+		expect(d.transient).toBe(true);
 	});
 });
