@@ -14,6 +14,7 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 - fix: a compile that finishes without writing its PDF or log now says where Texpile looked, instead of silently claiming success
 - feat: switching workspace shows the new workspace immediately; the file explorer and project fill in as they load
 - fix: a clean Typst compile behind a cd command now clears old entries from the Problems panel
+- fix: the source editor's right-click menu showed macOS shortcut symbols on Windows and Linux
 
 ## [0.17.1] - 2026-08-19
 

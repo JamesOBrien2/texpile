@@ -1,21 +1,8 @@
 <script lang="ts">
-	import {
-		ChevronRight,
-		ChevronDown,
-		FilePlus,
-		FolderPlus,
-		Pencil,
-		Trash2,
-		Star,
-		FileSymlink,
-		Copy,
-		ClipboardPaste,
-		FolderOpen,
-		Undo2,
-		Redo2
-	} from '@lucide/svelte';
+	import { ChevronRight, ChevronDown, FilePlus, Pencil, Trash2, Star, FileSymlink } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import FileIcon from './FileIcon.svelte';
+	import FileTreeRightClickMenu, { type TreeTarget } from './FileTreeRightClickMenu.svelte';
 	import { samePath, type TreeEntry } from '$lib/workspace/fileSystem';
 	import type { FileHistory } from '$lib/workspace/fileHistory.svelte';
 	import { gitKey } from '$lib/workspace/gitStore';
@@ -82,17 +69,13 @@
 		file: globalThis.File;
 	}
 
-	// samePath, not ===: activePath is the only path here that the tree did not produce itself, so
-	// it is the only one that can arrive in a different FORM. A restored workspace builds it by
-	// joining a remembered relative path onto the root, and on Windows that used to come back
-	// mixed-separator, matching no entry and leaving the open file unhighlighted.
+	// samePath, not ===: a restored activePath can arrive mixed-separator on Windows and match no row
 	const isActive = (e: TreeEntry) => !!activePath && samePath(activePath, e.path);
 
 	// .typ can be a main file too: the typst preview and PDF export both target mainFile ?? open file
 	const isMainable = (e: TreeEntry) => e.type === 'file' && /\.(tex|typ)$/i.test(e.name);
 	const isMain = (e: TreeEntry) => !!mainPath && e.path.replace(/\\/g, '/').toLowerCase() === mainPath.replace(/\\/g, '/').toLowerCase();
 
-	// Git status badge (VS Code convention: a single colored letter). Only files carry one.
 	const gitBadge = (e: TreeEntry): GitBadge | undefined => (e.type === 'file' ? gitStatus[gitKey(e.path)] : undefined);
 	const BADGE_COLOR: Record<GitBadge, string> = {
 		M: 'text-amber-500',
@@ -118,15 +101,9 @@
 	let createValue = $state('');
 	let createEdited = $state(false); // did the user actually type, or is this still our pre-fill?
 
-	// ---- selection (ctrl/cmd toggles, shift ranges over the visible order) ----
 	let selected = $state<string[]>([]);
 
-	// The tree's SELECTION is its own state, separate from which file is open: clicking a row
-	// leaves it selected (grey) so the context menu and multi-file drag have something to act on.
-	// But changing file from anywhere else -- the tab bar, Ctrl+K, a SyncTeX jump -- left that grey
-	// behind on the row you last clicked, which reads as a hover stuck under a cursor that moved
-	// away long ago. Drop it, unless the newly opened file is itself in the selection: a plain row
-	// click selects and opens in one gesture, and that selection has to survive its own open.
+	// keep the selection only when it holds the file being opened; a row click selects and opens at once
 	$effect(() => {
 		const a = activePath;
 		if (!a) return;
@@ -154,8 +131,7 @@
 		}
 		return null;
 	}
-	/** the selected entries with nested ones pruned: moving/deleting a folder covers its children,
-	 *  and handling a child separately after its parent moved would act on a dead path. */
+	/** selected entries with nested ones pruned; a child handled after its parent moved is a dead path */
 	function selectedEntries(): TreeEntry[] {
 		const paths = selected.filter((p) => !selected.some((other) => other !== p && isInside(p, other)));
 		return paths.map((p) => findEntry(p)).filter((e): e is TreeEntry => !!e);
@@ -181,10 +157,10 @@
 		else onOpen(entry);
 	}
 
-	// ---- drag & drop: internal moves and OS-file imports ----
 	let dragging = $state<TreeEntry | null>(null);
-	let dragPaths = $state<string[]>([]); // everything the drag carries (the multi-selection)
-	let dropTarget = $state<string | null>(null); // the DIRECTORY that would receive the drop, or ROOT
+	let dragPaths = $state<string[]>([]);
+	// the DIRECTORY that would receive the drop, or ROOT
+	let dropTarget = $state<string | null>(null);
 	const ROOT = '__root__';
 
 	const sepOf = (p: string) => (p.includes('\\') ? '\\' : '/');
@@ -192,26 +168,18 @@
 		const i = p.lastIndexOf(sepOf(p));
 		return i >= 0 ? p.slice(0, i) : p;
 	};
-	// dropping on a folder targets it; dropping on a file targets its parent folder
 	const dropDir = (entry: TreeEntry) => (entry.type === 'dir' ? entry.path : parentOf(entry.path));
 	const isInside = (path: string, ancestor: string) => path.startsWith(ancestor + sepOf(ancestor));
-	// a target is valid when no dragged item IS it or contains it
 	const canDropAll = (target: string) => dragPaths.length > 0 && dragPaths.every((p) => target !== p && !isInside(target, p));
-	/** a drag that comes from outside the app (OS file manager) rather than a tree row. */
 	const isExternalDrag = (e: DragEvent) => !dragging && !!e.dataTransfer?.types?.includes('Files');
-	// A tree drag from ANOTHER Texpile window: our own `dragging` is null, but the payload
-	// carries this MIME tag. Only the TYPE is readable during dragover (drag data is sealed
-	// until drop, by spec), which is exactly why the tag exists: it identifies the drag
-	// without seeing the data, and plain editor text drags don't false-positive.
+	// a tag, not the data: drag payloads are sealed until drop, so only the TYPE is readable on dragover
 	const PATHS_MIME = 'application/x-texpile-paths';
 	const isCrossWindowDrag = (e: DragEvent) => !dragging && !!e.dataTransfer?.types?.includes(PATHS_MIME);
-	// ring the row of the receiving DIRECTORY (not whatever row the pointer is on)
 	const markTarget = (dir: string) => {
 		dropTarget = dir === rootPath ? ROOT : dir;
 	};
 
 	function onRowDragStart(e: DragEvent, entry: TreeEntry) {
-		// dragging an unselected row abandons the selection and drags just that row
 		if (!selected.includes(entry.path)) {
 			selected = [entry.path];
 			anchorPath = entry.path;
@@ -270,8 +238,7 @@
 		dragPaths = [];
 		dropTarget = null;
 		if (crossWindow) {
-			// a tree drag from another Texpile window: the data is readable now (drop), and
-			// the drop COPIES so the source window's workspace is never mutated behind its back
+			// copies rather than moves, so the source window's workspace is not mutated behind its back
 			let paths: string[] = [];
 			try {
 				paths = JSON.parse(e.dataTransfer?.getData(PATHS_MIME) || '[]');
@@ -288,8 +255,7 @@
 			onMove(entries, targetDir);
 		}
 	}
-	// clearing on the container, not per row: leaving one row for the next fires a dragleave
-	// that would blank the ring mid-drag; only a true exit of the panel clears it
+	// on the container, not per row: moving between rows fires a dragleave that would blank the ring
 	function onTreeDragLeave(e: DragEvent) {
 		const to = e.relatedTarget as Node | null;
 		if (!to || !(e.currentTarget as HTMLElement).contains(to)) dropTarget = null;
@@ -300,9 +266,8 @@
 		dropTarget = null;
 	}
 
-	// ---- OS-file imports (drop from the system file manager, or clipboard paste) ----
-	// walks dropped directories via the webkitGetAsEntry tree so folder drops import their
-	// contents; reads file BYTES (no OS paths involved), which also works for clipboard files
+	// walks the webkitGetAsEntry tree so a dropped FOLDER imports its contents, and reads bytes
+	// rather than OS paths, which is also what makes it work for clipboard files
 	async function collectDropItems(e: DragEvent): Promise<ImportItem[]> {
 		const out: ImportItem[] = [];
 		const items = [...(e.dataTransfer?.items ?? [])];
@@ -340,14 +305,12 @@
 		return out;
 	}
 
-	/** paste lands in the single selected folder, else the workspace root */
 	function pasteTargetDir(): string {
 		const sel = selectedEntries();
 		return sel.length === 1 && sel[0].type === 'dir' ? sel[0].path : rootPath;
 	}
 
-	// Ctrl+V while the editor doesn't own focus: save clipboard files/images into the tree.
-	// A pasted screenshot arrives as a nameless "image.png"; give it a recognizable name.
+	// a pasted screenshot arrives as a nameless "image.png"; give it a recognizable name
 	function onPaste(e: ClipboardEvent) {
 		if (!allowImport || !onImport) return;
 		const el = e.target as HTMLElement | null;
@@ -364,11 +327,8 @@
 		onImport(items, pasteTargetDir());
 	}
 
-	// ---- copy / paste WITHIN the tree ----
-	// Its own clipboard of absolute paths, not the OS one. Reading real file paths back out of a
-	// system clipboard is not something a renderer can do, and putting the BYTES on it would mean
-	// loading every selected file into memory to copy a folder. Paste reuses onCopyIn, which is the
-	// same fs-side recursive copy a drag from another window already performs.
+	// our own path clipboard: a renderer cannot read file paths back out of the OS one, and putting
+	// the bytes there would mean loading every selected file into memory to copy a folder
 	let clipboard = $state<string[]>([]);
 	const canPaste = $derived(clipboard.length > 0 && !!onCopyIn);
 
@@ -383,32 +343,17 @@
 	}
 
 	function pasteClipboard(targetDir = pasteTargetDir()) {
-		// the same containment rule the drop path applies: a folder cannot be pasted into itself
 		const safe = clipboard.filter((p) => targetDir !== p && !isInside(targetDir, p));
 		if (safe.length) onCopyIn?.(safe, targetDir);
 	}
 
-	// The tree's keyboard shortcuts are scoped to the tree HAVING FOCUS, which matters most for
-	// Ctrl+Z: the editor owns a text history on the same keystroke, and a file delete must never be
-	// what Ctrl+Z takes back while the caret is in a document. Row buttons are focusable, so a
-	// clicked row puts activeElement inside this container.
 	let treeEl = $state<HTMLElement | null>(null);
-	/**
-	 * Whether the keyboard belongs to the tree. Drives BOTH the shortcut guard and the active row's
-	 * highlight, deliberately from one source: the colour is a promise that Ctrl+Z will act on files
-	 * here, and two separate notions of "focused" could disagree and turn it into a lie.
-	 */
+	// gates the shortcuts AND the active row's accent, from one source: Ctrl+Z must undo a file here
+	// and a document edit in the editor, so the colour and the keystroke can never disagree
 	let focused = $state(false);
 
-	/**
-	 * Put focus back on the tree after an action that took it away.
-	 *
-	 * Without this the shortcuts are close to unusable in the flow that wants them most: deleting
-	 * goes through a confirm dialog, and dismissing one leaves focus on the dialog's trigger or the
-	 * body - so the Ctrl+Z immediately afterwards, the whole point of having an undo, would land on
-	 * nothing. The container carries tabindex="-1" purely so it can be focused programmatically like
-	 * this; it stays out of the Tab order.
-	 */
+	// dialogs hand focus back to their own trigger, which would leave the Ctrl+Z after a delete
+	// landing on nothing
 	const refocusTree = () => queueMicrotask(() => treeEl?.focus({ preventScroll: true }));
 
 	function onTreeKeydown(e: KeyboardEvent) {
@@ -418,8 +363,7 @@
 			e.preventDefault();
 			copySelection();
 		} else if (k === 'v') {
-			// only claim the keystroke when there is something of ours to paste; otherwise let it
-			// through so the paste EVENT still fires and OS-clipboard files import as before
+			// let it through when we have nothing, so the paste EVENT still imports OS-clipboard files
 			if (!canPaste) return;
 			e.preventDefault();
 			pasteClipboard();
@@ -432,32 +376,23 @@
 		}
 	}
 
-	let ctxMenu = $state<{ x: number; y: number; entry: TreeEntry | null } | null>(null);
+	let rightClick: { open: (event: MouseEvent, at: TreeTarget) => void; close: () => void; isOpen: () => boolean } | undefined;
 	function openCtx(e: MouseEvent, entry: TreeEntry | null) {
-		e.preventDefault();
-		e.stopPropagation();
 		// right-clicking outside the selection retargets it (the menu acts on what's selected)
 		if (entry && !selected.includes(entry.path)) {
 			selected = [entry.path];
 			anchorPath = entry.path;
 		}
-		// keep the menu on-screen near the bottom/right edges. The height is the fullest the menu
-		// gets - new file/folder/include, copy, paste, reveal, undo, redo, set main, rename, delete
-		const x = Math.min(e.clientX, window.innerWidth - 184);
-		const y = Math.min(e.clientY, window.innerHeight - 340);
-		ctxMenu = { x, y, entry };
-	}
-	const ctxTargetDir = () => (ctxMenu?.entry?.type === 'dir' ? ctxMenu.entry.path : rootPath);
-
-	/**
-	 * Close the menu and hand focus back to the tree, so its shortcuts still work afterwards.
-	 *
-	 * Safe even for the items that open an inline name input: refocusTree lands in a microtask, and
-	 * focusSelect re-grabs on the next animation frame precisely to survive this kind of contention.
-	 */
-	function closeCtx() {
-		ctxMenu = null;
-		refocusTree();
+		rightClick?.open(e, {
+			entry,
+			createDir: entry?.type === 'dir' ? entry.path : rootPath,
+			pasteDir: entry?.type === 'dir' ? entry.path : pasteTargetDir(),
+			selectionCount: entry ? deleteCount(entry) : 0,
+			isMain: !!entry && isMain(entry),
+			canSetMain: !!entry && deleteCount(entry) === 1 && isMainable(entry) && !!onSetMain,
+			canPaste,
+			canReveal: !!entry && !!onReveal && deleteCount(entry) === 1
+		});
 	}
 
 	// focus on mount and select the base name (keep the extension, like VSCode).
@@ -469,10 +404,8 @@
 			else node.select();
 		};
 		grab();
-		// Skeleton's menu (Zag) refocuses its trigger in a queueMicrotask as it closes, which lands
-		// just after we mount and takes the field away before the user can type. Grab it back once,
-		// on the next frame, only if something actually took it. Deliberately NOT a re-assert loop:
-		// that was tried, and it made the field impossible to leave.
+		// a closing Skeleton menu (Zag) refocuses its trigger a microtask later and steals the field.
+		// grab it back ONCE; a re-assert loop was tried and made the field impossible to leave
 		requestAnimationFrame(() => {
 			if (node.isConnected && document.activeElement !== node) grab();
 		});
@@ -500,11 +433,8 @@
 		createValue = '';
 		if (v && dir) onCreate(dir, v, createType);
 	}
-	// Blur is not consent: an untouched field losing focus means dismiss, not "accept the pre-fill".
-	// But a menu closing hands focus back to its trigger a tick after we mount (Skeleton/Zag), and
-	// focusSelect re-grabs it one frame later. So defer the decision a frame: if focus genuinely
-	// left the field, dismiss it; if it came back (spurious refocus, or the window just blurred),
-	// leave it. Directly checking activeElement beats a time window.
+	// blur is not consent: an untouched field losing focus means dismiss, not accept the pre-fill.
+	// decided a frame late, because the menu/focusSelect handoff above blurs it spuriously first
 	function blurCreate(e: FocusEvent) {
 		if (createEdited) {
 			commitCreate();
@@ -542,9 +472,7 @@
 		});
 	}
 	async function confirmDelete(e: TreeEntry) {
-		// the confirm dialog takes focus and hands it back to its own trigger, so the tree has to
-		// claim it again - otherwise the Ctrl+Z that undoes this delete would go nowhere
-		// deleting a row that's part of a multi-selection deletes the whole selection
+		// deleting a row inside a multi-selection deletes the whole selection
 		if (selected.includes(e.path) && selectedEntries().length > 1) {
 			const entries = selectedEntries();
 			if (
@@ -560,7 +488,6 @@
 		if (await confirmAsk(message, { confirmLabel: m.filetree_delete(), danger: true })) onDelete([e]);
 		refocusTree();
 	}
-	/** how many rows a delete from this entry would remove (for the context-menu label). */
 	const deleteCount = (e: TreeEntry) => (selected.includes(e.path) ? selectedEntries().length : 1);
 </script>
 
@@ -571,7 +498,7 @@
 			return;
 		}
 		// escape hatch even if the inline input lost focus
-		if (ctxMenu) closeCtx();
+		if (rightClick?.isOpen()) rightClick.close();
 		else if (creatingIn !== null) cancelCreate();
 		else if (renaming !== null) renaming = null;
 		else if (selected.length) selected = [];
@@ -581,8 +508,7 @@
 
 {#snippet createInput(depth: number)}
 	<div class="flex items-center gap-1 py-0.5" style="padding-left: {depth * 12 + 6}px">
-		<!-- the icon previews what the row is about to become, so it tracks the name as it is typed
-		     (an empty name falls through to the generic document glyph) -->
+		<!-- the icon previews what the row will become, so it tracks the name as it is typed -->
 		{#if createType === 'dir'}<FileIcon name="" folder="closed" class="size-4 shrink-0" />{:else if createType === 'include'}<FileSymlink
 				class="text-surface-400 size-4 shrink-0"
 			/>{:else}<FileIcon name={createValue} class="size-4 shrink-0" />{/if}
@@ -612,9 +538,7 @@
 
 {#snippet row(entry: TreeEntry, depth: number)}
 	<div>
-		<!-- The open file keeps its tint whatever has focus, so you can always see WHICH file is open;
-		     only the accent TEXT is conditional. That makes the colour say something the tree could
-		     not otherwise show: blue here means Ctrl+Z acts on files, not on your document. -->
+		<!-- accent TEXT only while the tree has focus: it promises Ctrl+Z acts on files, not the document -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="group flex items-center rounded text-sm transition-colors {isActive(entry)
@@ -671,9 +595,7 @@
 					{/if}
 					{#if gitBadge(entry)}
 						{@const b = gitBadge(entry)}
-						<!-- stays put on hover and is pushed left by the buttons appearing beside it. Fading
-						     it out instead read as a flicker, and left the trash standing where the badge had
-						     been without lining up with the badges on the rows above. -->
+						<!-- pushed left by the hover buttons rather than faded out, which read as a flicker -->
 						<span class="ml-auto shrink-0 pr-1 font-mono text-xs font-bold {b ? BADGE_COLOR[b] : ''}" title={b ? BADGE_TITLE[b] : ''}
 							>{b}</span
 						>
@@ -681,10 +603,8 @@
 				{/if}
 			</button>
 			{#if renaming !== entry.path}
-				<!-- `hidden`, not opacity-0: as a permanently-laid-out sibling it reserved its width on
-				     every row, holding the git badge in off the right edge - a big share of a narrow
-				     sidebar's row. Out of flow when idle, in flow on hover, so the badge sits at the edge
-				     and gets pushed left rather than vanishing under the buttons. -->
+				<!-- `hidden`, not opacity-0: laid out permanently it reserved width on every row and held
+				     the git badge in off the right edge -->
 				<div class="hidden shrink-0 items-center gap-0.5 pr-1 group-hover:flex">
 					{#if entry.type === 'dir'}
 						<button
@@ -714,8 +634,7 @@
 	</div>
 {/snippet}
 
-<!-- empty-space drops and right-clicks target the workspace root; clicking empty space clears
-     the selection (Escape is the keyboard path for that, see the window handler above) -->
+<!-- empty space targets the workspace root -->
 <div
 	bind:this={treeEl}
 	role="presentation"
@@ -740,169 +659,16 @@
 	{/each}
 </div>
 
-{#if ctxMenu}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		class="fixed inset-0 z-50"
-		onpointerdown={() => (ctxMenu = null)}
-		oncontextmenu={(e) => {
-			e.preventDefault();
-			closeCtx();
-		}}
-	></div>
-	<div
-		class="bg-surface-50-950 border-surface-300-700 fixed z-50 min-w-[11rem] overflow-hidden rounded border py-1 text-sm shadow-lg"
-		style="left: {ctxMenu.x}px; top: {ctxMenu.y}px"
-	>
-		{#if !ctxMenu.entry || ctxMenu.entry.type === 'dir'}
-			<button
-				class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-				onclick={() => {
-					const d = ctxTargetDir();
-					closeCtx();
-					startCreate(d, 'file');
-				}}
-			>
-				<FilePlus class="text-surface-500 size-4" />
-				{m.filetree_menu_new_file()}
-			</button>
-			<button
-				class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-				onclick={() => {
-					const d = ctxTargetDir();
-					closeCtx();
-					startCreate(d, 'dir');
-				}}
-			>
-				<FolderPlus class="text-surface-500 size-4" />
-				{m.filetree_menu_new_folder()}
-			</button>
-			<button
-				class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-				onclick={() => {
-					const d = ctxTargetDir();
-					closeCtx();
-					startCreate(d, 'include');
-				}}
-				title={typstProject ? m.filetree_new_include_hint_typst() : m.filetree_new_include_hint()}
-			>
-				<FileSymlink class="text-surface-500 size-4" />
-				{m.filetree_menu_new_include()}
-			</button>
-		{/if}
-		{#if ctxMenu.entry && deleteCount(ctxMenu.entry) === 1 && isMainable(ctxMenu.entry) && onSetMain}
-			<button
-				class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-				onclick={() => {
-					const e = ctxMenu.entry;
-					closeCtx();
-					if (e) onSetMain?.(e);
-				}}
-			>
-				<Star class="text-surface-500 size-4 {ctxMenu.entry && isMain(ctxMenu.entry) ? 'fill-primary-500 text-primary-500' : ''}" />
-				{ctxMenu.entry && isMain(ctxMenu.entry) ? m.filetree_menu_unset_main() : m.filetree_menu_set_main()}
-			</button>
-		{/if}
-		{#if ctxMenu.entry}
-			<button
-				class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-				onclick={() => {
-					closeCtx();
-					copySelection();
-				}}
-			>
-				<Copy class="text-surface-500 size-4" />
-				{m.filetree_menu_copy()}
-			</button>
-		{/if}
-		{#if canPaste}
-			<button
-				class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-				onclick={() => {
-					// right-clicking a FOLDER pastes into it; anywhere else uses the selection rule
-					const d = ctxMenu?.entry?.type === 'dir' ? ctxMenu.entry.path : null;
-					closeCtx();
-					pasteClipboard(d ?? pasteTargetDir());
-				}}
-			>
-				<ClipboardPaste class="text-surface-500 size-4" />
-				{m.filetree_menu_paste()}
-			</button>
-		{/if}
-		{#if ctxMenu.entry && onReveal && deleteCount(ctxMenu.entry) === 1}
-			<button
-				class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-				onclick={() => {
-					const e = ctxMenu.entry;
-					closeCtx();
-					if (e) onReveal?.(e);
-				}}
-			>
-				<FolderOpen class="text-surface-500 size-4" />
-				{m.filetree_menu_reveal()}
-			</button>
-		{/if}
-		{#if history && (history.canUndo || history.canRedo)}
-			<!-- Something always precedes this group - right-clicking a file shows Copy, anywhere else
-			     shows the New File block - so the LEADING rule is unconditional. -->
-			<div class="border-surface-200-800 my-1 border-t"></div>
-			{#if history.canUndo}
-				<button
-					class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-					onclick={() => {
-						closeCtx();
-						void history?.undo();
-					}}
-				>
-					<Undo2 class="text-surface-500 size-4" />
-					<span class="truncate">{m.filetree_menu_undo({ what: history.undoLabel ?? '' })}</span>
-				</button>
-			{/if}
-			{#if history.canRedo}
-				<button
-					class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-					onclick={() => {
-						closeCtx();
-						void history?.redo();
-					}}
-				>
-					<Redo2 class="text-surface-500 size-4" />
-					<span class="truncate">{m.filetree_menu_redo({ what: history.redoLabel ?? '' })}</span>
-				</button>
-			{/if}
-			<!-- ...but the TRAILING one only when Rename/Delete follow it. Right-clicking empty space
-			     shows neither, and an unconditional rule then drew a stray line across the bottom of
-			     the menu with nothing under it. Guarded rather than hidden with CSS, so the menu is
-			     correct as markup instead of relying on a `last:` variant surviving the build. -->
-			{#if ctxMenu.entry}
-				<div class="border-surface-200-800 my-1 border-t"></div>
-			{/if}
-		{/if}
-		{#if ctxMenu.entry}
-			{#if deleteCount(ctxMenu.entry) === 1}
-				<button
-					class="hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-					onclick={() => {
-						const e = ctxMenu.entry;
-						closeCtx();
-						if (e) startRename(e);
-					}}
-				>
-					<Pencil class="text-surface-500 size-4" />
-					{m.filetree_rename()}
-				</button>
-			{/if}
-			<button
-				class="hover:preset-tonal-error text-error-600 flex w-full items-center gap-2.5 px-3 py-1.5 text-left"
-				onclick={() => {
-					const e = ctxMenu.entry;
-					closeCtx();
-					if (e) confirmDelete(e);
-				}}
-			>
-				<Trash2 class="size-4" />
-				{deleteCount(ctxMenu.entry) > 1 ? m.filetree_delete_many({ count: deleteCount(ctxMenu.entry) }) : m.filetree_delete()}
-			</button>
-		{/if}
-	</div>
-{/if}
+<FileTreeRightClickMenu
+	bind:this={rightClick}
+	{history}
+	{typstProject}
+	{onSetMain}
+	{onReveal}
+	onCreate={startCreate}
+	onCopy={copySelection}
+	onPaste={pasteClipboard}
+	onRename={startRename}
+	onDelete={confirmDelete}
+	onClose={refocusTree}
+/>

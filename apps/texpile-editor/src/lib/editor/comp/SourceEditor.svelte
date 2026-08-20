@@ -15,7 +15,7 @@
 	import { bracketMatching, indentOnInput, foldGutter, LanguageDescription } from '@codemirror/language';
 	import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
 	import { languages as cmlangdata } from '@codemirror/language-data';
-	import { searchKeymap, openSearchPanel } from '@codemirror/search';
+	import { searchKeymap } from '@codemirror/search';
 	import { texpileSearch } from '$lib/editor/extensions/search-panel/searchPanel';
 	import { latexAutocomplete, latexIntellisense } from '$lib/editor/extensions/intellisense/intellisense';
 	import { foldMarkerDOM, foldMarkerTheme } from '$lib/editor/extensions/intellisense/fold';
@@ -54,7 +54,7 @@
 	import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 	import * as Y from 'yjs';
 	import type { Awareness } from 'y-protocols/awareness';
-	import { ArrowRight, BookMarked, Scissors, Copy, ClipboardPaste, Search, MessageSquarePlus } from '@lucide/svelte';
+	import SourceRightClickMenu from '$lib/editor/comp/SourceRightClickMenu.svelte';
 
 	// gotoLine: token makes repeat jumps to the same line re-fire; selectText anchors against line drift.
 	// initialScrollPos: one-shot mode-switch sync applied at mount.
@@ -113,14 +113,8 @@
 		onJumpToFile?: (name: string) => void;
 		onOpenFileAt?: (file: string, line: number) => void;
 		collab?: CollabBinding | null;
-		/**
-		 * The caret moved here (ZERO-based line and column); lets the Typst preview follow along.
-		 *
-		 * The column matters as much as the line: tinymist's jump_from_cursor only resolves a
-		 * position whose syntax leaf is text, and the leaf it checks is the one BEFORE the cursor.
-		 * Column 0 therefore never resolves - so this fires on column changes too, and consumers
-		 * are expected to debounce.
-		 */
+		/** ZERO-based line and column; fires on column moves too, because tinymist's jump_from_cursor
+		 *  reads the leaf BEFORE the cursor and never resolves at column 0. consumers debounce. */
 		onCaretMove?: (line: number, character: number) => void;
 		/** review-comment ranges already resolved against this text; see lib/comments */
 		commentRanges?: CommentRange[];
@@ -141,104 +135,38 @@
 	// '' and EVERY file (md, bib) silently fell into the "no name -> assume LaTeX" branch —
 	// latex intellisense shortcuts and highlighting in markdown source mode included
 	const fileFor = $derived(filename || docPath || '');
-	// context-menu wording: a .typ jump lands in the live preview, not in a PDF
 	const isTypFile = $derived(/\.typ$/i.test(fileFor));
 
-	let ctxMenu = $state<{ x: number; y: number; line: number; hasSelection: boolean } | null>(null);
-	function onContextMenu(e: MouseEvent) {
-		if (!view) return;
-		e.preventDefault();
-		const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
-		const line = view.state.doc.lineAt(pos ?? view.state.selection.main.head).number;
-		const main = view.state.selection.main;
-		ctxMenu = {
-			x: Math.min(e.clientX, window.innerWidth - 210),
-			y: Math.min(e.clientY, window.innerHeight - 240),
-			line,
-			hasSelection: !main.empty
-		};
-	}
-	function closeMenu() {
-		ctxMenu = null;
-	}
-	const itemClass =
-		'hover:preset-tonal-primary flex w-full items-center gap-2.5 px-3 py-1 text-left disabled:pointer-events-none disabled:opacity-40';
-	async function cmCopy() {
-		if (!view) return;
-		const sel = view.state.selection.main;
-		const text = view.state.sliceDoc(sel.from, sel.to);
-		if (text) await navigator.clipboard.writeText(text).catch(() => {});
-	}
-	async function cmCut() {
-		if (!view) return;
-		const { from, to } = view.state.selection.main;
-		const text = view.state.sliceDoc(from, to);
-		if (text) {
-			await navigator.clipboard.writeText(text).catch(() => {});
-			view.dispatch({ changes: { from, to, insert: '' } });
-		}
-		view.focus();
-	}
-	async function cmPaste() {
-		if (!view) return;
-		const text = await navigator.clipboard.readText().catch(() => '');
-		if (!text) {
-			view.focus();
-			return;
-		}
-		const { from, to } = view.state.selection.main;
-		view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length } });
-		view.focus();
-	}
-	function cmSelectAll() {
-		if (!view) return;
-		view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
-		view.focus();
-	}
-	function cmFind() {
-		if (view) openSearchPanel(view);
-	}
+	let rightClick: { open: (event: MouseEvent, on: EditorView) => void } | undefined;
 
 	let host = $state<HTMLDivElement>();
 	let view: EditorView | null = null;
-	// three digits so the text stops shifting every power of ten. the element is border-box, so the
-	// padding has to be inside the floor or it eats a digit.
-	/** a flat, single-colour marker; CM's stock ones are gradient-shaded blobs that don't read as
-	 *  status icons. Colours are baked in (data: URIs can't reach CSS vars); both work on light
-	 *  and dark line-number gutters. */
+	// flat markers; CM's stock ones are gradient blobs. colours baked in, data: URIs can't reach CSS vars
 	const lintMarker = (svg: string) =>
 		`url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${svg}</svg>`)}')`;
 	const gutterTheme = EditorView.theme({
 		// gutters aren't content: without this, double-clicking a line number or a fold arrow selects it
 		'.cm-gutters': { userSelect: 'none', WebkitUserSelect: 'none' },
-		// tight padding: this cell sits BETWEEN the lint rail and the fold rail, which carry their
-		// own, so a roomy number cell reads as a gap on both sides rather than as breathing room
+		// tight padding: this cell sits BETWEEN the lint and fold rails, which carry their own.
+		// three digits of floor so the text stops shifting every power of ten
 		'.cm-lineNumbers .cm-gutterElement': {
 			padding: '0 2px 0 3px',
 			minWidth: 'calc(3ch + 2px + 3px)',
 			textAlign: 'center'
 		},
 		'.cm-gutter-lint': { width: '1em' },
-		// a gutter is as wide as its widest marker, so an EMPTY fold rail is narrower than one with
-		// chevrons - the text would slide sideways the moment the first parse produced fold ranges.
-		// Pinning it (12px lucide icon + CodeMirror's own 1px cell padding) keeps the rail the same
-		// width before and after, which is what makes the .typ open stop jumping.
+		// pinned: a gutter is as wide as its widest marker, so the text would slide sideways the
+		// moment the first parse produced fold ranges
 		'.cm-foldGutter': { width: '14px' },
-		// flex-centre the marker: stock CM leaves it inline (vertical-align: middle), which sits
-		// visibly above the line-number baseline
+		// flex-centre: stock CM leaves the marker inline, sitting above the line-number baseline
 		'.cm-gutter-lint .cm-gutterElement': { padding: '0 1px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
 		'.cm-lint-marker': { width: '0.7em', height: '0.7em' },
 		'.cm-lint-marker-error': { content: lintMarker('<circle cx="20" cy="20" r="15" fill="#ef4444"/>') },
 		'.cm-lint-marker-warning': { content: lintMarker('<circle cx="20" cy="20" r="15" fill="#f59e0b"/>') },
 		'.cm-lint-marker-info': { content: lintMarker('<circle cx="20" cy="20" r="15" fill="#3b82f6"/>') }
 	});
-	// y-codemirror.next's stock theme moves text: full-line selections ZERO the line's own padding
-	// and "compensate" with 4px/2px margins (net shift), and the caret draws as 2px of inline
-	// borders "cancelled" by -1px margins. Neutralize both so a peer's cursor or selection can
-	// never move a glyph on this screen: a highlighted line gets pinned to exactly a normal line's
-	// box (margin 0 + CM's default .cm-line padding), and the caret span becomes a zero-width
-	// in-flow anchor whose visible bar hangs off it out-of-flow (the dot and name label were
-	// already absolutely positioned upstream).
+	// y-codemirror.next's stock theme shifts text: its line selections and caret trade padding for
+	// margins that do not cancel out. pin both so a peer's cursor can never move a glyph on this screen
 	const yRemoteLayoutFix = EditorView.theme({
 		'.cm-yLineSelection': { margin: '0', padding: '0 2px 0 6px' },
 		'.cm-ySelectionCaret': { border: 'none', margin: '0' },
@@ -257,18 +185,11 @@
 	// soft wrap is a compartment, not a mounted-once extension: toggling it in Preferences has to
 	// take effect in the editor already on screen, and remounting would lose the caret and scroll
 	const wrapConf = new Compartment();
-	// the LSP extension can only be built after the language server has started and answered, which
-	// is async and may never happen (tinymist not installed). A compartment lets the editor mount
-	// and be typed in immediately, and gain intellisense whenever the server is ready.
+	// a compartment, so the editor mounts and is typeable before the server answers, or never does
 	const lspConf = new Compartment();
-	// true once tinymist has attached to THIS editor; it then owns the lint state (see the
-	// diagnostics effect below). Plain `let`, not $state: the effect that reads it also depends on
-	// `diagnostics`, and a compile always follows the server attaching.
+	// attached to THIS editor, which makes it the owner of the lint state (see the diagnostics effect)
 	let typstLspActive = false;
-	// Tracked apart from typstLspActive only because the two hand their reference back to different
-	// places. For squiggle ownership they mean the same thing, and both suppress the compile log's:
-	// the host forwards tinymist's diagnostics down the session, so a guest's editor has a real
-	// server writing them and two writers would overwrite each other.
+	// same meaning for squiggle ownership; tracked apart only because the two release differently
 	let typstGuestLspActive = false;
 
 	// vim / emacs bindings, filled in after mount because the packages are dynamically imported
@@ -281,10 +202,8 @@
 	let lastEmitted: string | null = null;
 	const deferredDocCount = trailingDebounce(300, setSourceDocCount);
 
-	// The viewport, cached as it moves. Measuring it needs a laid-out DOM, and onDestroy - which is
-	// the tab switch, and the one moment we MUST have a value - can run once the element is already
-	// detached, where getBoundingClientRect reads all zeros and every line resolves to line 1. That
-	// is why the caret used to come back correctly while the scroll always snapped to the top.
+	// cached as it moves, because onDestroy IS the tab switch and can run detached, where
+	// getBoundingClientRect reads all zeros and every line resolves to line 1
 	let lastVisibleLine = 1;
 	let lastVisibleOffset = 0;
 	function captureVisibleLine(): void {
@@ -331,13 +250,10 @@
 		// would revert other people's edits)
 		undoManager = collab ? new Y.UndoManager(collab.ytext) : null;
 		const initialDoc = collab ? collab.ytext.toString() : value;
-		// Where this file was left. Folded into EditorState.create rather than dispatched after
-		// mount, so the first paint is already in the right place instead of jumping to it.
-		// A mode-switch anchor outranks it (that block below runs on mount), and an explicit
-		// gotoLine outranks both (its own effect fires later still).
+		// folded into EditorState.create, not dispatched after mount, so the first paint is already
+		// in the right place. a mode-switch anchor outranks it, and gotoLine outranks both
 		const saved = !collab && !initialScrollPos && docPath ? docPositions.get(docPath) : null;
-		// Text.of, not a throwaway EditorState: resolvePosition only needs line lookup, and building a
-		// second full state to get it would parse the whole paper twice on every file open.
+		// Text.of, not a throwaway EditorState, which would parse the whole paper twice per open
 		const restored = saved ? resolvePosition(saved, Text.of(initialDoc.split('\n'))) : null;
 		view = new EditorView({
 			parent: host,
@@ -368,11 +284,8 @@
 					roConf.of(collab?.readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
 					keymapConf.of([]),
 					drawSelection(),
-					// Multiple cursors. The commands already ship in the keymaps we load - defaultKeymap
-					// binds Mod-Alt-Arrow to addCursorAbove/Below and searchKeymap binds Mod-d to
-					// selectNextOccurrence - but every transaction is normalized down to one range until
-					// the state is told extra ranges are allowed. rectangularSelection/crosshairCursor add
-					// Alt+drag column selection on top.
+					// multiple cursors: the keymaps already bind the commands, but every transaction is
+					// normalized down to one range until the state allows extra ones
 					EditorState.allowMultipleSelections.of(true),
 					rectangularSelection(),
 					crosshairCursor(),
@@ -380,9 +293,8 @@
 					indentOnInput(),
 					langConf.of([]),
 					cmSyntaxHighlight(),
-					// full intellisense (completion + shortcuts + hover + folding + go-to-def) + math preview for
-					// .tex only; .bib gets entry-type/field completion. Guests included: the sources read
-					// stores fed through the workspace provider, so a session serves them from the shared doc.
+					// guests included: the sources read stores fed through the workspace provider, so a
+					// session serves them from the shared doc
 					...(!fileFor || /\.tex$/i.test(fileFor)
 						? [latexIntellisense({ onJumpToFile, onOpenFileAt }), mathPreview(), starterGhost(), cmSpellcheck()]
 						: /\.(md|markdown)$/i.test(fileFor)
@@ -391,16 +303,9 @@
 							: /\.bib$/i.test(fileFor)
 								? [latexAutocomplete({ bib: true })]
 								: /\.typ$/i.test(fileFor)
-									? // typst chords, matching the visual editor's. Completion/hover/diagnostics arrive
-										// over LSP from tinymist, filled into lspConf below once the server answers.
-										// Harper parses Typst natively, so it gets the source unmasked rather than
-										// through the LaTeX mask.
-										//
-										// The fold RAIL is mounted here, not with the language: the Typst parser is a
-										// dynamic import, so a gutter travelling with it appears a second late and
-										// shoves the text sideways on every .typ open. Mounted now it is there from
-										// the first frame, empty until the parse supplies ranges (the fold service
-										// itself does travel with the language, which is where the ranges live).
+									? // completion/hover/diagnostics arrive over LSP, filled into lspConf below. the fold
+										// RAIL is mounted here rather than with the language, whose parser is a dynamic
+										// import: a gutter arriving a second late shoves the text sideways on every open
 										[typSourceShortcuts(), cmSpellcheck('typst'), foldGutter({ markerDOM: foldMarkerDOM }), foldMarkerTheme]
 									: []),
 					lspConf.of([]),
@@ -457,10 +362,8 @@
 		});
 		window.texpile.debug.codemirror = view;
 		view.focus();
-		// scrollTo above lands the saved line at the viewport top; this adds the remembered fraction of
-		// that line back so the restore is exact rather than snapped to a line boundary. Deferred by a
-		// frame because the line's height is only known once CM has measured it, and clamped to that
-		// height so a rewrapped (narrower) line cannot overshoot into the next one.
+		// adds the remembered fraction of the line back, so the restore is not snapped to a line
+		// boundary. a frame late because the height is only known once CM has measured it
 		if (restored && saved?.offset) {
 			const px = saved.offset;
 			requestAnimationFrame(() => {
@@ -493,38 +396,26 @@
 		// publish this CM as the source-mode editor so menuBarCommands can route Insert/Format to it
 		sourceCmView.set(view);
 
-		// .bib uses our hand-written highlighter (language-data ships none). language-data's LaTeX
-		// descriptor only matches .tex/.ltx, so route .cls/.sty (same TeX syntax) to it directly
-		// instead of through matchFilename, which would leave them unhighlighted.
+		// language-data ships no .bib mode, and its LaTeX descriptor matches only .tex/.ltx, so
+		// .cls/.sty are routed by hand rather than through matchFilename
 		if (fileFor && /\.bib$/i.test(fileFor)) {
 			view?.dispatch({ effects: langConf.reconfigure(bibtex()) });
 		} else if (fileFor && /\.typ$/i.test(fileFor)) {
-			// language-data has no Typst entry. The parser is the official typst-syntax crate compiled
-			// to wasm, imported dynamically: ~310KB nothing else needs. typstLanguage() deliberately
-			// leaves the colours to cmSyntaxHighlight (see its own comment).
+			// the typst-syntax crate as wasm, dynamically imported: ~310KB nothing else needs
 			void import('$lib/typst/typstLanguage').then(({ typstLanguage }) =>
 				view?.dispatch({ effects: langConf.reconfigure(typstLanguage()) })
 			);
 		} else if (!fileFor || /\.(tex|cls|sty)$/i.test(fileFor)) {
-			// our own LaTeX mode, not language-data's stex: stex files nearly everything under a tag
-			// the shared style leaves uncoloured, while this one speaks the same tag vocabulary as
-			// the Typst and Markdown modes (heading/math/label/function), so all three match
+			// ours, not language-data's stex, which files nearly everything under a tag the shared
+			// style leaves uncoloured
 			view?.dispatch({ effects: langConf.reconfigure(latex()) });
 		} else {
 			const desc = LanguageDescription.matchFilename(cmlangdata, fileFor);
 			desc?.load().then((lang) => view?.dispatch({ effects: langConf.reconfigure(lang) }));
 		}
 
-		// intellisense for .typ: start (or reuse) tinymist and hand this file to it. Deliberately
-		// not awaited - a missing binary or a slow start must never delay the editor appearing,
-		// and if it never resolves the editor simply stays a plain highlighted source view.
-		// Started by the FILE, not by the project's compile command: that is how language servers
-		// activate everywhere else (VS Code's own tinymist extension is `onLanguage:typst`), and a
-		// build-config gate would deny intellisense to anyone driving Typst from a Makefile. The
-		// memory it costs is handled by releasing it when the last .typ editor closes, not by
-		// refusing to start it - which is also why there is no setting for this. Opening a .typ file
-		// IS the request; a switch that turns off completion in your own language is a setting whose
-		// only correct value is the default.
+		// never awaited: a missing or slow tinymist must not delay the editor appearing. started by
+		// the FILE, not the compile command, so a Makefile-driven Typst project still gets intellisense
 		armTypstLsp();
 	});
 
@@ -534,15 +425,11 @@
 		// session. Its paths are already manifest-relative, which is what the host maps back.
 		if (guestSession.active) {
 			if (typstGuestLspActive) return;
-			// a guest's WorkspaceView runs on the synthetic 'session' root, so docPath arrives as
-			// `session/main.typ`; the host joins what we send onto its REAL root, and the extra
-			// segment would make every request miss
+			// strip the synthetic 'session' root; the host joins what we send onto its REAL one
 			const rel = guestRelPath(fileFor);
 			if (!rel) return;
-			// Taken before the await so a second effect run cannot attach a duplicate; the await
-			// also carries us past onMount, where the EditorView is created (`view` is not
-			// reactive, so a synchronous attach here would bet on effect ordering and lose
-			// silently). Released again on any path that does not end up attached.
+			// claimed before the await, so a second effect run cannot attach a duplicate. released
+			// again on any path that does not end up attached
 			typstGuestLspActive = true;
 			void typstGuestLspExtension(collabGuest.lspPort(), rel).then((ext) => {
 				if (!ext) {
@@ -575,9 +462,8 @@
 			});
 	}
 
-	// The server died and restarted (typstServerGen bumps only on a genuine death): the mounted
-	// extension is bound to the dead client, so rebuild it against the fresh one. Acts only on a
-	// gen INCREASE - the first run just records where the counter stands.
+	// the server died and restarted, so the mounted extension is bound to a dead client. acts on a
+	// gen INCREASE only; the first run just records where the counter stands
 	let seenTypstGen: number | null = null;
 	$effect(() => {
 		const gen = $typstServerGen;
@@ -602,12 +488,8 @@
 	// keeps it out of CM's undo stack, otherwise the next Ctrl+Z would "undo the undo" and bounce
 	// back. collab mode: the Y.Text is the document, external value pushes would fight the CRDT.
 	//
-	// Only the part that actually DIFFERS is replaced. This used to swap the whole buffer
-	// (from: 0, to: doc.length), which is a change spanning every position in it -- so CodeMirror
-	// had nothing to map the caret onto and collapsed it to the edge of the change. Any external
-	// push while the user was typing therefore threw away their place. Trimming the common prefix
-	// and suffix leaves the caret's own offsets outside the changed range, where mapping is the
-	// identity and the selection survives untouched.
+	// minimalEdit, not a whole-buffer swap: a change spanning every position leaves CodeMirror
+	// nothing to map the caret onto, so any external push while typing threw away your place
 	$effect(() => {
 		const v = value;
 		if (!collab && view && v !== lastEmitted && v !== docText(view.state.doc)) {
@@ -668,28 +550,21 @@
 		return { from: startLine.from, to: Math.max(endLine.to, startLine.from) };
 	}
 
-	// declared after the value-sync effect so a same-flush file switch replaces the document
-	// first and the diagnostics anchor on the fresh doc.
-	// Push resolved comment ranges in. Only on identity change: once they are in the field
-	// CodeMirror maps them through every transaction itself, so re-dispatching per keystroke would
-	// throw that mapping away and replace it with whatever the controller last resolved.
+	// declared after the value-sync effect, so a same-flush file switch replaces the document first.
+	// dispatched on identity change only: CM maps the ranges itself, and re-dispatching discards that
 	let lastRanges: CommentRange[] | null = null;
 	$effect(() => {
 		const list = commentRanges;
 		const v = view;
 		if (!v || !onAddComment || list === lastRanges) return;
 		lastRanges = list;
-		// A list that does not fit this document was resolved against some other text - the previous
-		// file's during a switch, or a stale snapshot of this one - and stays wrong for this doc
-		// forever (every legitimate refresh is a new array). Consumed but not dispatched, so the
-		// field keeps whatever CodeMirror has been mapping exactly.
+		// a list that does not fit was resolved against some other text and stays wrong for this doc
+		// forever; consumed but not dispatched, so the field keeps what CM has been mapping
 		if (list.some((r) => r.from < 0 || r.to > v.state.doc.length)) return;
 		v.dispatch({ effects: setCommentRanges.of(list) });
 	});
 
-	// Which thread is selected, so its highlight is picked out from the others. Kept separate from
-	// the ranges: selecting happens far more often than the ranges change, and it must not cost a
-	// rebuild of the whole set.
+	// kept apart from the ranges: selecting happens far more often and must not rebuild the whole set
 	let lastFocus: string | null = null;
 	$effect(() => {
 		const id = selectedComment ?? null;
@@ -710,11 +585,8 @@
 		const v = view;
 		void value; // re-anchor when the document is externally replaced
 		if (!v) return;
-		// Both this and the language server write through setDiagnostics, which REPLACES the whole
-		// lint state - so with tinymist attached the two would overwrite each other on every compile
-		// and every keystroke. The server's are live and more precise, so it owns the editor's
-		// squiggles for .typ and the compile log keeps the Problems panel. Without a server (not
-		// installed) this stays the only source, which is better than nothing.
+		// setDiagnostics REPLACES the whole lint state, so with a server attached the two writers
+		// would overwrite each other. the server owns the squiggles; the compile log keeps Problems
 		if (typstLspActive || typstGuestLspActive) return;
 		const doc = v.state.doc;
 		const valid = list.filter((d) => Number.isInteger(d.line) && d.line >= 1);
@@ -758,11 +630,8 @@
 		const pos = doc.line(line).from;
 		return { from: pos, to: pos };
 	}
-	// The token is what says "this is a NEW jump", and it has to be checked, not just carried. This
-	// effect re-runs on far more than gotoLine changing: the prop travels down through inline object
-	// literals (WorkspaceView's panes={{...}}), so reading it re-reads every other field in them -
-	// diagnostics, the reference list, the tab list. Without this guard a save, a compile or a
-	// citation rescan re-applied the last jump, yanking the caret away with the amber flash.
+	// the token has to be CHECKED, not just carried: the prop arrives inside an inline object
+	// literal, so a save or a compile re-runs this effect and would re-apply the last jump
 	let lastGotoToken: number | null = null;
 	$effect(() => {
 		const req = gotoLine;
@@ -806,77 +675,9 @@
 	});
 </script>
 
-<svelte:window onkeydown={(e) => ctxMenu && e.key === 'Escape' && closeMenu()} />
+<div bind:this={host} class="source-editor h-full" oncontextmenu={(e) => view && rightClick?.open(e, view)} role="presentation"></div>
 
-<div bind:this={host} class="source-editor h-full" oncontextmenu={onContextMenu} role="presentation"></div>
-
-{#if ctxMenu}
-	<button
-		class="fixed inset-0 z-40 cursor-default"
-		aria-label={m.tbar_close_menu_aria()}
-		onclick={closeMenu}
-		oncontextmenu={(e) => (e.preventDefault(), closeMenu())}
-	></button>
-	<div
-		class="bg-surface-50-950 border-surface-300-700 fixed z-50 min-w-48 overflow-hidden rounded border py-1 text-sm shadow-lg"
-		style="left: {ctxMenu.x}px; top: {ctxMenu.y}px"
-	>
-		<button class={itemClass} disabled={!ctxMenu.hasSelection} onclick={() => (cmCut(), closeMenu())}>
-			<Scissors class="size-4 opacity-70" />
-			{m.tbar_ctx_cut()} <span class="text-surface-500 ml-auto text-xs">⌘X</span>
-		</button>
-		<button class={itemClass} disabled={!ctxMenu.hasSelection} onclick={() => (cmCopy(), closeMenu())}>
-			<Copy class="size-4 opacity-70" />
-			{m.tbar_ctx_copy()} <span class="text-surface-500 ml-auto text-xs">⌘C</span>
-		</button>
-		<button class={itemClass} onclick={() => (cmPaste(), closeMenu())}>
-			<ClipboardPaste class="size-4 opacity-70" />
-			{m.tbar_ctx_paste()} <span class="text-surface-500 ml-auto text-xs">⌘V</span>
-		</button>
-		<button class={itemClass} onclick={() => (cmSelectAll(), closeMenu())}>
-			<span class="size-4 shrink-0"></span>
-			{m.tbar_ctx_select_all()} <span class="text-surface-500 ml-auto text-xs">⌘A</span>
-		</button>
-		{#if onAddComment}
-			<!-- the same gesture the margin pill offers, for people who reach for the menu instead;
-			     disabled rather than hidden with nothing selected, so it is discoverable -->
-			<div class="border-surface-200-800 my-1 border-t"></div>
-			<button
-				class={itemClass}
-				disabled={!ctxMenu.hasSelection}
-				onclick={() => {
-					const sel = view?.state.selection.main;
-					if (sel && !sel.empty) onAddComment(sel.from, sel.to);
-					closeMenu();
-				}}
-			>
-				<MessageSquarePlus class="size-4 opacity-70" />
-				{m.comments_add()}
-			</button>
-		{/if}
-		{#if onInsertCitation}
-			<div class="border-surface-200-800 my-1 border-t"></div>
-			<button class={itemClass} onclick={() => (onInsertCitation(), closeMenu())}>
-				<BookMarked class="size-4 opacity-70" />
-				{m.zotero_insert_citation()}
-			</button>
-		{/if}
-		<div class="border-surface-200-800 my-1 border-t"></div>
-		<button class={itemClass} onclick={() => (cmFind(), closeMenu())}>
-			<Search class="size-4 opacity-70" />
-			{m.tbar_ctx_find()} <span class="text-surface-500 ml-auto text-xs">⌘F</span>
-		</button>
-		{#if onSyncToPdf}
-			<div class="border-surface-200-800 my-1 border-t"></div>
-			<!-- .typ goes to the live preview, not a PDF, and the label must not claim otherwise -->
-			<button class={itemClass} onclick={() => (onSyncToPdf?.(ctxMenu.line), closeMenu())}>
-				<!-- same arrow as the splitter's sync button: same jump, same icon -->
-				<ArrowRight class="size-4 opacity-70" />
-				{isTypFile ? m.tbar_ctx_show_in_preview() : m.tbar_ctx_show_in_pdf()}
-			</button>
-		{/if}
-	</div>
-{/if}
+<SourceRightClickMenu bind:this={rightClick} {onSyncToPdf} {onAddComment} {onInsertCitation} syncTarget={isTypFile ? 'preview' : 'pdf'} />
 
 <style>
 	.source-editor :global(.cm-editor) {
