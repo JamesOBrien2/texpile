@@ -7,7 +7,7 @@
 import { execFile } from 'node:child_process';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { resolveType1Line } from './font-t1map';
+import { resolveType1Line } from '../font-t1map';
 import { seedBbl, auxCycle } from './draft-bib';
 import { exportDaemonRefs } from './draft-refs';
 import { readImageUses, attachImageFiles } from './draft-images';
@@ -27,6 +27,7 @@ export type DraftResult =
 			paperW: number;
 			paperH: number;
 			colW: number;
+			textW: number;
 			footSkip: number;
 			marginX: number;
 			marginY: number;
@@ -214,6 +215,7 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 		paperW: manifest.paperW || (maxPageW ? maxPageW + 2 * ONE_INCH_PT : 0),
 		paperH: manifest.paperH || (maxPageH ? maxPageH + 2 * ONE_INCH_PT : 0),
 		colW: manifest.colW || 0,
+		textW: (manifest as { textW?: number }).textW || 0,
 		footSkip: (manifest as { footSkip?: number }).footSkip || 0,
 		marginX: ONE_INCH_PT,
 		marginY: ONE_INCH_PT,

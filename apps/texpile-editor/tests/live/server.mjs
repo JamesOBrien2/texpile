@@ -13,8 +13,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../../..');
 const engineDir = path.join(repoRoot, 'electron/lua').replace(/\\/g, '/');
 const dist = (m) => require(path.join(repoRoot, 'electron/dist', m));
-const draftService = dist('draft-service.js');
-const draftDaemon = dist('draft-daemon.js');
+const draftService = dist('draft/draft-service.js');
+const draftDaemon = dist('draft/draft-daemon.js');
 const fsService = dist('fs-service.js');
 
 const PORT = Number(process.env.LIVE_BRIDGE_PORT || 8099);

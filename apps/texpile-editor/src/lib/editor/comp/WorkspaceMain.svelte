@@ -10,7 +10,7 @@
 	import TerminalDock from '$lib/editor/comp/TerminalDock.svelte';
 	import { ChevronLeft } from '@lucide/svelte';
 	import { m } from '$lib/paraglide/messages';
-	import type DraftView from '$lib/draft/DraftView.svelte';
+	import type { DraftController } from '$lib/draft/draftController.svelte';
 	import type { DocumentBuffer, FileKind } from '$lib/workspace/documentBuffer.svelte';
 	import type { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
 	import type { PaneLayout } from '$lib/workspace/paneLayout.svelte';
@@ -47,8 +47,7 @@
 		panes,
 		actions,
 		dockView = $bindable(),
-		pdfPaneRef = $bindable(),
-		draftRef = $bindable()
+		pdfPaneRef = $bindable()
 	}: {
 		doc: DocumentBuffer;
 		modes: ViewModeSwitch;
@@ -66,7 +65,7 @@
 		modLabel: string;
 		dockShrunk: boolean;
 		/** live-preview inputs: root, main file, recompile trigger, paused flag */
-		draft: { root: string; mainRel: string; trigger: number; paused: boolean };
+		draft: DraftController;
 		/** `host:port` of a running Typst preview, null while one is still starting */
 		typstPreviewHost: string | null;
 		/** this pane is for a Typst preview, even before it has an address */
@@ -84,7 +83,6 @@
 		actions: Any;
 		dockView: 'terminal' | 'problems' | 'comments';
 		pdfPaneRef: Any;
-		draftRef: DraftView | null;
 	} = $props();
 
 	// One gate for every forward-sync entry point: the docked chip, the popped-out button, and
@@ -205,9 +203,7 @@
 				{guest}
 				guestPdf={session.guestPdf}
 				pdfFilename={compiler.pdfFilename}
-				draftRoot={draft.root}
-				draftMainRel={draft.mainRel}
-				draftTrigger={draft.trigger}
+				{draft}
 				{typstPreviewHost}
 				{typstPreviewWanted}
 				{guestTypstOffered}
@@ -218,7 +214,6 @@
 				onPopout={() => layout.setPdfPopout(true)}
 				paneDragging={layout.paneDragging}
 				bind:pdfPaneRef
-				bind:draftRef
 				onStartResize={layout.startPdfResize}
 				onResizeByKey={layout.resizePdfByKey}
 				onClose={layout.togglePdfPane}
@@ -274,14 +269,11 @@
 				{mainUnset}
 				{onPickMain}
 				pdfFilename={compiler.pdfFilename}
-				draftRoot={draft.root}
-				draftMainRel={draft.mainRel}
-				draftTrigger={draft.trigger}
+				{draft}
 				{typstPreviewHost}
 				{typstPreviewWanted}
 				onSaveTypstPdf={actions.onSaveTypstPdf}
 				onPdfRef={(r) => (pdfPaneRef = r)}
-				onDraftRef={(r) => (draftRef = r)}
 				onClosed={() => layout.setPdfPopout(false)}
 				onPageClick={actions.onPdfDoubleClick}
 				onInverseSync={actions.onInverseSync}

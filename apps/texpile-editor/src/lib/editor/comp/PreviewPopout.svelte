@@ -14,7 +14,7 @@
 	import { mount, unmount, onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import PreviewBody from './PreviewBody.svelte';
-	import type DraftView from '$lib/draft/DraftView.svelte';
+	import type { DraftController } from '$lib/draft/draftController.svelte';
 	import { workspaceRoot } from '$lib/workspace/workspaceStore';
 	import { basename } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';
@@ -26,14 +26,11 @@
 		mainUnset: boolean;
 		onPickMain: () => void;
 		pdfFilename: string;
-		draftRoot: string;
-		draftMainRel: string;
-		draftTrigger: number;
+		draft: DraftController;
 		typstPreviewHost: string | null;
 		typstPreviewWanted: boolean;
 		onSaveTypstPdf: () => Promise<void>;
 		onPdfRef: (ref: { scrollToPosition: (page: number, x: number, y: number, w?: number, h?: number) => void } | undefined) => void;
-		onDraftRef: (ref: DraftView | null) => void;
 		/** the popup is gone - closed by the user, or never opened; the caller re-docks the pane */
 		onClosed: () => void;
 		onPageClick: (page: number, x: number, y: number, selectText?: string) => void;
@@ -48,14 +45,11 @@
 		mainUnset,
 		onPickMain,
 		pdfFilename,
-		draftRoot,
-		draftMainRel,
-		draftTrigger,
+		draft,
 		typstPreviewHost,
 		typstPreviewWanted,
 		onSaveTypstPdf,
 		onPdfRef,
-		onDraftRef,
 		onClosed,
 		onPageClick,
 		onInverseSync,
@@ -142,14 +136,8 @@
 				get pdfFilename() {
 					return pdfFilename;
 				},
-				get draftRoot() {
-					return draftRoot;
-				},
-				get draftMainRel() {
-					return draftMainRel;
-				},
-				get draftTrigger() {
-					return draftTrigger;
+				get draft() {
+					return draft;
 				},
 				get typstPreviewHost() {
 					return typstPreviewHost;
@@ -164,9 +152,6 @@
 				paneDragging: false,
 				get onPdfRef() {
 					return onPdfRef;
-				},
-				get onDraftRef() {
-					return onDraftRef;
 				},
 				get onPageClick() {
 					return onPageClick;

@@ -7,6 +7,7 @@
 	import { PictureInPicture2 } from '@lucide/svelte';
 	import PDFViewer from './PDFViewer.svelte';
 	import type DraftView from '$lib/draft/DraftView.svelte';
+	import type { DraftController } from '$lib/draft/draftController.svelte';
 	import type TypstPreview from '$lib/typst/preview/TypstPreview.svelte';
 	import type TypstPreviewRemote from '$lib/typst/preview/TypstPreviewRemote.svelte';
 	import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
@@ -56,9 +57,7 @@
 		/** open the set-main-file prompt */
 		onPickMain: () => void;
 		pdfFilename: string;
-		draftRoot: string;
-		draftMainRel: string;
-		draftTrigger: number;
+		draft: DraftController;
 		/** `host:port` of a running Typst preview, or null while one is still starting */
 		typstPreviewHost: string | null;
 		/** a Typst preview is what this pane is FOR, even before it has an address */
@@ -75,7 +74,6 @@
 		 * own bindable props.
 		 */
 		onPdfRef?: (ref: { scrollToPosition: (page: number, x: number, y: number, w?: number, h?: number) => void } | undefined) => void;
-		onDraftRef?: (ref: DraftView | null) => void;
 		onPageClick: (page: number, x: number, y: number, selectText?: string) => void;
 		onInverseSync: (file: string, line: number, selectText?: string) => void;
 		onSettled: () => void;
@@ -89,16 +87,13 @@
 		mainUnset,
 		onPickMain,
 		pdfFilename,
-		draftRoot,
-		draftMainRel,
-		draftTrigger,
+		draft,
 		typstPreviewHost,
 		typstPreviewWanted,
 		onSaveTypstPdf,
 		paneDragging,
 		onPopout = null,
 		onPdfRef,
-		onDraftRef,
 		onPageClick,
 		onInverseSync,
 		onSettled,
@@ -112,10 +107,13 @@
 		onPdfRef?.(pdfViewer);
 		return () => onPdfRef?.(undefined);
 	});
+	// the controller patches through this instance; registered here, where it mounts
 	let draftView = $state<DraftView | null>(null);
 	$effect(() => {
-		onDraftRef?.(draftView);
-		return () => onDraftRef?.(null);
+		draft.view = draftView;
+		return () => {
+			draft.view = null;
+		};
 	});
 </script>
 
@@ -188,9 +186,10 @@
 			{#if DraftViewComp}
 				<DraftViewComp
 					bind:this={draftView}
-					root={draftRoot}
-					mainFile={draftMainRel}
-					trigger={draftTrigger}
+					root={draft.root}
+					mainFile={draft.mainRel}
+					trigger={draft.trigger}
+					quietTrigger={draft.quietTrigger}
 					{onInverseSync}
 					{onSettled}
 					{onDiagnostics}

@@ -14,7 +14,7 @@
 		guestDiagnosticsFor,
 		hostDiagnosticsFor
 	} from '$lib/collab/compileIntelBridge';
-	import DraftView from '$lib/draft/DraftView.svelte';
+	import { DraftController } from '$lib/draft/draftController.svelte';
 	import GlobalSearch from '$lib/editor/comp/GlobalSearch.svelte';
 	import TutorialConfirmModal from '$lib/editor/comp/TutorialConfirmModal.svelte';
 	import type { Starter, ImportedFile } from '$lib/workspace/starters';
@@ -92,7 +92,6 @@
 	import { ExternalChangeWatcher } from '$lib/workspace/externalChange.svelte';
 	import { FolderLifecycle } from '$lib/workspace/folderLifecycle';
 	import { UnsavedGuard } from '$lib/workspace/unsavedGuard.svelte';
-	import { DraftDispatcher } from '$lib/draft/draftDispatcher';
 	import { createKeydownHandler, uiZoomIn, uiZoomOut, uiZoomReset } from '$lib/workspace/shortcuts';
 	import { MainFilePrompt } from '$lib/workspace/mainFilePrompt.svelte';
 	import { scanRenamedRefs, applyRefUpdate, flattenPaths } from '$lib/workspace/refUpdate';
@@ -490,7 +489,7 @@
 			compiler.dispose();
 			saver.cancelTimer();
 			deferredSourceToc.cancel();
-			draftDispatcher.cancel();
+			draftCtl.dispose();
 		};
 	});
 
@@ -745,23 +744,21 @@
 	const dockShrunk = $derived(termDock.shrink || !layout.pdfPaneOpen || layout.pdfPopout);
 	// bottom dock body: the terminal shells (always mounted) or the Problems list
 	let dockView = $state<'terminal' | 'problems' | 'comments'>('terminal');
-	// Draft mode: bump to trigger a DraftView recompile; the derived root/main feed it.
-	let draftTrigger = $state(0);
-	// The draft engine runs where the SHELL compile would run: under `latexmk -cd` the project's
-	// relative \input/\includegraphics paths are authored against the main file's folder, so the
-	// warm lualatex must resolve them from there too - and everything downstream (the _draft/
-	// build dir, the synctex paths, bib seeding, image resolution) keys off this same base.
-	// Without -cd this IS the workspace root, unchanged; draft never imposes -cd on its own.
-	let draftRoot = $derived(compileBaseDir(compileCommand, $workspaceRoot, $mainFile) ?? '');
-	let draftMainRel = $derived.by(() => {
-		if (mainPrompt.confirmed !== true) return ''; // hold the first live compile until the main file is confirmed
-		// the MAIN file only - never the focused one. The old `?? doc.path` fallback meant that
-		// unsetting the main quietly re-targeted the warm engine onto whatever file had focus,
-		// compiling a chapter fragment as if it were the document. Mainless now shows the pane's
-		// pick-a-main message instead (mainUnset), so an empty rel here just means "off".
-		const target = $mainFile;
-		return draftRoot && target ? relFromRoot(target, draftRoot) : '';
+	// Draft mode, whole: root/main derivation, triggers, pause, the per-edit dispatcher, and
+	// the engine lifecycle live in the controller; the preview chain gets this ONE object.
+	const draftCtl = new DraftController({
+		compileCommand: () => compileCommand,
+		// hold the first live compile until the main file is confirmed
+		mainConfirmed: () => mainPrompt.confirmed === true,
+		pdfPaneOpen: () => layout.pdfPaneOpen,
+		setPdfPaneOpen: (open) => layout.setPdfPaneOpen(open),
+		openCompileModal: () => openCompileModal(),
+		getSource: () => doc.texSource,
+		getLoadedPath: () => doc.path,
+		flushSaves: () => saver.flushAndWait()
 	});
+	// the Compile button doubles as the draft status (live / paused)
+	const runDraftCompile = () => draftCtl.compile();
 	// like the file tree's "Set as main file" (star badge included).
 	// Tri-state: null = unresolved for the current folder; the modal never auto-opens on
 	// null, so it can't flash while initProject is still scanning. Storage is consulted
@@ -771,7 +768,7 @@
 		new MainFilePrompt({
 			loadExistingPdf: () => void compiler.loadExistingPdf(),
 			setProjectMacros: (macros) => (projectMacros = macros),
-			releaseHeldDraftCompile: () => draftTrigger++
+			releaseHeldDraftCompile: () => draftCtl.trigger++
 		})
 	);
 	const resolveMainConfirm = (root: string | null) => mainPrompt.resolve(root);
@@ -787,47 +784,10 @@
 	// live mode compiles on its own as soon as the pane is open; surface the question then.
 	// Strictly `=== false`: null means initProject is still resolving, never a modal.
 	$effect(() => {
-		const wants = $compileConfig.latex.liveMode && layout.pdfPaneOpen && !draftPaused && !!$workspaceRoot && $texFiles.length > 1;
+		const wants = $compileConfig.latex.liveMode && layout.pdfPaneOpen && !draftCtl.paused && !!$workspaceRoot && $texFiles.length > 1;
 		if (wants && mainPrompt.confirmed === false && !mainPrompt.open) void mainPrompt.prompt();
 	});
-	// Draft mode live preview: ONE decision point per edit (the spec's "decide when to
-	// incrementally compile vs recompile"). Diff against the last-compiled source: if exactly
-	// one prose paragraph changed, patch it INSTANTLY (no debounce -- DraftView.instantPatch
-	// coalesces via its own in-flight guard, so continuous typing streams patches at the
-	// daemon's pace rather than only updating when you pause). Any structural change debounces
-	// a full recompile. Only while the preview pane is open; the compile reads from disk.
-	let draftRef = $state<DraftView | null>(null);
-	// per-edit patch-vs-recompile decision lives in lib/draft/draftDispatcher.ts
-	const draftDispatcher = new DraftDispatcher({
-		getSource: () => doc.texSource,
-		getLoadedPath: () => doc.path,
-		isActive: () => get(compileConfig).latex.liveMode && layout.pdfPaneOpen && !!doc.path && !draftPaused,
-		flushSaves: () => saver.flushAndWait(),
-		triggerFullCompile: () => draftTrigger++,
-		getTarget: () => draftRef
-	});
-	const runDraftDecision = () => draftDispatcher.run();
-
-	// Stop the warm engine when draft mode is off, no preview is open, or the folder changed
-	// -- otherwise it keeps a lualatex process (100-300MB with a heavy preamble) alive for the
-	// whole session. It re-warms in ~1.5s on the next compile. draftStop is a no-op if no
-	// daemon is running, so it's safe to call eagerly.
-	let daemonActive = false;
-	let daemonRoot: string | null = null;
-	$effect(() => {
-		const active = $compileConfig.latex.liveMode && layout.pdfPaneOpen && !draftPaused;
-		// the DRAFT root, not the workspace root: under -cd it is the main file's folder, so
-		// re-pointing the main at another folder must reap the old folder's warm daemon too
-		const root = draftRoot;
-		if (daemonActive && (!active || root !== daemonRoot)) native()?.draftStop?.();
-		daemonActive = active;
-		daemonRoot = root;
-	});
-
-	// signal reads inside runDraftDecision are tracked through this synchronous call
-	$effect(() => {
-		runDraftDecision();
-	});
+	const runDraftDecision = draftCtl.runDecision;
 	// Draft mode leans on the on-disk file staying current: the full compile reads from disk,
 	// Live mode and hosting a session both need current-on-disk content (the draft engine writes
 	// nothing until a recompile; a session's host is the persistence authority). So autosave is
@@ -1322,31 +1282,6 @@
 			updatedAt: Date.now()
 		});
 	}
-	// Draft mode: preview via the incremental per-page engine instead of the terminal
-	// command. Saves first (so the compile sees the buffer), opens the preview pane, and
-	// bumps the trigger; DraftView runs the actual lualatex draft compile + per-page render.
-	// Draft engine pause: keeps the last preview on screen but stops the warm lualatex and all
-	// live dispatch. The Compile button doubles as the draft status (live / paused).
-	let draftPaused = $state(false);
-	function pauseDraft() {
-		draftPaused = true; // the daemon-stop effect sees inactive and kills the engine
-	}
-	async function resumeDraft() {
-		draftPaused = false;
-		await runDraftCompile(); // re-sync (content may have drifted while paused) + re-warm
-	}
-
-	async function runDraftCompile() {
-		if (!draftRoot || !draftMainRel) {
-			openCompileModal();
-			return;
-		}
-		draftPaused = false; // compiling implies live (covers the keyboard-shortcut path)
-		await saver.flushAndWait();
-		draftDispatcher.adoptCurrentAsBaseline(); // the live-edit effect must not recompile this same source
-		layout.setPdfPaneOpen(true);
-		draftTrigger++;
-	}
 
 	// share the current pdf + log once when we start hosting (see CompilePipeline.shareExistingOutputs)
 	let outputsSharedForSession = false;
@@ -1413,11 +1348,11 @@
 		isGuest: () => guest,
 		getLoadedPath: () => doc.path,
 		isTex: () => kind === 'tex',
-		getDraftRoot: () => draftRoot,
+		getDraftRoot: () => draftCtl.root,
 		expectedPdfPath: () => compiler.expectedPdfPath(),
 		setPdfPaneOpen: (open: boolean) => layout.setPdfPaneOpen(open),
 		scrollPdfTo: jumpPdf,
-		syncDraftTo: (page, x, y, w, h) => draftRef?.syncTo(page, x, y, w, h),
+		syncDraftTo: (page, x, y, w, h) => draftCtl.view?.syncTo(page, x, y, w, h),
 		// inverse clicks land in whichever mode the user is in; see syncJumpToFileLine
 		openFileAtLine: syncJumpToFileLine
 	});
@@ -1947,10 +1882,10 @@
 		deleteCommentMessage: (t: CommentThread, msg: CommentMessage) => void commentsCtl.removeMessage(t, msg),
 		setViewMode,
 		syncForward,
-		pauseDraft: () => pauseDraft(),
+		pauseDraft: () => draftCtl.pause(),
 		onCaretMove: (line: number, character: number) => onCaretMove(line, character),
 		onSaveTypstPdf: () => saveTypstPdf(),
-		resumeDraft: () => void resumeDraft(),
+		resumeDraft: () => void draftCtl.resume(),
 		requestCompile: () => {
 			collabGuest.requestCompile();
 			toaster.info({ title: m.session_compile_requested(), duration: 2500 });
@@ -2152,7 +2087,7 @@
 			{folderEmpty}
 			{modLabel}
 			{dockShrunk}
-			draft={{ root: draftRoot, mainRel: draftMainRel, trigger: draftTrigger, paused: draftPaused }}
+			draft={draftCtl}
 			{typstPreviewHost}
 			{typstPreviewWanted}
 			{mainIsTypst}
@@ -2182,7 +2117,6 @@
 			{actions}
 			bind:dockView
 			bind:pdfPaneRef
-			bind:draftRef
 		/>
 	</WorkspaceChrome>
 

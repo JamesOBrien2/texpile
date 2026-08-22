@@ -7,7 +7,7 @@
 	import PaneHandle from './PaneHandle.svelte';
 	import PaneSplitter from './PaneSplitter.svelte';
 	import PreviewBody from './PreviewBody.svelte';
-	import type DraftView from '$lib/draft/DraftView.svelte';
+	import type { DraftController } from '$lib/draft/draftController.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
@@ -23,9 +23,7 @@
 		/** open the set-main-file prompt */
 		onPickMain: () => void;
 		pdfFilename: string;
-		draftRoot: string;
-		draftMainRel: string;
-		draftTrigger: number;
+		draft: DraftController;
 		/** `host:port` of a running Typst preview, or null while one is still starting */
 		typstPreviewHost: string | null;
 		/**
@@ -44,7 +42,6 @@
 		/** a splitter is being dragged; the frame holds its size rather than reflowing every frame */
 		paneDragging: boolean;
 		pdfPaneRef?: { scrollToPosition: (page: number, x: number, y: number, w?: number, h?: number) => void };
-		draftRef?: DraftView | null;
 		onStartResize: (e: MouseEvent) => void;
 		onResizeByKey: (e: KeyboardEvent) => void;
 		onClose: () => void;
@@ -63,9 +60,7 @@
 		mainUnset,
 		onPickMain,
 		pdfFilename,
-		draftRoot,
-		draftMainRel,
-		draftTrigger,
+		draft,
 		typstPreviewHost,
 		typstPreviewWanted,
 		onSaveTypstPdf,
@@ -73,7 +68,6 @@
 		onPopout = null,
 		paneDragging,
 		pdfPaneRef = $bindable(),
-		draftRef = $bindable(),
 		onStartResize,
 		onResizeByKey,
 		onClose,
@@ -122,16 +116,13 @@
 		{mainUnset}
 		{onPickMain}
 		{pdfFilename}
-		{draftRoot}
-		{draftMainRel}
-		{draftTrigger}
+		{draft}
 		{typstPreviewHost}
 		{typstPreviewWanted}
 		{onSaveTypstPdf}
 		{paneDragging}
 		{onPopout}
 		onPdfRef={(r) => (pdfPaneRef = r)}
-		onDraftRef={(r) => (draftRef = r)}
 		{onPageClick}
 		{onInverseSync}
 		{onSettled}
