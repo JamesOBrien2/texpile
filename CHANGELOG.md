@@ -15,6 +15,12 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 - feat: switching workspace shows the new workspace immediately; the file explorer and project fill in as they load
 - fix: a clean Typst compile behind a cd command now clears old entries from the Problems panel
 - fix: the source editor's right-click menu showed macOS shortcut symbols on Windows and Linux
+- fix: live mode renders edits in paragraphs that straddle a column or page break instantly, refining in the background instead of recompiling
+- fix: live mode renders edits in full-width tables and figures of two-column documents instantly
+- fix: adding or deleting a list item renders instantly in live mode instead of waiting for a full compile
+- fix: a new paragraph typed at the very top of the document or right below a table or figure renders instantly in live mode
+- fix: editing a comment, a label, or the preamble no longer announces "Compiling project" in live mode; the page holds and the pass runs quietly in the background
+- fix: text painted by a live-mode instant patch no longer looks thinner than the settled page
 
 ## [0.17.1] - 2026-08-19
 

@@ -27,6 +27,9 @@
 		mainFile: string;
 		/** bump to trigger a recompile (e.g. on save / compile press). */
 		trigger: number;
+		/** bump for a QUIET recompile: the page holds, no "Compiling…" announcement -- for
+		 * boundary-line edits (comments, labels) whose render is expected unchanged. */
+		quietTrigger?: number;
 		/** SyncTeX inverse: a double-click on a page resolved to a source location. */
 		onInverseSync?: (file: string, line: number, selectText?: string) => void;
 		/** a compile landed: the editor re-evaluates any edits typed while it ran. */
@@ -34,10 +37,10 @@
 		/** a compile landed: its log is at this path, for the Problems panel to parse. */
 		onDiagnostics?: (logPath: string) => void;
 	}
-	let { root, mainFile, trigger, onInverseSync, onSettled, onDiagnostics }: Props = $props();
+	let { root, mainFile, trigger, quietTrigger = 0, onInverseSync, onSettled, onDiagnostics }: Props = $props();
 
 	let pages = $state<DraftPage[]>([]);
-	let paper = $state({ w: 595, h: 842, colW: 0, fs: 0, mx: 72.27, my: 72.27 });
+	let paper = $state({ w: 595, h: 842, colW: 0, textW: 0, fs: 0, mx: 72.27, my: 72.27 });
 	let status = $state('');
 	let error = $state<string | null>(null);
 	let compiling = $state(false);
@@ -321,6 +324,10 @@
 		for (const op of ops) {
 			if (op.kind === 'glyph') {
 				op.path.fill = op.fill;
+				// a plain antialiased fill reads visibly thinner than the pdf.js raster it
+				// replaces (measured ~25% lighter strokes): a hairline stroke restores the weight
+				op.path.stroke = op.fill;
+				op.path.strokeWidth = 0.3;
 				op.path.draw(ctx);
 			} else if (op.kind === 'rect') {
 				ctx.fillStyle = op.fill;
@@ -802,8 +809,10 @@
 		const cal = await daemonTypeset({ root, mainFile, text: orig, hsize: W });
 		if (!cal.ok) return bail('cal-typeset-failed');
 		const calLines = cal.records.filter((x: any) => x.t === 'line');
-		if (!calLines.length || (cal.stats && (cal.stats as any).certified === false))
-			return bail('cal-uncertified', { lines: calLines.length, certified: (cal.stats as any)?.certified });
+		// zero lines = the paragraph typesets to NOTHING (\eat, \footnotetext, bare state
+		// commands): that is cal-empty (invisible), not an uncertifiable construct
+		if (!calLines.length) return bail('cal-empty', { lines: 0 });
+		if (cal.stats && (cal.stats as any).certified === false) return bail('cal-uncertified', { certified: false });
 		// a zero-glyph reproduction (a float's content is discarded in the daemon's box) can
 		// never certify a splice -- it would erase the region with blankness
 		if (!cal.records.some((x: any) => x.t === 'g' || x.t === 'glyph')) return bail('cal-empty');
@@ -920,10 +929,11 @@
 		return { pageNo, b1, bk, medGap: gap, paraLeft, W, colL, colR };
 	}
 
-	// Cross-PAGE split locate: the paragraph's first nA lines END a column on page A and the
-	// remaining nB lines OPEN a column on page B. Both fragments are content-verified against
-	// the daemon reproduction (rows + x offsets), so a match can't land on the wrong text. The
-	// break row between the fragments is a first-order estimate -> always approx/provisional.
+	// Split locate: the paragraph's first nA lines END a column and the remaining nB lines
+	// OPEN a later one -- the next column of the SAME page (pA === pB, the two-column
+	// straddle) or a column of the next page. Both fragments are content-verified against
+	// the daemon reproduction (rows + x offsets), so a match can't land on the wrong text.
+	// The break row between the fragments is a first-order estimate -> always provisional.
 	async function locateCrossPage(
 		lineBoxes: any[],
 		pA: number,
@@ -936,8 +946,9 @@
 			return { bail: why };
 		};
 		if (rtlPage(pA) || rtlPage(pB)) return bail('page-rtl', { pA, pB });
+		const samePage = pA === pB;
 		const recsA = pageRecords(pA);
-		const recsB = pageRecords(pB);
+		const recsB = samePage ? recsA : pageRecords(pB);
 		if (!recsA.length || !recsB.length) return bail('no-page-records');
 		// \columnwidth is an engine register from the manifest; without it there is no
 		// truthful hsize to reproduce line breaks at -- no invented default
@@ -967,6 +978,22 @@
 		const aMin = boxesA.length ? Math.min(...boxesA.map((b) => (b.bl ?? b.x) * BP2PT - paper.mx)) : null;
 		const colsA = colCandidates(allGA, W, G);
 		if (aMin !== null) colsA.sort((a, b) => Math.abs(a - aMin) - Math.abs(b - aMin));
+		// every start where dRows[off..off+len-1] matches `rows` contiguously, content and
+		// x offsets both. No positional anchoring: a real column tail carries footnotes
+		// below the fragment and a real column top carries [t]-floats above it, so the
+		// fragments can sit ANYWHERE -- uniqueness of the match is the safety, not position
+		const runsMatching = (rows: { cs: number[]; xs: number[]; y: number }[], dRows: any[], off: number, len: number): number[] => {
+			const out: number[] = [];
+			for (let s = 0; s + len <= rows.length; s++) {
+				let ok = true;
+				for (let i = 0; i < len && ok; i++) {
+					if (!eqSeq(rows[s + i].cs, dRows[off + i].cs) || !eqX(rows[s + i], dRows[off + i])) ok = false;
+					else if (i > 0 && rows[s + i].y - rows[s + i - 1].y > gap * 1.5) ok = false;
+				}
+				if (ok) out.push(s);
+			}
+			return out;
+		};
 		for (const v of variants) {
 			const dRows = rowsOfG(v.glyphs, gap);
 			const N = dRows.length;
@@ -974,65 +1001,55 @@
 			for (const clA of colsA) {
 				const colLA = clA - G,
 					colRA = clA + W + G;
-				let rowsA = rowsOfG(
+				const rowsA = rowsOfG(
 					allGA.filter((g: any) => g.x >= colLA && g.x <= colRA),
 					gap
 				);
-				// drop up to two trailing isolated rows (page-number footer sits past a big gap)
-				for (let d = 0; d < 2 && rowsA.length >= 2; d++) {
-					if (rowsA[rowsA.length - 1].y - rowsA[rowsA.length - 2].y > gap * 2.2) rowsA = rowsA.slice(0, -1);
-					else break;
-				}
 				if (!rowsA.length) continue;
-				// band A = the longest PREFIX of dRows that matches the TAIL of the column
-				let nA = 0;
-				for (let k = Math.min(N - 1, rowsA.length); k >= 1 && !nA; k--) {
-					let ok = true;
-					for (let i = 0; i < k && ok; i++) {
-						const pr = rowsA[rowsA.length - k + i];
-						if (!eqSeq(pr.cs, dRows[i].cs) || !eqX(pr, dRows[i])) ok = false;
-						else if (i > 0 && pr.y - rowsA[rowsA.length - k + i - 1].y > gap * 1.5) ok = false;
-					}
-					if (ok) nA = k;
-				}
-				if (!nA) continue;
-				const nB = N - nA;
 				for (const clB of colCandidates(allGB, W, G)) {
+					// same page: the continuation can only open a LATER column of the reading order
+					if (samePage && clB <= clA + G) continue;
 					const colLB = clB - G,
 						colRB = clB + W + G;
 					const rowsB = rowsOfG(
 						allGB.filter((g: any) => g.x >= colLB && g.x <= colRB),
 						gap
 					);
-					if (rowsB.length < nB) continue;
-					// the continuation opens the column; allow skipping a few header rows above it
-					for (let s = 0; s <= Math.min(3, rowsB.length - nB); s++) {
-						let ok = true;
-						for (let i = 0; i < nB && ok; i++) {
-							const pr = rowsB[s + i];
-							if (!eqSeq(pr.cs, dRows[nA + i].cs) || !eqX(pr, dRows[nA + i])) ok = false;
-							else if (i > 0 && pr.y - rowsB[s + i - 1].y > gap * 1.5) ok = false;
-						}
-						if (!ok) continue;
-						const bandA = rowsA.slice(rowsA.length - nA);
-						const leftA = Math.min(...bandA.map((r) => r.left)) - Math.min(...dRows.slice(0, nA).map((r) => r.left));
-						const bandB = rowsB.slice(s, s + nB);
-						const leftB = Math.min(...bandB.map((r) => r.left)) - Math.min(...dRows.slice(nA).map((r) => r.left));
-						ev('locate-xpage-ok', { pA, pB, nA, nB, indent: v.indent });
-						return {
-							pageNo: pA,
-							b1: bandA[0].y,
-							bk: bandA[nA - 1].y,
-							medGap: gap,
-							paraLeft: leftA,
-							W,
-							colL: colLA,
-							colR: colRA,
-							indent: v.indent,
-							approx: true,
-							spill: { pageNo: pB, b1: bandB[0].y, bk: bandB[nB - 1].y, colL: colLB, colR: colRB, paraLeft: leftB }
-						};
+					if (!rowsB.length) continue;
+					// every split point whose two fragments both appear in their columns; more
+					// than one distinct placement = repeated text, not provably this paragraph
+					const cands: { nA: number; sA: number; sB: number }[] = [];
+					for (let nA = 1; nA <= N - 1; nA++) {
+						const sAs = runsMatching(rowsA, dRows, 0, nA);
+						if (!sAs.length) continue;
+						const sBs = runsMatching(rowsB, dRows, nA, N - nA);
+						for (const sA of sAs) for (const sB of sBs) cands.push({ nA, sA, sB });
 					}
+					if (!cands.length) continue;
+					if (cands.length > 1) {
+						ev('locate-xpage-ambiguous', { pA, pB, matches: cands.length });
+						continue;
+					}
+					const { nA, sA, sB } = cands[0];
+					const nB = N - nA;
+					const bandA = rowsA.slice(sA, sA + nA);
+					const leftA = Math.min(...bandA.map((r) => r.left)) - Math.min(...dRows.slice(0, nA).map((r) => r.left));
+					const bandB = rowsB.slice(sB, sB + nB);
+					const leftB = Math.min(...bandB.map((r) => r.left)) - Math.min(...dRows.slice(nA).map((r) => r.left));
+					ev('locate-xpage-ok', { pA, pB, nA, nB, indent: v.indent, samePage });
+					return {
+						pageNo: pA,
+						b1: bandA[0].y,
+						bk: bandA[nA - 1].y,
+						medGap: gap,
+						paraLeft: leftA,
+						W,
+						colL: colLA,
+						colR: colRA,
+						indent: v.indent,
+						approx: true,
+						spill: { pageNo: samePage ? undefined : pB, b1: bandB[0].y, bk: bandB[nB - 1].y, colL: colLB, colR: colRB, paraLeft: leftB }
+					};
 				}
 			}
 		}
@@ -1257,17 +1274,24 @@
 		const W = paper.colW;
 		const G = 8;
 		const median = (a: number[]) => (a.length ? a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)] : 0);
-		// TWO calibrations: TeX indents mid-section paragraphs but the daemon's box is \noindent,
-		// which shifts the first line's break -- typeset both variants (~2ms each, once per
-		// paragraph per compile) and match whichever the page actually has. The winning variant's
-		// indent flag rides on the cal so edited re-typesets reproduce the same breaks.
-		const variants: { lines: any[]; glyphs: any[]; indent: boolean }[] = [];
-		for (const ind of listItem ? [false] : [false, true]) {
-			const cal = await daemonTypeset({ root, mainFile, text: (ind ? INDENT_PREFIX : '') + orig, hsize: W });
-			if (!cal.ok) continue;
-			const lines = cal.records.filter((x: any) => x.t === 'line');
-			if (!lines.length || (cal.stats && (cal.stats as any).certified === false)) continue;
-			variants.push({ lines, glyphs: cal.records.filter((x: any) => x.t === 'g' || x.t === 'glyph'), indent: ind });
+		// Calibration VARIANTS, matched empirically against the page (~2ms each, once per
+		// paragraph per compile): indent x width. TeX indents mid-section paragraphs but the
+		// daemon's box is \noindent, which shifts the first line's break. And under twocolumn
+		// a starred float wraps at \textwidth, not \columnwidth -- rather than guessing which
+		// blocks are full-width by name, typeset at BOTH engine-announced widths and let
+		// whichever reproduces the page win. The winning variant's indent flag and width ride
+		// on the cal so edited re-typesets reproduce the same breaks.
+		const widths = [W];
+		if (paper.textW > W + 2) widths.push(paper.textW);
+		const variants: { lines: any[]; glyphs: any[]; indent: boolean; W: number }[] = [];
+		for (const Wc of widths) {
+			for (const ind of listItem ? [false] : [false, true]) {
+				const cal = await daemonTypeset({ root, mainFile, text: (ind ? INDENT_PREFIX : '') + orig, hsize: Wc });
+				if (!cal.ok) continue;
+				const lines = cal.records.filter((x: any) => x.t === 'line');
+				if (!lines.length || (cal.stats && (cal.stats as any).certified === false)) continue;
+				variants.push({ lines, glyphs: cal.records.filter((x: any) => x.t === 'g' || x.t === 'glyph'), indent: ind, W: Wc });
+			}
 		}
 		if (!variants.length) return bail('cal-typeset-failed');
 		const calGaps: number[] = [];
@@ -1275,7 +1299,7 @@
 		const calGap = median(calGaps);
 		const gap = calGap || 12;
 		const rowsOf = (glyphs: any[]) => rowsOfG(glyphs, gap);
-		const varRows = variants.map((v) => ({ rows: rowsOf(v.glyphs), indent: v.indent })).filter((v) => v.rows.length);
+		const varRows = variants.map((v) => ({ rows: rowsOf(v.glyphs), indent: v.indent, W: v.W })).filter((v) => v.rows.length);
 		if (!varRows.length) return bail('no-daemon-glyphs');
 		const N = varRows[0].rows.length;
 		// page search order: synctex page hints (reliable at page granularity even when its line
@@ -1298,11 +1322,11 @@
 				if (rtlPage(pageNo)) continue; // record x-order is not the page's visual order here
 				const allG = pageRecords(pageNo).filter((x: any) => x.t === 'g');
 				if (!allG.length) continue;
-				for (const cl of colCandidates(allG, W, G)) {
-					const colL = cl - G,
-						colR = cl + W + G;
-					const rows = rowsOf(allG.filter((x: any) => x.x >= colL && x.x <= colR));
-					for (const v of varRows) {
+				for (const v of varRows) {
+					for (const cl of colCandidates(allG, v.W, G)) {
+						const colL = cl - G,
+							colR = cl + v.W + G;
+						const rows = rowsOf(allG.filter((x: any) => x.x >= colL && x.x <= colR));
 						const dRows = v.rows,
 							Nv = dRows.length;
 						// placement anchor: band left minus daemon left = the daemon box origin on the
@@ -1333,11 +1357,11 @@
 								for (let i = 1; i < Nv; i++) pg.push(rows[s + i].y - rows[s + i - 1].y);
 								if (Math.abs(median(pg) - calGap) > 0.5) {
 									ev('locate-glyph-stretched', { pageNo, b1, bk, N: Nv });
-									return { pageNo, b1, bk, medGap: gap, paraLeft, W, colL, colR, indent: v.indent, approx: true };
+									return { pageNo, b1, bk, medGap: gap, paraLeft, W: v.W, colL, colR, indent: v.indent, approx: true };
 								}
 							}
 							ev(digits ? 'locate-glyph-digits' : 'locate-glyph-ok', { pageNo, b1, bk, N: Nv, indent: v.indent });
-							return { pageNo, b1, bk, medGap: gap, paraLeft, W, colL, colR, indent: v.indent, ...(digits ? { approx: true } : {}) };
+							return { pageNo, b1, bk, medGap: gap, paraLeft, W: v.W, colL, colR, indent: v.indent, ...(digits ? { approx: true } : {}) };
 						}
 					}
 				}
@@ -1425,10 +1449,21 @@
 
 	// Locate the paragraph: fast forward path; then glyph-fingerprint matching (content-based,
 	// synctex-free); then the inverse synctex map (which can still name a column straddle).
-	async function locate(file: string, line: number, orig: string, listItem = false, endLine = line): Promise<Cal | { bail: string }> {
+	// `invisible` on a bail: the content tier searched every page and the paragraph's glyphs
+	// are nowhere -- discarded content (\eat, \footnotetext) or an unreproducible break; either
+	// way each keystroke's full pass would show nothing new, so the caller reconciles quietly.
+	async function locate(
+		file: string,
+		line: number,
+		orig: string,
+		listItem = false,
+		endLine = line
+	): Promise<Cal | { bail: string; invisible?: boolean }> {
 		file = file.replace(/\\/g, '/'); // synctex stores forward-slash input paths; a backslash query finds nothing
 		const fwd = await locateForward(file, line, orig, listItem);
 		if (!('bail' in fwd)) return fwd;
+		// typesets to nothing: no band anywhere could show this edit; reconcile quietly
+		if (fwd.bail === 'cal-empty') return { bail: fwd.bail, invisible: true };
 		// anchor failures AND geometry mismatches both fall through: a spread/glue-gap bail is
 		// just as often a mis-anchored window (wrong column, polluted rows) as a real stretch,
 		// and the glyph tier verifies content + positions directly so it settles which it was
@@ -1447,9 +1482,10 @@
 		if (!ANCHOR.has(fwd.bail)) return fwd;
 		const gm = await locateByGlyphs(file, line, endLine, orig, listItem);
 		if (!('bail' in gm)) return gm;
-		// synctex often reports only ONE page of a page-straddling paragraph (its line boxes
-		// carry the \par line's page), so the forward span check never fires -- when the
-		// single-page tiers can't place it, probe the hinted page pairs for a cross-page split
+		// synctex often reports only ONE page of a straddling paragraph (its line boxes carry
+		// the \par line's page), so the forward span check never fires -- when the single-band
+		// tiers can't place it, probe the hinted pages for a split: same page first (the
+		// two-column straddle), then the page pairs
 		{
 			const n = native()!;
 			const pdf = root + '/_draft/draft.pdf';
@@ -1461,6 +1497,7 @@
 			const tried = new Set<string>();
 			for (const p of hints) {
 				for (const [pa, pb] of [
+					[p, p],
 					[p, p + 1],
 					[p - 1, p]
 				]) {
@@ -1474,7 +1511,9 @@
 		const inv = await locateInverse(file, line, endLine, orig);
 		if (!('bail' in inv)) return inv;
 		// the inverse's "straddles a column" is more precise than the forward's anchor failure
-		return inv.bail === 'spans-boundary' ? inv : fwd;
+		const out = inv.bail === 'spans-boundary' ? inv : fwd;
+		if (gm.bail === 'not-on-page') return { bail: out.bail, invisible: true };
+		return out;
 	}
 
 	/** Instant path: re-typeset one edited paragraph on the warm daemon and splice it
@@ -1558,8 +1597,10 @@
 				// lualatex pass and an autosave on EVERY keystroke, which is what made typing in a
 				// Hebrew document thrash. Debounced, it behaves the way a document with no live
 				// preview does: recompile once, when the typing stops.
-				if (cal.bail === 'page-rtl') {
-					status = m.draft_status_recompiling({ reason: whyPhrase(cal.bail) });
+				if (cal.bail === 'page-rtl' || (cal as { invisible?: boolean }).invisible) {
+					// page-rtl announces itself; an invisible paragraph (\eat, \footnotetext)
+					// reconciles in silence -- each keystroke's full pass would show nothing new
+					if (cal.bail === 'page-rtl') status = m.draft_status_recompiling({ reason: whyPhrase(cal.bail) });
 					ev('abandon-debounced', { stage: cal.bail, key });
 					scheduleReconcile(req.onRecompile, cal.bail);
 					return;
@@ -1771,6 +1812,10 @@
 				}
 				ev('patched', { page: cal.pageNo, delta: +delta.toFixed(1), ms: +ms.toFixed(0) });
 				status = m.draft_status_patched({ page: cal.pageNo, ms: ms.toFixed(0) });
+				// exact patches never advanced the baseline, so the FIRST edit in any other
+				// paragraph read as two pending edits -> a visible full pass. A quiet pass at
+				// the typing pause re-baselines, so moving to another section stays instant.
+				if (!req.transient) scheduleReconcile(req.onRecompile, 'baseline');
 			}
 		} catch (e) {
 			ev('error', String(e));
@@ -2044,8 +2089,10 @@
 		compiling = true;
 		// a recompile after an abandon already shows "Left warm engine (...), recompiling…"
 		// keep the "Recompiling (…)…" / "Refining…" status the caller set for an abandon or a
-		// provisional reconcile; only a fresh compile announces "Compiling project…"
-		if (!reason.startsWith('abandon:') && !reason.startsWith('provisional:')) status = m.draft_status_compiling();
+		// provisional reconcile; a quiet pass (boundary-line edit) announces nothing at all;
+		// only a fresh compile announces "Compiling project…"
+		if (!reason.startsWith('abandon:') && !reason.startsWith('provisional:') && !reason.startsWith('quiet:'))
+			status = m.draft_status_compiling();
 		error = null;
 		try {
 			const r = await n.draftCompile({ root, mainFile });
@@ -2055,7 +2102,7 @@
 			} // a newer compile owns the state now
 			if (r.ok) {
 				if (r.paperW > 0) {
-					paper = { w: r.paperW, h: r.paperH, colW: r.colW, fs: r.footSkip || 0, mx: r.marginX, my: r.marginY };
+					paper = { w: r.paperW, h: r.paperH, colW: r.colW, textW: r.textW || 0, fs: r.footSkip || 0, mx: r.marginX, my: r.marginY };
 					if (fitMode) fitToWidth(); // size to the pane now that the paper dims are known
 				}
 				pages = r.pages;
@@ -2173,6 +2220,12 @@
 	$effect(() => {
 		const t = trigger;
 		untrack(() => compile('trigger:' + t));
+	});
+	// quiet passes (boundary-line edits): same compile, no announcement. 0 = never bumped,
+	// so this never duplicates the mount compile above.
+	$effect(() => {
+		const t = quietTrigger;
+		if (t > 0) untrack(() => compile('quiet:' + t));
 	});
 
 	// ---- zoom / fit ----

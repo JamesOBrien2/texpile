@@ -30,6 +30,9 @@ export interface DraftDispatchDeps {
 	flushSaves(): Promise<void>;
 	/** bump the trigger DraftView watches to run a full compile */
 	triggerFullCompile(): void;
+	/** same pass, but without the "Compiling…" status: for edits whose render is expected
+	 * unchanged (a comment or \label line), the page holds and the engine certifies quietly */
+	triggerQuietCompile?(): void;
 	getTarget(): DraftTarget | null;
 }
 
@@ -54,15 +57,16 @@ export class DraftDispatcher {
 		}
 	}
 
-	private async fullRecompile(src: string) {
+	private async fullRecompile(src: string, quiet = false) {
 		this.lastSrc = src;
 		this.lastPath = this.deps.getLoadedPath();
 		await this.deps.flushSaves();
-		this.deps.triggerFullCompile();
+		if (quiet && this.deps.triggerQuietCompile) this.deps.triggerQuietCompile();
+		else this.deps.triggerFullCompile();
 	}
 
-	private debounceRecompile(src: string, ms = RECOMPILE_DEBOUNCE_MS) {
-		this.timer = setTimeout(() => void this.fullRecompile(src), ms);
+	private debounceRecompile(src: string, ms = RECOMPILE_DEBOUNCE_MS, quiet = false) {
+		this.timer = setTimeout(() => void this.fullRecompile(src, quiet), ms);
 	}
 
 	private advanceBaseline(src: string) {
@@ -102,8 +106,11 @@ export class DraftDispatcher {
 				dev('ws-noop-whitespace', {});
 				return;
 			case 'boundary':
+				// no paragraph changed, only boundary lines (a comment, a \label): the render is
+				// USUALLY identical, but whether it is stays the engine's call -- run the pass
+				// quietly, holding the current page instead of announcing a compile
 				dev('ws-recompile', { reason: 'boundary-line' });
-				this.debounceRecompile(src);
+				this.debounceRecompile(src, RECOMPILE_DEBOUNCE_MS, true);
 				return;
 			case 'skip-unbalanced':
 				// unrepairable mid-command state: hold the preview until the next keystroke

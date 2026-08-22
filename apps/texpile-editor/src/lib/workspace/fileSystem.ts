@@ -43,6 +43,8 @@ export type DraftResult =
 			paperW: number;
 			paperH: number;
 			colW: number;
+			// \textwidth: what a starred float wraps at under twocolumn (0 on older bridges)
+			textW?: number;
 			// \footskip: body bottom sits at page ht - footSkip; the footer baseline at ht
 			footSkip: number;
 			marginX: number;

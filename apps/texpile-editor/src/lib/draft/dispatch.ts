@@ -5,12 +5,17 @@
 
 export type Para = { text: string; startLine: number; wrap?: string; idx?: number; env?: string; head?: string };
 
-// Split a .tex buffer into prose paragraphs (line-numbered), treating blank lines,
-// comment-only lines, and block-level command lines (\begin, \item, \chapter, ...) as
-// boundaries -- so the header line above a body paragraph isn't glued onto it.
+// Split a .tex buffer into prose paragraphs (line-numbered), treating blank lines and
+// block-level command lines (\begin, \item, \chapter, ...) as boundaries -- so the header
+// line above a body paragraph isn't glued onto it.
 const BLOCK_CMD =
 	/^\s*\\(section|subsection|subsubsection|paragraph|subparagraph|chapter|begin|end|item|maketitle|caption|label|title|author|date|bibliography|printbibliography|tableofcontents|input|include)\b/;
-const isBoundary = (ln: string) => ln.trim() === '' || /^\s*%/.test(ln) || BLOCK_CMD.test(ln);
+const isBoundary = (ln: string) => ln.trim() === '' || BLOCK_CMD.test(ln);
+// a comment-only line does NOT end a TeX paragraph: writers comment out sentences
+// mid-paragraph, and the surrounding text is ONE paragraph on the page. Mid-paragraph it
+// rides along verbatim (the engine's catcodes make it invisible); between paragraphs it
+// stays an inert boundary line.
+const isCommentLine = (ln: string) => /^\s*%/.test(ln);
 const BEGIN_LIST = /^\s*\\begin\{(itemize|enumerate|description)\}/;
 const END_LIST = /^\s*\\end\{(itemize|enumerate|description)\}/;
 const ITEM = /^\s*\\item\b[ \t]*(.*)$/;
@@ -109,7 +114,18 @@ function splitParaLines(lines: string[]): Para[] {
 			cur = [ln];
 			continue;
 		}
+		if (isCommentLine(ln)) {
+			if (cur.length) cur.push(ln);
+			continue;
+		}
 		if (isBoundary(ln)) {
+			// a blank line between a run-in head and its prose does not detach them: TeX
+			// holds \paragraph's box until the next paragraph starts, so keep accumulating
+			// (the blank rides along for line-span accounting; wrapHead strips it)
+			if (ln.trim() === '' && curHead && cur.every((l, k) => k === 0 || l.trim() === '')) {
+				cur.push(ln);
+				continue;
+			}
 			flush();
 			continue;
 		}
@@ -152,7 +168,15 @@ const HEAD_RESET: Record<string, string> = {
 	subparagraph:
 		'\\setcounter{section}{1}\\setcounter{subsection}{1}\\setcounter{subsubsection}{1}\\setcounter{paragraph}{1}\\setcounter{subparagraph}{0}'
 };
-export const wrapHead = (t: string, head?: string) => (head ? `\\makeatletter\\@nobreaktrue\\makeatother${HEAD_RESET[head] ?? ''}${t}` : t);
+// blank lines inside a head para (run-in head, blank, prose) are stripped for the daemon:
+// TeX attaches the head across them, and a shipped \par would detach it
+export const wrapHead = (t: string, head?: string) =>
+	head
+		? `\\makeatletter\\@nobreaktrue\\makeatother${HEAD_RESET[head] ?? ''}${t
+				.split('\n')
+				.filter((l) => l.trim() !== '')
+				.join('\n')}`
+		: t;
 // a Para as the daemon should typeset it (list items re-wrapped, headings pinned)
 export const paraTex = (p: Para) => wrapHead(wrapItem(p.text, p.wrap), p.head);
 
@@ -314,11 +338,39 @@ export function decideEdit(baseline: string, src: string): EditDecision {
 	return buildPatch(base.lines, oldP[single], newP[single]);
 }
 
+// the full \caption[short]{...} by brace count: real captions nest ({\tt {\small ...}})
+// deeper than any fixed-depth regex reaches
+function captionOf(s: string): string | null {
+	const at = s.search(/\\caption\*?\s*[[{]/);
+	if (at < 0) return null;
+	let i = s.indexOf('{', at);
+	const br = s.indexOf('[', at);
+	if (br >= 0 && br < i) {
+		const close = s.indexOf(']', br);
+		if (close < 0) return null;
+		i = s.indexOf('{', close);
+		if (i < 0) return null;
+	}
+	let depth = 0;
+	for (let j = i; j < s.length; j++) {
+		const c = s[j];
+		if (c === '\\') j++;
+		else if (c === '{') depth++;
+		else if (c === '}' && --depth === 0) return s.slice(at, j + 1);
+	}
+	return null;
+}
+
 // The single-block instant dispatch for a (baseline, edited) paragraph pair. Also used by
 // the compound structural path: an exact patch never advances the baseline, so the routine
 // "type in a paragraph, then open a new one" reads as modified+inserted -- the modified
 // pair goes through here while the insert splices provisionally.
 function buildPatch(baseLines: string[], oP: Para, nP: Para): EditDecision {
+	// a preamble block (above \begin{document}) parses as prose but typesets nothing a
+	// band could match: route it straight to the boundary pass instead of a doomed
+	// patch -> abandon round trip
+	const docAt = baseLines.findIndex((l) => /^\s*\\begin\{document\}/.test(l)) + 1;
+	if (docAt > 0 && oP.startLine <= docAt) return { kind: 'boundary' };
 	// text ships VERBATIM (comments, line structure): the engine's catcodes decide what
 	// they mean. Mid-command (unbalanced braces / open math): raw dispatch would hang the
 	// daemon. REPAIR the transient text (auto-close open math/groups) so partial math
@@ -370,9 +422,8 @@ function buildPatch(baseLines: string[], oP: Para, nP: Para): EditDecision {
 		// deterministic ("Figure 1") -- the real number rides the fuzzy tier into a provisional
 		// patch and the reconcile paints it, same as section numbers.
 		if (!floatInner) {
-			const CAP = /\\caption\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/;
-			const oCap = dispatchOrig.match(CAP)?.[0] ?? null;
-			const nCap = dispatchText.match(CAP)?.[0] ?? null;
+			const oCap = captionOf(dispatchOrig);
+			const nCap = captionOf(dispatchText);
 			if (oCap && nCap && dispatchOrig.replace(oCap, ' ') === dispatchText.replace(nCap, ' ')) {
 				const type = nP.env.replace('*', '');
 				const pin = `\\makeatletter\\def\\@captype{${type}}\\makeatother\\setcounter{${type}}{0}`;
@@ -437,11 +488,15 @@ function structuralOf(
 		return p + s;
 	};
 	const plainProse = (p: Para) => !p.head && !p.wrap && !p.env;
+	// a merge anchor must live in the BODY: a preamble "paragraph" (\documentclass,
+	// \newcommand runs) parses as prose but typesets nothing a band could match
+	const bodyAt = baseLines.findIndex((l) => /^\s*\\begin\{document\}/.test(l)) + 1;
+	const inBody = (p: Para) => bodyAt <= 0 || p.startLine > bodyAt;
 	// a block the merged-patch path can carry: plain prose, a display heading, or a whole
 	// non-float environment (the daemon typesets complete envs; floats it discards, and a
 	// list item re-wrapped with an appended \par would render INSIDE the list). Nothing
 	// here decides layout -- it only gates WHAT rides one engine typeset.
-	const mergeable = (p: Para) => plainProse(p) || !!p.head || (!!p.env && !/^(table|figure)\*?$/.test(p.env) && !p.wrap);
+	const mergeable = (p: Para) => inBody(p) && (plainProse(p) || !!p.head || (!!p.env && !/^(table|figure)\*?$/.test(p.env) && !p.wrap));
 	// an unclosed \begin{env} swallows the buffer tail into one block; typesetting that
 	// (with \end{document} inside) can never render -- hold it back from the merged run.
 	// Repairable mid-typing states ($x + y, \section{Op) DO ride: buildPatch repairs the
@@ -476,8 +531,15 @@ function structuralOf(
 		}
 		return best;
 	};
+	// a run of list items rides its neighbouring item as ONE re-wrapped list typeset; the
+	// pinned counter makes labels deterministic-but-wrong, so the patch is provisional and
+	// the reconcile paints the truth (nested lists included: a wrong label just fails
+	// verification, same as any other uncertified render)
+	const itemRun = (run: Para[], anchor: Para | null) =>
+		!!anchor?.wrap && run.every((p) => p.wrap === anchor.wrap && (daemonReady(p.text) || repairForPreview(p.text) !== null));
+	const joinItems = (a: Para, run: Para[]) => `${a.text}\n\\item ${run.map((p) => p.text).join('\n\\item ')}`;
 	const k = newP.length - oldP.length;
-	if (k >= 1 && k <= 6 && fi > 0) {
+	if (k >= 1 && k <= 6) {
 		// typing routinely runs SEVERAL paragraphs ahead of the last landed reconcile (each
 		// reconcile takes seconds); a contiguous run of k new paragraphs -- optionally right
 		// after a pending-edit paragraph -- is still ONE region. It renders ONLY by riding
@@ -493,10 +555,24 @@ function structuralOf(
 			const runProse = run.every(insertable);
 			const joined = run.map((p) => p.text).join('\n\\par ');
 			if (a.mod === null) {
-				const prev = oldP[a.j - 1];
+				const prev = a.j > 0 ? oldP[a.j - 1] : null;
+				if (prev && itemRun(run, prev)) {
+					const merged: Para = { ...prev, text: joinItems(prev, run) };
+					const one = buildPatch(baseLines, prev, merged);
+					if (one.kind === 'patch') return one;
+				}
 				if (prev && runProse && mergeable(prev)) {
 					const merged: Para = { ...prev, text: `${prev.text}\n\\par ${joined}` };
 					const one = buildPatch(baseLines, prev, merged);
+					if (one.kind === 'patch') return one;
+				}
+				// no previous block to ride (top of document) or an unmergeable one (a float):
+				// ride the NEXT block instead -- run + \par + next as one typeset over the next
+				// block's band, which the new content pushes down
+				const nxt = a.j < oldP.length ? oldP[a.j] : null;
+				if (nxt && runProse && mergeable(nxt) && (!prev || !mergeable(prev))) {
+					const merged: Para = { ...nxt, text: `${joined}\n\\par ${nxt.text}` };
+					const one = buildPatch(baseLines, nxt, merged);
 					if (one.kind === 'patch') return one;
 				}
 			} else if (a.mod === a.j - 1) {
@@ -513,18 +589,35 @@ function structuralOf(
 				}
 			}
 		}
-	} else if (k <= -1 && k >= -6 && fi > 0) {
+	} else if (k <= -1 && k >= -6) {
 		// deletions ride the same merged unit in reverse: orig = prev + \par + the removed
 		// run (all still on the page, so the band locates), text = prev alone -- the engine
 		// computes the closed-up height. Delete + pending edit stays a full pass.
 		const kd = -k;
 		const a = scan(false, kd);
-		if (a && a.mod === null && a.j > 0) {
+		if (a && a.mod === null) {
 			const gone = oldP.slice(a.j, a.j + kd);
-			const prev = oldP[a.j - 1];
+			const prev = a.j > 0 ? oldP[a.j - 1] : null;
+			if (prev && itemRun(gone, prev)) {
+				const mergedOrig: Para = { ...prev, text: joinItems(prev, gone) };
+				const one = buildPatch(baseLines, mergedOrig, prev);
+				if (one.kind === 'patch') return one;
+			}
 			if (prev && mergeable(prev) && gone.every((p) => mergeable(p) || (plainProse(p) && daemonReady(p.text)))) {
 				const mergedOrig: Para = { ...prev, text: `${prev.text}\n\\par ${gone.map((p) => p.text).join('\n\\par ')}` };
 				const one = buildPatch(baseLines, mergedOrig, prev);
+				if (one.kind === 'patch') return one;
+			}
+			// deleted from the top (or from under a float): close up against the NEXT block
+			const nxt = a.j + kd < oldP.length ? oldP[a.j + kd] : null;
+			if (
+				nxt &&
+				mergeable(nxt) &&
+				(!prev || !mergeable(prev)) &&
+				gone.every((p) => mergeable(p) || (plainProse(p) && daemonReady(p.text)))
+			) {
+				const mergedOrig: Para = { ...nxt, text: `${gone.map((p) => p.text).join('\n\\par ')}\n\\par ${nxt.text}` };
+				const one = buildPatch(baseLines, mergedOrig, nxt);
 				if (one.kind === 'patch') return one;
 			}
 		}

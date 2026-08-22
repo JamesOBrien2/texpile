@@ -29,6 +29,9 @@ local function write_manifest()
 	-- mode); the instant patch calibrates the warm daemon to this so it reproduces the
 	-- page's line breaks. Falls back to \textwidth (single-column docs) then 0.
 	local cw = (tex.dimen and (tex.dimen["columnwidth"] or tex.dimen["textwidth"]) or 0) / 65536.0
+	-- \textwidth too: under twocolumn a starred float wraps at THIS width, not \columnwidth,
+	-- and the instant path needs the engine's value to calibrate full-width bands
+	local tw = (tex.dimen and tex.dimen["textwidth"] or 0) / 65536.0
 	-- \footskip separates the body bottom from the footer baseline (= the shipout box
 	-- baseline, ht): body bottom in record space is ht - footskip
 	local fsk = (tex.dimen and tex.dimen["footskip"] or 0) / 65536.0
@@ -41,7 +44,7 @@ local function write_manifest()
 		local unc = p.unc and string.format(',"unc":"%s"', p.unc) or ""
 		t[i] = string.format('{"n":%d,"w":%.4f,"h":%.4f,"ht":%.4f%s}', i, p.w, p.h, p.ht, unc)
 	end
-	f:write(string.format('{"count":%d,"paperW":%.4f,"paperH":%.4f,"colW":%.4f,"footSkip":%.4f,"pages":[%s]}', pageno, pw, ph, cw, fsk, table.concat(t, ",")))
+	f:write(string.format('{"count":%d,"paperW":%.4f,"paperH":%.4f,"colW":%.4f,"textW":%.4f,"footSkip":%.4f,"pages":[%s]}', pageno, pw, ph, cw, tw, fsk, table.concat(t, ",")))
 	f:close()
 end
 
