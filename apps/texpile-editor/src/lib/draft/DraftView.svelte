@@ -375,6 +375,11 @@
 		// records BELOW this y are outside the contiguous content flow (the isolated
 		// page-number footer): never shift, clip, or move them
 		flowBottom?: number;
+		// the patch's CLAIM about the content below the band (rows sampled at patch time,
+		// y already shifted by delta): verifyPatches grades it against the fresh compile --
+		// a row that lands elsewhere means the live render put the column/page break in the
+		// wrong place, the divergence class the band rows alone can't see
+		flowPred?: { y: number; cs: number[] }[];
 	};
 
 	// ---- viewport windowing: only paint visible pages +-2 ----
@@ -1649,16 +1654,26 @@
 					newRecs: recsA
 				};
 				const spillOn = cal.spill.pageNo ?? cal.pageNo;
+				const spillDelta = newSpillH - (cal.spill.bk - cal.spill.b1);
 				const segB: Patch = {
 					top: cal.spill.b1 - yFirstB,
 					dropTop: cal.spill.b1 - h1 - 2,
 					dropBottom: cal.spill.bk + dk + 2,
-					delta: newSpillH - (cal.spill.bk - cal.spill.b1),
+					delta: spillDelta,
 					paraLeft: cal.spill.paraLeft,
 					colL: cal.spill.colL,
 					colR: cal.spill.colR,
 					newRecs: kA < lineRecs.length ? recsB : [],
-					flowBottom: contentFloor(spillOn)
+					flowBottom: contentFloor(spillOn),
+					flowPred: rowsOfG(
+						pageRecords(spillOn).filter(
+							(x) =>
+								x.t === 'g' && x.x >= cal.spill!.colL && x.x <= cal.spill!.colR && x.y > cal.spill!.bk + 0.5 && x.y <= contentFloor(spillOn)
+						),
+						cal.medGap
+					)
+						.slice(0, 10)
+						.map((rw) => ({ y: rw.y + spillDelta, cs: rw.cs }))
 				};
 				const spillPage = cal.spill.pageNo ?? cal.pageNo;
 				if (spillPage !== cal.pageNo) {
@@ -1787,7 +1802,13 @@
 				colL: cal.colL,
 				colR: cal.colR,
 				newRecs: r.records as any[],
-				flowBottom: floorA
+				flowBottom: floorA,
+				flowPred: rowsOfG(
+					pageRecords(cal.pageNo).filter((x) => x.t === 'g' && x.x >= cal.colL && x.x <= cal.colR && x.y > cal.bk + 0.5 && x.y <= floorA),
+					cal.medGap
+				)
+					.slice(0, 10)
+					.map((rw) => ({ y: rw.y + delta, cs: rw.cs }))
 			};
 			activePatch.set(cal.pageNo, patchObj); // survive zoom re-renders until the next compile
 			await renderPage(cal.pageNo, patchObj);
@@ -1975,11 +1996,14 @@
 	function verifyPatches() {
 		for (const [n, patch] of activePatch) {
 			const plist = Array.isArray(patch) ? patch : [patch];
-			const fresh = rowsOfG(
-				pageRecords(n).filter((x: any) => x.t === 'g'),
-				12
-			);
+			const freshG = pageRecords(n).filter((x: any) => x.t === 'g');
 			for (const p of plist) {
+				// rows built per COLUMN: on a grid-aligned twocolumn page whole-page rows merge
+				// the two columns' baselines into one sequence and nothing single-column matches
+				const fresh = rowsOfG(
+					freshG.filter((x: any) => x.x >= p.colL - 2 && x.x <= p.colR),
+					12
+				);
 				const pred = rowsOfG(
 					p.newRecs.filter((x: any) => x.t === 'g').map((x: any) => ({ ...x, x: x.x + p.paraLeft, y: x.y + p.top })),
 					12
@@ -2026,6 +2050,47 @@
 											.map((c: number) => String.fromCodePoint(c))
 											.join('')}`
 								);
+				// grade the flow claim too: the rows below the band, at their predicted
+				// (delta-shifted) positions. A row found only OUTSIDE the column (or not at
+				// all) means the live render placed the column/page break somewhere the
+				// recompile did not -- invisible to the band grading above.
+				let flow: { flowRows: number; flowFound: number; flowMoved: number; flowDrift: number } | undefined;
+				if (p.flowPred?.length) {
+					let flowFound = 0;
+					let flowMoved = 0;
+					let flowDrift = 0;
+					// whole-page rows for the moved check only: a row that crossed the column
+					// break appears merged with its new neighbour column's baseline, so it is a
+					// contiguous SUBSEQUENCE of a merged row, never an exact row match
+					const freshAll = rowsOfG(freshG, 12);
+					const containsSeq = (hay: number[], needle: number[]) => {
+						for (let s = 0; s + needle.length <= hay.length; s++) {
+							let okS = true;
+							for (let i = 0; i < needle.length && okS; i++)
+								if (hay[s + i] !== needle[i] && !(hay[s + i] >= 0x30 && hay[s + i] <= 0x39 && needle[i] >= 0x30 && needle[i] <= 0x39))
+									okS = false;
+							if (okS) return true;
+						}
+						return false;
+					};
+					for (const row of p.flowPred) {
+						let bestDy: number | null = null;
+						for (const fr of fresh)
+							if (eqSeqDigits(fr.cs, row.cs)) {
+								const dyF = Math.abs(fr.y - row.y);
+								if (bestDy === null || dyF < bestDy) bestDy = dyF;
+							}
+						if (bestDy !== null) {
+							flowFound++;
+							flowDrift = Math.max(flowDrift, bestDy);
+						} else if (row.cs.length >= 8 && freshAll.some((fr) => containsSeq(fr.cs, row.cs))) {
+							flowMoved++; // still on the page, but across the column break
+						} else {
+							flowMoved++; // off the page (next column/page) or superseded text
+						}
+					}
+					flow = { flowRows: p.flowPred.length, flowFound, flowMoved, flowDrift: +flowDrift.toFixed(1) };
+				}
 				ev('patch-verify', {
 					page: n,
 					rows: pred.length,
@@ -2035,7 +2100,8 @@
 					dy0: dy0 === null ? null : +dy0.toFixed(1),
 					verdict,
 					ok: verdict === 'ok',
-					near
+					near,
+					...(flow ?? {})
 				});
 			}
 		}
