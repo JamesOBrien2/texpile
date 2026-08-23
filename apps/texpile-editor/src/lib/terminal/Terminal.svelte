@@ -120,7 +120,7 @@
 		(async () => {
 			// available() can reject if the main process predates the terminal IPC (stale dev process);
 			// treat any failure as unavailable instead of hanging on the spinner
-			let ok = false;
+			let ok: boolean;
 			try {
 				ok = await b.available();
 			} catch {

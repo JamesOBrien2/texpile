@@ -169,7 +169,10 @@ export function sourceOffsetToPmPos(doc: Node, map: BlockSpan[], offset: number,
 	const b = blockAtSource(map, offset);
 	if (!b || b.srcStart == null) return null;
 	const block = doc.child(b.index);
-	const clampInside = (pos: number) => Math.min(Math.max(pos, b.pmPos + 1), b.pmPos + Math.max(1, block.nodeSize - 1));
+	const span = b;
+	function clampInside(pos: number) {
+		return Math.min(Math.max(pos, span.pmPos + 1), span.pmPos + Math.max(1, block.nodeSize - 1));
+	}
 	if (!b.latex) return b.pmPos + 1;
 	const rel = Math.min(Math.max(0, offset - b.srcStart), b.latex.length);
 	const stripped = strip(b.latex.slice(0, rel));

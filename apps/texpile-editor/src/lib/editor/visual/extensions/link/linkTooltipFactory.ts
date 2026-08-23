@@ -10,7 +10,6 @@ type Position = {
 export type LinkTooltipOptions = {
 	href: string;
 	title: string | null;
-	linkText: string;
 	position: Position;
 	onUpdate: (href: string, title: string | null) => void;
 	onRemove: () => void;
@@ -42,7 +41,6 @@ export function createLinkTooltip(options: LinkTooltipOptions): void {
 			props: {
 				href: options.href,
 				title: options.title,
-				linkText: options.linkText,
 				position: options.position,
 				onUpdate: options.onUpdate,
 				onRemove: options.onRemove,

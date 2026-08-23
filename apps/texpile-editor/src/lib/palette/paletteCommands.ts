@@ -347,15 +347,16 @@ export function buildFileItems(a: PaletteActions): PaletteItem[] {
 	const root = get(workspaceRoot);
 	const tree = get(fileTree);
 	if (!root || !tree.length) return [];
+	const rootDir = root;
 	const out: PaletteItem[] = [];
 	const group = m.palette_group_go();
-	const walk = (entries: TreeEntry[]) => {
+	function walk(entries: TreeEntry[]) {
 		for (const e of entries) {
 			if (e.type === 'dir') {
 				if (e.children) walk(e.children);
 				continue;
 			}
-			const rel = relativeTo(root, e.path);
+			const rel = relativeTo(rootDir, e.path);
 			out.push({
 				id: `go:${e.path}`,
 				// the name is what you read; the folder is the hint, so a long path cannot swamp the row
@@ -368,7 +369,7 @@ export function buildFileItems(a: PaletteActions): PaletteItem[] {
 				run: () => a.openFile(e.path)
 			});
 		}
-	};
+	}
 	walk(tree);
 	return out;
 }

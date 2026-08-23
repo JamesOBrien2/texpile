@@ -94,24 +94,26 @@ function diagnosticsPayload(deps: McpCommandDeps) {
 	// arbitrarily old. Saying so beats letting a caller read `status.pages` off a stale run.
 	const live = get(compileConfig).latex.liveMode;
 	if (!log) return { compiled: false, compiling, endSignal, live, errors: [], warnings: [] };
+	const parsedLog = log;
 	const root = get(workspaceRoot);
-	const trim = (list: typeof log.errors) =>
-		list.slice(0, MAX_DIAGNOSTICS).map((e) => ({ message: e.message, file: e.file ?? null, line: e.line ?? null }));
+	function trim(list: typeof parsedLog.errors) {
+		return list.slice(0, MAX_DIAGNOSTICS).map((e) => ({ message: e.message, file: e.file ?? null, line: e.line ?? null }));
+	}
 	return {
 		compiled: true,
 		compiling,
 		endSignal,
 		live,
-		status: log.status,
+		status: parsedLog.status,
 		// which log this describes and when it was written. everything below - the counts, and
 		// status.pages especially - belongs to THAT run, not necessarily the last one the user watched
-		logPath: root ? relativeTo(root, log.logPath) : log.logPath,
+		logPath: root ? relativeTo(root, parsedLog.logPath) : parsedLog.logPath,
 		logWrittenAt: publishedAt(),
 		// so a truncated list does not read as "that was all of them"
-		errorCount: log.errors.length,
-		warningCount: log.warnings.length,
-		errors: trim(log.errors),
-		warnings: trim(log.warnings)
+		errorCount: parsedLog.errors.length,
+		warningCount: parsedLog.warnings.length,
+		errors: trim(parsedLog.errors),
+		warnings: trim(parsedLog.warnings)
 	};
 }
 
@@ -332,7 +334,9 @@ export function attachMcpCommands(deps: McpCommandDeps): () => void {
 	const api = native();
 	const offRequest = api?.onMcpRequest?.((req) => {
 		const a = req.args ?? {};
-		const reply = (data: unknown) => api.mcpRespond?.(req.id, data);
+		function reply(payload: unknown) {
+			return api?.mcpRespond?.(req.id, payload);
+		}
 		if (req.kind === 'unsaved') return reply(unsavedPayload(deps));
 		if (req.kind === 'diagnostics') return reply(diagnosticsPayload(deps));
 		if (req.kind === 'synctex') return reply(syncTexPayload(deps, a.line));

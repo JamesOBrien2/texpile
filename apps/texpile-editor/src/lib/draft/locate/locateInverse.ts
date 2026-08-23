@@ -55,9 +55,11 @@ export async function locateInverse(ctx: LocateContext, file: string, line: numb
 	type Run = { col: number; len: number; gcount: number; b1: number; bk: number; left: number };
 	const runs: Run[] = [];
 	for (const cl of colLefts) {
-		const colL = cl - G,
-			colR = cl + W + G,
-			inCol = (x: number) => x >= colL && x <= colR;
+		const colL = cl - G;
+		const colR = cl + W + G;
+		function inCol(x: number) {
+			return x >= colL && x <= colR;
+		}
 		const yc = new Map<number, number>();
 		for (const x of allG)
 			if (inCol(x.x)) {

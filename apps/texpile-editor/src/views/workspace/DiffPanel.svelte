@@ -85,6 +85,7 @@
 		void langExt; // rebuild when the resolved language arrives
 		if (!host) return;
 		current?.destroy();
+		// eslint-disable-next-line svelte/no-dom-manipulating -- the div is an empty mount point Svelte never renders into; MergeView owns its children
 		host.replaceChildren();
 		if (lay === 'split') {
 			current = new MergeView({

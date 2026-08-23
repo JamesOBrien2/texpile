@@ -168,7 +168,7 @@ async function ipc<T>(call: Promise<T>): Promise<T> {
 		return await call;
 	} catch (e) {
 		const raw = e instanceof Error ? e.message : String(e);
-		throw new Error(raw.replace(/^Error invoking remote method '[^']+':\s*(Error:\s*)?/, ''));
+		throw new Error(raw.replace(/^Error invoking remote method '[^']+':\s*(Error:\s*)?/, ''), { cause: e });
 	}
 }
 

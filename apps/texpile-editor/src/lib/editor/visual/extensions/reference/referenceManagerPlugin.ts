@@ -63,16 +63,8 @@ function extractTableReferences(view: EditorView): ReferenceItem[] {
 				captionText = node.firstChild.textContent || '';
 			}
 
-			let subtitle = '';
-			if (currentSection && captionText) {
-				subtitle = `${currentSection} • ${captionText}`;
-			} else if (currentSection) {
-				subtitle = currentSection;
-			} else if (captionText) {
-				subtitle = captionText;
-			} else {
-				subtitle = node.attrs.label;
-			}
+			const subtitle =
+				currentSection && captionText ? `${currentSection} • ${captionText}` : currentSection || captionText || node.attrs.label;
 
 			tables.push({
 				type: 'table',
@@ -116,16 +108,8 @@ function extractFigureReferences(view: EditorView): ReferenceItem[] {
 			});
 			captionText = captionText.trim();
 
-			let subtitle = '';
-			if (currentSection && captionText) {
-				subtitle = `${currentSection} • ${captionText}`;
-			} else if (currentSection) {
-				subtitle = currentSection;
-			} else if (captionText) {
-				subtitle = captionText;
-			} else {
-				subtitle = node.attrs.label;
-			}
+			const subtitle =
+				currentSection && captionText ? `${currentSection} • ${captionText}` : currentSection || captionText || node.attrs.label;
 
 			figures.push({
 				type: 'figure',
@@ -194,16 +178,7 @@ function extractEquationReferences(view: EditorView): ReferenceItem[] {
 						const lineContent = lines[index]?.trim() || '';
 						const preview = lineContent.length > 40 ? lineContent.substring(0, 40) + '...' : lineContent;
 
-						let subtitle = '';
-						if (currentSection && preview) {
-							subtitle = `${currentSection} • ${preview}`;
-						} else if (currentSection) {
-							subtitle = currentSection;
-						} else if (preview) {
-							subtitle = preview;
-						} else {
-							subtitle = label;
-						}
+						const subtitle = currentSection && preview ? `${currentSection} • ${preview}` : currentSection || preview || label;
 
 						equations.push({
 							type: 'equation',
@@ -226,16 +201,7 @@ function extractEquationReferences(view: EditorView): ReferenceItem[] {
 
 				const preview = equationContent.length > 50 ? equationContent.substring(0, 50) + '...' : equationContent;
 
-				let subtitle = '';
-				if (currentSection && preview) {
-					subtitle = `${currentSection} • ${preview}`;
-				} else if (currentSection) {
-					subtitle = currentSection;
-				} else if (preview) {
-					subtitle = preview;
-				} else {
-					subtitle = node.attrs.label;
-				}
+				const subtitle = currentSection && preview ? `${currentSection} • ${preview}` : currentSection || preview || node.attrs.label;
 
 				equations.push({
 					type: 'equation',

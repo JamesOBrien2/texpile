@@ -315,8 +315,11 @@
 		if (!container) return;
 		container.style.setProperty('--pdf-background-color', backgroundColor);
 		container.style.setProperty('--pdf-page-shadow', pageShadow);
-		const setOrRemove = (name: string, value: string | undefined) =>
-			value ? container.style.setProperty(name, value) : container.style.removeProperty(name);
+		const box = container;
+		function setOrRemove(name: string, value: string | undefined) {
+			if (value) box.style.setProperty(name, value);
+			else box.style.removeProperty(name);
+		}
 		setOrRemove('--pdf-scrollbar-track-color', scrollbarTrackColor);
 		setOrRemove('--pdf-scrollbar-thumb-color', scrollbarThumbColor);
 		setOrRemove('--pdf-scrollbar-thumb-hover-color', scrollbarThumbHoverColor);

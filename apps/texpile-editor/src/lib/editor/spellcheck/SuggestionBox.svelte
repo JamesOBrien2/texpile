@@ -13,10 +13,9 @@
 	import { quintOut } from 'svelte/easing';
 	import { m } from '$lib/paraglide/messages';
 
-	// matches prosemirror-proofread's Problem
+	// matches prosemirror-proofread's Problem, minus the from/to offsets the box never reads
+	// (the factory positions it; a full Problem is assignable here)
 	type Problem = {
-		from: number;
-		to: number;
 		msg: string;
 		shortmsg: string;
 		type: string;

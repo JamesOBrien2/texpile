@@ -6,7 +6,7 @@ declare global {
 	const __WHATS_NEW__: { version: string; date?: string; notes: string[] }[];
 
 	namespace App {
-		interface DocMeta {
+		type DocMeta = {
 			title: string;
 			folderId: string;
 			docref: string;
@@ -14,16 +14,16 @@ declare global {
 			updated: number;
 			contentPreview: string;
 			ownerUserId?: string; // optional for back-compat
-		}
-		interface Folder {
+		};
+		type Folder = {
 			id: string;
 			name: string;
 			parent: string;
 			children: string[];
-		}
+		};
 	}
 
-	interface TexpileTerminalBridge {
+	type TexpileTerminalBridge = {
 		/** False if node-pty failed to load (needs `pnpm electron:rebuild`). */
 		available(): Promise<boolean>;
 		/** Spawn or reuse a shell for `id` in `cwd`. `shell` is the executable's basename (e.g. "cmd.exe"). */
@@ -36,9 +36,9 @@ declare global {
 		onData(cb: (msg: { id: string; data: string }) => void): () => void;
 		/** Subscribe to shell exit; returns an unsubscribe fn. */
 		onExit(cb: (msg: { id: string; code: number }) => void): () => void;
-	}
+	};
 
-	interface TinymistInfo {
+	type TinymistInfo = {
 		/** the command that was spawned: an absolute path, or the bare name when found on PATH */
 		command: string;
 		/** tinymist's own version, e.g. "0.15.2" */
@@ -47,18 +47,18 @@ declare global {
 		typstVersion: string;
 		/** which candidate answered; there is no configured path (see typst-service.ts) */
 		source: 'path' | 'managed';
-	}
+	};
 
-	interface ToolProbe {
+	type ToolProbe = {
 		id: string;
 		found: boolean;
 		/** first informative line of the tool's own version output, when it gave one */
 		detail?: string;
 		/** the command probed, as spawned (a bare name means it came from PATH) */
 		command: string;
-	}
+	};
 
-	interface TexpileTypstBridge {
+	type TexpileTypstBridge = {
 		/** Locate tinymist; null when it isn't installed. */
 		resolve(): Promise<TinymistInfo | null>;
 		/** Probe every external program the app shells out to. */
@@ -85,9 +85,9 @@ declare global {
 		onMessage(cb: (json: string) => void): () => void;
 		/** Subscribe to server exit; returns an unsubscribe fn. */
 		onExit(cb: (code: number | null) => void): () => void;
-	}
+	};
 
-	interface TexpileZoteroBridge {
+	type TexpileZoteroBridge = {
 		/** Is Zotero up, and does it have the Better BibTeX plugin. */
 		probe(): Promise<{ ok: boolean; running: boolean; bbt: boolean }>;
 		/** Library matches for a query, with their citekeys; feeds the in-app picker dialog. */
@@ -96,8 +96,9 @@ declare global {
 		): Promise<{ ok: boolean; items?: { citekey: string; title: string; author: string; year: string }[]; error?: string }>;
 		/** The picked entries as bib text, via the named Better BibTeX translator. */
 		exportBib(keys: string[], translator: string): Promise<{ ok: boolean; bib?: string; error?: string }>;
-	}
+	};
 
+	// eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- augmenting lib.dom's Window needs declaration merging
 	interface Window {
 		texpile: {
 			debug: {

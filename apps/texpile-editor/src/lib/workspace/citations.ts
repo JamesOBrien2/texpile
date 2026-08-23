@@ -14,7 +14,7 @@ export function mergeReferences(texts: string[]): BiblatexReference[] {
 	const all: BiblatexReference[] = [];
 	const seen = new Set<string>();
 	for (const text of texts) {
-		let parsed: BiblatexReference[] = [];
+		let parsed: BiblatexReference[];
 		try {
 			parsed = parseBibtex(text);
 		} catch {

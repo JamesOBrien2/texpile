@@ -16,7 +16,6 @@
 		placeholder?: string;
 		onValueChange?: (value: string) => void;
 		readonly?: boolean;
-		minHeight?: string;
 		class?: string;
 		language?: 'latex' | 'json' | 'markdown' | 'bibtex';
 	};

@@ -259,7 +259,7 @@
 			</div>
 		</div>
 		<div class="min-h-0 flex-1 overflow-hidden rounded border border-surface-200-800">
-			<CodeMirrorLatex bind:value={fileRawText} language="bibtex" minHeight="100%" />
+			<CodeMirrorLatex bind:value={fileRawText} language="bibtex" />
 		</div>
 		{#if fileRawError}
 			<p class="text-error-500 text-sm">{fileRawError}</p>
@@ -345,7 +345,7 @@
 
 			{#if editMode === 'raw'}
 				<div class="border-surface-200-800 min-h-[16rem] overflow-hidden rounded border">
-					<CodeMirrorLatex bind:value={rawEntryText} language="bibtex" minHeight="16rem" />
+					<CodeMirrorLatex bind:value={rawEntryText} language="bibtex" />
 				</div>
 				{#if rawEntryError}
 					<p class="text-error-500 mt-2 text-sm">{rawEntryError}</p>

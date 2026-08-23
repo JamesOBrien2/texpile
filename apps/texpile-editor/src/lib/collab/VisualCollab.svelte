@@ -257,16 +257,17 @@
 		const v = $editorViewStore;
 		if (!v) return;
 		const dom = v.dom;
-		const onFocusOut = () => {
+		const pmView = v;
+		function onFocusOut() {
 			setTimeout(() => {
-				if (!deferredRestamp || v.isDestroyed) return;
+				if (!deferredRestamp || pmView.isDestroyed) return;
 				const focused = dom.ownerDocument.activeElement;
 				if (!focused || !dom.contains(focused)) {
 					deferredRestamp = false;
 					scheduleRemotePatch(150);
 				}
 			}, 0);
-		};
+		}
 		dom.addEventListener('focusout', onFocusOut);
 		return () => dom.removeEventListener('focusout', onFocusOut);
 	});
@@ -304,20 +305,21 @@
 			if (lastParsed != null && api.texSource !== lastParsed) {
 				const d = spliceDiff(lastParsed, api.texSource);
 				if (d) {
-					const carry = (off: number | null): number | null =>
-						off == null
-							? null
-							: off >= d.index + d.remove
-								? off + d.insert.length - d.remove
-								: off >= d.index
-									? d.index + d.insert.length
-									: off;
+					const splice = d;
+					function carry(off: number | null): number | null {
+						if (off == null) return null;
+						if (off >= splice.index + splice.remove) return off + splice.insert.length - splice.remove;
+						return off >= splice.index ? splice.index + splice.insert.length : off;
+					}
 					a = carry(a);
 					h = sel.head === sel.anchor ? a : carry(h);
 				}
 			}
 			if (a == null || h == null) return;
-			const clamp = (n: number) => Math.min(Math.max(0, n), binding.ytext.length);
+			const ytext = binding.ytext;
+			function clamp(n: number) {
+				return Math.min(Math.max(0, n), ytext.length);
+			}
 			const key = `${clamp(a)}:${clamp(h)}`;
 			if (key === lastPublishedCursor) return;
 			lastPublishedCursor = key;
@@ -356,6 +358,7 @@
 		function carryBack(off: number): number {
 			return !d ? off : off >= d.index + d.insert.length ? off - d.insert.length + d.remove : off > d.index ? d.index : off;
 		}
+		const boundText = binding.ytext;
 		const peers: RemotePeerSel[] = [];
 		const drops: string[] = [];
 		binding.awareness.getStates().forEach((state, clientId) => {
@@ -366,14 +369,14 @@
 				drops.push(`${clientId}: no cursor field`);
 				return;
 			}
-			const abs = (rel: unknown) => {
+			function abs(rel: unknown) {
 				try {
-					const a = Y.createAbsolutePositionFromRelativePosition(Y.createRelativePositionFromJSON(rel as object), binding.ytext.doc!);
-					return a && a.type === binding.ytext ? a.index : null;
+					const a = Y.createAbsolutePositionFromRelativePosition(Y.createRelativePositionFromJSON(rel as object), boundText.doc!);
+					return a && a.type === boundText ? a.index : null;
 				} catch {
 					return null;
 				}
-			};
+			}
 			const ai = abs(cur.anchor);
 			const hi = abs(cur.head);
 			if (ai == null || hi == null) {

@@ -45,9 +45,6 @@ function getLinkMarkAtPos(state: EditorState, pos: number): { mark: Mark; from: 
 	const linkMark = marks.find((m) => m.type === linkType);
 	if (!linkMark) return null;
 
-	let from = pos;
-	let to = pos;
-
 	const parent = $pos.parent;
 	const parentOffset = $pos.parentOffset;
 
@@ -60,8 +57,8 @@ function getLinkMarkAtPos(state: EditorState, pos: number): { mark: Mark; from: 
 
 		if (parentOffset >= childStart && parentOffset <= childEnd) {
 			if (child.isText && child.marks.some((m) => m.type === linkType && m.eq(linkMark))) {
-				from = $pos.start() + childStart;
-				to = $pos.start() + childEnd;
+				let from = $pos.start() + childStart;
+				let to = $pos.start() + childEnd;
 
 				for (let j = i - 1; j >= 0; j--) {
 					const prevChild = parent.child(j);
@@ -100,12 +97,10 @@ function showLinkTooltip(
 	onOpen?: (href: string) => boolean
 ) {
 	const coords = view.coordsAtPos(from);
-	const linkText = view.state.doc.textBetween(from, to);
 
 	createLinkTooltip({
 		href: mark.attrs.href,
 		title: mark.attrs.title,
-		linkText,
 		position: { x: coords.left, y: coords.bottom },
 		onUpdate,
 		onRemove,

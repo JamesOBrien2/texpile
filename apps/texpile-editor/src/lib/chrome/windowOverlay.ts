@@ -81,7 +81,7 @@ export function syncWindowOverlay(el: HTMLElement): () => void {
 	// message per mouse-driven reflow is waste
 	let sent: { height: number; color?: string; symbolColor?: string; background?: string } | null = null;
 
-	const push = () => {
+	function push() {
 		const cs = getComputedStyle(el);
 		// The overlay is sized in DEVICE pixels and does not scale with webContents.setZoomFactor,
 		// but the bar it sits in is CSS pixels and does. At zoom 1.5 a 32px bar is 48 real pixels,
@@ -110,8 +110,8 @@ export function syncWindowOverlay(el: HTMLElement): () => void {
 		if (sent && sent.height === height && sent.color === color && sent.symbolColor === symbolColor && sent.background === background)
 			return;
 		sent = { height, color, symbolColor, background };
-		api.windowSetOverlay?.({ height, color, symbolColor, background });
-	};
+		api?.windowSetOverlay?.({ height, color, symbolColor, background });
+	}
 
 	push();
 

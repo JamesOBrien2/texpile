@@ -12,7 +12,6 @@
 	type Props = {
 		href: string;
 		title: string | null;
-		linkText: string;
 		position: { x: number; y: number };
 		onUpdate: (href: string, title: string | null) => void;
 		onRemove: () => void;
