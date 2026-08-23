@@ -422,7 +422,7 @@
 		<Popover.Positioner class="z-floating-ui">
 			<Popover.Content class="card bg-surface-50-950 context-menu-popover border-surface-300-700 min-w-[240px] border shadow-lg">
 				<div class="py-1">
-					{#each menuItems as item}
+					{#each menuItems as item, i (i)}
 						{#if item.type === 'separator'}
 							<div class="my-1 border-t"></div>
 						{:else}
@@ -481,7 +481,7 @@
 
 					{#if isOnTable}
 						<div class="my-1 border-t"></div>
-						{#each getVisibleTableMenuItems() as item}
+						{#each getVisibleTableMenuItems() as item, i (i)}
 							{#if item?.type === 'separator'}
 								<div class="my-1 border-t"></div>
 							{:else}

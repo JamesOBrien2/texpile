@@ -331,6 +331,7 @@
 	// was a JS dimension-match guess that could swap same-sized figures -- deleted. The
 	// reconcile's compile attaches filenames engine-side and paints the real figure.)
 	/* eslint-disable no-param-reassign -- painting sets the canvas context's state */
+	// eslint-disable-next-line @typescript-eslint/naming-convention -- S is the page scale factor
 	function drawRecs(ctx: CanvasRenderingContext2D, records: any[], S: number, dy = 0, pageNo = 0) {
 		const idMap = idMapFor(records);
 		const { ops } = buildDrawList(records, (id) => idMap[id] || null, S, { glyphFill: '#000', ruleFill: '#000' });

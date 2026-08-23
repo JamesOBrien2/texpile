@@ -299,7 +299,7 @@
 										<p class="text-surface-500 mb-2 text-xs">
 											{m.mathsettings_line_labels_hint({ refSyntax: '\\ref{label}' })}
 										</p>
-										{#each { length: detectedLineCount() } as _, i}
+										{#each { length: detectedLineCount() } as _, i (i)}
 											<div class="mb-2 flex items-center gap-2">
 												<span class="text-surface-500 w-12 text-xs">{m.mathsettings_line_number_label({ number: i + 1 })}</span>
 												<input

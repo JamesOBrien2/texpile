@@ -9,14 +9,14 @@ import type { CommentEvent } from '$lib/comments/log';
 export const BROADCAST = 0;
 
 export enum FrameType {
-	Sync = 1, // y-protocols sync message (step1/step2/update)
-	Awareness = 2, // y-protocols awareness update
-	Hello = 3, // announce self after connect
-	BlobRequest = 4, // ask the host for a named blob (the PDF, or a file's bytes for previews)
-	BlobChunk = 5, // one chunk of a host->guest blob transfer
-	Control = 6, // small JSON control messages (compile-request, session-end, synctex, ...)
-	Upload = 7, // one chunk of a guest->host file upload (host writes it to disk)
-	Preview = 8 // one hop of the Typst preview relay (host <-> guest, see PreviewPayload)
+	SYNC = 1, // y-protocols sync message (step1/step2/update)
+	AWARENESS = 2, // y-protocols awareness update
+	HELLO = 3, // announce self after connect
+	BLOB_REQUEST = 4, // ask the host for a named blob (the PDF, or a file's bytes for previews)
+	BLOB_CHUNK = 5, // one chunk of a host->guest blob transfer
+	CONTROL = 6, // small JSON control messages (compile-request, session-end, synctex, ...)
+	UPLOAD = 7, // one chunk of a guest->host file upload (host writes it to disk)
+	PREVIEW = 8 // one hop of the Typst preview relay (host <-> guest, see PreviewPayload)
 }
 
 export type HelloPayload = {
@@ -117,14 +117,14 @@ export function isSafeRel(rel: string): boolean {
 }
 
 export type Frame =
-	| { type: FrameType.Sync; from: number; to: number; payload: Uint8Array }
-	| { type: FrameType.Awareness; from: number; to: number; payload: Uint8Array }
-	| { type: FrameType.Hello; from: number; to: number; payload: HelloPayload }
-	| { type: FrameType.BlobRequest; from: number; to: number; name: string }
-	| { type: FrameType.BlobChunk; from: number; to: number; payload: BlobChunkPayload }
-	| { type: FrameType.Control; from: number; to: number; payload: ControlPayload }
-	| { type: FrameType.Upload; from: number; to: number; payload: BlobChunkPayload }
-	| { type: FrameType.Preview; from: number; to: number; payload: PreviewPayload };
+	| { type: FrameType.SYNC; from: number; to: number; payload: Uint8Array }
+	| { type: FrameType.AWARENESS; from: number; to: number; payload: Uint8Array }
+	| { type: FrameType.HELLO; from: number; to: number; payload: HelloPayload }
+	| { type: FrameType.BLOB_REQUEST; from: number; to: number; name: string }
+	| { type: FrameType.BLOB_CHUNK; from: number; to: number; payload: BlobChunkPayload }
+	| { type: FrameType.CONTROL; from: number; to: number; payload: ControlPayload }
+	| { type: FrameType.UPLOAD; from: number; to: number; payload: BlobChunkPayload }
+	| { type: FrameType.PREVIEW; from: number; to: number; payload: PreviewPayload };
 
 export function encodeFrame(frame: Frame): Uint8Array {
 	const enc = encoding.createEncoder();
@@ -132,28 +132,28 @@ export function encodeFrame(frame: Frame): Uint8Array {
 	encoding.writeVarUint(enc, frame.from);
 	encoding.writeVarUint(enc, frame.to);
 	switch (frame.type) {
-		case FrameType.Sync:
-		case FrameType.Awareness:
+		case FrameType.SYNC:
+		case FrameType.AWARENESS:
 			encoding.writeVarUint8Array(enc, frame.payload);
 			break;
-		case FrameType.Hello:
+		case FrameType.HELLO:
 			encoding.writeVarString(enc, JSON.stringify(frame.payload));
 			break;
-		case FrameType.BlobRequest:
+		case FrameType.BLOB_REQUEST:
 			encoding.writeVarString(enc, frame.name);
 			break;
-		case FrameType.BlobChunk:
-		case FrameType.Upload:
+		case FrameType.BLOB_CHUNK:
+		case FrameType.UPLOAD:
 			encoding.writeVarString(enc, frame.payload.name);
 			encoding.writeVarUint(enc, frame.payload.rev);
 			encoding.writeVarUint(enc, frame.payload.index);
 			encoding.writeVarUint(enc, frame.payload.total);
 			encoding.writeVarUint8Array(enc, frame.payload.bytes);
 			break;
-		case FrameType.Control:
+		case FrameType.CONTROL:
 			encoding.writeVarString(enc, JSON.stringify(frame.payload));
 			break;
-		case FrameType.Preview:
+		case FrameType.PREVIEW:
 			encoding.writeVarUint(enc, frame.payload.conn);
 			encoding.writeVarUint(enc, PREVIEW_EVS.indexOf(frame.payload.ev));
 			encoding.writeVarUint(enc, frame.payload.seq);
@@ -171,15 +171,15 @@ export function decodeFrame(bytes: Uint8Array): Frame {
 	const from = decoding.readVarUint(dec);
 	const to = decoding.readVarUint(dec);
 	switch (type) {
-		case FrameType.Sync:
-		case FrameType.Awareness:
+		case FrameType.SYNC:
+		case FrameType.AWARENESS:
 			return { type, from, to, payload: decoding.readVarUint8Array(dec) };
-		case FrameType.Hello:
+		case FrameType.HELLO:
 			return { type, from, to, payload: JSON.parse(decoding.readVarString(dec)) as HelloPayload };
-		case FrameType.BlobRequest:
+		case FrameType.BLOB_REQUEST:
 			return { type, from, to, name: decoding.readVarString(dec) };
-		case FrameType.BlobChunk:
-		case FrameType.Upload:
+		case FrameType.BLOB_CHUNK:
+		case FrameType.UPLOAD:
 			return {
 				type,
 				from,
@@ -192,9 +192,9 @@ export function decodeFrame(bytes: Uint8Array): Frame {
 					bytes: decoding.readVarUint8Array(dec)
 				}
 			};
-		case FrameType.Control:
+		case FrameType.CONTROL:
 			return { type, from, to, payload: JSON.parse(decoding.readVarString(dec)) as ControlPayload };
-		case FrameType.Preview: {
+		case FrameType.PREVIEW: {
 			const conn = decoding.readVarUint(dec);
 			const ev = PREVIEW_EVS[decoding.readVarUint(dec)];
 			if (!ev) throw new Error('unknown preview event');

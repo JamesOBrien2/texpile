@@ -197,11 +197,11 @@ export function comments({ onSelect, onAdd, addLabel = 'Comment' }: CommentsConf
 /** the pill fades in rather than flashing under the pointer for every drag it passes through */
 const SHOW_DELAY = 120;
 
-function SVG(body: string) {
+function svgIcon(body: string) {
 	return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
 }
-const COMMENT_ICON = SVG('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>');
-const X_ICON = SVG('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
+const COMMENT_ICON = svgIcon('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>');
+const X_ICON = svgIcon('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
 
 /**
  * The Comment affordance for a non-empty selection: an icon pill in the LEFT margin, vertically

@@ -42,7 +42,7 @@
 			</div>
 		{:else}
 			<div class="py-1">
-				{#each items as item, index}
+				{#each items as item, index (item.id)}
 					{@const IconComponent = getIcon(item.type)}
 					<button
 						type="button"

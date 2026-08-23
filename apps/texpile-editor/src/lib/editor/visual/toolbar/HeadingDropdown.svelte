@@ -62,7 +62,7 @@
 					</button>
 
 					<div class="text-surface-600-400 px-3 pt-2 pb-1 text-xs font-semibold tracking-wide uppercase">Numbered</div>
-					{#each LEVELS as l}
+					{#each LEVELS as l (l)}
 						{@const active = level === l.level && numbered}
 						<button
 							type="button"
@@ -78,7 +78,7 @@
 					{/each}
 
 					<div class="text-surface-600-400 px-3 pt-2 pb-1 text-xs font-semibold tracking-wide uppercase">Unnumbered</div>
-					{#each LEVELS as l}
+					{#each LEVELS as l (l)}
 						{@const active = level === l.level && !numbered}
 						<button
 							type="button"

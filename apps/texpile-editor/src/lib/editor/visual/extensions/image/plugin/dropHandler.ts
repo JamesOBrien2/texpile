@@ -1,6 +1,6 @@
 import type { EditorView } from 'prosemirror-view';
 import type { ImagePluginSettings } from '../types';
-import { dataURIToFile, startImageUpload } from '../imagepluginutils';
+import { dataUriToFile, startImageUpload } from '../imagepluginutils';
 
 export function dropHandler(pluginSettings: ImagePluginSettings) {
 	return (view: EditorView, event: DragEvent) => {
@@ -23,8 +23,8 @@ export function dropHandler(pluginSettings: ImagePluginSettings) {
 				return false;
 			}
 			if (parsed.body.children.length === 1 && firstChild instanceof HTMLImageElement) {
-				const fileFromHTML = dataURIToFile(firstChild.src, encodeURIComponent(firstChild.alt || 'dragged image'));
-				startImageUpload(view, fileFromHTML, pluginSettings.defaultAlt, pluginSettings, view.state.schema, posData.pos);
+				const fileFromHtml = dataUriToFile(firstChild.src, encodeURIComponent(firstChild.alt || 'dragged image'));
+				startImageUpload(view, fileFromHtml, pluginSettings.defaultAlt, pluginSettings, view.state.schema, posData.pos);
 			}
 			event.preventDefault();
 			event.stopPropagation();

@@ -32,9 +32,9 @@ const mathPluginSpec: PluginSpec<MathLivePluginState> = {
 			const me = event as MouseEvent;
 			if (!direct || me.button !== 0 || me.shiftKey || me.metaKey || me.ctrlKey || me.altKey) return false;
 			if (node.isTextblock && node.type.name === 'paragraph') {
-				const onlyMLsOrEmpty = node.childCount == 1 && node.child(0).type.name === 'inline_math';
+				const onlyMathfieldOrEmpty = node.childCount == 1 && node.child(0).type.name === 'inline_math';
 
-				if (onlyMLsOrEmpty) {
+				if (onlyMathfieldOrEmpty) {
 					console.log('Placed Cursor at end of paragraph with only math fields');
 					const endPos = nodePos + node.nodeSize - 1; // last valid text position inside the paragraph
 					const tr = view.state.tr.setSelection(TextSelection.create(view.state.doc, endPos));

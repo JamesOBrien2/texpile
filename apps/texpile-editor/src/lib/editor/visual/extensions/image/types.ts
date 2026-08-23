@@ -43,22 +43,22 @@ export type ImagePluginSettings<T = any> = {
 	findPlaceholder: (state: EditorState, id: object) => number | undefined;
 };
 
-export enum resizeDirection {
-	top = 'top',
-	topRight = 'topRight',
-	right = 'right',
-	bottomRight = 'bottomRight',
-	bottom = 'bottom',
-	bottomLeft = 'bottomLeft',
-	left = 'left',
-	topLeft = 'topLeft'
+export enum ResizeDirection {
+	TOP = 'top',
+	TOP_RIGHT = 'topRight',
+	RIGHT = 'right',
+	BOTTOM_RIGHT = 'bottomRight',
+	BOTTOM = 'bottom',
+	BOTTOM_LEFT = 'bottomLeft',
+	LEFT = 'left',
+	TOP_LEFT = 'topLeft'
 }
 
-export enum imagePluginClassNames {
-	imageResizeBoxWrapper = 'imageResizeBoxWrapper',
-	imageResizeBoxCenter = 'imageResizeBoxCenter',
-	imageResizeBox = 'imageResizeBox',
-	imageResizeBoxControl = 'imageResizeBoxControl',
-	imagePluginRoot = 'imagePluginRoot',
-	imagePluginImg = 'imagePluginImg'
+export enum ImagePluginClassName {
+	IMAGE_RESIZE_BOX_WRAPPER = 'imageResizeBoxWrapper',
+	IMAGE_RESIZE_BOX_CENTER = 'imageResizeBoxCenter',
+	IMAGE_RESIZE_BOX = 'imageResizeBox',
+	IMAGE_RESIZE_BOX_CONTROL = 'imageResizeBoxControl',
+	IMAGE_PLUGIN_ROOT = 'imagePluginRoot',
+	IMAGE_PLUGIN_IMG = 'imagePluginImg'
 }

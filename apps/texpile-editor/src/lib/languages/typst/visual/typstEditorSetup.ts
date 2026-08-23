@@ -40,7 +40,7 @@ import { cmarrowHandlers } from '$lib/editor/visual/extensions/codemirrorbridge/
 import { menuUpdatePlugin } from '$lib/editor/visual/extensions/toolbarlistenerplugin';
 import { createCursorPlugin } from '$lib/editor/visual/extensions/cursor-plugin';
 import { createLinkPlugin } from '$lib/editor/visual/extensions/link';
-import { pasteUUIDFixPlugin } from '$lib/editor/visual/extensions/paste-uuid-fix';
+import { pasteUuidFixPlugin } from '$lib/editor/visual/extensions/paste-uuid-fix';
 import { placeholderPlugin } from '$lib/editor/visual/extensions/placeholderplugin';
 import { tablePlaceholderPlugin } from '$lib/editor/visual/extensions/table/tablePlaceholderPlugin';
 import { createWordCountPlugin } from '$lib/editor/visual/extensions/wordcount/wordCountPlugin';
@@ -187,7 +187,7 @@ export function typstEditorPlugins(setup: TypstEditorSetup): Plugin[] {
 		menuUpdatePlugin(),
 		createCursorPlugin(),
 		createLinkPlugin({ onOpen: onOpenLink }),
-		pasteUUIDFixPlugin,
+		pasteUuidFixPlugin,
 		search(),
 		placeholderPlugin(placeholder),
 		tablePlaceholderPlugin(),

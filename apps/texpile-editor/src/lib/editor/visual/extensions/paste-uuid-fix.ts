@@ -52,7 +52,7 @@ export function regenerateCopiedLabels(slice: Slice): Slice {
 	return new Slice(newContent, slice.openStart, slice.openEnd);
 }
 
-export const pasteUUIDFixPlugin = new Plugin({
+export const pasteUuidFixPlugin = new Plugin({
 	props: {
 		// returning true skips default paste handling AND transformPasted
 		handlePaste(view, event, slice) {

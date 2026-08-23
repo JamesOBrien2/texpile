@@ -53,7 +53,7 @@
 	<Portal>
 		<Popover.Positioner class="z-floating-ui">
 			<Popover.Content class="card bg-surface-50-950 border-surface-300-700 min-w-[180px] border p-1 shadow-lg">
-				{#each mathOptions as option}
+				{#each mathOptions as option (option.label)}
 					<button
 						type="button"
 						class="hover:preset-tonal-primary flex w-full items-center justify-between gap-3 rounded px-3 py-2 text-left"

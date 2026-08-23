@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention -- Type 1 charstring convention: X/Y are the glyph's placement coordinates */
 // Turns a real Type1 font (.pfb + .enc) into canvas glyph paths -- nothing else.
 // Parsed with the vendored pdf.js Type1Parser; glyphs addressed by slot through the
 // map-file .enc vector, so the ink is the REAL font's, at the engine's exact

@@ -77,6 +77,7 @@ export function columnResizing({
 	handleWidth = 5,
 	cellMinWidth = 25,
 	defaultCellMinWidth = 100,
+	// eslint-disable-next-line @typescript-eslint/naming-convention -- upstream prosemirror-tables option name
 	View = TableView,
 	lastColumnResizable = true,
 	snap,
@@ -434,7 +435,7 @@ function displayColumnWidths(view: EditorView, cell: number, byColumn: Map<numbe
 	// same walk as updateColumnsOnResize, with a map of overrides instead of a single one
 	let totalWidth = 0;
 	let fixedWidth = true;
-	let nextDOM = colgroup.firstChild as HTMLElement | null;
+	let nextDom = colgroup.firstChild as HTMLElement | null;
 	for (let i = 0, col = 0; i < row.childCount; i++) {
 		const { colspan, colwidth } = row.child(i).attrs;
 		for (let j = 0; j < colspan; j++, col++) {
@@ -443,20 +444,20 @@ function displayColumnWidths(view: EditorView, cell: number, byColumn: Map<numbe
 			const cssWidth = hasWidth ? hasWidth + 'px' : '';
 			totalWidth += hasWidth || defaultCellMinWidth;
 			if (!hasWidth) fixedWidth = false;
-			if (!nextDOM) {
+			if (!nextDom) {
 				const added = document.createElement('col');
 				added.style.width = cssWidth;
 				colgroup.appendChild(added);
 			} else {
-				if (nextDOM.style.width != cssWidth) nextDOM.style.width = cssWidth;
-				nextDOM = nextDOM.nextSibling as HTMLElement | null;
+				if (nextDom.style.width != cssWidth) nextDom.style.width = cssWidth;
+				nextDom = nextDom.nextSibling as HTMLElement | null;
 			}
 		}
 	}
-	while (nextDOM) {
-		const after = nextDOM.nextSibling as HTMLElement | null;
-		nextDOM.parentNode?.removeChild(nextDOM);
-		nextDOM = after;
+	while (nextDom) {
+		const after = nextDom.nextSibling as HTMLElement | null;
+		nextDom.parentNode?.removeChild(nextDom);
+		nextDom = after;
 	}
 	const el = dom as HTMLTableElement;
 	if (fixedWidth) {

@@ -22,7 +22,6 @@
 		/** typst hides every LaTeX-only control; see tableWrapperView's TableDialect */
 		dialect?: 'latex' | 'typst';
 		tableNumber: number;
-		sectionNumber: string | null;
 		node: Node;
 		updateAttrs: (attrs: Partial<typeof node.attrs>) => void;
 		checkDuplicate: (label: string) => boolean;
@@ -40,8 +39,6 @@
 	let {
 		dialect = 'latex',
 		tableNumber,
-		// not yet consulted, reserved for hierarchical numbering (see the commented-out tableDisplay below)
-		sectionNumber: _sectionNumber,
 		node,
 		updateAttrs,
 		checkDuplicate,
@@ -157,15 +154,6 @@
 		const captionText = captionNode.textContent.trim();
 		return (captionText === '' && dialect === 'latex') || captionText === 'Table caption';
 	});
-
-	// FUTURE: Restore for hierarchical numbering (Table 1.1, 1.2, 2.1...)
-	/*
-	let tableDisplay = $derived(
-		sectionNumber 
-			? `Table ${sectionNumber}.${tableNumber}`
-			: `Table ${tableNumber}`
-	);
-	*/
 
 	function validateAndFixLabel() {
 		const currentLabel = sanitizeLabel(labelInput);

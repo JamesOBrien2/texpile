@@ -22,77 +22,10 @@ function isLabelDuplicate(view: EditorView, label: string | null, currentPos: nu
 	return isDuplicate;
 }
 
-// unused, kept for the future template-driven numbering feature
-function _generateUniqueLabel(view: EditorView, baseLabel: string, currentPos: number): string {
-	let label = baseLabel;
-	let counter = 1;
-
-	while (isLabelDuplicate(view, label, currentPos)) {
-		label = `${baseLabel}-${counter}`;
-		counter++;
-	}
-
-	return label;
-}
-
-// matches the CSS counter logic. currently unused (sequential numbering);
-// TODO: re-enable when template-driven table numbering is implemented
-function getSectionNumber(view: EditorView, pos: number): string | null {
-	let h1 = 0;
-	let h2 = 0;
-	let h3 = 0;
-
-	view.state.doc.nodesBetween(0, pos, (node) => {
-		if (node.type.name === 'heading') {
-			const level = node.attrs.level;
-			if (level === 1) {
-				h1++;
-				h2 = 0;
-				h3 = 0;
-			} else if (level === 2) {
-				h2++;
-				h3 = 0;
-			} else if (level === 3) {
-				h3++;
-			}
-		}
-	});
-
-	if (h3 > 0) {
-		return `${h1}.${h2}.${h3}`;
-	} else if (h2 > 0) {
-		return `${h1}.${h2}`;
-	} else if (h1 > 0) {
-		return `${h1}`;
-	}
-	return null;
-}
-
 function getTableNumber(view: EditorView, pos: number): number {
 	let count = 0;
 
 	view.state.doc.nodesBetween(0, pos, (node) => {
-		if (node.type.name === 'table_wrapper') {
-			count++;
-		}
-	});
-
-	return count + 1;
-}
-
-// unused, kept for the future template-driven numbering feature
-function _getTableNumberHierarchical(view: EditorView, pos: number): number {
-	const _sectionNumber = getSectionNumber(view, pos);
-	let count = 0;
-
-	let sectionStart = 0;
-	view.state.doc.nodesBetween(0, pos, (node, nodePos) => {
-		if (node.type.name === 'heading') {
-			sectionStart = nodePos;
-		}
-	});
-
-	view.state.doc.nodesBetween(sectionStart, pos, (node) => {
 		if (node.type.name === 'table_wrapper') {
 			count++;
 		}
@@ -147,19 +80,19 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 	componentContainer.contentEditable = 'false';
 	dom.appendChild(componentContainer);
 
-	const contentDOM = document.createElement('div');
-	contentDOM.className = 'table-wrapper-content';
+	const contentEl = document.createElement('div');
+	contentEl.className = 'table-wrapper-content';
 
 	function updateClasses() {
 		if (currentNode.attrs.showNotes) {
-			contentDOM.classList.remove('hide-notes');
+			contentEl.classList.remove('hide-notes');
 		} else {
-			contentDOM.classList.add('hide-notes');
+			contentEl.classList.add('hide-notes');
 		}
 	}
 	updateClasses();
 
-	dom.appendChild(contentDOM);
+	dom.appendChild(contentEl);
 
 	function updateAttrs(attrs: Partial<typeof node.attrs>) {
 		const pos = getPos();
@@ -259,14 +192,9 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 
 	function calculateTableData() {
 		const pos = getPos();
-		if (pos === undefined) return { tableNumber: 1, sectionNumber: null };
+		if (pos === undefined) return { tableNumber: 1 };
 
-		return {
-			tableNumber: getTableNumber(view, pos),
-			sectionNumber: null // sequential numbering, no section needed
-			// FUTURE: Restore for hierarchical numbering
-			// sectionNumber: getSectionNumber(view, pos)
-		};
+		return { tableNumber: getTableNumber(view, pos) };
 	}
 
 	function checkDuplicate(label: string) {
@@ -282,7 +210,6 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 	const componentProps = $state({
 		dialect,
 		tableNumber: initialData.tableNumber,
-		sectionNumber: initialData.sectionNumber,
 		node: currentNode,
 		updateAttrs,
 		checkDuplicate,
@@ -304,7 +231,7 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 
 	return {
 		dom,
-		contentDOM,
+		contentDOM: contentEl,
 		update(newNode) {
 			if (newNode.type !== node.type) return false;
 			currentNode = newNode;
@@ -316,13 +243,9 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 			}
 
 			const newTableData = calculateTableData();
-			const dataChanged =
-				newTableData.tableNumber !== lastTableData.tableNumber || newTableData.sectionNumber !== lastTableData.sectionNumber;
-
-			if (dataChanged) {
+			if (newTableData.tableNumber !== lastTableData.tableNumber) {
 				lastTableData = newTableData;
 				componentProps.tableNumber = newTableData.tableNumber;
-				componentProps.sectionNumber = newTableData.sectionNumber;
 			}
 
 			// always update node so caption validation stays reactive

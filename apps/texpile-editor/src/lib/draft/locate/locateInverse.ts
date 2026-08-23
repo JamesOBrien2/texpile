@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention -- TeX geometry shorthand for the inverse-locate deltas */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BP2PT } from '../texUnits';
 import { columnCandidates } from '../geometry/columnCandidates';

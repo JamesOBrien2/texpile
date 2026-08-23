@@ -54,8 +54,8 @@
 	let originalKey: string | null = $state(null);
 	let formErrors: Record<string, string[]> = $state({});
 	let showAdvanced = $state(false);
-	let bibTeXContent = $state('');
-	let bibTeXWarnings = $state<{ key: string; issues: string[] }[]>([]);
+	let bibtexContent = $state('');
+	let bibtexWarnings = $state<{ key: string; issues: string[] }[]>([]);
 	let rawEntryText = $state('');
 	let rawEntryError = $state<string | null>(null);
 	let fileRawText = $state('');
@@ -228,19 +228,19 @@
 	}
 
 	function importBibtex() {
-		bibTeXWarnings = [];
-		if (!bibTeXContent.trim()) return;
-		const result = parseBibtexWithWarnings(bibTeXContent);
+		bibtexWarnings = [];
+		if (!bibtexContent.trim()) return;
+		const result = parseBibtexWithWarnings(bibtexContent);
 		if (result.parseError) {
-			bibTeXWarnings = [{ key: m.bib_parse_error_label(), issues: [result.parseError] }];
+			bibtexWarnings = [{ key: m.bib_parse_error_label(), issues: [result.parseError] }];
 			return;
 		}
-		if (result.warnings.length) bibTeXWarnings = result.warnings;
+		if (result.warnings.length) bibtexWarnings = result.warnings;
 		const fresh = result.entries.filter((r) => isKeyUnique(r.key));
 		if (fresh.length) {
 			refs = [...refs, ...fresh];
 			commit();
-			bibTeXContent = '';
+			bibtexContent = '';
 		}
 	}
 </script>
@@ -365,7 +365,7 @@
 						<span class="text-sm font-medium">{m.bib_type_label()}</span>
 						<select class="input mt-1 w-full" bind:value={currentReference.entrytype}>
 							<option value="">{m.bib_select_type_option()}</option>
-							{#each entryTypeOptions as opt}<option value={opt.value}>{opt.label}</option>{/each}
+							{#each entryTypeOptions as opt (opt.value)}<option value={opt.value}>{opt.label}</option>{/each}
 						</select>
 						{#if formErrors.entrytype}<p class="text-error-500 text-sm">{formErrors.entrytype[0]}</p>{/if}
 					</label>
@@ -430,11 +430,11 @@
 					<textarea
 						class="input mt-1 w-full font-mono text-xs"
 						rows="5"
-						bind:value={bibTeXContent}
+						bind:value={bibtexContent}
 						placeholder={m.bib_paste_bibtex_placeholder()}></textarea>
-					{#if bibTeXWarnings.length}
+					{#if bibtexWarnings.length}
 						<div class="border-warning-500 bg-warning-500/10 mt-2 rounded border p-2 text-xs">
-							{#each bibTeXWarnings as w}<div><strong>{w.key}:</strong> {w.issues.join(', ')}</div>{/each}
+							{#each bibtexWarnings as w (w.key)}<div><strong>{w.key}:</strong> {w.issues.join(', ')}</div>{/each}
 						</div>
 					{/if}
 					<div class="mt-2 flex justify-end">

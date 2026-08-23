@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention -- TeX geometry shorthand: W = column width, G = gutter */
 import type { PageRecord } from './geometry.types';
 
 // Column-left candidates for a page. Clustering per-row leftmost-x finds a column only when

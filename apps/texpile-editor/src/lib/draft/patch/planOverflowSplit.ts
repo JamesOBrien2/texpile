@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention -- TeX geometry shorthand: col L/R edges on page B */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { columnCandidates } from '../geometry/columnCandidates';
 import { glyphRows } from '../geometry/glyphRows';

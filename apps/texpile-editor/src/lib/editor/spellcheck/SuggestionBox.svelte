@@ -25,7 +25,6 @@
 
 	type Props = {
 		error: Problem;
-		errors: Problem[]; // all errors in this segment
 		position: { x: number; y: number };
 		onReplace: (value: string) => void;
 		onIgnore: () => void;
@@ -33,8 +32,7 @@
 		invalidateCache: () => void; // force re-check after dictionary changes
 	};
 
-	// errors is accepted for the factory contract but not rendered yet
-	let { error, errors: _errors, position, onReplace, onIgnore, onClose, invalidateCache }: Props = $props();
+	let { error, position, onReplace, onIgnore, onClose, invalidateCache }: Props = $props();
 
 	let boxElement: HTMLDivElement;
 	let isReady = $state(false);
@@ -251,7 +249,7 @@
 					title={m.harper_apply_suggestion_title()}
 				>
 					<div class="font-mono text-xs leading-snug">
-						{#each diffParts as part}
+						{#each diffParts as part, i (i)}
 							{#if part.removed}
 								<del class="text-error-700-300 line-through opacity-60">{part.value === ' ' ? '␣' : part.value}</del>
 							{:else if part.added}
@@ -270,7 +268,7 @@
 						{m.harper_additional_suggestions_heading()}
 					</p>
 					<div class="space-y-1">
-						{#each error.replacements.slice(1) as replacement}
+						{#each error.replacements.slice(1) as replacement, i (i)}
 							<button
 								class="btn btn-xs preset-tonal hover:preset-filled-primary-500 w-full justify-start font-mono text-xs"
 								onclick={() => handleReplace(replacement)}

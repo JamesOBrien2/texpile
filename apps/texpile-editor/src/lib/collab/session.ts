@@ -214,14 +214,14 @@ export class CollabSession {
 		if (origin === this) return; // arrived from the wire, don't echo
 		const enc = encoding.createEncoder();
 		syncProtocol.writeUpdate(enc, update);
-		this.post({ type: FrameType.Sync, from: this.clientId, to: BROADCAST, payload: encoding.toUint8Array(enc) });
+		this.post({ type: FrameType.SYNC, from: this.clientId, to: BROADCAST, payload: encoding.toUint8Array(enc) });
 	};
 
 	private onAwarenessUpdate = ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => {
 		if (origin === 'remote') return;
 		const changed = added.concat(updated, removed);
 		this.post({
-			type: FrameType.Awareness,
+			type: FrameType.AWARENESS,
 			from: this.clientId,
 			to: BROADCAST,
 			payload: encodeAwarenessUpdate(this.awareness, changed)
@@ -230,12 +230,12 @@ export class CollabSession {
 
 	/** hello + sync step1 + full awareness; runs on every (re)connect. */
 	private handshake(): void {
-		this.post({ type: FrameType.Hello, from: this.clientId, to: BROADCAST, payload: this.user });
+		this.post({ type: FrameType.HELLO, from: this.clientId, to: BROADCAST, payload: this.user });
 		const enc = encoding.createEncoder();
 		syncProtocol.writeSyncStep1(enc, this.doc);
-		this.post({ type: FrameType.Sync, from: this.clientId, to: BROADCAST, payload: encoding.toUint8Array(enc) });
+		this.post({ type: FrameType.SYNC, from: this.clientId, to: BROADCAST, payload: encoding.toUint8Array(enc) });
 		this.post({
-			type: FrameType.Awareness,
+			type: FrameType.AWARENESS,
 			from: this.clientId,
 			to: BROADCAST,
 			payload: encodeAwarenessUpdate(this.awareness, [...this.awareness.getStates().keys()])
@@ -243,28 +243,28 @@ export class CollabSession {
 	}
 
 	sendControl(payload: ControlPayload, to: number = BROADCAST): void {
-		this.post({ type: FrameType.Control, from: this.clientId, to, payload });
+		this.post({ type: FrameType.CONTROL, from: this.clientId, to, payload });
 	}
 
 	requestBlob(name: string): void {
-		this.post({ type: FrameType.BlobRequest, from: this.clientId, to: this.hostId ?? BROADCAST, name });
+		this.post({ type: FrameType.BLOB_REQUEST, from: this.clientId, to: this.hostId ?? BROADCAST, name });
 	}
 
 	sendBlob(name: string, rev: number, bytes: Uint8Array, to: number): void {
 		for (const chunk of chunkBlob(name, rev, bytes)) {
-			this.post({ type: FrameType.BlobChunk, from: this.clientId, to, payload: chunk });
+			this.post({ type: FrameType.BLOB_CHUNK, from: this.clientId, to, payload: chunk });
 		}
 	}
 
 	/** one hop of the preview relay: the host addresses a guest, a guest defaults to the host. */
 	sendPreview(payload: PreviewPayload, to: number = this.hostId ?? BROADCAST): void {
-		this.post({ type: FrameType.Preview, from: this.clientId, to, payload });
+		this.post({ type: FrameType.PREVIEW, from: this.clientId, to, payload });
 	}
 
 	/** guest -> host: upload a file for the host to write to disk (path is manifest-relative). */
 	sendUpload(path: string, bytes: Uint8Array): void {
 		for (const chunk of chunkBlob(path, 0, bytes)) {
-			this.post({ type: FrameType.Upload, from: this.clientId, to: this.hostId ?? BROADCAST, payload: chunk });
+			this.post({ type: FrameType.UPLOAD, from: this.clientId, to: this.hostId ?? BROADCAST, payload: chunk });
 		}
 	}
 
@@ -282,51 +282,51 @@ export class CollabSession {
 		// any relay-authenticated host frame nails down the host's identity for the whole session
 		if (fromHost) this.authHostId = frame.from;
 		switch (frame.type) {
-			case FrameType.Sync: {
+			case FrameType.SYNC: {
 				const dec = decoding.createDecoder(frame.payload);
 				const enc = encoding.createEncoder();
 				syncProtocol.readSyncMessage(dec, enc, this.doc, this);
 				// a step1 wants an answer; address it to the asker only
 				if (encoding.length(enc) > 0) {
-					this.post({ type: FrameType.Sync, from: this.clientId, to: frame.from, payload: encoding.toUint8Array(enc) });
+					this.post({ type: FrameType.SYNC, from: this.clientId, to: frame.from, payload: encoding.toUint8Array(enc) });
 				}
 				break;
 			}
-			case FrameType.Awareness:
+			case FrameType.AWARENESS:
 				applyAwarenessUpdate(this.awareness, frame.payload, 'remote');
 				break;
-			case FrameType.Hello: {
+			case FrameType.HELLO: {
 				// introduce ourselves and always re-offer our state, so a reconnecting peer catches
 				// up on edits made while it was gone (its step2 reply carries what we missed too)
-				this.post({ type: FrameType.Hello, from: this.clientId, to: frame.from, payload: this.user });
+				this.post({ type: FrameType.HELLO, from: this.clientId, to: frame.from, payload: this.user });
 				const enc = encoding.createEncoder();
 				syncProtocol.writeSyncStep1(enc, this.doc);
-				this.post({ type: FrameType.Sync, from: this.clientId, to: frame.from, payload: encoding.toUint8Array(enc) });
+				this.post({ type: FrameType.SYNC, from: this.clientId, to: frame.from, payload: encoding.toUint8Array(enc) });
 				break;
 			}
-			case FrameType.BlobRequest:
+			case FrameType.BLOB_REQUEST:
 				if (this.role === 'host') this.events.onBlobRequest?.(frame.name, frame.from);
 				break;
-			case FrameType.BlobChunk:
+			case FrameType.BLOB_CHUNK:
 				// only the host serves blobs (PDF, file previews); a guest-origin blob is a poisoning attempt
 				if (fromHost) {
 					const done = this.assembler.add(frame.payload);
 					if (done) this.events.onBlob?.(frame.payload.name, frame.payload.rev, done);
 				}
 				break;
-			case FrameType.Upload:
+			case FrameType.UPLOAD:
 				// only the host writes to disk; it reassembles a guest's uploaded file
 				if (this.role === 'host') {
 					const done = this.uploadAssembler.add(frame.payload);
 					if (done) this.events.onUpload?.(frame.payload.name, done);
 				}
 				break;
-			case FrameType.Preview:
+			case FrameType.PREVIEW:
 				// same authenticity rule as blobs: a guest only ever acts on the real host's stream,
 				// so another guest cannot feed it forged render frames
 				if (this.role === 'host' || fromHost) this.events.onPreview?.(frame.payload, frame.from);
 				break;
-			case FrameType.Control:
+			case FrameType.CONTROL:
 				// session-end is host-authoritative; ignore a guest forging it
 				if (frame.payload.kind === 'session-end') {
 					if (fromHost) this.end('host-ended');

@@ -1,5 +1,5 @@
 /* eslint-disable no-param-reassign -- resize chrome is positioned by writing the handed element's style */
-import { resizeDirection } from '../../types';
+import { ResizeDirection } from '../../types';
 
 function setHeight(element: HTMLElement, width: number, height: number) {
 	element.style.height = `${height}px`;
@@ -13,14 +13,14 @@ export function setSize(element: HTMLElement, width: number, height: number) {
 	element.style.width = `${width}px`;
 }
 export const resizeFunctions: {
-	[direction in resizeDirection]: (element: HTMLElement, width: number, height: number) => void;
+	[direction in ResizeDirection]: (element: HTMLElement, width: number, height: number) => void;
 } = {
-	[resizeDirection.left]: setWidth,
-	[resizeDirection.topLeft]: setSize,
-	[resizeDirection.top]: setHeight,
-	[resizeDirection.topRight]: setSize,
-	[resizeDirection.right]: setWidth,
-	[resizeDirection.bottomRight]: setSize,
-	[resizeDirection.bottom]: setHeight,
-	[resizeDirection.bottomLeft]: setSize
+	[ResizeDirection.LEFT]: setWidth,
+	[ResizeDirection.TOP_LEFT]: setSize,
+	[ResizeDirection.TOP]: setHeight,
+	[ResizeDirection.TOP_RIGHT]: setSize,
+	[ResizeDirection.RIGHT]: setWidth,
+	[ResizeDirection.BOTTOM_RIGHT]: setSize,
+	[ResizeDirection.BOTTOM]: setHeight,
+	[ResizeDirection.BOTTOM_LEFT]: setSize
 };

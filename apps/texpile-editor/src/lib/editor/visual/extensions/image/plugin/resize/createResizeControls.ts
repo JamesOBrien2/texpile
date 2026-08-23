@@ -1,13 +1,13 @@
 import type { Node } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
-import { imagePluginClassNames, type ImagePluginSettings, resizeDirection } from '../../types';
+import { ImagePluginClassName, type ImagePluginSettings, ResizeDirection } from '../../types';
 import { resizeFunctions, setSize } from './utils';
 import { clamp } from '../../imagepluginutils';
 import { get } from 'svelte/store';
 import { settings } from '$lib/settings';
 
 function createMouseDownHandler(
-	direction: resizeDirection,
+	direction: ResizeDirection,
 	wrapper: HTMLDivElement,
 	resizeControl: HTMLSpanElement,
 	getPos: () => number | undefined,
@@ -37,7 +37,7 @@ function createMouseDownHandler(
 			function updateImageSize() {
 				// images are always centered, so corner/side drags double the delta to keep
 				// both edges tracking the cursor
-				const doubleScale = direction !== resizeDirection.top && direction !== resizeDirection.bottom;
+				const doubleScale = direction !== ResizeDirection.TOP && direction !== ResizeDirection.BOTTOM;
 				const dx = (originX - ev.clientX) * (/left/i.test(direction) ? 1 : -1) * (doubleScale ? 2 : 1);
 				const dy = (originY - ev.clientY) * (/top/i.test(direction) ? 1 : -1) * (doubleScale ? 2 : 1);
 				let widthUpdate = clamp(pluginSettings.minSize, Math.round(initialWidth + dx), maxWidth);
@@ -102,7 +102,7 @@ function createMouseDownHandler(
 
 function createResizeControl(
 	wrapper: HTMLDivElement,
-	direction: resizeDirection,
+	direction: ResizeDirection,
 	getPos: () => number | undefined,
 	node: Node,
 	view: EditorView,
@@ -112,7 +112,7 @@ function createResizeControl(
 	pluginSettings: ImagePluginSettings
 ) {
 	const resizeControl = document.createElement('span');
-	resizeControl.className = `${imagePluginClassNames.imageResizeBoxControl} ${direction}`;
+	resizeControl.className = `${ImagePluginClassName.IMAGE_RESIZE_BOX_CONTROL} ${direction}`;
 	resizeControl.addEventListener(
 		'mousedown',
 		createMouseDownHandler(direction, wrapper, resizeControl, getPos, node, view, image, setResizeActive, maxWidth, pluginSettings)
@@ -132,19 +132,19 @@ export function createResizeControls(
 	pluginSettings: ImagePluginSettings
 ) {
 	const controlsWrapper = document.createElement('div');
-	controlsWrapper.className = imagePluginClassNames.imageResizeBoxWrapper;
+	controlsWrapper.className = ImagePluginClassName.IMAGE_RESIZE_BOX_WRAPPER;
 	const centeredWrapper = document.createElement('div');
 	controlsWrapper.appendChild(centeredWrapper);
-	centeredWrapper.className = imagePluginClassNames.imageResizeBoxCenter;
+	centeredWrapper.className = ImagePluginClassName.IMAGE_RESIZE_BOX_CENTER;
 	centeredWrapper.style.height = `${height}px`;
 	centeredWrapper.style.width = `${width}px`;
 	const controlsRoot = document.createElement('div');
 	centeredWrapper.appendChild(controlsRoot);
-	controlsRoot.className = imagePluginClassNames.imageResizeBox;
+	controlsRoot.className = ImagePluginClassName.IMAGE_RESIZE_BOX;
 	controlsRoot.style.height = `${height}px`;
 	controlsRoot.style.width = `${width}px`;
-	(Object.keys(resizeDirection) as Array<keyof typeof resizeDirection>).map((direction) =>
-		createResizeControl(controlsRoot, resizeDirection[direction], getPos, node, view, image, setResizeActive, maxWidth, pluginSettings)
+	(Object.keys(ResizeDirection) as Array<keyof typeof ResizeDirection>).map((direction) =>
+		createResizeControl(controlsRoot, ResizeDirection[direction], getPos, node, view, image, setResizeActive, maxWidth, pluginSettings)
 	);
 	return controlsWrapper;
 }

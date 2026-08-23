@@ -9,6 +9,7 @@ const STARTER = createStarterLatex();
 const BODY_OFFSET = STARTER.indexOf('\\begin{document}') + '\\begin{document}\n'.length;
 
 class StarterGhostWidget extends WidgetType {
+	// eslint-disable-next-line @typescript-eslint/naming-convention -- @codemirror WidgetType API method
 	toDOM(): HTMLElement {
 		const el = document.createElement('span');
 		el.className = 'cm-starter-ghost';

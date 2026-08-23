@@ -69,7 +69,7 @@
 						<span>{m.tbar_highlight_disabled_warning()}</span>
 					</div>
 				{/if}
-				{#each highlightColors as { name, value }}
+				{#each highlightColors as { name, value } (name)}
 					<button
 						type="button"
 						class="hover:preset-tonal-primary flex w-full items-center gap-2 rounded px-3 py-2 text-left"

@@ -19,7 +19,7 @@ import { tableViewOnly } from '$lib/editor/visual/extensions/table/tableViewOnly
 import { imagePlugin } from '$lib/editor/visual/extensions/image';
 import { createCursorPlugin } from '$lib/editor/visual/extensions/cursor-plugin';
 import { remoteCursorsPlugin } from '$lib/editor/visual/extensions/remoteCursors';
-import { pasteUUIDFixPlugin } from '$lib/editor/visual/extensions/paste-uuid-fix';
+import { pasteUuidFixPlugin } from '$lib/editor/visual/extensions/paste-uuid-fix';
 import { latexClipboardPlugin } from '$lib/editor/visual/extensions/latexClipboard';
 import { createListPlugins, listInputRules, listKeymap } from 'prosemirror-flat-list';
 import { inputRules, InputRule, smartQuotes, ellipsis, undoInputRule } from 'prosemirror-inputrules';
@@ -139,7 +139,7 @@ export function latexEditorPlugins(setup: LatexEditorSetup): Plugin[] {
 		remoteCursorsPlugin,
 		createLinkPlugin(),
 		latexClipboardPlugin,
-		pasteUUIDFixPlugin,
+		pasteUuidFixPlugin,
 		search(),
 		placeholderPlugin(placeholder),
 		tablePlaceholderPlugin(),

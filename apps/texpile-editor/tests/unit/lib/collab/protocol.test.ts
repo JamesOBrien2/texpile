@@ -18,15 +18,15 @@ import {
 describe('collab protocol', () => {
 	it('round-trips every frame type', () => {
 		const frames: Frame[] = [
-			{ type: FrameType.Sync, from: 7, to: BROADCAST, payload: new Uint8Array([1, 2, 3]) },
-			{ type: FrameType.Awareness, from: 7, to: 9, payload: new Uint8Array(0) },
-			{ type: FrameType.Hello, from: 1, to: BROADCAST, payload: { name: 'Ada', color: '#f00', role: 'guest' } },
-			{ type: FrameType.BlobRequest, from: 2, to: 3, name: 'pdf' },
-			{ type: FrameType.BlobChunk, from: 3, to: 2, payload: { name: 'pdf', rev: 4, index: 1, total: 2, bytes: new Uint8Array([9]) } },
-			{ type: FrameType.Control, from: 2, to: BROADCAST, payload: { kind: 'compile-request' } },
-			{ type: FrameType.Control, from: 4, to: BROADCAST, payload: { kind: 'file-op', op: 'rename', from: 'a.tex', to: 'b/c.tex' } },
-			{ type: FrameType.Preview, from: 5, to: 6, payload: { conn: 3, ev: 'data', seq: 41, part: 1, parts: 2, bytes: new Uint8Array([8]) } },
-			{ type: FrameType.Preview, from: 6, to: 5, payload: { conn: 1, ev: 'open', seq: 0, part: 0, parts: 1, bytes: new Uint8Array(0) } }
+			{ type: FrameType.SYNC, from: 7, to: BROADCAST, payload: new Uint8Array([1, 2, 3]) },
+			{ type: FrameType.AWARENESS, from: 7, to: 9, payload: new Uint8Array(0) },
+			{ type: FrameType.HELLO, from: 1, to: BROADCAST, payload: { name: 'Ada', color: '#f00', role: 'guest' } },
+			{ type: FrameType.BLOB_REQUEST, from: 2, to: 3, name: 'pdf' },
+			{ type: FrameType.BLOB_CHUNK, from: 3, to: 2, payload: { name: 'pdf', rev: 4, index: 1, total: 2, bytes: new Uint8Array([9]) } },
+			{ type: FrameType.CONTROL, from: 2, to: BROADCAST, payload: { kind: 'compile-request' } },
+			{ type: FrameType.CONTROL, from: 4, to: BROADCAST, payload: { kind: 'file-op', op: 'rename', from: 'a.tex', to: 'b/c.tex' } },
+			{ type: FrameType.PREVIEW, from: 5, to: 6, payload: { conn: 3, ev: 'data', seq: 41, part: 1, parts: 2, bytes: new Uint8Array([8]) } },
+			{ type: FrameType.PREVIEW, from: 6, to: 5, payload: { conn: 1, ev: 'open', seq: 0, part: 0, parts: 1, bytes: new Uint8Array(0) } }
 		];
 		for (const f of frames) expect(decodeFrame(encodeFrame(f))).toEqual(f);
 	});

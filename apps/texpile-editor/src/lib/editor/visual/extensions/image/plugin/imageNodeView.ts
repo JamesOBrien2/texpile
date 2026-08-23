@@ -3,7 +3,7 @@ import { TextSelection } from 'prosemirror-state';
 import type { Node } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import imageNotFoundPng from '$lib/assets/compile/image_not_found_placeholder.png';
-import { imagePluginClassNames, type ImagePluginSettings } from '../types';
+import { ImagePluginClassName, type ImagePluginSettings } from '../types';
 import { createResizeControls } from './resize/createResizeControls';
 import { getImageDimensions } from './resize/getImageDimensions';
 import { getMaxWidth } from './resize/getMaxWidth';
@@ -62,9 +62,9 @@ export function imageNodeView(pluginSettings: ImagePluginSettings) {
 		let finalSrc: string | undefined;
 		let currentNodeSrc: string = node.attrs.src;
 		const root = document.createElement('div');
-		root.className = imagePluginClassNames.imagePluginRoot;
+		root.className = ImagePluginClassName.IMAGE_PLUGIN_ROOT;
 		const image = document.createElement('img');
-		image.className = imagePluginClassNames.imagePluginImg;
+		image.className = ImagePluginClassName.IMAGE_PLUGIN_IMG;
 		image.contentEditable = 'false';
 		let resizeActive = false;
 		function setResizeActive(value: boolean) {
@@ -107,20 +107,20 @@ export function imageNodeView(pluginSettings: ImagePluginSettings) {
 
 		let dimensions: { width: number; height: number; completed: boolean } | undefined;
 		Object.keys(node.attrs).map((key) => root.setAttribute(`imageplugin-${key}`, node.attrs[key]));
-		const contentDOM = pluginSettings.hasTitle && document.createElement('div');
-		if (contentDOM) {
-			contentDOM.className = 'imagePluginContent';
-			contentDOM.addEventListener('click', (e) => {
+		const contentEl = pluginSettings.hasTitle && document.createElement('div');
+		if (contentEl) {
+			contentEl.className = 'imagePluginContent';
+			contentEl.addEventListener('click', (e) => {
 				const pos = getPos();
-				if (!pos || contentDOM.innerText.length > 1) {
+				if (!pos || contentEl.innerText.length > 1) {
 					return;
 				}
 				e.preventDefault();
 				view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(pos + 1))));
 				view.focus();
 			});
-			contentDOM.className = 'text';
-			root.appendChild(contentDOM);
+			contentEl.className = 'text';
+			root.appendChild(contentEl);
 		}
 
 		const overlay = pluginSettings.createOverlay(node, getPos, view);
@@ -131,7 +131,7 @@ export function imageNodeView(pluginSettings: ImagePluginSettings) {
 
 		image.alt = node.attrs.alt;
 		let resizeControls: HTMLDivElement | undefined;
-		function updateDOM() {
+		function updateDom() {
 			if (resizeActive) {
 				return;
 			}
@@ -194,16 +194,16 @@ export function imageNodeView(pluginSettings: ImagePluginSettings) {
 				dimensions = await getImageDimensions(finalSrc);
 			}
 			image.src = finalSrc;
-			updateDOM();
+			updateDom();
 			const parent = root.parentElement;
 			if (!parent || !pluginSettings.enableResize) return;
-			unsubscribeResizeObserver = pluginSettings.resizeCallback(parent, updateDOM);
+			unsubscribeResizeObserver = pluginSettings.resizeCallback(parent, updateDom);
 		})();
 		return {
-			...(contentDOM
+			...(contentEl
 				? {
-						contentDOM,
-						stopEvent: (e: Event) => e.target === contentDOM,
+						contentDOM: contentEl,
+						stopEvent: (e: Event) => e.target === contentEl,
 						selectable: true,
 						content: 'text*'
 					}
@@ -226,7 +226,7 @@ export function imageNodeView(pluginSettings: ImagePluginSettings) {
 				}
 
 				if (overlay) pluginSettings.updateOverlay(overlay, getPos, view, updateNode);
-				updateDOM();
+				updateDom();
 				return true;
 			},
 			ignoreMutation: () => true,

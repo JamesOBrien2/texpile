@@ -4,8 +4,8 @@ import type { Schema } from 'prosemirror-model';
 import { generateLabel } from '$lib/editor/visual/label';
 import type { ImagePluginSettings, ImagePluginState, InsertImagePlaceholder, RemoveImagePlaceholder } from './types';
 
-export function dataURIToFile(dataURI: string, name: string) {
-	const parts = dataURI.split(',');
+export function dataUriToFile(dataUri: string, name: string) {
+	const parts = dataUri.split(',');
 	const mime = parts[0]?.match(/:(.*?);/)?.[1];
 	const bstr = atob(parts[1]);
 	let n = bstr.length;

@@ -110,8 +110,8 @@
 				<div class="mb-2 text-xs font-medium">{m.mathtoolbar_matrix_size_label()}</div>
 				<div class="space-y-2">
 					<div class="grid gap-1" style="grid-template-columns: repeat(6, 1fr);">
-						{#each Array.from({ length: 6 }) as _, row}
-							{#each Array.from({ length: 6 }) as _, col}
+						{#each Array.from({ length: 6 }) as _, row (row)}
+							{#each Array.from({ length: 6 }) as _, col (col)}
 								<button
 									type="button"
 									class="aspect-square w-full rounded border text-xs transition-colors"
@@ -146,7 +146,7 @@
 
 		{#if group.id === 'environments'}
 			<div class="env-list">
-				{#each group.symbols as symbol}
+				{#each group.symbols as symbol (symbol.latex)}
 					<button
 						type="button"
 						class="env-btn bg-surface-100-900"
@@ -168,7 +168,7 @@
 			</div>
 		{:else}
 			<div class="symbol-grid" data-group={group.id}>
-				{#each group.symbols as symbol}
+				{#each group.symbols as symbol (symbol.latex)}
 					<button
 						type="button"
 						class="symbol-btn bg-surface-100-900"

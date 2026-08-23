@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention -- pdf.js LinkService interface names */
 /* eslint-disable no-param-reassign -- pdf.js link-service contract: annotate the anchor element in place */
 /* Copyright 2024 Mozilla Foundation
  *

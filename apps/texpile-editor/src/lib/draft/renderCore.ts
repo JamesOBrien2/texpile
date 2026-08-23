@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention -- S is the page scale factor, named after the transform it applies */
 // Turns engine records into canvas draw-ops -- nothing else. Framework-agnostic (no
 // DOM/opentype import) so the same geometry logic could be pixel-tested headlessly.
 // Coords are TeX pt throughout (paper dims and glyph coords come from the same engine,

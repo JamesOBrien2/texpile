@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention -- TeX geometry shorthand: col L/R edges on pages A/B */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BP2PT } from '../texUnits';
 import { INDENT_PREFIX } from '../daemonIndent';
