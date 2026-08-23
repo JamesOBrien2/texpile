@@ -183,6 +183,16 @@ export default ts.config(
 		files: ['src/lib/languages/latex/intellisense/data/**'],
 		rules: { 'max-lines': 'off' }
 	},
+	// the adapted pdf.js viewer keeps upstream's file shapes so diffs against pdf.js stay readable,
+	// and the two symbol/keyboard files are data tables like the completion data above
+	{
+		files: [
+			'src/lib/pdf-view/pdf-viewer/**',
+			'src/lib/editor/visual/toolbar/mathSymbols.ts',
+			'src/lib/editor/visual/extensions/mathlivebridge/virtualKeyboardConfig.ts'
+		],
+		rules: { 'max-lines': 'off' }
+	},
 	// package-private folders: internals are importable only within their own folder
 	{
 		files: ['src/**'],
