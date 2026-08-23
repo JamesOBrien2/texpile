@@ -21,6 +21,7 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 - fix: a new paragraph typed at the very top of the document or right below a table or figure renders instantly in live mode
 - fix: editing a comment, a label, or the preamble no longer announces "Compiling project" in live mode; the page holds and the pass runs quietly in the background
 - fix: text painted by a live-mode instant patch no longer looks thinner than the settled page
+- fix: in two-column documents, live mode now flows overflowing text into the next column of the same page, matching where the real compile puts it; only the last column spills to the next page
 
 ## [0.17.1] - 2026-08-19
 
