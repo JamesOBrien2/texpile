@@ -2,7 +2,8 @@
 	import { onMount, untrack } from 'svelte';
 	import { Menu, Portal } from '@skeletonlabs/skeleton-svelte';
 	// Menu is Skeleton's here, so lucide's hamburger comes in aliased
-	import { Check, ChevronRight, X, Menu as MenuIcon, MoreHorizontal } from '@lucide/svelte';
+	import { Check, ChevronRight, Menu as MenuIcon, MoreHorizontal } from '@lucide/svelte';
+	import Modal from '$lib/modals/Modal.svelte';
 	import { get } from 'svelte/store';
 	import { editorViewStore, referenceStore, editorConfigStore, cursorInCm } from '$lib/stores/editorStore';
 	import { recentFolders } from '$lib/workspace/workspaceStore';
@@ -854,54 +855,28 @@
 
 <!-- text prompt dialog, Electron has no window.prompt() -->
 {#if promptOpen}
-	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
-		role="presentation"
-		onmousedown={(e) => e.target === e.currentTarget && closePrompt(false)}
-	>
-		<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-sm border p-4 shadow-2xl">
-			<div class="mb-2 text-sm font-medium">{promptTitle}</div>
-			<input
-				bind:this={promptInput}
-				bind:value={promptValue}
-				class="input w-full"
-				onkeydown={(e) => {
-					if (e.key === 'Enter') closePrompt(true);
-					else if (e.key === 'Escape') closePrompt(false);
-				}}
-			/>
-			<div class="mt-4 flex justify-end gap-2">
-				<button class="btn btn-xs hover:preset-tonal" type="button" onclick={() => closePrompt(false)}>{m.menubar_prompt_cancel()}</button>
-				<button class="btn btn-xs preset-filled-primary-500" type="button" onclick={() => closePrompt(true)}>{m.menubar_prompt_ok()}</button
-				>
-			</div>
+	<Modal onClose={() => closePrompt(false)} card="max-h-full max-w-sm overflow-y-auto p-4">
+		<div class="mb-2 text-sm font-medium">{promptTitle}</div>
+		<input
+			bind:this={promptInput}
+			bind:value={promptValue}
+			class="input w-full"
+			onkeydown={(e) => {
+				if (e.key === 'Enter') closePrompt(true);
+			}}
+		/>
+		<div class="mt-4 flex justify-end gap-2">
+			<button class="btn btn-xs hover:preset-tonal" type="button" onclick={() => closePrompt(false)}>{m.menubar_prompt_cancel()}</button>
+			<button class="btn btn-xs preset-filled-primary-500" type="button" onclick={() => closePrompt(true)}>{m.menubar_prompt_ok()}</button>
 		</div>
-	</div>
+	</Modal>
 {/if}
-
-<svelte:window onkeydown={(e) => e.key === 'Escape' && (supportOpen = false)} />
 
 <!-- shows the email with a copy button, no mail client assumed -->
-{#if supportOpen}
-	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
-		role="presentation"
-		onmousedown={(e) => e.target === e.currentTarget && (supportOpen = false)}
-	>
-		<div class="card bg-surface-50-950 border-surface-300-700 w-full max-w-sm border p-5 shadow-2xl">
-			<div class="mb-3 flex items-center justify-between gap-4">
-				<h2 class="text-base font-semibold">{m.menubar_contact_support()}</h2>
-				<button class="btn-icon btn-icon-xs hover:preset-tonal" aria-label={m.menubar_close_aria()} onclick={() => (supportOpen = false)}
-					><X class="size-4" /></button
-				>
-			</div>
-			<p class="text-surface-600-400 mb-2 text-sm">{m.menubar_support_email_intro()}</p>
-			<div class="border-surface-300-700 bg-surface-100-900 flex items-center justify-between gap-3 rounded border px-3 py-2">
-				<code class="text-sm select-all">{SUPPORT_EMAIL}</code>
-				<button class="btn btn-xs preset-tonal-primary shrink-0" onclick={copyEmail}
-					>{copied ? m.menubar_copied() : m.menubar_copy()}</button
-				>
-			</div>
-		</div>
+<Modal bind:open={supportOpen} title={m.menubar_contact_support()} card="max-h-full max-w-sm overflow-y-auto p-5">
+	<p class="text-surface-600-400 mb-2 text-sm">{m.menubar_support_email_intro()}</p>
+	<div class="border-surface-300-700 bg-surface-100-900 flex items-center justify-between gap-3 rounded border px-3 py-2">
+		<code class="text-sm select-all">{SUPPORT_EMAIL}</code>
+		<button class="btn btn-xs preset-tonal-primary shrink-0" onclick={copyEmail}>{copied ? m.menubar_copied() : m.menubar_copy()}</button>
 	</div>
-{/if}
+</Modal>

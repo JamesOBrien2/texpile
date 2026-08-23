@@ -1,7 +1,8 @@
 <script lang="ts">
 	// Confirm before the formatter rewrites the open file in place: latexindent for .tex,
 	// tinymist's built-in typstyle for .typ.
-	import { X, Loader2, TriangleAlert } from '@lucide/svelte';
+	import { Loader2, TriangleAlert } from '@lucide/svelte';
+	import Modal from '../Modal.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	let {
@@ -18,37 +19,20 @@
 	} = $props();
 </script>
 
-{#if open}
-	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
-		role="presentation"
-		onmousedown={(e) => e.target === e.currentTarget && (open = false)}
-	>
-		<div class="card bg-surface-50-950 border-surface-300-700 max-h-full w-full max-w-md overflow-y-auto border p-5 shadow-2xl">
-			<div class="mb-3 flex items-center justify-between">
-				<h2 class="flex items-center gap-2 text-base font-semibold">
-					<TriangleAlert class="text-warning-500 size-5" />
-					{m.wsview_format_modal_title()}
-				</h2>
-				<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={() => (open = false)} aria-label={m.wsview_close_aria()}>
-					<X class="size-4" />
-				</button>
-			</div>
-			<p class="text-surface-600-300 mb-4 text-sm">
-				{#if tool === 'typstyle'}
-					{m.wsview_format_desc_typst_pre()}
-					<code class="bg-surface-200-800 rounded px-1">typstyle</code>{m.wsview_format_desc_typst_post()}
-				{:else}
-					{m.wsview_format_desc_pre()} <code class="bg-surface-200-800 rounded px-1">latexindent</code>{m.wsview_format_desc_post()}
-				{/if}
-			</p>
-			<div class="flex justify-end gap-2">
-				<button class="btn btn-xs hover:preset-tonal" onclick={() => (open = false)}>{m.wsview_cancel_label()}</button>
-				<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={onFormat} disabled={formatting}>
-					{#if formatting}<Loader2 class="size-4 animate-spin" />{/if}
-					{m.wsview_format_button()}
-				</button>
-			</div>
-		</div>
+<Modal bind:open title={m.wsview_format_modal_title()} icon={TriangleAlert} iconClass="text-warning-500">
+	<p class="text-surface-600-300 mb-4 text-sm">
+		{#if tool === 'typstyle'}
+			{m.wsview_format_desc_typst_pre()}
+			<code class="bg-surface-200-800 rounded px-1">typstyle</code>{m.wsview_format_desc_typst_post()}
+		{:else}
+			{m.wsview_format_desc_pre()} <code class="bg-surface-200-800 rounded px-1">latexindent</code>{m.wsview_format_desc_post()}
+		{/if}
+	</p>
+	<div class="flex justify-end gap-2">
+		<button class="btn btn-xs hover:preset-tonal" onclick={() => (open = false)}>{m.wsview_cancel_label()}</button>
+		<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={onFormat} disabled={formatting}>
+			{#if formatting}<Loader2 class="size-4 animate-spin" />{/if}
+			{m.wsview_format_button()}
+		</button>
 	</div>
-{/if}
+</Modal>

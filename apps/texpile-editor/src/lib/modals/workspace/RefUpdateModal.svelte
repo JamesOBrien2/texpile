@@ -11,6 +11,7 @@
 
 <script lang="ts">
 	// After a rename/move, offer to repoint the \includegraphics/\input references we found.
+	import Modal from '../Modal.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	let {
@@ -38,19 +39,13 @@
 	});
 </script>
 
-<div
-	class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
-	role="presentation"
-	onmousedown={(e) => e.target === e.currentTarget && onKeep()}
->
-	<div class="card bg-surface-50-950 border-surface-300-700 max-h-full w-full max-w-md overflow-y-auto border p-5 shadow-2xl">
-		<h2 class="text-lg font-semibold">{m.wsview_refupdate_title()}</h2>
-		<p class="text-surface-600-300 mt-2 text-sm">
-			{body}
-		</p>
-		<div class="mt-5 flex justify-end gap-2">
-			<button class="btn hover:preset-tonal" onclick={onKeep}>{m.wsview_refupdate_keep()}</button>
-			<button class="btn preset-filled-primary-500" onclick={onApply}>{m.wsview_refupdate_apply()}</button>
-		</div>
+<!-- dismissal keeps the references as they are: the file already moved, so "do nothing" is a choice -->
+<Modal title={m.wsview_refupdate_title()} onClose={onKeep}>
+	<p class="text-surface-600-300 text-sm">
+		{body}
+	</p>
+	<div class="mt-5 flex justify-end gap-2">
+		<button class="btn hover:preset-tonal" onclick={onKeep}>{m.wsview_refupdate_keep()}</button>
+		<button class="btn preset-filled-primary-500" onclick={onApply}>{m.wsview_refupdate_apply()}</button>
 	</div>
-</div>
+</Modal>

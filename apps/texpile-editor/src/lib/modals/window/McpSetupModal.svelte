@@ -9,7 +9,8 @@
 	// Per-client blocks rather than one command, because they are not interchangeable: Claude Code
 	// takes a CLI call, Codex takes a TOML entry in a config file. Labelling them was the point -
 	// showing only the Claude form left Codex users with something that looks like it should work.
-	import { X, Check, Copy } from '@lucide/svelte';
+	import { Check, Copy } from '@lucide/svelte';
+	import Modal from '../Modal.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	let { open = $bindable(false), port }: { open?: boolean; port: number | null } = $props();
@@ -32,8 +33,6 @@
 	}
 </script>
 
-<svelte:window onkeydown={(e) => open && e.key === 'Escape' && (open = false)} />
-
 {#snippet block(label: string, note: string, text: string, key: string)}
 	<div>
 		<div class="mb-1 flex items-baseline justify-between gap-3">
@@ -52,26 +51,11 @@
 	</div>
 {/snippet}
 
-{#if open}
-	<div
-		class="fixed inset-0 z-1400 flex items-center justify-center app-scrim bg-black/40 p-4"
-		role="presentation"
-		onmousedown={(e) => e.target === e.currentTarget && (open = false)}
-	>
-		<div class="card bg-surface-50-950 border-surface-300-700 flex max-h-full w-full max-w-lg flex-col border p-5 shadow-2xl">
-			<div class="mb-3 flex items-center justify-between gap-4">
-				<h2 class="text-base font-semibold">{m.mcpsetup_title()}</h2>
-				<button class="btn-icon btn-icon-xs hover:preset-tonal" aria-label={m.mcpsetup_close()} onclick={() => (open = false)}>
-					<X class="size-4" />
-				</button>
-			</div>
-
-			<div class="min-h-0 space-y-4 overflow-y-auto">
-				<p class="text-surface-600-400 text-sm">{m.mcpsetup_intro({ addr: url })}</p>
-				{@render block(m.mcpsetup_claude(), 'CLI', claudeCmd, 'claude')}
-				{@render block(m.mcpsetup_codex(), m.mcpsetup_codex_note(), codexToml, 'codex')}
-				<p class="text-surface-500 border-surface-300-700 border-t pt-3 text-xs">{m.mcpsetup_generic()}</p>
-			</div>
-		</div>
+<Modal bind:open title={m.mcpsetup_title()} z="z-1400" card="flex max-h-full max-w-lg flex-col p-5">
+	<div class="min-h-0 space-y-4 overflow-y-auto">
+		<p class="text-surface-600-400 text-sm">{m.mcpsetup_intro({ addr: url })}</p>
+		{@render block(m.mcpsetup_claude(), 'CLI', claudeCmd, 'claude')}
+		{@render block(m.mcpsetup_codex(), m.mcpsetup_codex_note(), codexToml, 'codex')}
+		<p class="text-surface-500 border-surface-300-700 border-t pt-3 text-xs">{m.mcpsetup_generic()}</p>
 	</div>
-{/if}
+</Modal>

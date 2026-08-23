@@ -6,7 +6,8 @@
 	// a .tex and latex cannot build a .typ - so a switch beside it could only ever disagree with the
 	// pipeline. Change the main file to change the lane; this dialog just shows which one it is.
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
-	import { X, Play } from '@lucide/svelte';
+	import { Play } from '@lucide/svelte';
+	import Modal from '../Modal.svelte';
 	import LatexCompileSettings from './LatexCompileSettings.svelte';
 	import TypstCompileSettings from './TypstCompileSettings.svelte';
 	import CompileOutputPaths from './CompileOutputPaths.svelte';
@@ -59,114 +60,95 @@
 	}
 </script>
 
-{#if open}
-	<div
-		class="fixed inset-0 z-1300 flex items-center justify-center app-scrim bg-black/40 p-4"
-		role="presentation"
-		onmousedown={(e) => e.target === e.currentTarget && (open = false)}
-	>
-		<!-- max-h-full + scroll, not a taller window: this dialog grows with what it is showing (the
-		     engine row, live mode's note, the advanced output paths) and a short window clipped its
-		     buttons off both ends, with no way to reach them. The scrim's p-4 is the margin it stops
-		     at. Every modal card in the app carries this pair for the same reason. -->
-		<div class="card bg-surface-50-950 border-surface-300-700 max-h-full w-full max-w-lg overflow-y-auto border p-5 shadow-2xl">
-			<div class="mb-3 flex items-center justify-between">
-				<h2 class="text-base font-semibold">{m.wsview_compile_modal_title()}</h2>
-				<button class="btn-icon btn-icon-xs hover:preset-tonal" onclick={() => (open = false)} aria-label={m.wsview_close_aria()}>
-					<X class="size-4" />
-				</button>
-			</div>
-			<!-- (main-file selection lives in the first-compile confirm modal and the file
+<Modal bind:open title={m.wsview_compile_modal_title()} card="max-h-full max-w-lg overflow-y-auto p-5">
+	<!-- (main-file selection lives in the first-compile confirm modal and the file
 			     tree's "Set as main file" - not here; this modal is only about the command) -->
 
-			<!-- Which typesetter is in effect: a readout, not a choice. It decides what every control
+	<!-- Which typesetter is in effect: a readout, not a choice. It decides what every control
 			     under it means, and the main file decides IT. -->
-			<div class="border-surface-200-800 mb-2 flex items-center justify-between gap-4 border-b pb-3">
-				<span class="text-sm font-medium">{m.wsview_format_label()}</span>
-				<!-- LaTeX and Typst are product names, so they are not translated -->
-				<span class="text-sm">{isTypst ? 'Typst' : 'LaTeX'}</span>
-			</div>
-			<p class="text-surface-500 mb-3 text-xs">{m.wsview_format_from_main()}</p>
+	<div class="border-surface-200-800 mb-2 flex items-center justify-between gap-4 border-b pb-3">
+		<span class="text-sm font-medium">{m.wsview_format_label()}</span>
+		<!-- LaTeX and Typst are product names, so they are not translated -->
+		<span class="text-sm">{isTypst ? 'Typst' : 'LaTeX'}</span>
+	</div>
+	<p class="text-surface-500 mb-3 text-xs">{m.wsview_format_from_main()}</p>
 
-			<!-- the lane's own settings, so this block always describes the compiler that will run -->
-			{#if isTypst}
-				<TypstCompileSettings {superseded} />
-			{:else}
-				<LatexCompileSettings bind:command {superseded} {sessionActive} segment={SEGMENT} {seg} />
-			{/if}
+	<!-- the lane's own settings, so this block always describes the compiler that will run -->
+	{#if isTypst}
+		<TypstCompileSettings {superseded} />
+	{:else}
+		<LatexCompileSettings bind:command {superseded} {sessionActive} segment={SEGMENT} {seg} />
+	{/if}
 
-			{#if !superseded}
-				<!-- svelte-ignore a11y_autofocus -->
-				<input
-					class="input w-full font-mono text-sm"
-					bind:value={command}
-					placeholder={DEFAULT_COMPILE_COMMAND}
-					spellcheck="false"
-					autofocus
-					onkeydown={(e) => {
-						if (e.key === 'Enter' && !(command.includes('{main}') && !$mainFile)) onSave(true);
-						else if (e.key === 'Escape') open = false;
-					}}
-				/>
-				<div class="mt-4 flex items-center justify-between gap-4">
-					<span class="text-sm">{m.wsview_completion_marker_label()}</span>
-					<Switch
-						checked={$compileConfig.completionMarker}
-						onCheckedChange={(d) => projectConfigSync.setCompletionMarker($workspaceRoot, d.checked)}
-					>
-						<Switch.Control><Switch.Thumb /></Switch.Control>
-						<Switch.HiddenInput />
-					</Switch>
-				</div>
-				<p class="text-surface-500 mt-1 text-xs">
-					{m.wsview_completion_marker_desc()}
-				</p>
+	{#if !superseded}
+		<!-- svelte-ignore a11y_autofocus -->
+		<input
+			class="input w-full font-mono text-sm"
+			bind:value={command}
+			placeholder={DEFAULT_COMPILE_COMMAND}
+			spellcheck="false"
+			autofocus
+			onkeydown={(e) => {
+				if (e.key === 'Enter' && !(command.includes('{main}') && !$mainFile)) onSave(true);
+			}}
+		/>
+		<div class="mt-4 flex items-center justify-between gap-4">
+			<span class="text-sm">{m.wsview_completion_marker_label()}</span>
+			<Switch
+				checked={$compileConfig.completionMarker}
+				onCheckedChange={(d) => projectConfigSync.setCompletionMarker($workspaceRoot, d.checked)}
+			>
+				<Switch.Control><Switch.Thumb /></Switch.Control>
+				<Switch.HiddenInput />
+			</Switch>
+		</div>
+		<p class="text-surface-500 mt-1 text-xs">
+			{m.wsview_completion_marker_desc()}
+		</p>
 
-				<CompileOutputPaths bind:outputs bind:open={advancedOpen} />
-			{/if}
+		<CompileOutputPaths bind:outputs bind:open={advancedOpen} />
+	{/if}
 
-			<div class="mt-4 flex items-center justify-between gap-3">
-				<span class="text-surface-500 text-xs">
-					{#if !$mainFile}{m.wsview_pick_main_file_to_run()}{/if}
-				</span>
-				<div class="flex gap-2">
-					<button class="btn btn-xs hover:preset-tonal" onclick={() => (open = false)}>{m.wsview_cancel_label()}</button>
-					{#if superseded}
-						<!-- one button either way: onRun goes through runCompile, which routes to the draft
+	<div class="mt-4 flex items-center justify-between gap-3">
+		<span class="text-surface-500 text-xs">
+			{#if !$mainFile}{m.wsview_pick_main_file_to_run()}{/if}
+		</span>
+		<div class="flex gap-2">
+			<button class="btn btn-xs hover:preset-tonal" onclick={() => (open = false)}>{m.wsview_cancel_label()}</button>
+			{#if superseded}
+				<!-- one button either way: onRun goes through runCompile, which routes to the draft
 						     engine or the Typst preview by the same conditions that hid the command above -->
-						<button
-							class="btn btn-xs preset-filled-primary-500 gap-1.5"
-							onclick={() => {
-								open = false;
-								onRun();
-							}}
-							disabled={!$mainFile}
-						>
-							<Play class="size-4" />
-							{m.wsview_run_preview()}
-						</button>
-					{:else}
-						<button class="btn btn-xs hover:preset-tonal" onclick={() => onSave(false)}>{m.wsview_save_label()}</button>
-						<button
-							class="btn btn-xs preset-tonal-primary gap-1.5"
-							onclick={onUseDefault}
-							disabled={DEFAULT_COMPILE_COMMAND.includes('{main}') && !$mainFile}
-							title={m.wsview_use_default_title()}
-						>
-							<Play class="size-4" />
-							{m.wsview_use_default()}
-						</button>
-						<button
-							class="btn btn-xs preset-filled-primary-500 gap-1.5"
-							onclick={() => onSave(true)}
-							disabled={command.includes('{main}') && !$mainFile}
-						>
-							<Play class="size-4" />
-							{m.wsview_save_and_run()}
-						</button>
-					{/if}
-				</div>
-			</div>
+				<button
+					class="btn btn-xs preset-filled-primary-500 gap-1.5"
+					onclick={() => {
+						open = false;
+						onRun();
+					}}
+					disabled={!$mainFile}
+				>
+					<Play class="size-4" />
+					{m.wsview_run_preview()}
+				</button>
+			{:else}
+				<button class="btn btn-xs hover:preset-tonal" onclick={() => onSave(false)}>{m.wsview_save_label()}</button>
+				<button
+					class="btn btn-xs preset-tonal-primary gap-1.5"
+					onclick={onUseDefault}
+					disabled={DEFAULT_COMPILE_COMMAND.includes('{main}') && !$mainFile}
+					title={m.wsview_use_default_title()}
+				>
+					<Play class="size-4" />
+					{m.wsview_use_default()}
+				</button>
+				<button
+					class="btn btn-xs preset-filled-primary-500 gap-1.5"
+					onclick={() => onSave(true)}
+					disabled={command.includes('{main}') && !$mainFile}
+				>
+					<Play class="size-4" />
+					{m.wsview_save_and_run()}
+				</button>
+			{/if}
 		</div>
 	</div>
-{/if}
+</Modal>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { X, Languages } from '@lucide/svelte';
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
+	import Modal from '../Modal.svelte';
 	import { themeChoice, setTheme, type ThemeChoice } from '$lib/theme';
 	import { settings, updateSettings, updateSettingsLive, applyUiLocale, setMcpEnabled, type AppSettings } from '$lib/settings';
 	import { layout, updateLayout } from '$lib/storage/layout';
@@ -189,8 +190,6 @@
 	}
 </script>
 
-<svelte:window onkeydown={(e) => open && e.key === 'Escape' && (open = false)} />
-
 {#snippet label(text: string, hint: string, disabled = false)}
 	<div class="min-w-0">
 		<div class="text-sm font-medium {disabled ? 'text-surface-400' : ''}">{text}</div>
@@ -289,210 +288,199 @@
 	</div>
 {/snippet}
 
-{#if open}
-	<div
-		class="app-scrim fixed inset-0 z-1300 flex items-center justify-center bg-black/40 p-4"
-		role="presentation"
-		onmousedown={(e) => e.target === e.currentTarget && (open = false)}
-	>
-		<div
-			class="card bg-surface-50-950 border-surface-300-700 flex h-[34rem] max-h-full w-full max-w-3xl overflow-hidden border p-0 shadow-2xl"
-		>
-			<!-- category list. Plain buttons rather than a tree: there is one level, and a disclosure
-			     arrow on something that never expands is a promise the UI does not keep. -->
-			<nav class="border-surface-300-700 bg-surface-100-900 w-44 shrink-0 overflow-y-auto border-r p-2">
-				<!-- the column's top edge was dead space, and this is the one dialog with a column to
+<Modal bind:open card="flex h-[34rem] max-h-full max-w-3xl overflow-hidden p-0">
+	<!-- category list. Plain buttons rather than a tree: there is one level, and a disclosure
+	     arrow on something that never expands is a promise the UI does not keep. -->
+	<nav class="border-surface-300-700 bg-surface-100-900 w-44 shrink-0 overflow-y-auto border-r p-2">
+		<!-- the column's top edge was dead space, and this is the one dialog with a column to
 				     spare. Height matched to the category rows so it reads as a heading over them
 				     rather than a banner. -->
-				<div class="mb-2 px-3 pt-2 pb-3">
-					<img src={logoOnLight} alt="Texpile" class="h-6 w-auto dark:hidden" />
-					<img src={logoOnDark} alt="Texpile" class="hidden h-6 w-auto dark:block" />
-				</div>
-				{#each categories as c (c.id)}
-					<button
-						class="mb-0.5 block w-full rounded px-3 py-1.5 text-left text-sm {category === c.id
-							? 'bg-primary-500/15 text-primary-700 dark:text-primary-300 font-medium'
-							: 'hover:bg-surface-200-800'}"
-						onclick={() => (category = c.id)}
-					>
-						{c.label}
-					</button>
-				{/each}
-			</nav>
+		<div class="mb-2 px-3 pt-2 pb-3">
+			<img src={logoOnLight} alt="Texpile" class="h-6 w-auto dark:hidden" />
+			<img src={logoOnDark} alt="Texpile" class="hidden h-6 w-auto dark:block" />
+		</div>
+		{#each categories as c (c.id)}
+			<button
+				class="mb-0.5 block w-full rounded px-3 py-1.5 text-left text-sm {category === c.id
+					? 'bg-primary-500/15 text-primary-700 dark:text-primary-300 font-medium'
+					: 'hover:bg-surface-200-800'}"
+				onclick={() => (category = c.id)}
+			>
+				{c.label}
+			</button>
+		{/each}
+	</nav>
 
-			<div class="flex min-w-0 flex-1 flex-col">
-				<div class="border-surface-200-800 flex shrink-0 items-center justify-between gap-4 border-b px-5 py-3">
-					<h2 class="text-base font-semibold">{categories.find((c) => c.id === category)?.label ?? m.prefs_title()}</h2>
-					<button class="btn-icon btn-icon-xs hover:preset-tonal" aria-label={m.prefs_close_aria()} onclick={() => (open = false)}
-						><X class="size-4" /></button
-					>
-				</div>
+	<div class="flex min-w-0 flex-1 flex-col">
+		<div class="border-surface-200-800 flex shrink-0 items-center justify-between gap-4 border-b px-5 py-3">
+			<h2 class="text-base font-semibold">{categories.find((c) => c.id === category)?.label ?? m.prefs_title()}</h2>
+			<button class="btn-icon btn-icon-xs hover:preset-tonal" aria-label={m.modal_close_aria()} onclick={() => (open = false)}
+				><X class="size-4" /></button
+			>
+		</div>
 
-				<div class="min-h-0 flex-1 overflow-y-auto px-5">
-					{#if category === 'appearance'}
-						<div class={ROW}>
-							{@render label(m.prefs_theme(), m.prefs_appearance_hint())}
-							<div class="bg-surface-200-800 rounded-base flex shrink-0 gap-1 p-0.5">
-								{#each themes as t (t.value)}
-									<button
-										class="rounded-base px-3 py-1 text-sm {$themeChoice === t.value
-											? 'bg-surface-50-950 font-medium shadow-sm'
-											: 'text-surface-600-400 hover:text-surface-950-50'}"
-										onclick={() => setTheme(t.value)}
-									>
-										{t.label}
-									</button>
-								{/each}
-							</div>
-						</div>
-						<div class={ROW}>
-							<!-- the one setting a user may need to find while the UI is in a language they
+		<div class="min-h-0 flex-1 overflow-y-auto px-5">
+			{#if category === 'appearance'}
+				<div class={ROW}>
+					{@render label(m.prefs_theme(), m.prefs_appearance_hint())}
+					<div class="bg-surface-200-800 rounded-base flex shrink-0 gap-1 p-0.5">
+						{#each themes as t (t.value)}
+							<button
+								class="rounded-base px-3 py-1 text-sm {$themeChoice === t.value
+									? 'bg-surface-50-950 font-medium shadow-sm'
+									: 'text-surface-600-400 hover:text-surface-950-50'}"
+								onclick={() => setTheme(t.value)}
+							>
+								{t.label}
+							</button>
+						{/each}
+					</div>
+				</div>
+				<div class={ROW}>
+					<!-- the one setting a user may need to find while the UI is in a language they
 							     cannot read, so it carries an icon the others do not -->
-							<div class="flex min-w-0 items-center gap-2">
-								<Languages class="text-surface-500 size-4 shrink-0" />
-								{@render label(m.prefs_language(), '')}
-							</div>
-							<select class="select w-32 shrink-0 text-sm" value={$settings.uiLocale} onchange={onLocaleChange}>
-								{#each uiLocales as l (l.value)}
-									<option value={l.value}>{l.label}</option>
-								{/each}
-							</select>
-						</div>
-						<!-- the whole of what a "PDF preview" tab held: one switch, and one about how the
+					<div class="flex min-w-0 items-center gap-2">
+						<Languages class="text-surface-500 size-4 shrink-0" />
+						{@render label(m.prefs_language(), '')}
+					</div>
+					<select class="select w-32 shrink-0 text-sm" value={$settings.uiLocale} onchange={onLocaleChange}>
+						{#each uiLocales as l (l.value)}
+							<option value={l.value}>{l.label}</option>
+						{/each}
+					</select>
+				</div>
+				<!-- the whole of what a "PDF preview" tab held: one switch, and one about how the
 						     document LOOKS, which is the question this tab already answers -->
-						{@render toggleRow(m.prefs_dark_pdf_pages(), m.prefs_dark_pdf_pages_note(), $layout.pdfDarkPages, (v) =>
-							updateLayout({ pdfDarkPages: v })
-						)}
-					{:else if category === 'editor'}
-						<!-- the settings that belong to neither editor in particular lead, unheaded; the two
+				{@render toggleRow(m.prefs_dark_pdf_pages(), m.prefs_dark_pdf_pages_note(), $layout.pdfDarkPages, (v) =>
+					updateLayout({ pdfDarkPages: v })
+				)}
+			{:else if category === 'editor'}
+				<!-- the settings that belong to neither editor in particular lead, unheaded; the two
 						     that are ABOUT one editor sit under its name below -->
-						{@render toggleRow(
-							m.prefs_autosave(),
-							collabHost.active
-								? m.prefs_autosave_note_session()
-								: $compileConfig.latex.liveMode
-									? m.prefs_autosave_note_live()
-									: m.prefs_autosave_note_off(),
-							autosaveForced || $settings.autosave,
-							(v) => updateSettings({ autosave: v }),
-							autosaveForced,
-							autosaveForced ? m.prefs_autosave_hint_forced() : ''
-						)}
-						{@render toggleRow(m.prefs_spellcheck(), '', $settings.spellcheck, (v) => setSpellcheckEnabled(v))}
-						{@render toggleRow(m.prefs_comment_pill(), m.prefs_comment_pill_note(), $settings.commentPill !== false, (v) =>
-							updateSettings({ commentPill: v })
-						)}
-						<!-- off silences BOTH compile-time dock opens - the terminal on start and Problems on
+				{@render toggleRow(
+					m.prefs_autosave(),
+					collabHost.active
+						? m.prefs_autosave_note_session()
+						: $compileConfig.latex.liveMode
+							? m.prefs_autosave_note_live()
+							: m.prefs_autosave_note_off(),
+					autosaveForced || $settings.autosave,
+					(v) => updateSettings({ autosave: v }),
+					autosaveForced,
+					autosaveForced ? m.prefs_autosave_hint_forced() : ''
+				)}
+				{@render toggleRow(m.prefs_spellcheck(), '', $settings.spellcheck, (v) => setSpellcheckEnabled(v))}
+				{@render toggleRow(m.prefs_comment_pill(), m.prefs_comment_pill_note(), $settings.commentPill !== false, (v) =>
+					updateSettings({ commentPill: v })
+				)}
+				<!-- off silences BOTH compile-time dock opens - the terminal on start and Problems on
 						     errors (a chronically-erroring LaTeX doc that still builds would have the dock
 						     stolen every run). The badge beside Compile stays as the passive signal. -->
-						{@render toggleRow(
-							m.prefs_open_dock_on_compile(),
-							m.prefs_open_dock_on_compile_note(),
-							$settings.openDockOnCompile !== false,
-							(v) => updateSettings({ openDockOnCompile: v })
-						)}
-						{@render selectRow(m.prefs_keybindings(), m.prefs_keybindings_note(), $settings.editorKeymap ?? 'default', keymaps, (v) =>
-							updateSettings({ editorKeymap: v as AppSettings['editorKeymap'] })
-						)}
-						{@render sectionHeading(m.prefs_group_source())}
-						<div class={SUB}>
-							{@render toggleRow(m.prefs_source_line_wrap(), m.prefs_source_line_wrap_note(), $settings.sourceLineWrap !== false, (v) =>
-								updateSettings({ sourceLineWrap: v })
-							)}
-							{@render toggleRow(m.prefs_math_preview(), m.prefs_math_preview_note(), $settings.mathPreview !== false, (v) =>
-								updateSettings({ mathPreview: v })
-							)}
-						</div>
-						{@render sectionHeading(m.prefs_group_visual())}
-						<div class={SUB}>
-							<div class={ROW}>
-								{@render label(m.prefs_visual_width(), m.prefs_visual_width_note())}
-								<div class="w-48 shrink-0">
-									<div class="text-surface-500 mb-1 text-right text-xs tabular-nums">{$settings.visualMaxWidth ?? 768}px</div>
-									<!-- oninput, not onchange: a width slider is only useful if the column moves under
+				{@render toggleRow(
+					m.prefs_open_dock_on_compile(),
+					m.prefs_open_dock_on_compile_note(),
+					$settings.openDockOnCompile !== false,
+					(v) => updateSettings({ openDockOnCompile: v })
+				)}
+				{@render selectRow(m.prefs_keybindings(), m.prefs_keybindings_note(), $settings.editorKeymap ?? 'default', keymaps, (v) =>
+					updateSettings({ editorKeymap: v as AppSettings['editorKeymap'] })
+				)}
+				{@render sectionHeading(m.prefs_group_source())}
+				<div class={SUB}>
+					{@render toggleRow(m.prefs_source_line_wrap(), m.prefs_source_line_wrap_note(), $settings.sourceLineWrap !== false, (v) =>
+						updateSettings({ sourceLineWrap: v })
+					)}
+					{@render toggleRow(m.prefs_math_preview(), m.prefs_math_preview_note(), $settings.mathPreview !== false, (v) =>
+						updateSettings({ mathPreview: v })
+					)}
+				</div>
+				{@render sectionHeading(m.prefs_group_visual())}
+				<div class={SUB}>
+					<div class={ROW}>
+						{@render label(m.prefs_visual_width(), m.prefs_visual_width_note())}
+						<div class="w-48 shrink-0">
+							<div class="text-surface-500 mb-1 text-right text-xs tabular-nums">{$settings.visualMaxWidth ?? 768}px</div>
+							<!-- oninput, not onchange: a width slider is only useful if the column moves under
 									     the cursor. updateSettingsLive applies each value, writing only the settled one. -->
-									<input
-										class="w-full accent-current"
-										type="range"
-										min="560"
-										max="1600"
-										step="16"
-										value={$settings.visualMaxWidth ?? 768}
-										oninput={(e) => updateSettingsLive({ visualMaxWidth: Number((e.currentTarget as HTMLInputElement).value) })}
-										aria-label={m.prefs_visual_width()}
-									/>
-								</div>
-							</div>
-							{@render selectRow(
-								m.prefs_image_resize_step(),
-								m.prefs_image_resize_step_note(),
-								$settings.figureResizeStep,
-								resizeSteps,
-								(v) => updateSettings({ figureResizeStep: Number(v) }),
-								'w-24'
-							)}
+							<input
+								class="w-full accent-current"
+								type="range"
+								min="560"
+								max="1600"
+								step="16"
+								value={$settings.visualMaxWidth ?? 768}
+								oninput={(e) => updateSettingsLive({ visualMaxWidth: Number((e.currentTarget as HTMLInputElement).value) })}
+								aria-label={m.prefs_visual_width()}
+							/>
 						</div>
-					{:else if category === 'toolchain'}
-						<!-- Nothing here is a preference; it is all "what did we find on this machine".
+					</div>
+					{@render selectRow(
+						m.prefs_image_resize_step(),
+						m.prefs_image_resize_step_note(),
+						$settings.figureResizeStep,
+						resizeSteps,
+						(v) => updateSettings({ figureResizeStep: Number(v) }),
+						'w-24'
+					)}
+				</div>
+			{:else if category === 'toolchain'}
+				<!-- Nothing here is a preference; it is all "what did we find on this machine".
 						     The switches that used to sit above the LaTeX list - live mode, the compile
 						     completion marker - were second copies of switches in the compile-command dialog,
 						     which is where you go to decide how this project builds. One control, one home.
 						     Typst's preview switch was never duplicated here for the same reason. -->
-						{@render toolchainHeader()}
-						{@render toolRows('latex', m.prefs_group_latex())}
-						{@render toolRows('typst', m.prefs_group_typst())}
-						<!-- No path box for tinymist, and none for the eight above it either. Where a program
+				{@render toolchainHeader()}
+				{@render toolRows('latex', m.prefs_group_latex())}
+				{@render toolRows('typst', m.prefs_group_typst())}
+				<!-- No path box for tinymist, and none for the eight above it either. Where a program
 						     lives is the operating system's answer to give: every installer puts it on PATH,
 						     and fixShellPath() in main.ts already recovers the login-shell PATH a GUI launch
 						     misses. A second copy of $PATH kept in app settings is one more place for it to be
 						     wrong, and the row above already says whether the OS's answer worked. -->
-						{@render toolRows('general', m.prefs_group_vcs())}
-					{:else if category === 'integrations'}
-						{@render toggleRow(m.prefs_zotero(), m.prefs_zotero_note(), $settings.zoteroEnabled !== false, (v) =>
-							updateSettings({ zoteroEnabled: v })
-						)}
-					{:else if category === 'startup'}
-						{@render toggleRow(m.prefs_reopen_last_folder(), '', $settings.reopenLastFolder, (v) =>
-							updateSettings({ reopenLastFolder: v })
-						)}
-						{@render toggleRow(m.prefs_check_updates(), '', $settings.checkForUpdates, (v) => updateSettings({ checkForUpdates: v }))}
-					{:else if category === 'ai'}
-						<div class={ROW}>
-							<!-- persisted through the main process, not updateSettings: flipping this also has to
+				{@render toolRows('general', m.prefs_group_vcs())}
+			{:else if category === 'integrations'}
+				{@render toggleRow(m.prefs_zotero(), m.prefs_zotero_note(), $settings.zoteroEnabled !== false, (v) =>
+					updateSettings({ zoteroEnabled: v })
+				)}
+			{:else if category === 'startup'}
+				{@render toggleRow(m.prefs_reopen_last_folder(), '', $settings.reopenLastFolder, (v) => updateSettings({ reopenLastFolder: v }))}
+				{@render toggleRow(m.prefs_check_updates(), '', $settings.checkForUpdates, (v) => updateSettings({ checkForUpdates: v }))}
+			{:else if category === 'ai'}
+				<div class={ROW}>
+					<!-- persisted through the main process, not updateSettings: flipping this also has to
 							     start or stop the loopback server, and main owns it -->
-							{@render label(m.prefs_mcp(), m.prefs_mcp_note())}
-							<Switch checked={$settings.mcpEnabled === true} onCheckedChange={(d) => void onMcpToggle(d.checked)}>
-								<Switch.Control><Switch.Thumb /></Switch.Control>
-								<Switch.HiddenInput />
-							</Switch>
-						</div>
-						{#if $settings.mcpEnabled === true && mcp}
-							<div class="border-surface-200-800 flex items-center justify-between gap-3 border-b py-3">
-								{#if mcp.running && mcp.port}
-									<span class="text-surface-500 text-xs">{m.prefs_mcp_status({ addr: `127.0.0.1:${mcp.port}` })}</span>
-									<!-- the command lives in its own modal: it is long, and read once -->
-									<button class="btn btn-xs preset-tonal shrink-0 text-xs" onclick={() => (setupOpen = true)}>{m.prefs_mcp_show()}</button>
-								{:else}
-									<span class="text-error-600 text-xs">{m.prefs_mcp_error({ error: mcp.error ?? '' })}</span>
-								{/if}
-							</div>
-							<!-- A SECOND permission, listed under the first because it is meaningless without it,
+					{@render label(m.prefs_mcp(), m.prefs_mcp_note())}
+					<Switch checked={$settings.mcpEnabled === true} onCheckedChange={(d) => void onMcpToggle(d.checked)}>
+						<Switch.Control><Switch.Thumb /></Switch.Control>
+						<Switch.HiddenInput />
+					</Switch>
+				</div>
+				{#if $settings.mcpEnabled === true && mcp}
+					<div class="border-surface-200-800 flex items-center justify-between gap-3 border-b py-3">
+						{#if mcp.running && mcp.port}
+							<span class="text-surface-500 text-xs">{m.prefs_mcp_status({ addr: `127.0.0.1:${mcp.port}` })}</span>
+							<!-- the command lives in its own modal: it is long, and read once -->
+							<button class="btn btn-xs preset-tonal shrink-0 text-xs" onclick={() => (setupOpen = true)}>{m.prefs_mcp_show()}</button>
+						{:else}
+							<span class="text-error-600 text-xs">{m.prefs_mcp_error({ error: mcp.error ?? '' })}</span>
+						{/if}
+					</div>
+					<!-- A SECOND permission, listed under the first because it is meaningless without it,
 							     but deliberately not implied by it: everything else this server exposes reads
 							     state or moves the window, while a compile command is a shell command line. -->
-							{@render toggleRow(
-								m.prefs_mcp_compile_command(),
-								m.prefs_mcp_compile_command_note(),
-								$settings.mcpAllowCompileCommand === true,
-								(v) => updateSettings({ mcpAllowCompileCommand: v })
-							)}
-						{/if}
-					{/if}
-				</div>
-			</div>
+					{@render toggleRow(
+						m.prefs_mcp_compile_command(),
+						m.prefs_mcp_compile_command_note(),
+						$settings.mcpAllowCompileCommand === true,
+						(v) => updateSettings({ mcpAllowCompileCommand: v })
+					)}
+				{/if}
+			{/if}
 		</div>
 	</div>
+</Modal>
 
-	<!-- outside the settings scroller so it is not clipped by it, and only while Preferences is
-	     open, so closing Preferences takes the instructions with it -->
+{#if open}
+	<!-- only while Preferences is open, so closing Preferences takes the instructions with it -->
 	<McpSetupModal bind:open={setupOpen} port={mcp?.port ?? null} />
 {/if}
