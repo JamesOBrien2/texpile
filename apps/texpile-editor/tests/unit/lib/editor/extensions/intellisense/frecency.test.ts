@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-	recordAccept,
-	withFrecency,
-	resetUsageForTests
-} from '../../../../../../src/lib/languages/latex/intellisense/completion/frecency';
+import { recordAccept, withFrecency, resetUsageForTests } from '../../../../../../src/lib/languages/latex/intellisense/completion/frecency';
 import { macroOptions } from '../../../../../../src/lib/languages/latex/intellisense/completion/macros';
 
 const DAY = 24 * 60 * 60 * 1000;

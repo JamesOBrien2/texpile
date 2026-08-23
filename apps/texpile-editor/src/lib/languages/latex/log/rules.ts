@@ -1,6 +1,6 @@
 // enrichment rules: attach a stable ruleId, a hint, a suggested package, and the offending command
 
-import type { LogEntry } from './types';
+import type { LogEntry } from '$lib/compileLog/types';
 
 type EnrichmentRule = {
 	id: string;

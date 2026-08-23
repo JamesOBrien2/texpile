@@ -2,7 +2,7 @@
 	import { CircleAlert, TriangleAlert, Box, FileCheck2, Info } from '@lucide/svelte';
 	import { compileLog, resolveLogPath } from '$lib/stores/compileLogStore';
 	import { mainFile, effectiveCompileFormat } from '$lib/workspace/workspaceStore';
-	import type { LogEntry } from '$lib/latex-log';
+	import type { LogEntry } from '$lib/compileLog/compileLog';
 	import { m } from '$lib/paraglide/messages';
 
 	// root is the workspace root used to resolve TeX-printed relative paths

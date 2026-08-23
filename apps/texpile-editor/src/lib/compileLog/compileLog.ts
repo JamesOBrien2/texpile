@@ -1,11 +1,11 @@
-import { parseBibLog } from './blg-parser';
-import { parseDviLog } from './dvi-parser';
-import { parseLatexLog } from './parser';
-import { enrichLogEntries } from './rules';
-import { isTypstLog, parseTypstLog } from './typst-parser';
+import { parseBibLog } from '$lib/languages/latex/log/blg-parser';
+import { parseDviLog } from '$lib/languages/latex/log/dvi-parser';
+import { parseLatexLog } from '$lib/languages/latex/log/parser';
+import { enrichLogEntries } from '$lib/languages/latex/log/rules';
+import { isTypstLog, parseTypstLog } from '$lib/languages/typst/logParser';
 import type { LatexLogParseResult, LogEntry, ParseLatexLogOptions } from './types';
 
-export { isTypstLog, parseTypstLog } from './typst-parser';
+export { isTypstLog, parseTypstLog } from '$lib/languages/typst/logParser';
 
 // A Typst run has no file tree and no TeX run status; only the entries are meaningful.
 const EMPTY_LATEX_RESULT: LatexLogParseResult = {
@@ -17,11 +17,11 @@ const EMPTY_LATEX_RESULT: LatexLogParseResult = {
 	status: { fatal: false, emergencyStop: false, noPages: false }
 };
 
-export { parseBibLog } from './blg-parser';
-export type { BibLogParseResult } from './blg-parser';
-export { parseDviLog } from './dvi-parser';
-export { parseLatexLog } from './parser';
-export { enrichLogEntries } from './rules';
+export { parseBibLog } from '$lib/languages/latex/log/blg-parser';
+export type { BibLogParseResult } from '$lib/languages/latex/log/blg-parser';
+export { parseDviLog } from '$lib/languages/latex/log/dvi-parser';
+export { parseLatexLog } from '$lib/languages/latex/log/parser';
+export { enrichLogEntries } from '$lib/languages/latex/log/rules';
 export type { LatexLogParseResult, LogEntry, LogFileNode, LogLevel, LogRunStatus, ParseLatexLogOptions } from './types';
 
 function withLevels(result: LatexLogParseResult, entries: LogEntry[]): LatexLogParseResult {

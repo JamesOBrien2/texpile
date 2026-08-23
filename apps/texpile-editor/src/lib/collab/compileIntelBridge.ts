@@ -10,7 +10,7 @@ import { projectIntelStore } from '$lib/stores/projectIntel';
 import { compileLog, resolveLogPath } from '$lib/stores/compileLogStore';
 import { relativeTo, joinPath, samePath } from '$lib/workspace/fileSystem';
 import type { EditSession } from '$lib/collab/editSession';
-import type { LogLevel } from '$lib/latex-log';
+import type { LogLevel } from '$lib/compileLog/compileLog';
 
 type Level = 'error' | 'warning' | 'badbox';
 

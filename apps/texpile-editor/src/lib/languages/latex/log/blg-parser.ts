@@ -1,7 +1,7 @@
 // .blg parser, two unrelated formats auto-detected: bibtex free-form text
 // ("Warning--...", "---line N of file F") and biber's one record per line.
 
-import type { LogEntry } from './types';
+import type { LogEntry } from '$lib/compileLog/types';
 
 export type BibLogParseResult = {
 	tool: 'bibtex' | 'biber' | null;

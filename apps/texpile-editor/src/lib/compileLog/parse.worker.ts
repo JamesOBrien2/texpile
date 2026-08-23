@@ -1,6 +1,6 @@
 // worker entry: compile-log parsing off the renderer thread. the module is pure data-in/data-out,
 // so the whole result structured-clones back as-is.
-import { parseCompileDiagnostics } from './index';
+import { parseCompileDiagnostics } from './compileLog';
 
 type ParseRequest = {
 	id: number;

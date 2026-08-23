@@ -1,5 +1,5 @@
 // promise front for parse.worker.ts: one persistent worker, requests correlated by id. kept out
-// of index.ts so node-side consumers (tests, sweeps) never touch the Worker constructor.
+// of compileLog.ts so node-side consumers (tests, sweeps) never touch the Worker constructor.
 import type { LatexLogParseResult } from './types';
 
 type ParseResponse = {

@@ -63,7 +63,7 @@
 		type TypstDiagnostic
 	} from '$lib/languages/typst/intellisense/lspClient';
 	import { noteFollowScroll } from '$lib/languages/typst/preview/followSignal';
-	import type { LogEntry } from '$lib/latex-log';
+	import type { LogEntry } from '$lib/compileLog/compileLog';
 	import {
 		openGlobalSearch as openSearchPanel,
 		closeGlobalSearch as closeSearchPanel,

@@ -7,9 +7,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseAndEnrichLatexLog, parseLatexLog } from '../../../../src/lib/latex-log';
-import { consumeFilePath } from '../../../../src/lib/latex-log/parser';
-import { LogScanner } from '../../../../src/lib/latex-log/scanner';
+import { parseAndEnrichLatexLog, parseLatexLog } from '../../../../src/lib/compileLog/compileLog';
+import { consumeFilePath } from '../../../../src/lib/languages/latex/log/parser';
+import { LogScanner } from '../../../../src/lib/languages/latex/log/scanner';
 
 const fixture = (name: string) => readFileSync(join(__dirname, 'fixtures', `${name}.log`), 'utf8');
 

@@ -1,7 +1,7 @@
 // regex line lexer + a pushdown stack tracking which file the engine has open (the log's "(file" / ")" markers)
 
 import { LogScanner } from './scanner';
-import type { LatexLogParseResult, LogEntry, LogFileNode, LogRunStatus, ParseLatexLogOptions } from './types';
+import type { LatexLogParseResult, LogEntry, LogFileNode, LogRunStatus, ParseLatexLogOptions } from '$lib/compileLog/types';
 
 // -file-line-error mode replaces "! " with "<file>:<line>: ". TeX Live prints resolved paths
 // ("./main.tex", "/abs/x.tex", "c:/..."); MikTeX can print a bare "file.tex:12:", so a second

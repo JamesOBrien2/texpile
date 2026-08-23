@@ -17,7 +17,7 @@
 // suggested fix - not diagnostics of their own. They are folded into the preceding entry's context
 // so the Problems list shows one row per real problem, with the trace available underneath.
 
-import type { LogEntry } from './types';
+import type { LogEntry } from '$lib/compileLog/types';
 
 // "error: message" / "warning: message" at the start of a line
 const SEVERITY = /^(error|warning)(?:\[[^\]]*\])?:\s*(.*)$/;

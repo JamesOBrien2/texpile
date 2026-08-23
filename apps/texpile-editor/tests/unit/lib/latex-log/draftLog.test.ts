@@ -12,7 +12,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseCompileDiagnostics } from '$lib/latex-log';
+import { parseCompileDiagnostics } from '$lib/compileLog/compileLog';
 
 const log = readFileSync(join(__dirname, 'fixtures', 'babel-hebrew-luatex.log'), 'utf8');
 

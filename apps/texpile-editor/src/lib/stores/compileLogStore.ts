@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { LatexLogParseResult } from '$lib/latex-log';
+import type { LatexLogParseResult } from '$lib/compileLog/compileLog';
 
 /** parse result of the latest compile's .log; null before the first compile. set by WorkspaceView's log watcher. */
 export type CompileLogState = {

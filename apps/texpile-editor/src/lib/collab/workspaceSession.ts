@@ -10,7 +10,13 @@ import { isSafeRel } from '$lib/collab/protocol';
 import { noteGuestJumpFreeze } from '$lib/languages/typst/preview/followSignal';
 import { resolveGuestSyncRequest } from '$lib/workspace/syncTexNav';
 import { serveGuestLspRequest, diagnosticsNotificationForGuest } from '$lib/languages/typst/intellisense/guestLsp';
-import { typstClient, addTypstDiagnosticsListener, acquireTypstLsp, releaseTypstLsp, typstServerGen } from '$lib/languages/typst/intellisense/lspClient';
+import {
+	typstClient,
+	addTypstDiagnosticsListener,
+	acquireTypstLsp,
+	releaseTypstLsp,
+	typstServerGen
+} from '$lib/languages/typst/intellisense/lspClient';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 import type { EditSession } from '$lib/collab/editSession';

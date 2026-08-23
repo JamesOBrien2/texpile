@@ -1,7 +1,7 @@
 // Samples are real tinymist 0.15.2 output, captured by compiling broken documents.
 import { describe, it, expect } from 'vitest';
-import { isTypstLog, parseTypstLog } from '$lib/latex-log/typst-parser';
-import { parseCompileDiagnostics } from '$lib/latex-log';
+import { isTypstLog, parseTypstLog } from '$lib/languages/typst/logParser';
+import { parseCompileDiagnostics } from '$lib/compileLog/compileLog';
 
 const P = 'C:\\proj\\main.typ';
 

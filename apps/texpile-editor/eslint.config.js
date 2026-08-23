@@ -9,6 +9,64 @@ import svelteConfig from './svelte.config.js';
 
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
+const restrictedImportPaths = [{ name: 'svelte/store', message: 'runes only; adapt a third-party store at the edge (styles.md)' }];
+
+// package-private folders: internals are importable only through the package's entry file
+const packagePrivatePatterns = [
+	{
+		group: ['**/languages/latex/schema/*', '!**/languages/latex/schema/latexPMSchema'],
+		message: 'latexPMSchema internals are package-private; import through latexPMSchema.ts'
+	},
+	{
+		group: ['**/languages/bib/*', '!**/languages/bib/biblatex', '!**/languages/bib/bibtexLanguage'],
+		message: 'bib internals are package-private; import through biblatex.ts or bibtexLanguage.ts'
+	}
+];
+
+// a language never imports a sibling language; shared code lives in editor/. The two named
+// exceptions are the current shared document model (the latex base schema every dialect derives
+// from) and the per-dialect strip dispatch; both are extraction candidates, not an invitation.
+function languageBoundary(bans) {
+	return { 'no-restricted-imports': ['warn', { paths: restrictedImportPaths, patterns: [...packagePrivatePatterns, ...bans] }] };
+}
+// a negation cannot re-include a file whose parent directory another pattern excluded (gitignore
+// semantics), so subfolders are listed one by one and root files by name - a new root file or
+// subfolder must be added here to stay fenced
+const banLatex = {
+	group: [
+		'**/languages/latex/latexLanguage',
+		'**/languages/latex/log/**',
+		'**/languages/latex/parser/**',
+		'**/languages/latex/serializer/**',
+		'**/languages/latex/visual/**',
+		'**/languages/latex/extensions/**',
+		'**/languages/latex/intellisense/**',
+		'**/languages/latex/schema/*',
+		'!**/languages/latex/schema/latexPMSchema'
+	],
+	message: 'cross-language import; shared code belongs in editor/ (styles.md)'
+};
+const banTypst = {
+	group: [
+		'**/languages/typst/typstLanguage',
+		'**/languages/typst/logParser',
+		'**/languages/typst/filerefs',
+		'**/languages/typst/projectFiles',
+		'**/languages/typst/intellisense/**',
+		'**/languages/typst/preview/**',
+		'**/languages/typst/extensions/**',
+		'**/languages/typst/visual/*',
+		'!**/languages/typst/visual/sourceMap'
+	],
+	message: 'cross-language import; shared code belongs in editor/ (styles.md)'
+};
+const banMarkdown = { group: ['**/languages/markdown/**'], message: 'cross-language import; shared code belongs in editor/ (styles.md)' };
+const banAll = [
+	{ group: ['**/languages/latex/**'], message: 'bib is a dependency of the other languages, never the reverse' },
+	{ group: ['**/languages/typst/**'], message: 'bib is a dependency of the other languages, never the reverse' },
+	{ group: ['**/languages/markdown/**'], message: 'bib is a dependency of the other languages, never the reverse' }
+];
+
 export default ts.config(
 	includeIgnoreFile(gitignorePath),
 	// vendored pdf.js modules keep upstream style (see src/lib/draft/type1/README.md)
@@ -100,22 +158,16 @@ export default ts.config(
 	// package-private folders: internals are importable only within their own folder
 	{
 		files: ['src/**'],
-		ignores: ['src/lib/languages/latex/schema/**'],
+		ignores: ['src/lib/languages/latex/schema/**', 'src/lib/languages/bib/**'],
 		rules: {
-			'no-restricted-imports': [
-				'warn',
-				{
-					paths: [{ name: 'svelte/store', message: 'runes only; adapt a third-party store at the edge (styles.md)' }],
-					patterns: [
-						{
-							group: ['**/languages/latex/schema/*', '!**/languages/latex/schema/latexPMSchema'],
-							message: 'latexPMSchema internals are package-private; import through latexPMSchema.ts'
-						}
-					]
-				}
-			]
+			'no-restricted-imports': ['warn', { paths: restrictedImportPaths, patterns: packagePrivatePatterns }]
 		}
 	},
+	// cross-language boundaries (see languageBoundary above)
+	{ files: ['src/lib/languages/latex/**'], rules: languageBoundary([banTypst, banMarkdown]) },
+	{ files: ['src/lib/languages/typst/**'], rules: languageBoundary([banLatex, banMarkdown]) },
+	{ files: ['src/lib/languages/markdown/**'], rules: languageBoundary([banLatex, banTypst]) },
+	{ files: ['src/lib/languages/bib/**'], rules: { 'no-restricted-imports': ['warn', { paths: restrictedImportPaths, patterns: banAll }] } },
 	{
 		files: ['src/**/*.ts', 'src/**/*.svelte'],
 		rules: {

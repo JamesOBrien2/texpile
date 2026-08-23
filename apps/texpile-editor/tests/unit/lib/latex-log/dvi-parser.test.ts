@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDviLog } from '../../../../src/lib/latex-log/dvi-parser';
+import { parseDviLog } from '../../../../src/lib/languages/latex/log/dvi-parser';
 
 describe('parseDviLog (dvipdfmx/xdvipdfmx terminal output)', () => {
 	it('folds >> continuations into one warning and flags fatals as errors', () => {

@@ -3,7 +3,7 @@
 // WorkspaceView wires the deps.
 import { get } from 'svelte/store';
 import { compileLog, rebaseLogFile } from '$lib/stores/compileLogStore';
-import { parseCompileDiagnosticsInWorker } from '$lib/latex-log/parseInWorker';
+import { parseCompileDiagnosticsInWorker } from '$lib/compileLog/parseInWorker';
 import { pdfStore } from '$lib/stores/pdfStore';
 import { projectIntelStore } from '$lib/stores/projectIntel';
 import { DEFAULT_COMPILE_COMMAND, settings } from '$lib/settings';

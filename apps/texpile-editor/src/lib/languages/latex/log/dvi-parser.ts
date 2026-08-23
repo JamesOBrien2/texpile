@@ -3,7 +3,7 @@
 // the driver writes to stdout, not the .log, so the input is the compile's captured terminal
 // output; on a pdflatex/lualatex run nothing here matches and the result is empty.
 
-import type { LogEntry } from './types';
+import type { LogEntry } from '$lib/compileLog/types';
 
 const WARN = /^x?dvipdfmx:warning: (.+)$/;
 const CONTINUED_WARN = /^x?dvipdfmx:warning: >> (.*)$/;

@@ -8,7 +8,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseAndEnrichLatexLog, parseBibLog } from '../../../../src/lib/latex-log';
+import { parseAndEnrichLatexLog, parseBibLog } from '../../../../src/lib/compileLog/compileLog';
 
 function collect(dir: string, ext: string, out: string[] = []): string[] {
 	for (const name of readdirSync(dir)) {

@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseBibLog, parseCompileDiagnostics } from '../../../../src/lib/latex-log';
+import { parseBibLog, parseCompileDiagnostics } from '../../../../src/lib/compileLog/compileLog';
 
 const fixture = (name: string) => readFileSync(join(__dirname, 'fixtures', name), 'utf8');
 
