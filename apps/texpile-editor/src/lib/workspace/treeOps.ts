@@ -32,7 +32,7 @@ export type TreeOpsDeps = {
 	/** whether the two above actually work. Lets a caller pass unconditional closures and report
 	 *  the capability separately, which is what reading a Svelte prop lazily requires. */
 	supportsTrash?(): boolean;
-	writeBinary(path: string, data: File): Promise<unknown>;
+	writeBinary(path: string, file: File): Promise<unknown>;
 	stat(path: string): Promise<{ exists: boolean }>;
 	refreshTree(): Promise<void>;
 	/** refresh citation keys after a new .bib appears. */

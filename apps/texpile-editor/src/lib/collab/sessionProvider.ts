@@ -66,7 +66,7 @@ export const sessionProvider: WorkspaceProvider = {
 
 	writeText: async () => {}, // a guest's text edits flow through the CRDT binding, never a file write
 	// a guest CAN add files (drag / paste / upload); they're sent to the host, which writes them
-	writeBinary: async (path, data) => collabGuest.uploadFile(toRel(path), new Uint8Array(await data.arrayBuffer())),
+	writeBinary: async (path, blob) => collabGuest.uploadFile(toRel(path), new Uint8Array(await blob.arrayBuffer())),
 	create: async (path, type, content = '') => {
 		if (type === 'file') collabGuest.uploadFile(toRel(path), new TextEncoder().encode(content));
 		// a folder is guest-local until a file lands inside it (the git model: an empty dir is

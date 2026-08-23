@@ -50,7 +50,7 @@ export type McpCommandDeps = {
 
 type NativeMcp = {
 	onMcpRequest?: (cb: (req: { id: number; kind: string; args?: Record<string, unknown> }) => void) => () => void;
-	mcpRespond?: (id: number, data: unknown) => void;
+	mcpRespond?: (id: number, payload: unknown) => void;
 	onMcpCommand?: (cb: (cmd: Record<string, unknown>) => void) => () => void;
 };
 function native(): NativeMcp | undefined {

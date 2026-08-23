@@ -17,10 +17,11 @@ function hex(buf: ArrayBuffer) {
 	return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function hkdf(code: string, info: string, bits: number): Promise<ArrayBuffer> {
+async function hkdf(code: string, purpose: string, bits: number): Promise<ArrayBuffer> {
 	const ikm = await crypto.subtle.importKey('raw', te.encode(normalizeShareCode(code)), 'HKDF', false, ['deriveBits']);
 	return crypto.subtle.deriveBits(
-		{ name: 'HKDF', hash: 'SHA-256', salt: te.encode('texpile-collab-v1'), info: te.encode(info) },
+		// eslint-disable-next-line id-denylist -- `info` is the Web Crypto HkdfParams field
+		{ name: 'HKDF', hash: 'SHA-256', salt: te.encode('texpile-collab-v1'), info: te.encode(purpose) },
 		ikm,
 		bits
 	);

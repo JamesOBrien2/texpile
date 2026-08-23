@@ -127,8 +127,8 @@
 	function writeTextFile(p: string, content: string) {
 		return provider.writeText(p, content);
 	}
-	function writeBinaryFile(p: string, data: Blob) {
-		return provider.writeBinary(p, data);
+	function writeBinaryFile(p: string, blob: Blob) {
+		return provider.writeBinary(p, blob);
 	}
 	function statFile(p: string) {
 		return provider.stat(p);
@@ -1275,7 +1275,7 @@
 	// so a guest's images come from the session blob cache and uploads go through the session
 	setEditorFileAccess(
 		(p) => provider.fileUrl(p),
-		(p, data) => provider.writeBinary(p, data)
+		(p, blob) => provider.writeBinary(p, blob)
 	);
 	setGraphicResolver((rel) =>
 		graphicCandidateUrls(rel, { root: get(workspaceRoot), loadedPath: doc.path, source: doc.texSource, fileUrl })

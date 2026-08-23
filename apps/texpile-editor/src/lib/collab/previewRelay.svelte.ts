@@ -193,6 +193,7 @@ class PreviewRelayController {
 	}
 
 	/** one event down from a leg's socket: confirm, forward (chunked), or tear down. */
+	// eslint-disable-next-line id-denylist -- `data` is the preload bridge's event field (TexpileTypstBridge.onRelayEvent)
 	private onRelayEvent(e: { id: number; ev: 'open' | 'data' | 'close'; data?: string | ArrayBuffer }): void {
 		const leg = this.byRelayId.get(e.id);
 		if (!leg) return; // a superseded socket's tail; electron already closed it

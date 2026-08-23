@@ -28,13 +28,13 @@ export class EventBus {
 		this.listeners.get(eventName)?.delete(listener);
 	}
 
-	dispatch(eventName: string, data?: Record<string, unknown>): void {
+	dispatch(eventName: string, detail?: Record<string, unknown>): void {
 		const eventListeners = this.listeners.get(eventName);
 		if (!eventListeners || eventListeners.size === 0) {
 			return;
 		}
 		for (const listener of eventListeners) {
-			listener({ source: this, ...data });
+			listener({ source: this, ...detail });
 		}
 	}
 
@@ -43,4 +43,4 @@ export class EventBus {
 	}
 }
 
-export type EventListener = (data: Record<string, unknown>) => void;
+export type EventListener = (detail: Record<string, unknown>) => void;

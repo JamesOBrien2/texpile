@@ -33,9 +33,9 @@ async function loadLanguageByName(name: string | null | undefined): Promise<{ na
 		const { latex } = await import('$lib/languages/latex/source/latexLanguage');
 		return { name: 'LaTeX', support: latex() };
 	}
-	const data = cmlangdata.find((l) => l.name.toLowerCase() === name.toLowerCase());
-	if (!data) return null;
-	return { name: data.name, support: await data.load() };
+	const lang = cmlangdata.find((l) => l.name.toLowerCase() === name.toLowerCase());
+	if (!lang) return null;
+	return { name: lang.name, support: await lang.load() };
 }
 
 // reactive props stashed on the container so update() can reach the mounted component without a registry.

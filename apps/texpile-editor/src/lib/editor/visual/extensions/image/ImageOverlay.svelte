@@ -103,14 +103,14 @@
 		return w ? w[1].trim() : '';
 	});
 	function setTypstWidth(raw: string) {
-		const val = raw.trim();
+		const trimmed = raw.trim();
 		// a Typst length or 'auto'; anything else would be spliced into the call and break it
-		if (val && !/^([0-9]*\.?[0-9]+(%|pt|mm|cm|in|em|fr)|auto)$/.test(val)) return;
+		if (trimmed && !/^([0-9]*\.?[0-9]+(%|pt|mm|cm|in|em|fr)|auto)$/.test(trimmed)) return;
 		const rest = String(node.attrs.options ?? '')
 			.split(',')
 			.map((s) => s.trim())
 			.filter((s) => s && !/^width:/.test(s));
-		const next = [...(val ? [`width: ${val}`] : []), ...rest].join(', ');
+		const next = [...(trimmed ? [`width: ${trimmed}`] : []), ...rest].join(', ');
 		updateAttrs({ options: next || null });
 	}
 

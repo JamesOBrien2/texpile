@@ -164,13 +164,13 @@
 			formErrors = mapIssues(parsed.error.issues);
 			return;
 		}
-		const data = parsed.data as BiblatexReference;
-		if (!isKeyUnique(data.key)) {
+		const entry = parsed.data as BiblatexReference;
+		if (!isKeyUnique(entry.key)) {
 			formErrors.key = [m.bib_error_key_unique()];
 			return;
 		}
-		if (isEditing && originalKey) refs = refs.map((r) => (r.key === originalKey ? data : r));
-		else refs = [...refs, data];
+		if (isEditing && originalKey) refs = refs.map((r) => (r.key === originalKey ? entry : r));
+		else refs = [...refs, entry];
 		commit();
 		resetForm();
 	}

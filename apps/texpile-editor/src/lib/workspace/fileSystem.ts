@@ -75,7 +75,7 @@ type TexpileNative = {
 	fsScan: (root: string, exts?: string) => Promise<{ root: string; files: TexFile[] }>;
 	fsRead: (path: string) => Promise<{ content: string }>;
 	fsWrite: (path: string, content: string) => Promise<{ ok: boolean }>;
-	fsWriteBinary: (path: string, data: ArrayBuffer) => Promise<{ ok: boolean }>;
+	fsWriteBinary: (path: string, bytes: ArrayBuffer) => Promise<{ ok: boolean }>;
 	fsTree: (root: string) => Promise<{ root: string; children: TreeEntry[] }>;
 	fsTreeScan: (root: string, exts?: string) => Promise<{ root: string; children: TreeEntry[]; files: TexFile[] }>;
 	fsOp: (body: Record<string, unknown>) => Promise<{ ok: boolean }>;
@@ -95,7 +95,7 @@ type TexpileNative = {
 	draftTypeset: (body: { root: string; mainFile: string; text: string; hsize?: number }) => Promise<ParagraphResult>;
 	draftStop: () => Promise<{ ok: boolean }>;
 	draftTakeover?: (body: { root: string }) => Promise<{ ok: boolean }>;
-	onDraftPreempted?: (cb: (info: { root: string }) => void) => () => void;
+	onDraftPreempted?: (cb: (notice: { root: string }) => void) => () => void;
 	draftSavePdf: (body: { root: string; defaultName: string; to?: string }) => Promise<{ saved: boolean; path?: string }>;
 	savePdfAs?: (body: { src: string; defaultPath: string; to?: string }) => Promise<{ saved: boolean; path?: string }>;
 	savePdfBytes?: (body: { bytes: Uint8Array; defaultName: string; to?: string }) => Promise<{ saved: boolean; path?: string }>;

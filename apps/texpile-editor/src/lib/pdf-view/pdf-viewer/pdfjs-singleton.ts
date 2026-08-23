@@ -76,7 +76,8 @@ export async function getPdfDocument(src: DocumentSource, ownerDocument?: Docume
 		typeof src === 'string' || src instanceof URL
 			? { url: src }
 			: src instanceof ArrayBuffer || ArrayBuffer.isView(src)
-				? { data: src }
+				? // eslint-disable-next-line id-denylist -- pdf.js DocumentInitParameters field
+					{ data: src }
 				: src;
 	return pdfjs.getDocument({ ...params, worker: pdfWorker, ...(ownerDocument ? { ownerDocument } : {}) });
 }

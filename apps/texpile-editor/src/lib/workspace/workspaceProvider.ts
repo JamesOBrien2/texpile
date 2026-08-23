@@ -34,7 +34,7 @@ export type WorkspaceProvider = {
 
 	// writes / tree mutations (only meaningful when caps.manageTree)
 	writeText(path: string, content: string): Promise<void>;
-	writeBinary(path: string, data: Blob): Promise<void>;
+	writeBinary(path: string, blob: Blob): Promise<void>;
 	create(path: string, type: 'file' | 'dir', content?: string): Promise<void>;
 	remove(path: string): Promise<void>;
 	rename(from: string, to: string): Promise<void>;

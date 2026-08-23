@@ -165,8 +165,8 @@ export function encodeFrame(frame: Frame): Uint8Array {
 	return encoding.toUint8Array(enc);
 }
 
-export function decodeFrame(data: Uint8Array): Frame {
-	const dec = decoding.createDecoder(data);
+export function decodeFrame(bytes: Uint8Array): Frame {
+	const dec = decoding.createDecoder(bytes);
 	const type = decoding.readVarUint(dec) as FrameType;
 	const from = decoding.readVarUint(dec);
 	const to = decoding.readVarUint(dec);

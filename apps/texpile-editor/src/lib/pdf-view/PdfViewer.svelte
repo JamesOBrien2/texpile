@@ -146,8 +146,8 @@
 			rendererActions = renderer;
 		},
 		_onerror: untrack(() => onerror),
-		_setSrcDataForDownload: (data: ArrayBuffer | null) => {
-			srcDataForDownload = data;
+		_setSrcDataForDownload: (bytes: ArrayBuffer | null) => {
+			srcDataForDownload = bytes;
 		}
 	});
 </script>

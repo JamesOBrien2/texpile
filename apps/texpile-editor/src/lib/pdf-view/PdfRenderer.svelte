@@ -136,31 +136,32 @@
 
 				findController = new FindController(viewer, eventBus);
 
-				eventBus.on('scalechanged', (data: Record<string, unknown>) => {
-					viewerState.scale = data.scale as number;
+				eventBus.on('scalechanged', (evt: Record<string, unknown>) => {
+					viewerState.scale = evt.scale as number;
 				});
 
-				eventBus.on('rotationchanged', (data: Record<string, unknown>) => {
-					viewerState.rotation = data.rotation as number;
+				eventBus.on('rotationchanged', (evt: Record<string, unknown>) => {
+					viewerState.rotation = evt.rotation as number;
 				});
 
-				eventBus.on('updateviewarea', (data: Record<string, unknown>) => {
-					const location = data.location as { pageNumber: number };
+				eventBus.on('updateviewarea', (evt: Record<string, unknown>) => {
+					const location = evt.location as { pageNumber: number };
 					viewerState.currentPage = location.pageNumber;
 				});
 
-				eventBus.on('pagesloaded', (data: Record<string, unknown>) => {
-					viewerState.totalPages = data.pagesCount as number;
+				eventBus.on('pagesloaded', (evt: Record<string, unknown>) => {
+					viewerState.totalPages = evt.pagesCount as number;
 				});
 
-				eventBus.on('updatefindmatchescount', (data: Record<string, unknown>) => {
-					const matchesCount = data.matchesCount as { current: number; total: number };
+				eventBus.on('updatefindmatchescount', (evt: Record<string, unknown>) => {
+					const matchesCount = evt.matchesCount as { current: number; total: number };
 					viewerState.searchCurrent = matchesCount.current;
 					viewerState.searchTotal = matchesCount.total;
 				});
 			}
 			const v = viewer;
 
+			// eslint-disable-next-line id-denylist -- pdf.js DocumentInitParameters field
 			let documentSource: string | { data: ArrayBuffer } | { data: Uint8Array };
 
 			if (typeof source === 'string') {
@@ -169,12 +170,15 @@
 			} else if (source instanceof Blob) {
 				const arrayBuffer = await source.arrayBuffer();
 				_setSrcDataForDownload(arrayBuffer.slice(0)); // copy for download
+				// eslint-disable-next-line id-denylist -- pdf.js DocumentInitParameters field
 				documentSource = { data: arrayBuffer };
 			} else if (source instanceof ArrayBuffer) {
 				_setSrcDataForDownload(source.slice(0)); // copy before PDF.js detaches it
+				// eslint-disable-next-line id-denylist -- pdf.js DocumentInitParameters field
 				documentSource = { data: source };
 			} else if (source instanceof Uint8Array) {
 				_setSrcDataForDownload(new Uint8Array(source).buffer.slice(0) as ArrayBuffer); // copy for download
+				// eslint-disable-next-line id-denylist -- pdf.js DocumentInitParameters field
 				documentSource = { data: source };
 			} else {
 				throw new Error('Invalid PDF source type');

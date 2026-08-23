@@ -24,7 +24,7 @@ export type ReferenceItem = {
 	id: string;
 	displayText: string;
 	subtitle?: string;
-	data: BiblatexReference | ReferenceItemMeta;
+	payload: BiblatexReference | ReferenceItemMeta;
 };
 
 let selectedIndex = 0;
@@ -40,7 +40,7 @@ function convertBibliographyToReferenceItems(citations: BiblatexReference[]): Re
 		id: citation.key,
 		displayText: `${citation.author || 'Unknown'} (${citation.year || citation.date?.slice(0, 4) || 'n.d.'})`,
 		subtitle: citation.title,
-		data: citation
+		payload: citation
 	}));
 }
 
@@ -71,7 +71,7 @@ function extractTableReferences(view: EditorView): ReferenceItem[] {
 				id: node.attrs.label,
 				displayText: `Table ${tableCount}`,
 				subtitle: subtitle,
-				data: {
+				payload: {
 					label: node.attrs.label,
 					number: tableCount,
 					position: pos,
@@ -116,7 +116,7 @@ function extractFigureReferences(view: EditorView): ReferenceItem[] {
 				id: node.attrs.label,
 				displayText: `Figure ${figureCount}`,
 				subtitle: subtitle,
-				data: {
+				payload: {
 					label: node.attrs.label,
 					number: figureCount,
 					position: pos,
@@ -158,7 +158,7 @@ function extractEquationReferences(view: EditorView): ReferenceItem[] {
 					// itself displays, so the menu offers exactly what the user sees
 					displayText: `<${node.attrs.label}>`,
 					subtitle: [currentSection, preview].filter(Boolean).join(' • ') || node.attrs.label,
-					data: { label: node.attrs.label, number: equationCount, position: pos, section: currentSection, content }
+					payload: { label: node.attrs.label, number: equationCount, position: pos, section: currentSection, content }
 				});
 			}
 			return;
@@ -185,7 +185,7 @@ function extractEquationReferences(view: EditorView): ReferenceItem[] {
 							id: label,
 							displayText: `Equation ${equationCount}`,
 							subtitle: subtitle,
-							data: {
+							payload: {
 								label: label,
 								number: equationCount,
 								position: pos,
@@ -208,7 +208,7 @@ function extractEquationReferences(view: EditorView): ReferenceItem[] {
 					id: node.attrs.label,
 					displayText: `Equation ${equationCount}`,
 					subtitle: subtitle,
-					data: {
+					payload: {
 						label: node.attrs.label,
 						number: equationCount,
 						position: pos,
@@ -229,7 +229,7 @@ function filterReferences(items: ReferenceItem[], query: string): ReferenceItem[
 	const searchTerm = query.toLowerCase();
 	return items.filter((item) => {
 		if (item.type === 'bibliography') {
-			const citation = item.data as BiblatexReference;
+			const citation = item.payload as BiblatexReference;
 			const authorStr = Array.isArray(citation.author) ? citation.author.join(' ') : citation.author || '';
 
 			// auto-generated texpile-cite- keys aren't searchable, user custom keys are
@@ -242,7 +242,7 @@ function filterReferences(items: ReferenceItem[], query: string): ReferenceItem[
 				citation.year?.toString().includes(searchTerm)
 			);
 		} else if (item.type === 'table') {
-			const meta = item.data as ReferenceItemMeta;
+			const meta = item.payload as ReferenceItemMeta;
 			const section = meta.section || '';
 			const caption = meta.caption || '';
 
@@ -253,7 +253,7 @@ function filterReferences(items: ReferenceItem[], query: string): ReferenceItem[
 				item.id.toLowerCase().includes(searchTerm)
 			);
 		} else if (item.type === 'figure') {
-			const meta = item.data as ReferenceItemMeta;
+			const meta = item.payload as ReferenceItemMeta;
 			const section = meta.section || '';
 			const caption = meta.caption || '';
 			const alt = meta.alt || '';
@@ -266,7 +266,7 @@ function filterReferences(items: ReferenceItem[], query: string): ReferenceItem[
 				item.id.toLowerCase().includes(searchTerm)
 			);
 		} else if (item.type === 'equation') {
-			const meta = item.data as ReferenceItemMeta;
+			const meta = item.payload as ReferenceItemMeta;
 			const section = meta.section || '';
 			const content = meta.content || '';
 

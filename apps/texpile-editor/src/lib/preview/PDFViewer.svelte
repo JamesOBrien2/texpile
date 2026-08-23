@@ -91,7 +91,7 @@
 	// no src given: follow pdfStore
 	onMount(() => {
 		if (src !== undefined) return;
-		return pdfStore.subscribe((data) => apply(data));
+		return pdfStore.subscribe((pdf) => apply(pdf));
 	});
 </script>
 

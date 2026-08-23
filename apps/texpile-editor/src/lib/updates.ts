@@ -37,7 +37,7 @@ type UpdatesBridge = {
 	download: () => Promise<{ ok: boolean }>;
 	install: () => Promise<void>;
 	onProgress: (cb: (p: { percent: number; transferred: number; total: number }) => void) => () => void;
-	onDownloaded: (cb: (info: { version: string }) => void) => () => void;
+	onDownloaded: (cb: (update: { version: string }) => void) => () => void;
 	onError: (cb: (err: { message: string }) => void) => () => void;
 };
 

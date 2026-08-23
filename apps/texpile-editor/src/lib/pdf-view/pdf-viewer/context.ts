@@ -60,7 +60,7 @@ export type PdfViewerContext = {
 	_registerRenderer: (renderer: PdfViewerActions) => void;
 	_onerror?: (error: string) => void;
 	// internal: stores a copy of binary data for download (PDF.js detaches ArrayBuffers)
-	_setSrcDataForDownload: (data: ArrayBuffer | null) => void;
+	_setSrcDataForDownload: (bytes: ArrayBuffer | null) => void;
 };
 
 export function setPdfViewerContext(ctx: PdfViewerContext): void {

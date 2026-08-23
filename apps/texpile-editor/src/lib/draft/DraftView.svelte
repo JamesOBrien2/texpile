@@ -217,6 +217,7 @@
 					pixDoc = (async () => {
 						// fetch bytes up front: range requests against a PDF latexmk may be rewriting would tear
 						const buf = await (await fetch(fileUrl(root + '/_draft/draft.pdf'), { cache: 'no-store' })).arrayBuffer();
+						// eslint-disable-next-line id-denylist -- pdf.js getDocument's own field
 						const task = await getPdfDocument({ data: buf });
 						if (!task) throw new Error('no pdfjs');
 						return task.promise;
@@ -274,6 +275,7 @@
 				if (!pixDoc)
 					pixDoc = (async () => {
 						const buf = await (await fetch(fileUrl(root + '/_draft/draft.pdf'), { cache: 'no-store' })).arrayBuffer();
+						// eslint-disable-next-line id-denylist -- pdf.js getDocument's own field
 						const task = await getPdfDocument({ data: buf });
 						if (!task) throw new Error('no pdfjs');
 						return task.promise;

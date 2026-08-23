@@ -160,8 +160,8 @@ export class CollabSession {
 		this.doc.on('update', this.onDocUpdate);
 		this.awareness.on('update', this.onAwarenessUpdate);
 		this.awareness.on('change', this.rebuildPeers);
-		this.transport.onMessage = (data, fromHost) => {
-			this.recvChain = this.recvChain.then(() => this.receive(data, fromHost)).catch(() => {});
+		this.transport.onMessage = (frame, fromHost) => {
+			this.recvChain = this.recvChain.then(() => this.receive(frame, fromHost)).catch(() => {});
 		};
 		this.transport.onNotice = this.onNotice;
 		this.transport.onStatus = (s, detail) => {

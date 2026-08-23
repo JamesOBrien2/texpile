@@ -17,7 +17,7 @@
 		pinned?: boolean;
 		/** payload for bars whose controls come from a list rather than being written out one by one:
 		 *  one snippet reads this instead of needing a snippet per control */
-		data?: unknown;
+		payload?: unknown;
 		render: Snippet<[OverflowItem]>;
 	};
 

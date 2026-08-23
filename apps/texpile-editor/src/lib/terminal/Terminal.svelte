@@ -161,11 +161,11 @@
 			term.onData((d) => b.write(id, d));
 			term.onResize(({ cols, rows }) => b.resize(id, cols, rows));
 			unsubs.push(
-				b.onData(({ id: tid, data }) => {
+				b.onData(({ id: tid, data: chunk }) => {
 					if (tid !== id) return;
-					term?.write(data);
+					term?.write(chunk);
 					if (tracked) {
-						const clean = stripEscapes(data);
+						const clean = stripEscapes(chunk);
 						tracked.chunks.push(clean);
 						tracked.len += clean.length;
 						// join+trim only past 2x the cap, so the kept tail never dips below MAX_CAPTURE

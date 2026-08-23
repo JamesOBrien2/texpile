@@ -3,11 +3,11 @@
 // resolves URLs from the shared doc's blob cache and uploads through the session instead.
 
 let resolveUrl: ((path: string) => string) | null = null;
-let writeBinary: ((path: string, data: Blob) => Promise<void>) | null = null;
+let writeBinary: ((path: string, blob: Blob) => Promise<void>) | null = null;
 
 export function setEditorFileAccess(
 	resolve: ((path: string) => string) | null,
-	write: ((path: string, data: Blob) => Promise<void>) | null
+	write: ((path: string, blob: Blob) => Promise<void>) | null
 ): void {
 	resolveUrl = resolve;
 	writeBinary = write;
@@ -18,7 +18,7 @@ export function editorFileUrl(path: string): string {
 	return resolveUrl?.(path) ?? '';
 }
 
-export async function editorWriteBinary(path: string, data: Blob): Promise<void> {
+export async function editorWriteBinary(path: string, blob: Blob): Promise<void> {
 	if (!writeBinary) throw new Error('No workspace to write to');
-	await writeBinary(path, data);
+	await writeBinary(path, blob);
 }

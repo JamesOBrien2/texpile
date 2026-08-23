@@ -8,10 +8,10 @@ export type TransportStatus = 'connecting' | 'connected' | 'disconnected' | 'clo
 
 export type Transport = {
 	/** ArrayBuffer-backed: a SharedArrayBuffer-backed view is not a valid BufferSource for send() */
-	send(data: Uint8Array<ArrayBuffer>): void;
+	send(frame: Uint8Array<ArrayBuffer>): void;
 	close(): void;
 	/** fromHost = the relay stamped this frame as coming from the authenticated host socket. */
-	onMessage: ((data: Uint8Array, fromHost: boolean) => void) | null;
+	onMessage: ((frame: Uint8Array, fromHost: boolean) => void) | null;
 	onNotice: ((n: RelayNotice) => void) | null;
 	onStatus: ((s: TransportStatus, detail?: string) => void) | null;
 };
@@ -39,7 +39,7 @@ const FATAL_CLOSES = new Set([4001, 4003, 4006, 4010]);
 const MAX_BACKOFF_MS = 15_000;
 
 export class RelayTransport implements Transport {
-	onMessage: ((data: Uint8Array, fromHost: boolean) => void) | null = null;
+	onMessage: ((frame: Uint8Array, fromHost: boolean) => void) | null = null;
 	onNotice: ((n: RelayNotice) => void) | null = null;
 	onStatus: ((s: TransportStatus, detail?: string) => void) | null = null;
 
@@ -110,9 +110,9 @@ export class RelayTransport implements Transport {
 		}, delay);
 	}
 
-	send(data: Uint8Array<ArrayBuffer>): void {
+	send(frame: Uint8Array<ArrayBuffer>): void {
 		// drops while disconnected are fine: the session re-runs its sync handshake on reconnect
-		if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(data);
+		if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(frame);
 	}
 
 	close(): void {

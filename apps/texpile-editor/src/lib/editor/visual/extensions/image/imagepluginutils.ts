@@ -5,9 +5,9 @@ import { generateLabel } from '$lib/editor/visual/label';
 import type { ImagePluginSettings, ImagePluginState, InsertImagePlaceholder, RemoveImagePlaceholder } from './types';
 
 export function dataURIToFile(dataURI: string, name: string) {
-	const arr = dataURI.split(',');
-	const mime = arr[0]?.match(/:(.*?);/)?.[1];
-	const bstr = atob(arr[1]);
+	const parts = dataURI.split(',');
+	const mime = parts[0]?.match(/:(.*?);/)?.[1];
+	const bstr = atob(parts[1]);
 	let n = bstr.length;
 	const u8arr = new Uint8Array(n);
 
@@ -43,11 +43,11 @@ export function startImageUploadFn(
 	view.dispatch(tr);
 
 	return uploadFile()
-		.then((data) => {
-			const { url, alt } = data;
+		.then((uploaded) => {
+			const { url, alt } = uploaded;
 			const placholderPos = pluginSettings.findPlaceholder(view.state, id);
 			// placeholder was deleted, drop the image
-			if (placholderPos == null) return data;
+			if (placholderPos == null) return uploaded;
 			const removeMeta: RemoveImagePlaceholder = { type: 'remove', id };
 
 			const label = generateLabel('figure');
@@ -63,7 +63,7 @@ export function startImageUploadFn(
 					)
 					.setMeta(imagePluginKey, removeMeta)
 			);
-			return data;
+			return uploaded;
 		})
 		.catch((reason) => {
 			const removeMeta: RemoveImagePlaceholder = { type: 'remove', id };

@@ -29,10 +29,11 @@ declare global {
 		/** Spawn or reuse a shell for `id` in `cwd`. `shell` is the executable's basename (e.g. "cmd.exe"). */
 		spawn(opts: { id: string; cwd?: string; cols?: number; rows?: number }): Promise<{ ok: boolean; shell?: string; error?: string }>;
 		/** Send keystrokes / a command (append '\r' to run). */
-		write(id: string, data: string): void;
+		write(id: string, input: string): void;
 		resize(id: string, cols: number, rows: number): void;
 		kill(id: string): void;
 		/** Subscribe to output; returns an unsubscribe fn. */
+		// eslint-disable-next-line id-denylist -- `data` is the preload message's field name
 		onData(cb: (msg: { id: string; data: string }) => void): () => void;
 		/** Subscribe to shell exit; returns an unsubscribe fn. */
 		onExit(cb: (msg: { id: string; code: number }) => void): () => void;
@@ -72,11 +73,13 @@ declare global {
 		prepareGuestPreview(html: string, background: string, foreground: string): Promise<{ ok: boolean; url?: string; error?: string }>;
 		/** Preview relay (host side): one websocket leg to the preview data plane per guest. */
 		relayOpen(id: number, host: string): void;
-		relaySend(id: number, data: string | ArrayBuffer): void;
+		relaySend(id: number, payload: string | ArrayBuffer): void;
 		relayClose(id: number): void;
 		/** Subscribe to relay socket events; returns an unsubscribe fn. */
+		// eslint-disable-next-line id-denylist -- `data` is the preload event's field name
 		onRelayEvent(cb: (e: { id: number; ev: 'open' | 'data' | 'close'; data?: string | ArrayBuffer }) => void): () => void;
 		/** Spawn `tinymist lsp` for this window, rooted at `root`. */
+		// eslint-disable-next-line id-denylist -- `info` is the preload result's field name
 		startLsp(root: string | null): Promise<{ ok: boolean; info?: TinymistInfo; error?: string }>;
 		/** Send one JSON-RPC message; the main process adds the Content-Length framing. */
 		send(json: string): void;

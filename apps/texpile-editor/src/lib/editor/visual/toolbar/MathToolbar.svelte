@@ -120,8 +120,8 @@
 	//
 </script>
 
-{#snippet symbolGroup(item: { data?: unknown })}
-	{@const group = item.data as (typeof SYMBOL_GROUPS)[number]}
+{#snippet symbolGroup(item: { payload?: unknown })}
+	{@const group = item.payload as (typeof SYMBOL_GROUPS)[number]}
 	{@const Icon = group.icon}
 	<div>
 		<button
@@ -177,7 +177,7 @@
 		gapClass="gap-1 sm:gap-1.5 2xl:gap-2"
 		menuLabel={m.toolbar_more_actions_aria()}
 		items={[
-			...SYMBOL_GROUPS.map((g) => ({ id: g.id, data: g, render: symbolGroup })),
+			...SYMBOL_GROUPS.map((g) => ({ id: g.id, payload: g, render: symbolGroup })),
 			// virtual keyboard disabled: desktop app, physical keyboard always present
 			// { id: 'keyboard', pinned: true, render: keyboardItem },
 			...(isBlockMath ? [{ id: 'blockmath', pinned: true, render: blockMathItem }] : [])
