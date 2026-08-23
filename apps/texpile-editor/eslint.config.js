@@ -70,7 +70,7 @@ export default ts.config(
 			'func-style': ['warn', 'declaration'],
 			'no-param-reassign': ['warn', { props: true }],
 			'max-lines': ['warn', { max: 300, skipBlankLines: true, skipComments: true }],
-			'id-length': ['warn', { min: 1, max: 50 }],
+			'id-length': ['error', { min: 1, max: 50 }],
 			'id-denylist': ['warn', 'data', 'info', 'obj', 'tmp', 'temp', 'misc', 'thing', 'val', 'arr', 'foo', 'helper', 'helpers', 'util', 'utils'],
 			'@typescript-eslint/consistent-type-definitions': ['warn', 'type']
 		}
@@ -102,11 +102,6 @@ export default ts.config(
 	},
 	{
 		files: ['src/**/*.ts', 'src/**/*.svelte'],
-		languageOptions: {
-			parserOptions: {
-				projectService: true
-			}
-		},
 		rules: {
 			'@typescript-eslint/naming-convention': [
 				'warn',
@@ -116,8 +111,14 @@ export default ts.config(
 				{ selector: 'objectLiteralProperty', format: null },
 				{ selector: 'typeProperty', format: null },
 				{ selector: 'variable', modifiers: ['destructured'], format: null },
-				{ selector: 'variable', types: ['boolean'], format: ['StrictPascalCase'], prefix: ['is', 'has', 'can', 'should'] },
-				{ selector: 'variable', format: ['strictCamelCase', 'UPPER_CASE'] },
+				// StrictPascalCase: variables holding Svelte components (lazy routes) are capitalized
+				// by Svelte convention; allowDouble: build-injected globals like __APP_VERSION__
+				{
+					selector: 'variable',
+					format: ['strictCamelCase', 'StrictPascalCase', 'UPPER_CASE'],
+					leadingUnderscore: 'allowDouble',
+					trailingUnderscore: 'allowDouble'
+				},
 				{ selector: 'function', format: ['strictCamelCase'] },
 				{ selector: 'parameter', format: ['strictCamelCase'], leadingUnderscore: 'allow' },
 				{ selector: 'classProperty', format: ['strictCamelCase', 'UPPER_CASE'], leadingUnderscore: 'allow' },
