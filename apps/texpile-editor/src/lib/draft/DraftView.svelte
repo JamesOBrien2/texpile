@@ -330,6 +330,7 @@
 	// (patch-time image records draw as placeholders: which FILE a daemon image box shows
 	// was a JS dimension-match guess that could swap same-sized figures -- deleted. The
 	// reconcile's compile attaches filenames engine-side and paints the real figure.)
+	/* eslint-disable no-param-reassign -- painting sets the canvas context's state */
 	function drawRecs(ctx: CanvasRenderingContext2D, records: any[], S: number, dy = 0, pageNo = 0) {
 		const idMap = idMapFor(records);
 		const { ops } = buildDrawList(records, (id) => idMap[id] || null, S, { glyphFill: '#000', ruleFill: '#000' });
@@ -442,14 +443,15 @@
 		}
 	}
 
-	async function renderPage(n: number, patch?: Patch | Patch[]) {
+	/* eslint-enable no-param-reassign */
+	async function renderPage(n: number, requestedPatch?: Patch | Patch[]) {
 		const cv = canvasEls[n - 1];
 		if (!cv) return;
 		// windowed: plain repaints of off-screen pages wait for window entry; explicit patch
 		// splices and pages carrying a live patch always paint (they are the user's focus)
-		if (!patch && !activePatch.has(n) && !inWindow(n)) return;
+		if (!requestedPatch && !activePatch.has(n) && !inWindow(n)) return;
 		// a plain re-render (e.g. after a zoom) must re-apply any live patch on this page
-		patch = patch ?? activePatch.get(n);
+		const patch = requestedPatch ?? activePatch.get(n);
 		const patches: Patch[] = !patch ? [] : Array.isArray(patch) ? patch : [patch];
 		const records = pageRecords(n);
 		await ensureFonts(records);

@@ -77,9 +77,9 @@ export function savedMainFileRel(root: string): string | null {
 /** remembers (or clears) the chosen main file for a folder, and updates the live store. */
 export function setMainFile(root: string, path: string | null): void {
 	mainFile.set(path);
-	updateFolder(root, (e) => {
-		if (path) e.main = relInRoot(root, path);
-		else delete e.main;
+	updateFolder(root, (draft) => {
+		if (path) draft.main = relInRoot(root, path);
+		else delete draft.main;
 	});
 }
 
@@ -93,8 +93,8 @@ export function savedLastFile(root: string): string | null {
 export function setLastFile(root: string, path: string): void {
 	const rel = relInRoot(root, path);
 	if (rel === norm(path)) return; // not under this root (mid folder-switch): never record cross-root
-	updateFolder(root, (e) => {
-		e.lastFile = rel;
+	updateFolder(root, (draft) => {
+		draft.lastFile = rel;
 	});
 }
 
@@ -133,7 +133,7 @@ export function isCommandTrusted(root: string, format: 'latex' | 'typst', comman
 
 /** record a command as accepted: the user typed it here, or pressed Use it on the project bar. */
 export function trustCommand(root: string, format: 'latex' | 'typst', command: string): void {
-	updateFolder(root, (e) => {
-		e.trusted = { ...e.trusted, [format]: command };
+	updateFolder(root, (draft) => {
+		draft.trusted = { ...draft.trusted, [format]: command };
 	});
 }

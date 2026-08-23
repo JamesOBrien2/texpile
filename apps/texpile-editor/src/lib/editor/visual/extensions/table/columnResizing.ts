@@ -83,7 +83,7 @@ export function columnResizing({
 	redistribute = false
 }: ColumnResizingOptions = {}): Plugin {
 	// TEXPILE: with a fixed total there is nothing to the right of the last column to trade with
-	if (redistribute) lastColumnResizable = false;
+	const lastResizable = redistribute ? false : lastColumnResizable;
 	const plugin = new Plugin<ResizeState>({
 		key: columnResizingPluginKey,
 		state: {
@@ -106,7 +106,7 @@ export function columnResizing({
 			},
 			handleDOMEvents: {
 				mousemove: (view, event) => {
-					handleMouseMove(view, event, handleWidth, lastColumnResizable);
+					handleMouseMove(view, event, handleWidth, lastResizable);
 				},
 				mouseleave: (view) => {
 					handleMouseLeave(view);
@@ -322,7 +322,8 @@ function currentColWidth(view: EditorView, cellPos: number, { colspan, colwidth 
 	return domWidth / parts;
 }
 
-function domCellAround(target: HTMLElement | null): HTMLElement | null {
+function domCellAround(start: HTMLElement | null): HTMLElement | null {
+	let target = start;
 	while (target && target.nodeName != 'TD' && target.nodeName != 'TH')
 		target = target.classList && target.classList.contains('ProseMirror') ? null : (target.parentNode as HTMLElement);
 	return target;

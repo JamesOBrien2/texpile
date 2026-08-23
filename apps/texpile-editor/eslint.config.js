@@ -147,7 +147,9 @@ export default ts.config(
 		files: ['src/**'],
 		rules: {
 			'func-style': ['warn', 'declaration'],
-			'no-param-reassign': ['warn', { props: true }],
+			// `draft` is the sanctioned name for a parameter that EXISTS to be mutated (updateFolder's
+			// updater callbacks, projectIntel's accumulator); anything else must return a new value
+			'no-param-reassign': ['warn', { props: true, ignorePropertyModificationsFor: ['draft'] }],
 			'max-lines': ['warn', { max: 300, skipBlankLines: true, skipComments: true }],
 			'id-length': ['error', { min: 1, max: 50 }],
 			'id-denylist': [

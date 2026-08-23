@@ -25,6 +25,7 @@ export class T1Path {
 			else if (c.type === 'C') ctx.bezierCurveTo(c.x1!, c.y1!, c.x2!, c.y2!, c.x!, c.y!);
 			else ctx.closePath();
 		}
+		// eslint-disable-next-line no-param-reassign -- drawing sets the canvas context's state
 		ctx.fillStyle = this.fill;
 		ctx.fill();
 	}

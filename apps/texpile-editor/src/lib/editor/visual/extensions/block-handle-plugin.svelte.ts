@@ -137,6 +137,7 @@ class BlockHandleView {
 		view.dispatch(view.state.tr.setSelection(sel));
 		(view as unknown as { dragging: unknown }).dragging = { slice: sel.content(), move: true };
 		event.dataTransfer?.setData('text/plain', '');
+		// eslint-disable-next-line no-param-reassign -- the DnD API works by mutating the event's dataTransfer
 		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
 		const dom = view.nodeDOM(this.hoveredPos);
 		if (dom instanceof HTMLElement) event.dataTransfer?.setDragImage(dom, 0, 0);

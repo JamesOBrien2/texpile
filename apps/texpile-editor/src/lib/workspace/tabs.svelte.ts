@@ -44,8 +44,8 @@ class TabsStore {
 		if (!this.persistable || !this.root) return;
 		const root = this.root;
 		const rels = this.list.map((p) => p.slice(root.length).replace(/^[\\/]/, ''));
-		updateFolder(root, (e) => {
-			e.tabs = rels;
+		updateFolder(root, (draft) => {
+			draft.tabs = rels;
 		});
 	}
 

@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign -- attaching handlers means writing the session's handler slots */
 // Host-side session wiring, and the doc-state bridge the visual collab layer needs.
 //
 // VisualCollab owns the remote-patch and presence machinery for the visual editor; it just needs

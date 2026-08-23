@@ -16,8 +16,8 @@ const setCommentRanges = StateEffect.define<{ from: number; to: number; cls: str
 /** the CodeMirror extension carrying the mirrored highlights; include it in the block's config */
 export const cmCommentHighlights = StateField.define<DecorationSet>({
 	create: () => Decoration.none,
-	update(value, tr) {
-		value = value.map(tr.changes);
+	update(prev, tr) {
+		let value = prev.map(tr.changes);
 		for (const e of tr.effects) {
 			if (e.is(setCommentRanges)) {
 				value = Decoration.set(

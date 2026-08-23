@@ -1,4 +1,5 @@
 <script lang="ts">
+	/* eslint-disable no-param-reassign -- drag-and-drop works by mutating the event's dataTransfer */
 	import { ChevronRight, ChevronDown, FilePlus, Pencil, Trash2, Star, FileSymlink } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import FileIcon from './FileIcon.svelte';

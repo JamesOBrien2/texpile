@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign -- the node view initializes the img element it is handed */
 import { TextSelection } from 'prosemirror-state';
 import type { Node } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';

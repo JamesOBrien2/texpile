@@ -163,7 +163,7 @@
 
 	function applyRemotePatch(
 		v: PMEditorView,
-		newDoc: PMNode,
+		parsedDoc: PMNode,
 		oldSource: string,
 		newSource: string,
 		oldPreLen: number,
@@ -171,7 +171,7 @@
 	): void {
 		// the block being typed in must not lose its in-progress tail to the re-parse: trailing
 		// whitespace and still-empty paragraphs don't survive serialize->parse in any dialect
-		newDoc = protectCaretBlock(v.state.doc, newDoc, v.state.selection.head);
+		const newDoc = protectCaretBlock(v.state.doc, parsedDoc, v.state.selection.head);
 		const patch = computeBlockPatch(v.state.doc, newDoc);
 		// caret inside the replaced range: re-anchor it through the source (outside it, PM maps it)
 		let srcOffset: number | null = null;

@@ -139,6 +139,7 @@ function render(dom: HTMLElement, state: EditorState): void {
 	const region = activeRegion(state);
 	if (!region) return; // the tooltip is being removed this update anyway
 	try {
+		// eslint-disable-next-line no-param-reassign -- the tooltip renders by writing the handed element
 		dom.innerHTML = convertLatexToMarkup(previewLatex(state, region), {
 			defaultMode: region.kind === 'display' ? 'math' : 'inline-math',
 			// user \newcommand/\DeclareMathOperator definitions (this file + project) render too

@@ -38,7 +38,7 @@ const BIB_ENTRY_RE = /^\s*@[a-zA-Z]+\s*\{\s*([^\s,{}]+)\s*,/gm;
 // \newlabel{name}{{number}{page}...}; cleveref adds name@cref twins, skipped
 const AUX_LABEL_RE = /\\newlabel\{([^{}]+)\}\{\{([^{}]*)\}\{([^{}]*)\}/g;
 
-function scanTexIntel(text: string, file: string, into: ProjectIntel) {
+function scanTexIntel(text: string, file: string, draft: ProjectIntel) {
 	if (text.length > MAX_FILE_LENGTH) return;
 	const lineStarts = [0];
 	for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) lineStarts.push(i + 1);
@@ -61,36 +61,36 @@ function scanTexIntel(text: string, file: string, into: ProjectIntel) {
 
 	LABEL_RE.lastIndex = 0;
 	for (let m = LABEL_RE.exec(text); m; m = LABEL_RE.exec(text)) {
-		into.labels.push({ name: m[1].trim(), file, line: lineOf(m.index), context: contextAt(m.index) });
+		draft.labels.push({ name: m[1].trim(), file, line: lineOf(m.index), context: contextAt(m.index) });
 	}
-	const firstMacro = into.macros.length;
+	const firstMacro = draft.macros.length;
 	for (const { re, sig } of DEF_RES) {
 		re.lastIndex = 0;
 		for (let m = re.exec(text); m; m = re.exec(text)) {
-			into.macros.push({ name: m[1], signature: sig(m), file, line: lineOf(m.index) });
+			draft.macros.push({ name: m[1], signature: sig(m), file, line: lineOf(m.index) });
 		}
 	}
 	// replacement bodies for this file's macros, so math previews can expand them cross-file
 	const bodies = scanMacroDefinitions(text);
-	for (let i = firstMacro; i < into.macros.length; i++) {
-		const body = bodies[into.macros[i].name];
+	for (let i = firstMacro; i < draft.macros.length; i++) {
+		const body = bodies[draft.macros[i].name];
 		if (body) {
-			into.macros[i].definition = body.def;
-			into.macros[i].argCount = body.args;
+			draft.macros[i].definition = body.def;
+			draft.macros[i].argCount = body.args;
 		}
 	}
 	ENV_DEF_RE.lastIndex = 0;
 	for (let m = ENV_DEF_RE.exec(text); m; m = ENV_DEF_RE.exec(text)) {
-		into.envs.push({ name: m[1], signature: '', file, line: lineOf(m.index) });
+		draft.envs.push({ name: m[1], signature: '', file, line: lineOf(m.index) });
 	}
-	for (const g of scanGlossary(text)) into.glossary.push({ ...g, file });
+	for (const g of scanGlossary(text)) draft.glossary.push({ ...g, file });
 	const scripts = scanScripts(text);
-	into.sub.push(...scripts.sub);
-	into.sup.push(...scripts.sup);
-	into.outlines[file] = parseOutlineRaw(text);
+	draft.sub.push(...scripts.sub);
+	draft.sup.push(...scripts.sup);
+	draft.outlines[file] = parseOutlineRaw(text);
 }
 
-async function readAux(auxPath: string, into: ProjectIntel, read: (p: string) => Promise<string>) {
+async function readAux(auxPath: string, draft: ProjectIntel, read: (p: string) => Promise<string>) {
 	let aux: string;
 	try {
 		aux = await read(auxPath);
@@ -100,8 +100,8 @@ async function readAux(auxPath: string, into: ProjectIntel, read: (p: string) =>
 	AUX_LABEL_RE.lastIndex = 0;
 	for (let m = AUX_LABEL_RE.exec(aux); m; m = AUX_LABEL_RE.exec(aux)) {
 		if (m[1].includes('@cref')) continue;
-		into.auxNumbers[m[1]] = m[2];
-		into.auxPages[m[1]] = m[3];
+		draft.auxNumbers[m[1]] = m[2];
+		draft.auxPages[m[1]] = m[3];
 	}
 }
 

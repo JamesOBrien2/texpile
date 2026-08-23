@@ -28,13 +28,13 @@ const FORWARD_FALLTHROUGH_BAILS = new Set([
 // way each keystroke's full pass would show nothing new, so the caller reconciles quietly.
 export async function locateParagraph(
 	ctx: LocateContext,
-	file: string,
+	rawFile: string,
 	line: number,
 	orig: string,
 	listItem = false,
 	endLine = line
 ): Promise<Cal | CalBail> {
-	file = file.replace(/\\/g, '/'); // synctex stores forward-slash input paths; a backslash query finds nothing
+	const file = rawFile.replace(/\\/g, '/'); // synctex stores forward-slash input paths; a backslash query finds nothing
 	const fwd = await locateForward(ctx, file, line, orig, listItem);
 	if (!('bail' in fwd)) return fwd;
 	// typesets to nothing: no band anywhere could show this edit; reconcile quietly

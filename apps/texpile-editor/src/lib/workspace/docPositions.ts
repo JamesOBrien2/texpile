@@ -62,8 +62,8 @@ class DocPositionsStore {
 	private persist(): void {
 		if (!this.persistable || !this.root) return;
 		const positions = Object.fromEntries(this.byRel);
-		updateFolder(this.root, (e) => {
-			e.positions = positions;
+		updateFolder(this.root, (draft) => {
+			draft.positions = positions;
 		});
 	}
 

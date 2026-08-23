@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign -- builds mathlive's static DOM by writing the handed elements */
 // Placeholders standing in for math node views until a real MathfieldElement is built.
 //
 // There are three stages, not two, and the middle one exists because of a measurement: typesetting

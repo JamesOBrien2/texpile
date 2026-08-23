@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign -- the static facsimile is built by writing the handed container */
 // Plain-text stand-ins for the two CodeMirror-backed node views, held until the node nears the
 // viewport and a real EditorView takes over.
 //

@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign -- resize chrome is positioned by writing the handed element's style */
 import { resizeDirection } from '../../types';
 
 function setHeight(element: HTMLElement, width: number, height: number) {

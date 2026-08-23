@@ -369,25 +369,26 @@ export class CompilePipeline {
 		prev: { mtimeMs: number; size: number } | null = null,
 		lastParsed = 0
 	) {
+		let parsedAt = lastParsed;
 		if (this.logWatchTimer) clearTimeout(this.logWatchTimer);
 		this.logWatchTimer = setTimeout(async () => {
 			if (gen !== this.compileGen) return; // superseded: a newer compile, finalize, or folder switch
 			const s = await this.deps.stat(logPath);
 			const changedSinceCompile = s.exists && (s.size > 0 || this.logMayBeEmpty()) && s.mtimeMs > before;
 			const stable = prev !== null && s.mtimeMs === prev.mtimeMs && s.size === prev.size;
-			if (changedSinceCompile && stable && s.mtimeMs !== lastParsed) {
+			if (changedSinceCompile && stable && s.mtimeMs !== parsedAt) {
 				try {
 					await this.publishLogDiagnostics(logPath, s.mtimeMs);
 					// a settled log is only "the run ended" when nothing better is coming; tracked runs
 					// end on the shell's exit signal, and this settle may just be a between-pass pause
 					if (!tracked) this.endRun();
-					lastParsed = s.mtimeMs;
+					parsedAt = s.mtimeMs;
 				} catch {
 					/* transient read race with the engine; next poll retries */
 				}
 			}
 			if (elapsed < 180000) {
-				this.watchLog(gen, logPath, before, tracked, elapsed + 1200, { mtimeMs: s.mtimeMs, size: s.size }, lastParsed);
+				this.watchLog(gen, logPath, before, tracked, elapsed + 1200, { mtimeMs: s.mtimeMs, size: s.size }, parsedAt);
 			} else {
 				this.logWatchTimer = null;
 				this.endRun();

@@ -185,12 +185,14 @@ class PreviewRelayController {
 		}
 	}
 
+	/* eslint-disable no-param-reassign -- dialing stamps the leg's relay bookkeeping */
 	private dial(leg: GuestLeg): void {
 		leg.relayId = this.nextRelayId++;
 		leg.dialedAt = Date.now();
 		this.byRelayId.set(leg.relayId, leg);
 		this.bridge()?.relayOpen(leg.relayId, this.host!);
 	}
+	/* eslint-enable no-param-reassign */
 
 	/** one event down from a leg's socket: confirm, forward (chunked), or tear down. */
 	// eslint-disable-next-line id-denylist -- `data` is the preload bridge's event field (TexpileTypstBridge.onRelayEvent)

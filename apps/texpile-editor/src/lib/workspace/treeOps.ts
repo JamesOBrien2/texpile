@@ -77,10 +77,10 @@ export class TreeOps {
 			// Its extension follows the compile target: .typ for a Typst project (#include), else .tex (\input).
 			const isInclude = type === 'include';
 			const includeExt = this.deps.isTypstProject() ? '.typ' : '.tex';
-			if (isInclude && !name.toLowerCase().endsWith(includeExt)) name += includeExt;
+			const finalName = isInclude && !name.toLowerCase().endsWith(includeExt) ? name + includeExt : name;
 			const fsType: 'file' | 'dir' = type === 'dir' ? 'dir' : 'file';
-			const path = joinPath(parentDir, name);
-			const isTex = fsType === 'file' && name.toLowerCase().endsWith('.tex');
+			const path = joinPath(parentDir, finalName);
+			const isTex = fsType === 'file' && finalName.toLowerCase().endsWith('.tex');
 			const content = !isInclude && isTex && this.deps.wantsStarter() ? createStarterLatex() : '';
 			await this.deps.create(path, fsType, content);
 			// insert the \input into the current doc BEFORE switching away (the switch flushes its save)
@@ -93,7 +93,7 @@ export class TreeOps {
 			// Only the FILE is recorded. An include also writes an \input line into the open document,
 			// and that belongs to the editor's own text undo - taking the file back here deliberately
 			// does not reach into a buffer the user may have kept editing since.
-			this.#recordAdditions([path], m.filehistory_op_create({ name }));
+			this.#recordAdditions([path], m.filehistory_op_create({ name: finalName }));
 			await this.deps.refreshTree();
 			if (name.toLowerCase().endsWith('.bib')) await this.deps.loadRefs(get(workspaceRoot) ?? parentDir);
 			if (isTex) activeFilePath.set(path);

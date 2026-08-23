@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign -- pdf.js link-service contract: annotate the anchor element in place */
 /* Copyright 2024 Mozilla Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
