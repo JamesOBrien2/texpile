@@ -6,8 +6,8 @@
 	// in-context half is the gutter dot and the highlight in the editor. Splitting them that way is
 	// what lets comments exist at all in a layout that already spends its width on the preview: a
 	// list wants horizontal room, which the dock has and a 230px rail beside the editor does not.
-	import { MessageSquare, Check, Trash2, Unlink, Pencil, EyeOff, FileX } from '@lucide/svelte';
-	import InitialAvatar from '$lib/components/InitialAvatar.svelte';
+	import { MessageSquare, Check, Trash2, Unlink, EyeOff, FileX } from '@lucide/svelte';
+	import CommentThreadConversation from './CommentThreadConversation.svelte';
 	import type { CommentMessage, CommentThread } from '$lib/comments/log';
 	import { m } from '$lib/paraglide/messages';
 
@@ -57,11 +57,7 @@
 	let thisFileOnly = $state(false);
 	let showResolved = $state(false);
 	let expanded = $state<string | null>(null);
-	let draft = $state('');
 	let newDraft = $state('');
-	/** the message being rewritten in place, if any */
-	let editing = $state<string | null>(null);
-	let editDraft = $state('');
 	let composer = $state<HTMLTextAreaElement | null>(null);
 	let list = $state<HTMLDivElement | null>(null);
 
@@ -78,7 +74,6 @@
 		lastSelected = id;
 		if (!id) return;
 		expanded = id;
-		draft = '';
 		// after the row has expanded, or it scrolls to where the row used to end
 		requestAnimationFrame(() => list?.querySelector(`[data-thread="${id}"]`)?.scrollIntoView({ block: 'nearest' }));
 	});
@@ -111,22 +106,8 @@
 		return flat.length > max ? flat.slice(0, max - 1) + '…' : flat;
 	}
 
-	function saveEdit(msg: CommentMessage) {
-		const body = editDraft.trim();
-		editing = null;
-		if (body) onEditMessage(msg, body);
-	}
-
-	function submit(thread: CommentThread) {
-		const body = draft.trim();
-		if (!body) return;
-		draft = '';
-		onReply(thread, body);
-	}
-
 	function toggle(thread: CommentThread) {
 		expanded = expanded === thread.id ? null : thread.id;
-		draft = '';
 		onOpen(thread);
 	}
 </script>
@@ -275,97 +256,7 @@
 						</div>
 					</div>
 					{#if isOpen}
-						<!-- max-w: the dock is as wide as the editor, and a conversation set in a column
-						     that wide is unreadable. Prose wants a measure, not the space available -->
-						<div class="max-w-2xl space-y-2 px-2 pt-1 pb-3 pl-7">
-							{#if fileGone}
-								<p class="text-warning-600-400">{m.comments_file_gone()}</p>
-							{:else if lost}
-								<p class="text-warning-600-400">{m.comments_orphaned()}</p>
-							{:else if hidden}
-								<p class="text-surface-500-400">{m.comments_not_in_view()}</p>
-							{/if}
-							{#each thread.messages as msg (msg.id)}
-								<div class="group/msg flex items-start gap-2 leading-snug">
-									<InitialAvatar name={msg.by} class="mt-0.5 size-5 text-[10px]" />
-									<div class="min-w-0 flex-1">
-										<span class="text-surface-500-400 font-medium">{msg.by}</span>
-										{#if msg.editedAt}
-											<!-- so nobody is quoted saying something they later rewrote -->
-											<span class="text-surface-500-400 italic">({m.comments_edited()})</span>
-										{/if}
-										{#if editing === msg.id}
-											<textarea
-												class="textarea mt-1 w-full resize-none py-1 text-xs"
-												rows="2"
-												bind:value={editDraft}
-												onkeydown={(e) => {
-													if (e.key === 'Escape') editing = null;
-													else if (e.key === 'Enter' && !e.shiftKey) {
-														e.preventDefault();
-														saveEdit(msg);
-													}
-												}}></textarea>
-											<div class="mt-1 flex items-center gap-1">
-												<button class="btn btn-xs preset-filled-primary-500" disabled={!editDraft.trim()} onclick={() => saveEdit(msg)}>
-													{m.comments_save()}
-												</button>
-												<button class="btn btn-xs hover:preset-tonal" onclick={() => (editing = null)}>{m.comments_cancel()}</button>
-											</div>
-										{:else}
-											<p class="whitespace-pre-wrap">{msg.body}</p>
-										{/if}
-									</div>
-									{#if editing !== msg.id}
-										<div class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover/msg:opacity-100">
-											<button
-												class="hover:preset-tonal rounded p-1"
-												title={m.comments_edit()}
-												aria-label={m.comments_edit()}
-												onclick={() => {
-													editing = msg.id;
-													editDraft = msg.body;
-												}}
-											>
-												<Pencil class="size-3" />
-											</button>
-											<button
-												class="hover:preset-tonal-error rounded p-1"
-												title={m.comments_delete_message()}
-												aria-label={m.comments_delete_message()}
-												onclick={() => onDeleteMessage(thread, msg)}
-											>
-												<Trash2 class="size-3" />
-											</button>
-										</div>
-									{/if}
-								</div>
-							{/each}
-							<!-- One line at rest, growing only once there is something in it, and the Reply
-							     button appears with the text. An empty box three rows tall under every thread
-							     was most of what made this panel feel like a form. pl-7 lines it up with the
-							     message bodies, past their avatars. -->
-							<div class="space-y-1.5 pl-7">
-								<textarea
-									class="textarea w-full resize-none py-1 text-xs {draft.trim() ? 'min-h-14' : 'min-h-0 h-7'}"
-									rows="1"
-									placeholder={m.comments_reply_placeholder()}
-									bind:value={draft}
-									onkeydown={(e) => {
-										// Enter sends, Shift+Enter breaks the line: a review reply is one or two
-										// sentences, so reaching for a button every time is the wrong default
-										if (e.key === 'Enter' && !e.shiftKey) {
-											e.preventDefault();
-											submit(thread);
-										}
-									}}></textarea>
-								{#if draft.trim()}
-									<button class="btn btn-xs preset-filled-primary-500" onclick={() => submit(thread)}>
-										{m.comments_reply()}
-									</button>
-								{/if}
-							</div>
-						</div>
+						<CommentThreadConversation {thread} {fileGone} {lost} {hidden} {onReply} {onEditMessage} {onDeleteMessage} />
 					{/if}
 				</div>
 			{/each}

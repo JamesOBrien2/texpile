@@ -16,6 +16,7 @@
 	import { searchIntent } from './pdf-viewer/searchIntent';
 
 	const { state: viewerState, actions } = getPdfViewerContext();
+	import { CollapsingToolbar } from './collapsingToolbar.svelte';
 
 	let searchInput = $state('');
 
@@ -24,92 +25,8 @@
 	// the bar. Deliberately a copy of the app's ToolbarOverflow rather than an import - this package
 	// is a dependency OF that app, so the dependency cannot point the other way.
 	// collapse order, first goes first. Only the search box and Fit Width are missing from this
-	// list: those two stay on the bar at every width.
-	const COLLAPSIBLE = ['extras', 'rotate', 'zoom', 'page'] as const;
-	let row = $state<HTMLDivElement>();
-	let menuButton = $state<HTMLButtonElement>();
-	let menuEl = $state<HTMLDivElement>();
-	let menuOpen = $state(false);
-	let menuPos = $state({ top: 0, right: 0 });
-	let collapsed = $state(0);
-
-	function toggleMenu() {
-		if (!menuOpen && menuButton) {
-			const r = menuButton.getBoundingClientRect();
-			// measured against the window the toolbar is IN - the popped-out preview's, not
-			// necessarily this module's global
-			const vw = menuButton.ownerDocument.defaultView?.innerWidth ?? window.innerWidth;
-			menuPos = { top: r.bottom + 4, right: Math.max(4, vw - r.right) };
-		}
-		menuOpen = !menuOpen;
-	}
-	const hiddenIds = $derived(new Set(COLLAPSIBLE.slice(0, collapsed)));
-	// row width when each step was taken; restoring only above it keeps the loop from oscillating
-	const widthAt: number[] = [];
-	let frame = 0;
-
-	function schedule() {
-		if (frame) return;
-		frame = requestAnimationFrame(() => {
-			frame = 0;
-			fit();
-		});
-	}
-	function fit() {
-		const el = row;
-		if (!el) return;
-		const over = el.scrollWidth > el.clientWidth + 1;
-		if (over && collapsed < COLLAPSIBLE.length) {
-			widthAt[collapsed + 1] = el.clientWidth;
-			collapsed++;
-			schedule();
-			return;
-		}
-		if (!over && collapsed > 0 && el.clientWidth > (widthAt[collapsed] ?? 0) + 8) {
-			collapsed--;
-			schedule();
-			return;
-		}
-	}
-	// Dismiss on any pointer down outside, and on Escape. Deliberately NOT a scrim element: a scrim
-	// only intercepts clicks if it paints above everything, and inside a component it competes in
-	// whatever stacking context it lands in - the PDF canvas painted over it and ate the click.
-	$effect(() => {
-		if (!menuOpen) return;
-		function onDown(e: PointerEvent) {
-			const t = e.target as Node | null;
-			if (t && (menuEl?.contains(t) || menuButton?.contains(t))) return;
-			// A control in the menu may open a popover that PORTALS to document.body - the math symbol
-			// grids do. That content is outside menuEl by construction, so treating it as "outside"
-			// tore the menu down mid-click: the symbol never inserted and the mathfield lost focus.
-			if (t instanceof Element && t.closest('[data-scope]')) return;
-			menuOpen = false;
-		}
-		function onKey(e: KeyboardEvent) {
-			if (e.key === 'Escape') menuOpen = false;
-		}
-		// on the toolbar's own window, so dismissal works when the viewer is popped out
-		const win = menuButton?.ownerDocument.defaultView ?? window;
-		win.addEventListener('pointerdown', onDown, true);
-		win.addEventListener('keydown', onKey, true);
-		return () => {
-			win.removeEventListener('pointerdown', onDown, true);
-			win.removeEventListener('keydown', onKey, true);
-		};
-	});
-
-	$effect(() => {
-		const el = row;
-		if (!el) return;
-		const ro = new ResizeObserver(schedule);
-		ro.observe(el);
-		schedule();
-		return () => {
-			ro.disconnect();
-			if (frame) cancelAnimationFrame(frame);
-			frame = 0;
-		};
-	});
+	// list: those two stay on the bar at every width. Fit/overflow lives in collapsingToolbar.
+	const bar = new CollapsingToolbar(['extras', 'rotate', 'zoom', 'page'] as const);
 
 	function handlePageChange(e: Event) {
 		const input = e.target as HTMLInputElement;
@@ -144,7 +61,7 @@
 	}
 </script>
 
-<div class="pdf-toolbar" bind:this={row}>
+<div class="pdf-toolbar" bind:this={bar.row}>
 	{#snippet pdfPage()}
 		<div class="pdf-toolbar-group">
 			<input
@@ -158,7 +75,7 @@
 			<span class="page-info">/ {viewerState.totalPages}</span>
 		</div>
 	{/snippet}
-	{#if !hiddenIds.has('page')}{@render pdfPage()}{/if}
+	{#if !bar.hidden.has('page')}{@render pdfPage()}{/if}
 
 	{#snippet pdfZoom()}
 		<div class="pdf-toolbar-group">
@@ -171,7 +88,7 @@
 			</button>
 		</div>
 	{/snippet}
-	{#if !hiddenIds.has('zoom')}{@render pdfZoom()}{/if}
+	{#if !bar.hidden.has('zoom')}{@render pdfZoom()}{/if}
 
 	<!-- pinned: Fit Width is the one zoom control worth keeping at any width -->
 	<div class="pdf-toolbar-group">
@@ -191,7 +108,7 @@
 		</div>
 	{/snippet}
 
-	{#if !hiddenIds.has('rotate')}{@render pdfRotate()}{/if}
+	{#if !bar.hidden.has('rotate')}{@render pdfRotate()}{/if}
 
 	<div class="pdf-toolbar-group">
 		<input
@@ -231,19 +148,25 @@
 		</div>
 	{/snippet}
 
-	{#if !hiddenIds.has('extras')}{@render pdfExtras()}{/if}
+	{#if !bar.hidden.has('extras')}{@render pdfExtras()}{/if}
 
-	{#if collapsed > 0}
+	{#if bar.anyCollapsed}
 		<div class="pdf-toolbar-group pdf-overflow">
-			<button bind:this={menuButton} onclick={toggleMenu} aria-label="More actions" title="More actions" aria-expanded={menuOpen}>
+			<button
+				bind:this={bar.menuButton}
+				onclick={bar.toggleMenu}
+				aria-label="More actions"
+				title="More actions"
+				aria-expanded={bar.menuOpen}
+			>
 				<MoreHorizontal size={16} />
 			</button>
-			{#if menuOpen}
-				<div bind:this={menuEl} class="pdf-overflow-menu" style="top: {menuPos.top}px; right: {menuPos.right}px" role="group">
-					{#if hiddenIds.has('page')}{@render pdfPage()}{/if}
-					{#if hiddenIds.has('zoom')}{@render pdfZoom()}{/if}
-					{#if hiddenIds.has('rotate')}{@render pdfRotate()}{/if}
-					{#if hiddenIds.has('extras')}{@render pdfExtras()}{/if}
+			{#if bar.menuOpen}
+				<div bind:this={bar.menuEl} class="pdf-overflow-menu" style="top: {bar.menuPos.top}px; right: {bar.menuPos.right}px" role="group">
+					{#if bar.hidden.has('page')}{@render pdfPage()}{/if}
+					{#if bar.hidden.has('zoom')}{@render pdfZoom()}{/if}
+					{#if bar.hidden.has('rotate')}{@render pdfRotate()}{/if}
+					{#if bar.hidden.has('extras')}{@render pdfExtras()}{/if}
 				</div>
 			{/if}
 		</div>
