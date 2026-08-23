@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { schema } from '$lib/schema/schema';
+import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { settings } from '$lib/settings';
 import { pmComments } from '$lib/editor/extensions/pmComments';
 

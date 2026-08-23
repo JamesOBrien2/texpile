@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Fragment, type Node } from 'prosemirror-model';
-import { schema } from '$lib/schema/schema';
+import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { parseLatexFile, serializeLatexFile } from '../../../../src/lib/workspace/latexRoundtrip';
 
 // verbatim source preservation: untouched blocks round-trip byte-for-byte via the `orig` attr

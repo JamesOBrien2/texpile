@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState as CmState } from '@codemirror/state';
 import { EditorState as PmState } from 'prosemirror-state';
-import { schema as texSchema } from '$lib/schema/schema';
+import { schema as texSchema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { comments, setCommentRanges, commentAt } from '$lib/editor/extensions/comments';
 import { pmComments, pmCommentsKey, pmCommentAt } from '$lib/editor/extensions/pmComments';
 

@@ -7,7 +7,7 @@
 import { Plugin } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { Slice, Fragment } from 'prosemirror-model';
-import { schema } from '$lib/schema/schema';
+import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { serializeToLatex } from '$lib/serializer/latexSerializer';
 import { latexToProseMirror } from '$lib/latex-parser/converter';
 import { regenerateCopiedLabels } from './paste-uuid-fix';

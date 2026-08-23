@@ -30,7 +30,7 @@
 	import HighlightDropdown from './HighlightDropdown.svelte';
 	import { markIsActive, activeMarkColor, toggleLinkCommand } from './markState';
 	import { displaySearchBarStore, editorViewStore, rawEditorActiveStore } from '../../../stores/editorStore';
-	import { schema } from '$lib/schema/schema';
+	import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
 	import { setHeadingLevel, toggleBlockQuote } from '../../helperCommands';
 	import HeadingDropdown from './HeadingDropdown.svelte';
 	import SupSubDropdown from './SupSubDropdown.svelte';

@@ -2,7 +2,7 @@
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { Baseline, AlertTriangle } from '@lucide/svelte';
 	import { editorViewStore, templateFeaturesStore } from '$lib/stores/editorStore';
-	import { schema as texSchema } from '$lib/schema/schema';
+	import { schema as texSchema } from '$lib/schema/latexPMSchema/latexPMSchema';
 	import type { Schema } from 'prosemirror-model';
 	import { m } from '$lib/paraglide/messages';
 

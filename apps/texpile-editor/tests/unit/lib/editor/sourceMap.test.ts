@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Node } from 'prosemirror-model';
-import { schema } from '$lib/schema/schema';
+import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { parseLatexFile } from '../../../../src/lib/workspace/latexRoundtrip';
 import { buildBlockMap, blockAtSource, pmPosToSourceOffset, sourceOffsetToPmPos, sourceStartAt } from '$lib/editor/sourceMap';
 

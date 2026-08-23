@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState, TextSelection } from 'prosemirror-state';
-import { schema } from '$lib/schema/schema';
+import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { markIsActive, activeMarkColor } from '$lib/editor/comp/toolbar/markState';
 
 // regression: markIsActive used to return rangeHasMark's boolean for range selections and the

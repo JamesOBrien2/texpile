@@ -74,7 +74,7 @@ describe('no dialect schema drops the orig attr', () => {
 	];
 
 	it.each([
-		['latex', () => import('$lib/schema/schema').then((m) => m.schema)],
+		['latex', () => import('$lib/schema/latexPMSchema/latexPMSchema').then((m) => m.schema)],
 		['markdown', () => import('$lib/markdown/schema').then((m) => m.mdSchema)],
 		['typst', () => import('$lib/typst/visual/schema').then((m) => m.typSchema)]
 	])('%s', async (_name, get) => {

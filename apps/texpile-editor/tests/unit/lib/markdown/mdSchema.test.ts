@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mdSchema } from '$lib/markdown/schema';
-import { schema as texSchema } from '$lib/schema/schema';
+import { schema as texSchema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { markdownToProseMirror } from '$lib/markdown/converter';
 import { parseLatexFile } from '$lib/workspace/latexRoundtrip';
 

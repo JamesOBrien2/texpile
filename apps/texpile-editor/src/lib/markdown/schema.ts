@@ -9,7 +9,7 @@
 // Nodes/marks from different Schema objects must never mix in one document.
 import { updateImageNode, type SchemaImageSettings } from '$lib/editor/extensions/image/updateImageNode';
 import { Schema, type NodeSpec, type MarkSpec } from 'prosemirror-model';
-import { nodes as texNodes, marks as texMarks } from '$lib/schema/schema';
+import { nodes as texNodes, marks as texMarks } from '$lib/schema/latexPMSchema/latexPMSchema';
 
 // mirrors schema.ts: built by hand because createDefaultSettings pulls in the DOM (fatal for
 // the parser worker), and the image node must stay a block figure

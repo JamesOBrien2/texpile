@@ -1,0 +1,24 @@
+// import updateImageNode DIRECTLY, not through the image barrel: the barrel pulls in
+// imageplugin.svelte (Svelte + document at module load), fatal for the parser Web Worker
+import { updateImageNode, type SchemaImageSettings } from '$lib/editor/extensions/image/updateImageNode';
+import { Schema } from 'prosemirror-model';
+import { nodes } from './pmSchemaNodes';
+import { marks } from './pmSchemaMarks';
+
+export { nodes, marks };
+
+// built by hand instead of createDefaultSettings (which pulls in the DOM, fatal for the worker).
+// must stay in sync with the runtime plugin settings: omitting isBlock once silently flipped the
+// image node to inline while the converter emitted block figures, freezing the editor on edit
+const schemaImageSettings: SchemaImageSettings = {
+	hasTitle: true,
+	isBlock: true,
+	extraAttributes: { width: null, height: null, maxWidth: null }
+};
+
+// two-pass: updateImageNode needs the node present in an OrderedMap before it can replace it
+const tempschema = new Schema({ nodes, marks });
+export const schema = new Schema({
+	nodes: updateImageNode(tempschema.spec.nodes, schemaImageSettings),
+	marks
+});

@@ -71,7 +71,7 @@ vi.mock('mathlive/fonts.css', () => ({}));
 vi.mock('$lib/editor/extensions/mathlivebridge/virtualKeyboardConfig', () => ({ configureMathVirtualKeyboard() {} }));
 vi.mock('svelte', async (orig) => ({ ...(await orig<Record<string, unknown>>()), mount: () => ({}), unmount: () => {} }));
 
-const { schema } = await import('$lib/schema/schema');
+const { schema } = await import('$lib/schema/latexPMSchema/latexPMSchema');
 const { PLACEHOLDER_CLASS } = await import('$lib/editor/extensions/mathlivebridge/mathStatic');
 const { MathLiveView } = await import('$lib/editor/extensions/mathlivebridge/mlview.svelte');
 

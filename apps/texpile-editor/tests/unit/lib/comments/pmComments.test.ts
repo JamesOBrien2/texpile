@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { schema } from '$lib/schema/schema';
+import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { flattenDoc, resolvePmComments, pmComments, setPmComments, revealPmComment } from '$lib/editor/extensions/pmComments';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { buildAnchor } from '$lib/comments/anchor';

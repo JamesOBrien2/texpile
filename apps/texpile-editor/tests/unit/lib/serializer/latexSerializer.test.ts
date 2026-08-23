@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Node, Mark } from 'prosemirror-model';
 import * as LatexParser from '$lib/latex-parser';
-import { schema } from '$lib/schema/schema';
+import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { serializeToLatex, serializeNode } from '../../../../src/lib/serializer/latexSerializer';
 
 const N = schema.nodes;

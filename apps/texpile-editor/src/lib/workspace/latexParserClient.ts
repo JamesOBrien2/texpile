@@ -1,6 +1,6 @@
 // main-thread client for the parser worker: hard wall-clock timeout, terminate on
 // overrun (a runaway sync parse can't be cancelled any other way), fresh worker next call
-import { schema } from '$lib/schema/schema';
+import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { mdSchema } from '$lib/markdown/schema';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { ParsedLatexFile, ParsePhase } from './latexRoundtrip';

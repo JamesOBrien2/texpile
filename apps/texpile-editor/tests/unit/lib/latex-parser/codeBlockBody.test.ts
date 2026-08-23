@@ -7,7 +7,7 @@
 // an edited block written out and read again gained a blank line at each end, and kept gaining.
 import { describe, it, expect } from 'vitest';
 import { Fragment, type Node } from 'prosemirror-model';
-import { schema } from '$lib/schema/schema';
+import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
 import { parseLatexFile, serializeLatexFile } from '$lib/workspace/latexRoundtrip';
 
 const wrap = (body: string) => `\\documentclass{article}\n\\begin{document}\n${body}\n\\end{document}\n`;
