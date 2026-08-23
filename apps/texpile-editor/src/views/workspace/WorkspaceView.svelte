@@ -7,19 +7,12 @@
 	import WorkspaceChrome from './WorkspaceChrome.svelte';
 	import { type RefUpdate } from '$lib/modals/workspace/RefUpdateModal.svelte';
 	import { compileLog } from '$lib/stores/compileLogStore';
-	import {
-		shareCompileState as shareHostCompileState,
-		bibPathsFrom,
-		guestCompileLog,
-		guestDiagnosticsFor,
-		hostDiagnosticsFor
-	} from '$lib/collab/compileIntelBridge';
+	import { bibPathsFrom } from '$lib/collab/compileIntelBridge';
 	import { DraftController } from '$lib/draft/draftController.svelte';
 	import GlobalSearch from '$lib/search/GlobalSearch.svelte';
 	import TutorialConfirmModal from '$lib/modals/start/TutorialConfirmModal.svelte';
 	import { StarterActions } from '$lib/workspace/starterActions.svelte';
 	import { editorViewStore } from '$lib/stores/editorStore';
-	import { revealPmComment } from '$lib/editor/visual/extensions/pmComments';
 	import { tabs } from '$lib/workspace/tabs.svelte';
 	import { docPositions } from '$lib/workspace/docPositions';
 	import { WorkspaceNav } from './workspaceNav.svelte';
@@ -33,8 +26,6 @@
 	import { setEditorFileAccess } from '$lib/editor/visual/fileAccess';
 	import { initSpellcheckConfig } from '$lib/editor/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
-	import { isSafeRel } from '$lib/collab/protocol';
-	import { users } from '$lib/storage/users';
 	import { visualCollabBridge, attachSessionHandlers } from '$lib/collab/workspaceSession';
 	import { collabGuest } from '$lib/collab/guestStore.svelte';
 	import type { EditSession } from '$lib/collab/editSession';
@@ -55,7 +46,8 @@
 		insertTypstIncludeAtCursor
 	} from '$lib/workspace/editorCommands';
 	import { DiffMode } from '$lib/workspace/diffMode.svelte';
-	import { CommentsController } from '$lib/workspace/commentsController.svelte';
+	import { WorkspaceComments } from './workspaceComments.svelte';
+	import { WorkspaceCompileState } from './workspaceCompileState.svelte';
 	import { projectConfigSync as projectConfig, compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 	import { attachWindowListeners, attachCloseGuard } from '$lib/workspace/workspaceMount';
 	import { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
@@ -81,22 +73,19 @@
 		isDirty,
 		mainFile,
 		setMainFile,
-		setLastFile,
-		effectiveCompileFormat
+		setLastFile
 	} from '$lib/workspace/workspaceStore';
 	import { insertCitationFromZotero, zoteroAvailable } from '$lib/zotero/insertFromZotero';
 	import ZoteroCitationDialog from '$lib/zotero/ZoteroCitationDialog.svelte';
-	import { refreshTree as refreshTreeState, flatFiles } from '$lib/workspace/treeRefresh';
-	import { relativeTo } from '$lib/comments/store.svelte';
+	import { refreshTree as refreshTreeState } from '$lib/workspace/treeRefresh';
 	import { ScmActions } from '$lib/workspace/scmActions.svelte';
 	import { SavePipeline } from '$lib/workspace/savePipeline.svelte';
 	import { diskChangedSince, recordDiskStamp, retargetDiskStamp } from '$lib/workspace/diskStamp';
-	import { CompilePipeline, resolveCompileCommand } from '$lib/workspace/compilePipeline.svelte';
+	import { CompilePipeline } from '$lib/workspace/compilePipeline.svelte';
 	import { TreeOps } from '$lib/workspace/treeOps';
 	import { settings } from '$lib/settings';
 	import { detectMainFile, gatherProjectMacros } from '$lib/workspace/project';
 	import { basename, dirname, claimWorkspace, isDesktop, samePath, purgeUndoBackups, type TreeEntry } from '$lib/workspace/fileSystem';
-	import { isTypstCommand } from '$lib/workspace/typstCommand';
 	import { diskProvider } from '$lib/workspace/diskProvider';
 	import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
 	// the file-access seam: the host gets the disk-backed provider by default; a guest session
@@ -245,107 +234,16 @@
 		return diff.snapshot();
 	}
 
-	// Review comments. The log lives in .texpile/comments.jsonl; anchors are re-resolved whenever a
-	// file opens or its text is replaced from outside, never per keystroke - see the controller.
-	// .texpile/config.json: the project's own build settings, adopted on open and written back on
-	// every change. Its compile command needs accepting once per project - see projectConfig.ts.
-	$effect(() => {
-		const root = guest ? null : $workspaceRoot;
-		// adopt() writes through workspaceStore, which the live compileCommand was ALREADY derived
-		// from when the folder opened - so without re-resolving here the config landed in storage
-		// and the editor went on using whatever it had worked out before reading the file.
-		void projectConfig.adopt(root).then(() => {
-			compileCommand = resolveCompileCommand(get(mainFile));
-		});
+	// review-comment wiring (controller + feeding effects) lives in ./workspaceComments.svelte.ts
+	const commentsW = new WorkspaceComments({
+		doc,
+		modes,
+		kind: () => kind,
+		guest: () => guest,
+		jumpToFileLine: (abs, line) => nav.syncJumpToFileLine(abs, line)
 	});
+	const commentsCtl = commentsW.ctl;
 
-	const commentsCtl = new CommentsController({
-		root: () => $workspaceRoot,
-		// a guest has no git repo to fall back to (its root is the 'session' sentinel), but it DOES
-		// have the name it joined with - that is what every peer already sees on its cursor
-		preferredAuthor: () => $users.commentAuthor || (guest ? collabGuest.selfName : ''),
-		// new anchors and event resolution read the LIVE buffer; the reanchor snapshot goes stale
-		// under remote edits in a shared session (see the controller's activeText comment)
-		activeText: () => commentText(),
-		// the mode-preserving jump, not openFileAtLine: revealing a comment from the panel must not
-		// yank a visual-mode reader into source - the same courtesy SyncTeX inverse clicks get
-		openFileAt: (abs, line) => nav.syncJumpToFileLine(abs, line),
-		// Preferred over the line jump while the reader is in visual mode: pmComments has the thread's
-		// exact range in the rendered document, so this lands ON the highlight instead of at the top of
-		// the block containing it. False whenever that is not available - source/diff mode, a file with
-		// no visual editor, a view still mounting, or a thread this view could not place - and
-		// openFileAt above takes over unchanged.
-		revealInVisual: (id) => {
-			if (modes.mode !== 'visual' || !hasVisualMode(kind)) return false;
-			const v = get(editorViewStore);
-			return !!v && revealPmComment(v, id);
-		},
-		// a guest's events go up to the host, which owns the log; a host's go out to every guest.
-		// Solo, both are no-ops and the log is just a file.
-		publish: (event) => {
-			if (guest) collabGuest.sendComment(event);
-			else if (collabHost.active) collabHost.broadcastComment(event);
-		}
-	});
-	// "not in this view" is a statement about the VISUAL view; source draws everything it resolves,
-	// so the badge has to disappear in source mode - for the remembered files too, or the panel tells
-	// a reader already in source to switch to source
-	$effect(() => {
-		commentsCtl.setVisualMode(modes.mode === 'visual');
-	});
-	// Which files the panel's threads can actually open: threads survive their file's deletion ON
-	// PURPOSE (the log is append-only, and undoing the delete brings them straight back), so the
-	// panel needs to know a thread's file is gone to say so instead of presenting a dead link.
-	// null while no folder is open - "unknown", drawing no badges, rather than "everything missing".
-	const commentFilesPresent = $derived.by(() => {
-		const root = $workspaceRoot;
-		if (!root) return null;
-		return new Set(flatFiles($fileTree).map((p) => relativeTo(root, p)));
-	});
-	// a function, not a $derived: `kind` is declared further down and a derived would read it at
-	// init. The same reason DiffMode takes getWorkingText as a callback.
-	function commentText() {
-		return hasVisualMode(kind) ? doc.texSource : doc.rawContent;
-	}
-	$effect(() => {
-		// null for a guest: their workspaceRoot is the sentinel 'session', not a path, and the log
-		// lives on the host's disk. Comments in a shared session need the session protocol to carry
-		// their events; until it does, a guest has no log rather than a broken one.
-		void commentsCtl.load(guest ? null : $workspaceRoot);
-	});
-	// A guest has no disk, so its log arrives over the wire: single events as they happen, and the
-	// whole thing once on join. load(null) above leaves it empty until then rather than reading a
-	// path built from the 'session' sentinel.
-	$effect(() => {
-		if (!guest) return;
-		collabGuest.onCommentEvent = (event) => void commentsCtl.ingest(event);
-		collabGuest.onCommentLog = (log) => commentsCtl.adopt(log, doc.path, untrack(commentText));
-		// this guest clicked the streamed preview; the host's tinymist resolved the span and sent
-		// the answer back here - the same landing an own-preview click gets on the host
-		collabGuest.onTypstJump = (p) => {
-			if (!isSafeRel(p.file) || !Number.isFinite(p.line) || p.line < 0) return;
-			nav.syncJumpToFileLine(p.file, Math.floor(p.line) + 1);
-		};
-		return () => {
-			collabGuest.onCommentEvent = null;
-			collabGuest.onCommentLog = null;
-			collabGuest.onTypstJump = null;
-		};
-	});
-	$effect(() => {
-		// re-asked on every reconnect: events sent while we were away are only in the host's log
-		if (guest && collabGuest.status === 'online') collabGuest.requestComments();
-	});
-	$effect(() => {
-		// keyed on doc.path AND the view mode - NOT on the text, because while the editor is live
-		// CodeMirror maps the decorations through each transaction - exactly - and re-searching on
-		// top of that could snap a range onto another copy of the quote mid-edit. The mode matters
-		// because leaving source unmounts the editor and CM's exactly-mapped ranges go with it, so
-		// re-entering must re-search the current text rather than replay the pre-mount list (which
-		// after edits can even point past the end of the file).
-		void modes.mode;
-		commentsCtl.reanchor(doc.path, untrack(commentText));
-	});
 	// macro-defining text from the main file's include chain, fed to the parser (see workspace/project.ts)
 	let projectMacros = $state('');
 	const folderEmpty = $derived($texFiles.length === 0);
@@ -450,7 +348,7 @@
 				// both live in .texpile/ and both are committed, so both arrive by pull
 				void commentsCtl.refresh();
 				void projectConfig.refresh(guest ? null : get(workspaceRoot)).then(() => {
-					compileCommand = resolveCompileCommand(get(mainFile));
+					cc.resolveNow();
 				});
 			}
 		});
@@ -575,7 +473,7 @@
 			runCompile: () => compiler.runCompile(),
 			setMainFile: (abs) => applyMainFile(abs),
 			isCompiling: () => compiler.busy,
-			getCompileCommand: () => compileCommand,
+			getCompileCommand: () => cc.command,
 			// deferred through compileSettings so an MCP change persists exactly the way the dialog's
 			// Save does - folder command, global default, folder output overrides
 			applyCompile: (command, outputs) => compileSettings.applyCommand(command, outputs)
@@ -658,7 +556,7 @@
 		// source-mode users write their own preamble (the editor's ghost offers the skeleton);
 		// visual mode has no ghost and no way to write a preamble, so it gets one up front
 		wantsStarter: () => modes.lastEditMode !== 'source',
-		isTypstProject: () => typstProject,
+		isTypstProject: () => cc.typstProject,
 		insertIncludeAtCursor: (path) => doInsertInclude(path),
 		afterRename: (oldPath, newPath) => void afterRename(oldPath, newPath),
 		// comment threads follow the file, on user gestures AND on undo/redo replays (which skip
@@ -710,14 +608,6 @@
 		return termDock.resetForWorkspace();
 	}
 
-	let compileCommand = $state(''); // the compile command; {main} expands to the main file's path
-	/**
-	 * The project speaks Typst, read off the compile target the way the compile modal reads it.
-	 * This is what gates every format-specific menu: New-file offers .typ instead of .tex/.cls/.sty,
-	 * the tree's New Include produces a .typ fragment with a #include, and so on. Markdown is
-	 * offered either way - it is format-neutral.
-	 */
-	const typstProject = $derived(isTypstCommand(compileCommand));
 	let formatModalOpen = $state(false);
 	let formatting = $state(false);
 	/**
@@ -732,10 +622,20 @@
 	const dockShrunk = $derived(termDock.shrink || !layout.pdfPaneOpen || layout.pdfPopout);
 	// bottom dock body: the terminal shells (always mounted) or the Problems list
 	let dockView = $state<'terminal' | 'problems' | 'comments'>('terminal');
+	// the resolved compile command and its follower effects live in ./workspaceCompileState.svelte.ts
+	const cc: WorkspaceCompileState = new WorkspaceCompileState({
+		doc,
+		guest: () => guest,
+		session: () => session,
+		compiler: () => compiler,
+		typstPreview: () => typstPreview,
+		statFile
+	});
+
 	// Draft mode, whole: root/main derivation, triggers, pause, the per-edit dispatcher, and
 	// the engine lifecycle live in the controller; the preview chain gets this ONE object.
 	const draftCtl = new DraftController({
-		compileCommand: () => compileCommand,
+		compileCommand: () => cc.command,
 		// hold the first live compile until the main file is confirmed
 		mainConfirmed: () => mainPrompt.confirmed === true,
 		pdfPaneOpen: () => layout.pdfPaneOpen,
@@ -800,42 +700,8 @@
 		projectMacros = '';
 		dockView = 'terminal';
 		compiler.resetForFolder(); // any pollers still watching the previous folder's paths stand down
-		compileCommand = resolveCompileCommand(get(mainFile));
+		cc.resolveNow();
 	});
-	// The project scan names the main file AFTER the folder effect above has run, so a Typst
-	// project would otherwise sit on the inherited LaTeX command until something else re-resolved
-	// it. Folders with a saved command of their own are unaffected (resolveCompileCommand prefers it).
-	$effect(() => {
-		const main = $mainFile;
-		if (main) compileCommand = resolveCompileCommand(main);
-	});
-	// Problems are per-engine: switching the main between LaTeX and Typst would otherwise leave the
-	// old engine's entries on the panel until the next compile happens to overwrite them. Cleared on
-	// the lane change and re-shared, so a session's guests drop them at the same moment. Host-only:
-	// a guest's panel mirrors the host's shared intel, never its own lane.
-	let problemsLane = effectiveCompileFormat(get(mainFile));
-	$effect(() => {
-		const lane = effectiveCompileFormat($mainFile);
-		if (guest || lane === problemsLane) return;
-		problemsLane = lane;
-		typstPreview.clearLiveDiags();
-		compileLog.set(null);
-		shareCompileState();
-	});
-	// guests: surface the host's shared compile diagnostics through the same Problems UI the
-	// host has (the raw log never crosses the wire; this rebuilds the parsed shape from intel)
-	// guests: surface the host's shared compile diagnostics through the same Problems UI the host
-	// has (see lib/collab/compileIntelBridge.ts)
-	$effect(() => {
-		if (!guest) return;
-		compileLog.set(guestCompileLog(session.compileIntel, Date.now()));
-	});
-
-	// last compile's problems for the file open in source mode
-	const sourceDiagnostics = $derived.by(() =>
-		guest ? guestDiagnosticsFor(session.compileIntel, doc.path) : hostDiagnosticsFor($compileLog, $workspaceRoot, doc.path)
-	);
-
 	// the Typst live preview, whole: task lifecycle, caret follow, forward sync, the guest
 	// stream relay, and its Problems feed live in languages/typst/preview/previewController.svelte.ts
 	const typstPreview: TypstPreviewController = new TypstPreviewController({
@@ -848,7 +714,7 @@
 		setPreviewSwitch: (root, on) => projectConfig.setTypstPreview(root, on),
 		getDocPath: () => doc.path,
 		getFollow: () => $settings.typstPreviewFollow === true,
-		getCompileCommand: () => compileCommand,
+		getCompileCommand: () => cc.command,
 		getVisualCaretSourcePos: (): { line: number; character: number } | null => nav.visualCaretSourcePos(),
 		flushSaves: () => saver.flushAndWait(),
 		refreshTree,
@@ -856,9 +722,9 @@
 	});
 
 	// compile / terminal / PDF-watch orchestration lives in lib/workspace/compilePipeline.svelte.ts
-	const compiler = new CompilePipeline({
+	const compiler: CompilePipeline = new CompilePipeline({
 		getLoadedPath: () => doc.path,
-		getCompileCommand: () => compileCommand,
+		getCompileCommand: () => cc.command,
 		terminalAvailable: () => termDock.available,
 		mainConfirmed: () => mainPrompt.confirmed,
 		commandPending: () => !!projectConfig.pending,
@@ -877,7 +743,7 @@
 		openMainConfirm: (then) => void openMainConfirm(then),
 		runDraftCompile,
 		openTypstPreview: () => typstPreview.enable(),
-		shareCompileState: () => shareCompileState()
+		shareCompileState: () => cc.share()
 	});
 
 	// every jump route (SyncTeX forward/inverse, visual caret mapping, include targets, the PDF
@@ -896,50 +762,6 @@
 		statFile
 	});
 
-	// share the current pdf + log once when we start hosting (see CompilePipeline.shareExistingOutputs)
-	let outputsSharedForSession = false;
-	$effect(() => {
-		if (session.active && !session.isGuest) {
-			if (!outputsSharedForSession) {
-				outputsSharedForSession = true;
-				void compiler.shareExistingOutputs();
-			}
-		} else {
-			outputsSharedForSession = false;
-		}
-	});
-	// not a guest (solo or host): if the folder already has a .log from a previous compile, load its
-	// problems on open so they show without a recompile. Re-runs as the command + main file resolve
-	// (they fix the log path); a real compile that fills the log first wins.
-	let existingLogLoadedFor: string | null = null;
-	$effect(() => {
-		const root = $workspaceRoot;
-		void compileCommand; // dep: the log path depends on the resolved command
-		void $mainFile; // dep: and on the detected main file
-		if (guest || !root) {
-			existingLogLoadedFor = null;
-			return;
-		}
-		// mid folder-switch (root flipped, scan pending): the fallbacks below would resolve the
-		// PREVIOUS folder's log and publish its problems here. The scan landing re-runs this.
-		if (!$mainFile && $texFiles.length === 0) return;
-		if (existingLogLoadedFor === root) return;
-		untrack(() => {
-			if (get(compileLog)) {
-				existingLogLoadedFor = root; // a compile already populated it
-				return;
-			}
-			const logPath = compiler.expectedLogPath();
-			if (!logPath) return; // command / main file not resolved yet; a later run retries
-			existingLogLoadedFor = root;
-			void (async () => {
-				const s = await statFile(logPath);
-				if (s.exists && s.size > 0 && get(workspaceRoot) === root && !get(compileLog)) {
-					await compiler.publishLogDiagnostics(logPath, s.mtimeMs, true);
-				}
-			})();
-		});
-	});
 	// Zotero citations (host-only; see lib/zotero)
 	// The open file's dialect must match the main's engine: the imported entries land in the
 	// bibliography the MAIN file declares, so a .typ scratch file open in a LaTeX project has
@@ -966,8 +788,8 @@
 	// compile-command dialog state lives in lib/workspace/compileSettings.svelte.ts
 	let compileSettings = $state(
 		new CompileSettings(
-			() => compileCommand,
-			(c) => (compileCommand = c),
+			() => cc.command,
+			(c) => (cc.command = c),
 			() => compiler.runCompile()
 		)
 	);
@@ -1020,7 +842,7 @@
 		});
 	}
 	function doInsertInclude(newFilePath: string) {
-		return typstProject
+		return cc.typstProject
 			? insertTypstIncludeAtCursor(newFilePath, doc.path)
 			: insertIncludeAtCursor(newFilePath, doc.path, modes.mode === 'visual');
 	}
@@ -1096,13 +918,9 @@
 		const sharedAux =
 			guest && session.compileIntel ? { numbers: session.compileIntel.auxNumbers, pages: session.compileIntel.auxPages } : null;
 		void refreshProjectIntel(files, bibs, guest ? null : aux, active ?? null, readTextFile, sharedAux).then(() => {
-			if (live && !guest) shareCompileState();
+			if (live && !guest) cc.share();
 		});
 	});
-
-	function shareCompileState() {
-		return shareHostCompileState(session, guest);
-	}
 
 	// \includegraphics hover preview: candidate texfile:// URLs (current dir, root, and any
 	// \graphicspath dirs, adding raster extensions when the path has none); the tooltip's img
@@ -1371,7 +1189,7 @@
 		provider,
 		kind: () => kind,
 		guest: () => guest,
-		typstProject: () => typstProject,
+		typstProject: () => cc.typstProject,
 		visualCollab: () => visualCollab,
 		setDockView: (v) => (dockView = v),
 		setShareModalOpen: (open) => (shareModalOpen = open),
@@ -1393,7 +1211,7 @@
 		refreshTree,
 		canZoteroCite,
 		insertZoteroCitation,
-		setCompileCommandResolved: () => (compileCommand = resolveCompileCommand(get(mainFile))),
+		setCompileCommandResolved: () => cc.resolveNow(),
 		openEntry,
 		statFile
 	};
@@ -1452,7 +1270,7 @@
 			hostMode,
 			canFormat: canFormatDoc(),
 			uiZoomPercent,
-			typstProject
+			typstProject: cc.typstProject
 		}}
 		actions={chromeActions}
 		pendingCommand={projectConfig.pending}
@@ -1488,7 +1306,7 @@
 				applyingStarter: starters.applying,
 				allReferences,
 				sourceGotoLine: nav.sourceGotoLine,
-				sourceDiagnostics,
+				sourceDiagnostics: cc.sourceDiagnostics,
 				fileUrl,
 				cwd: $workspaceRoot ?? '',
 				comments: commentsCtl.threads,
@@ -1496,7 +1314,7 @@
 				commandPending: !!projectConfig.pending,
 				commentsOrphaned: commentsCtl.orphaned,
 				commentsNotVisible: commentsCtl.notVisible,
-				commentFilesPresent,
+				commentFilesPresent: commentsW.filesPresent,
 				commentSelected: commentsCtl.selected,
 				commentRanges: commentsCtl.ranges,
 				commentPending: commentsCtl.pending,
