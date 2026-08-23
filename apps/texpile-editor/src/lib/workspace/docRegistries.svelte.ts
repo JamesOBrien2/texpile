@@ -7,7 +7,7 @@
 import { get } from 'svelte/store';
 import { references, bibItemsToReferences, type BibLaTeXReference } from '$lib/workspace/citations';
 import { labelStore, referenceStore } from '$lib/stores/editorStore';
-import { extractDocRefsAsync } from '$lib/latex-parser/labelsClient';
+import { extractDocRefsAsync } from '$lib/languages/latex/parser/labelsClient';
 
 const DEBOUNCE_MS = 400;
 

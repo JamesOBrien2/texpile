@@ -2,8 +2,8 @@
 // forms). runs inside userMacros.worker.ts because parseLatex over the whole file takes seconds at
 // 1MB; results are plain data so they can cross the worker boundary.
 import { listNewcommands } from '@unified-latex/unified-latex-util-macros';
-import { parseLatex } from '$lib/latex-parser/parser';
-import { MACRO_SIGNATURES, ENV_SIGNATURES } from '$lib/latex-parser/macros';
+import { parseLatex } from '$lib/languages/latex/parser/parser';
+import { MACRO_SIGNATURES, ENV_SIGNATURES } from '$lib/languages/latex/parser/macros';
 
 export type UserMacroDef = {
 	name: string;

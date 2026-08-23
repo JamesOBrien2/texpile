@@ -25,8 +25,8 @@ vi.mock('../../../../src/lib/workspace/fileSystem', () => {
 });
 
 import { detectMainFile, gatherProjectMacros } from '../../../../src/lib/workspace/project';
-import * as LatexParser from '$lib/latex-parser';
-import { serializeToLatex } from '$lib/serializer/latexSerializer';
+import * as LatexParser from '$lib/languages/latex/parser/latexParser';
+import { serializeToLatex } from '$lib/languages/latex/serializer/latexSerializer';
 
 const ROOT = '/proj';
 const file = (rel: string) => ({ name: rel.split('/').pop()!, path: `${ROOT}/${rel}`, relPath: rel });

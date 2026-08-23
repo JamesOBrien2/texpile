@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { latexToProseMirror } from '../../../../src/lib/latex-parser/converter';
+import { latexToProseMirror } from '../../../../src/lib/languages/latex/parser/converter';
 import { sliceToLatex, looksLikeLatex, parseLatexFragment } from '$lib/editor/extensions/latexClipboard';
 import { regenerateCopiedLabels } from '$lib/editor/extensions/paste-uuid-fix';
 import { Slice } from 'prosemirror-model';

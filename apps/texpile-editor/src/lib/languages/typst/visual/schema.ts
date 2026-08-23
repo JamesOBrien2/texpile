@@ -8,7 +8,7 @@
 // Deliberately DOM-import-free beyond prosemirror-model: the parse worker loads this module.
 import { updateImageNode, type SchemaImageSettings } from '$lib/editor/extensions/image/updateImageNode';
 import { Schema, type NodeSpec, type MarkSpec } from 'prosemirror-model';
-import { nodes as texNodes, marks as texMarks } from '$lib/schema/latexPMSchema/latexPMSchema';
+import { nodes as texNodes, marks as texMarks } from '$lib/languages/latex/schema/latexPMSchema';
 
 // mirrors mdSchema: built by hand because createDefaultSettings pulls in the DOM (fatal for a
 // worker), and the image node must stay a block figure

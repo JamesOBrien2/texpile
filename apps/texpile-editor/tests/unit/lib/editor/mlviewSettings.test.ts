@@ -38,7 +38,7 @@ const mountSpy = vi.fn((_component: unknown, _options: { props: { node: unknown 
 const unmountSpy = vi.fn();
 vi.mock('svelte', async (orig) => ({ ...(await orig<Record<string, unknown>>()), mount: mountSpy, unmount: unmountSpy }));
 
-const { schema } = await import('$lib/schema/latexPMSchema/latexPMSchema');
+const { schema } = await import('$lib/languages/latex/schema/latexPMSchema');
 const { MathLiveView } = await import('$lib/editor/extensions/mathlivebridge/mlview.svelte');
 
 function makeView(isBlock: boolean) {

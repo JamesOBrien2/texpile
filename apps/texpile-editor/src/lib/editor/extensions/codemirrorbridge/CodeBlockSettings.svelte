@@ -10,7 +10,7 @@
 	import type { EditorView } from 'prosemirror-view';
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { languages as cmlangdata } from '@codemirror/language-data';
-	import { LISTINGS_LANGUAGES, canSetListingLanguage, argsWithLanguage } from '$lib/latex-parser/listingLanguage';
+	import { LISTINGS_LANGUAGES, canSetListingLanguage, argsWithLanguage } from '$lib/languages/latex/parser/listingLanguage';
 	import { isReadOnly } from '$lib/stores/permissionStore';
 	import { m } from '$lib/paraglide/messages';
 

@@ -5,7 +5,7 @@ import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
 import { history, undo, redo } from 'prosemirror-history';
-import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
+import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
 
 const doc = schema.nodes.doc.create(null, [

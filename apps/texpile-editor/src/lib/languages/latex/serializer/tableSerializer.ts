@@ -5,7 +5,7 @@
  */
 
 import type { Node } from 'prosemirror-model';
-import type { Ctx } from './types';
+import type { Ctx } from '$lib/serializer/types';
 
 type SerializeNodeFn = (node: Node, ctx: Ctx) => string;
 

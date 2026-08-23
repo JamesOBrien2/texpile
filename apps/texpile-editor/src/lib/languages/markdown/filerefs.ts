@@ -1,5 +1,5 @@
 // Markdown file-path references for the move-aware reference updater: the .md counterpart of
-// latex-parser/filerefs. Collected from the Lezer markdown tree, which is what the source editor
+// languages/latex/parser/filerefs. Collected from the Lezer markdown tree, which is what the source editor
 // already parses with, so a link inside a fenced block or a code span is never touched - neither
 // produces a URL node.
 //

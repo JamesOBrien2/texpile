@@ -1,7 +1,7 @@
 // the .tex file IS the document: opening splits preamble/body and parses only the body;
 // saving regenerates only the body and splices it back under the untouched preamble
-import * as LatexParser from '$lib/latex-parser';
-import { serializeToLatexDetailed, serializeNode } from '$lib/serializer/latexSerializer';
+import * as LatexParser from '$lib/languages/latex/parser/latexParser';
+import { serializeToLatexDetailed, serializeNode } from '$lib/languages/latex/serializer/latexSerializer';
 import { fillOrigNorms } from '$lib/serializer/blockAssembly';
 import type { Node } from 'prosemirror-model';
 

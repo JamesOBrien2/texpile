@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { latexToProseMirror } from '../../../../src/lib/latex-parser/converter';
+import { latexToProseMirror } from '../../../../src/lib/languages/latex/parser/converter';
 import { parseLatexFile, serializeLatexFile } from '$lib/workspace/latexRoundtrip';
 
 // regression guard: every parsed doc must satisfy the schema's content expressions (doc.check()).

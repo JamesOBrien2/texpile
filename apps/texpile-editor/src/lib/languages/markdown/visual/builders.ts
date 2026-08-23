@@ -1,4 +1,4 @@
-// md-local ProseMirror builders, bound to mdSchema. Same shape as latex-parser/builders.ts on
+// md-local ProseMirror builders, bound to mdSchema. Same shape as languages/latex/parser/builders.ts on
 // purpose — the tex builders are bound to the tex schema, and nodes from different Schema
 // objects must never mix in one doc, so each importer gets its own set.
 import { Node as PMNodeT, Mark as PMMarkT } from 'prosemirror-model';

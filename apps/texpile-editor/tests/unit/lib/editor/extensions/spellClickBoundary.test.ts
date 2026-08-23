@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { EditorState, Plugin } from 'prosemirror-state';
 import { EditorView, Decoration, DecorationSet } from 'prosemirror-view';
-import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
+import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 import { spellClickBoundaryPlugin } from '$lib/editor/extensions/spellcheck/spellcheckplugin';
 
 // "Hello World" in one paragraph: content starts at 1, so Hello is 1-6, the space 6, World 7-12.

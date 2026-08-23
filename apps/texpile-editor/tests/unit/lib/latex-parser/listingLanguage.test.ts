@@ -8,7 +8,7 @@
 // Writing back is the half that can damage a file, so the rule under test is: touch the language
 // key and nothing else.
 import { describe, it, expect } from 'vitest';
-import { listingLanguage, canSetListingLanguage, argsWithLanguage } from '$lib/latex-parser/listingLanguage';
+import { listingLanguage, canSetListingLanguage, argsWithLanguage } from '$lib/languages/latex/parser/listingLanguage';
 
 describe('listingLanguage', () => {
 	it('reads the listings option', () => {

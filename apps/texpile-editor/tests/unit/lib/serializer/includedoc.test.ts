@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Node } from 'prosemirror-model';
-import * as LatexParser from '$lib/latex-parser';
-import { serializeToLatex } from '../../../../src/lib/serializer/latexSerializer';
+import * as LatexParser from '$lib/languages/latex/parser/latexParser';
+import { serializeToLatex } from '../../../../src/lib/languages/latex/serializer/latexSerializer';
 
 function parse(latex: string): Node {
 	return LatexParser.latexToProseMirror(latex, {}).doc;

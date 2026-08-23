@@ -7,8 +7,8 @@ import { parseLatex } from './parser';
 import type { ParseOptions } from './types';
 import { listNewcommands } from '@unified-latex/unified-latex-util-macros';
 import { attachMacroArgs } from '@unified-latex/unified-latex-util-arguments';
-import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
-import { mergeAdjacentRawBlocks } from '$lib/schema/mergeRawBlocks';
+import { schema } from '$lib/languages/latex/schema/latexPMSchema';
+import { mergeAdjacentRawBlocks } from '$lib/editor/mergeRawBlocks';
 import {
 	el,
 	txt,

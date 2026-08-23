@@ -15,7 +15,7 @@
 	import { sanitizeLabel } from '$lib/editor/utils/label';
 	import { isReadOnly } from '$lib/stores/permissionStore';
 	import { templateFeaturesStore } from '$lib/stores/editorStore';
-	import { parseColspec, generateColspec, type ColAlign } from '$lib/latex-parser/colspec';
+	import { parseColspec, generateColspec, type ColAlign } from '$lib/languages/latex/parser/colspec';
 	import { m } from '$lib/paraglide/messages';
 
 	type Props = {

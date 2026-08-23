@@ -100,7 +100,7 @@ export default ts.config(
 	// package-private folders: internals are importable only within their own folder
 	{
 		files: ['src/**'],
-		ignores: ['src/lib/schema/latexPMSchema/**'],
+		ignores: ['src/lib/languages/latex/schema/**'],
 		rules: {
 			'no-restricted-imports': [
 				'warn',
@@ -108,7 +108,7 @@ export default ts.config(
 					paths: [{ name: 'svelte/store', message: 'runes only; adapt a third-party store at the edge (styles.md)' }],
 					patterns: [
 						{
-							group: ['**/latexPMSchema/*', '!**/latexPMSchema/latexPMSchema'],
+							group: ['**/languages/latex/schema/*', '!**/languages/latex/schema/latexPMSchema'],
 							message: 'latexPMSchema internals are package-private; import through latexPMSchema.ts'
 						}
 					]

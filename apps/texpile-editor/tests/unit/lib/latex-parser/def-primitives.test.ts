@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { latexToProseMirror } from '../../../../src/lib/latex-parser/converter';
-import { serializeToLatex } from '$lib/serializer/latexSerializer';
+import { latexToProseMirror } from '../../../../src/lib/languages/latex/parser/converter';
+import { serializeToLatex } from '$lib/languages/latex/serializer/latexSerializer';
 
 // regression guard: \def/\edef/\gdef/\xdef and \let/\futurelet are TeX primitives whose syntax
 // (delimited parameter text, bare csname targets) MACRO_SIGNATURES cannot express. the bug: the

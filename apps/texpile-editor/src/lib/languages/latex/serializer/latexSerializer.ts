@@ -7,11 +7,11 @@
 
 import type { Node, Mark } from 'prosemirror-model';
 import { serializeTable } from './tableSerializer';
-import { FIG_IMG_SLOT, FIG_CAP_SLOT, FIG_LAB_SLOT } from '../latex-parser/converter';
-import { createBlockAssembly, type DocSerializeResult } from './blockAssembly';
-import type { Ctx, NodeHandler } from './types';
+import { FIG_IMG_SLOT, FIG_CAP_SLOT, FIG_LAB_SLOT } from '../parser/converter';
+import { createBlockAssembly, type DocSerializeResult } from '$lib/serializer/blockAssembly';
+import type { Ctx, NodeHandler } from '$lib/serializer/types';
 
-export type { DocSerializeResult } from './blockAssembly';
+export type { DocSerializeResult } from '$lib/serializer/blockAssembly';
 
 const ESCAPE_RE = /[\\{}#%&$_^]/g;
 const ESCAPE_MAP: Record<string, string> = {

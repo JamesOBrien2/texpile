@@ -1,5 +1,5 @@
 // Markdown (markdown-it tokens) -> ProseMirror, targeting the SAME schema as the LaTeX
-// importer. Max-fidelity contract mirrors latex-parser/converter.ts: every construct the walker
+// importer. Max-fidelity contract mirrors languages/latex/parser/converter.ts: every construct the walker
 // understands becomes a rich node; anything else survives as a raw block/chip sliced verbatim
 // from the source, so an unknown token type can never crash a file open or lose bytes.
 //

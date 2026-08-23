@@ -9,7 +9,7 @@
 // exercising a live chip. The laziness itself is covered in cmViewport.test.ts, which installs a
 // fake observer.
 import { describe, it, expect, beforeAll } from 'vitest';
-import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
+import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 

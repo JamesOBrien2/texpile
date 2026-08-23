@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { latexToProseMirror } from '../../../../src/lib/latex-parser/converter';
-import { serializeToLatex } from '$lib/serializer/latexSerializer';
+import { latexToProseMirror } from '../../../../src/lib/languages/latex/parser/converter';
+import { serializeToLatex } from '$lib/languages/latex/serializer/latexSerializer';
 
 // math content is sliced from the original source instead of reconstructed with printRaw:
 // printRaw re-brackets scripts (cosmetic) but also seals a script macro away from its own

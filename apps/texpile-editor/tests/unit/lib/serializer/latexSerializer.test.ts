@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { Node, Mark } from 'prosemirror-model';
-import * as LatexParser from '$lib/latex-parser';
-import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
-import { serializeToLatex, serializeNode } from '../../../../src/lib/serializer/latexSerializer';
+import * as LatexParser from '$lib/languages/latex/parser/latexParser';
+import { schema } from '$lib/languages/latex/schema/latexPMSchema';
+import { serializeToLatex, serializeNode } from '../../../../src/lib/languages/latex/serializer/latexSerializer';
 
 const N = schema.nodes;
 const tx = (text: string, ...marks: Mark[]): Node => schema.text(text, marks.length ? marks : undefined);

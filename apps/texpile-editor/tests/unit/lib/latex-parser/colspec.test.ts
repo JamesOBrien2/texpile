@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseColspec, generateColspec } from '../../../../src/lib/latex-parser/colspec';
+import { parseColspec, generateColspec } from '../../../../src/lib/languages/latex/parser/colspec';
 
 describe('parseColspec / generateColspec', () => {
 	it('parses simple alignments + rules and round-trips', () => {

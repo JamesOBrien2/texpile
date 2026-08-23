@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractLabels } from '../../../../src/lib/latex-parser/labels';
+import { extractLabels } from '../../../../src/lib/languages/latex/parser/labels';
 
 describe('extractLabels (AST)', () => {
 	it('collects \\label keys across the document', () => {

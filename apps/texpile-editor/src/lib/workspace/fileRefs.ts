@@ -2,7 +2,7 @@
 // extension. Each dialect contributes only a COLLECTOR (its own parser finds the path literals
 // and their exact spans); matching, prefix preservation and the splice are shared from here, so
 // "does this point at the moved file" is answered the same way everywhere.
-import { collectLatexFileRefs } from '$lib/latex-parser/filerefs';
+import { collectLatexFileRefs } from '$lib/languages/latex/parser/filerefs';
 import { collectTypstFileRefs } from '$lib/languages/typst/filerefs';
 import { collectMarkdownFileRefs } from '$lib/languages/markdown/filerefs';
 

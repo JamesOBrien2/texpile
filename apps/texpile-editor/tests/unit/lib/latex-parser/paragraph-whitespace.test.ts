@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { latexToProseMirror } from '../../../../src/lib/latex-parser/converter';
+import { latexToProseMirror } from '../../../../src/lib/languages/latex/parser/converter';
 
 function blocks(latex: string): { type: string; text: string }[] {
 	const out: { type: string; text: string }[] = [];

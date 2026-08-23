@@ -7,9 +7,9 @@
 import { Plugin } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { Slice, Fragment } from 'prosemirror-model';
-import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
-import { serializeToLatex } from '$lib/serializer/latexSerializer';
-import { latexToProseMirror } from '$lib/latex-parser/converter';
+import { schema } from '$lib/languages/latex/schema/latexPMSchema';
+import { serializeToLatex } from '$lib/languages/latex/serializer/latexSerializer';
+import { latexToProseMirror } from '$lib/languages/latex/parser/converter';
 import { regenerateCopiedLabels } from './paste-uuid-fix';
 
 /** serialize a clipboard slice to LaTeX. Inline slices (a selection inside one paragraph) wrap

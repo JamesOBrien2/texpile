@@ -12,7 +12,7 @@
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { TypstParser } from 'texpile-typst-syntax-wasm';
 import { el, txtNodes, collapseTextNodes, realMarks, type PMNode, type PMMark } from './builders';
-import { mergeAdjacentRawBlocks } from '$lib/schema/mergeRawBlocks';
+import { mergeAdjacentRawBlocks } from '$lib/editor/mergeRawBlocks';
 import { typstMathToLatex } from './mathTranslate';
 
 // one parser for the module: Source::replace reparses incrementally against the previous text,

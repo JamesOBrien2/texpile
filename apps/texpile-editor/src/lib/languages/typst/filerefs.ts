@@ -1,5 +1,5 @@
 // Typst file-path references for the move-aware reference updater: the .typ counterpart of
-// latex-parser/filerefs. Collected from the real syntax tree (our typst-syntax wasm build), so
+// languages/latex/parser/filerefs. Collected from the real syntax tree (our typst-syntax wasm build), so
 // a path inside a comment or a raw block is never touched - those produce no Str node at all.
 //
 // Only paths written as literals at the call site can be found. `#let p = "a.png"` followed by

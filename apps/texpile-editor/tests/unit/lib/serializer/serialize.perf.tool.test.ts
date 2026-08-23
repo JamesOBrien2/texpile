@@ -4,8 +4,8 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState } from 'prosemirror-state';
 import { parseLatexFile } from '$lib/workspace/latexRoundtrip';
-import { serializeToLatex } from '../../../../src/lib/serializer/latexSerializer';
-import { extractDocRefs } from '../../../../src/lib/latex-parser/labels';
+import { serializeToLatex } from '../../../../src/lib/languages/latex/serializer/latexSerializer';
+import { extractDocRefs } from '../../../../src/lib/languages/latex/parser/labels';
 import { parseOutlineRaw } from '../../../../src/lib/editor/extensions/tableofcontents/latexHeadings';
 
 function buildPaper(targetBytes: number): string {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { latexToProseMirror } from '../../../../src/lib/latex-parser/converter';
-import { serializeToLatex } from '$lib/serializer/latexSerializer';
+import { latexToProseMirror } from '../../../../src/lib/languages/latex/parser/converter';
+import { serializeToLatex } from '$lib/languages/latex/serializer/latexSerializer';
 import { parseLatexFile, serializeLatexFile } from '$lib/workspace/latexRoundtrip';
 
 // regression guard: figure*/table* were missing from envHandlers, so a lone \includegraphics

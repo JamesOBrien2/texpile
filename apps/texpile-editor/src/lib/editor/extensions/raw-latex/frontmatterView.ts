@@ -1,7 +1,7 @@
 import type { Node } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { NodeSelection } from 'prosemirror-state';
-import { parseLatex } from '$lib/latex-parser/parser';
+import { parseLatex } from '$lib/languages/latex/parser/parser';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
 
 // frontmatter detection goes through the unified-latex AST, never regex. title/author/date are

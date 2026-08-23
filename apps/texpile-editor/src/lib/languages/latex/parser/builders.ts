@@ -2,7 +2,7 @@
 import type { Node } from '@unified-latex/unified-latex-types';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
 import { Node as PMNodeT, Mark as PMMarkT } from 'prosemirror-model';
-import { schema } from '$lib/schema/latexPMSchema/latexPMSchema';
+import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 
 export type PMNode = PMNodeT;
 

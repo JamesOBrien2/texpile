@@ -4,7 +4,7 @@
 	import { EditorState, Transaction, TextSelection } from 'prosemirror-state';
 	import { EditorView } from 'prosemirror-view';
 	import type { Node as PMNode } from 'prosemirror-model';
-	import { schema } from '../schema/latexPMSchema/latexPMSchema';
+	import { schema } from '../languages/latex/schema/latexPMSchema';
 	import { isMac } from '$lib/platform';
 	import { keymap } from 'prosemirror-keymap';
 	import { baseKeymap, toggleMark } from 'prosemirror-commands';
