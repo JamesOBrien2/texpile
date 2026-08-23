@@ -8,7 +8,7 @@ import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/
 import { serializeToTypst, escTypst } from '$lib/languages/typst/visual/serializer';
 import { typstToProseMirror } from '$lib/languages/typst/visual/converter';
 import { typSchema } from '$lib/languages/typst/visual/schema';
-import { computeTableSkeleton } from '$lib/languages/typst/visual/sourceInsert';
+import { computeTableSkeleton } from '$lib/languages/typst/source/sourceInsert';
 import { typTableNode } from '$lib/languages/typst/visual/blockInsertItems';
 import { sliceToTypst } from '$lib/languages/typst/visual/clipboard';
 import { Slice, type Node } from 'prosemirror-model';

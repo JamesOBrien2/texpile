@@ -26,9 +26,9 @@ import { inputRules, InputRule, smartQuotes, ellipsis, undoInputRule } from 'pro
 import { placeholderPlugin } from '$lib/editor/extensions/placeholderplugin';
 import { tablePlaceholderPlugin } from '$lib/editor/extensions/table/tablePlaceholderPlugin';
 import { search } from 'prosemirror-search';
-import { CitationView } from '$lib/languages/latex/extensions/citation/citationView.svelte';
-import { RefView } from '$lib/languages/latex/extensions/ref/refView.svelte';
-import { createRefUpdatePlugin } from '$lib/languages/latex/extensions/ref/refUpdatePlugin';
+import { CitationView } from '$lib/languages/latex/visual/extensions/citation/citationView.svelte';
+import { RefView } from '$lib/languages/latex/visual/extensions/ref/refView.svelte';
+import { createRefUpdatePlugin } from '$lib/languages/latex/visual/extensions/ref/refUpdatePlugin';
 import { createTocPlugin } from '$lib/editor/extensions/tableofcontents/tocPlugin';
 import { createPersistentSelectionPlugin } from '$lib/editor/extensions/persistentSelection/persistentSelectionPlugin';
 import { createSuggestPlugin } from '$lib/editor/extensions/suggest/suggestPlugin';
@@ -40,7 +40,7 @@ import { tableWrapperView } from '$lib/editor/extensions/table/tableWrapperView.
 import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
 import { RawLatexView } from '$lib/editor/extensions/raw-latex/rawLatexView';
 import { RawFigureView, isRawFigure } from '$lib/editor/extensions/raw-latex/rawFigureView';
-import { IeeeAuthorView, isIeeeAuthorBlock } from '$lib/languages/latex/extensions/template-specific/ieeeAuthorView';
+import { IeeeAuthorView, isIeeeAuthorBlock } from '$lib/languages/latex/visual/extensions/template-specific/ieeeAuthorView';
 import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
 import { inlinePlaceholder, InlinePlaceholderView } from '$lib/editor/extensions/raw-latex/inlinePlaceholderView';
 import {
@@ -50,7 +50,7 @@ import {
 	placeholderCommand
 } from '$lib/editor/extensions/raw-latex/frontmatterView';
 import { BibliographyNodeView } from '$lib/editor/extensions/bibliography/bibliographyNodeView.svelte';
-import { environmentView } from '$lib/languages/latex/extensions/environment/environmentView.svelte';
+import { environmentView } from '$lib/languages/latex/visual/extensions/environment/environmentView.svelte';
 import { IncludeDocView } from '$lib/editor/extensions/includedoc/includeDocView.svelte';
 import { createTrailingParagraphPlugin } from '$lib/editor/extensions/trailing-paragraph-plugin';
 import { createBoundaryClickPlugin } from '$lib/editor/extensions/boundary-click-plugin';

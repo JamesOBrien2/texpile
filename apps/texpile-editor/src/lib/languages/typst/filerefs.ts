@@ -7,7 +7,7 @@
 import { EditorState } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
-import { typstLanguage } from './typstLanguage';
+import { typstLanguage } from './source/typstLanguage';
 import type { FileRef } from '$lib/workspace/fileRefs';
 
 /** functions whose FIRST string argument is a path. `read`/`csv`/`json`/... are typst's data

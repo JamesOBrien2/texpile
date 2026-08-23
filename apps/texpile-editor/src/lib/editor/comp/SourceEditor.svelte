@@ -19,8 +19,8 @@
 	import { texpileSearch } from '$lib/editor/extensions/search-panel/searchPanel';
 	import { latexAutocomplete, latexIntellisense } from '$lib/languages/latex/intellisense/intellisense';
 	import { foldMarkerDom, foldMarkerTheme } from '$lib/languages/latex/intellisense/fold';
-	import { mdSourceShortcuts } from '$lib/languages/markdown/visual/sourceExtensions';
-	import { typSourceShortcuts } from '$lib/languages/typst/visual/sourceExtensions';
+	import { mdSourceShortcuts } from '$lib/languages/markdown/source/sourceExtensions';
+	import { typSourceShortcuts } from '$lib/languages/typst/source/sourceExtensions';
 	import { mdPathCompletion } from '$lib/languages/markdown/pathCompletion';
 	import { cmSpellcheck } from '$lib/editor/extensions/spellcheck/cmSpellcheck';
 	import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
@@ -33,10 +33,10 @@
 	} from '$lib/editor/extensions/comments';
 	import { mathPreview } from '$lib/editor/extensions/math-preview/mathPreview';
 	import { starterGhost } from '$lib/editor/extensions/starter-ghost/starterGhost';
-	import { synctexFlash, flashLineEffect } from '$lib/languages/latex/extensions/synctex-flash/synctexFlash';
+	import { synctexFlash, flashLineEffect } from '$lib/languages/latex/source/synctexFlash';
 	import { bindModalKeymap, modalKeymapCompartment } from '$lib/editor/extensions/keybindings/modalKeymap';
 	import { bibtex } from '$lib/languages/bib/bibtexLanguage';
-	import { latex } from '$lib/languages/latex/latexLanguage';
+	import { latex } from '$lib/languages/latex/source/latexLanguage';
 	import { releaseTypstLsp, typstLspExtension, typstServerGen } from '$lib/languages/typst/intellisense/lspClient';
 	import { typstGuestLspExtension, releaseGuestTypstLsp } from '$lib/languages/typst/intellisense/guestLspExtension';
 	import { collabGuest, guestSession } from '$lib/collab/guestStore.svelte';
@@ -405,7 +405,7 @@
 			view?.dispatch({ effects: langConf.reconfigure(bibtex()) });
 		} else if (fileFor && /\.typ$/i.test(fileFor)) {
 			// the typst-syntax crate as wasm, dynamically imported: ~310KB nothing else needs
-			void import('$lib/languages/typst/typstLanguage').then(({ typstLanguage }) =>
+			void import('$lib/languages/typst/source/typstLanguage').then(({ typstLanguage }) =>
 				view?.dispatch({ effects: langConf.reconfigure(typstLanguage()) })
 			);
 		} else if (!fileFor || /\.(tex|cls|sty)$/i.test(fileFor)) {

@@ -11,7 +11,7 @@ import {
 	computeMathBlock,
 	computeTableSkeleton,
 	computeHr
-} from '$lib/languages/markdown/visual/sourceInsert';
+} from '$lib/languages/markdown/source/sourceInsert';
 
 function state(doc: string, anchor: number, head = anchor) {
 	return EditorState.create({ doc, selection: EditorSelection.range(anchor, head) });

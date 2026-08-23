@@ -4,7 +4,7 @@
 import { keymap, EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 import { get } from 'svelte/store';
-import { flashLineEffect } from '$lib/languages/latex/extensions/synctex-flash/synctexFlash';
+import { flashLineEffect } from '$lib/languages/latex/source/synctexFlash';
 import { projectIntelStore } from '$lib/stores/projectIntel';
 import { tokenAt, findLabelOffset } from './hover';
 

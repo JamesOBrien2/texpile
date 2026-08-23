@@ -17,12 +17,12 @@ import {
 	computeToggleDelim as mdDelim,
 	computeHeadingLine as mdHeading,
 	computeQuoteLines as mdQuote
-} from '$lib/languages/markdown/visual/sourceInsert';
+} from '$lib/languages/markdown/source/sourceInsert';
 import {
 	computeToggleDelim as typDelim,
 	computeWrap as typWrap,
 	computeHeadingLine as typHeading
-} from '$lib/languages/typst/visual/sourceInsert';
+} from '$lib/languages/typst/source/sourceInsert';
 import type { TransactionSpec } from '@codemirror/state';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';

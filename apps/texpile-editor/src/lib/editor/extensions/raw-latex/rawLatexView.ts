@@ -10,7 +10,7 @@ import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 import { languages as cmlangdata } from '@codemirror/language-data';
 import { rawEditorActiveStore } from '$lib/stores/editorStore';
 import { latexAutocomplete } from '$lib/languages/latex/intellisense/intellisense';
-import { latex } from '$lib/languages/latex/latexLanguage';
+import { latex } from '$lib/languages/latex/source/latexLanguage';
 import { cmCommentHighlights, cmCommentClicks, syncCmCommentHighlights } from '$lib/editor/extensions/codemirrorbridge/cmComments';
 
 // codemirror-backed NodeView for raw source blocks; content reaches the serializer unprocessed.
@@ -75,7 +75,7 @@ export class RawLatexView {
 		if (String(node.attrs.lang ?? 'latex') === 'typst') {
 			// typst isn't in @codemirror/language-data; the app ships its own wasm-backed language
 			// (island flavour: no fold gutter on a chip)
-			void import('$lib/languages/typst/typstLanguage').then(({ typstIslandLanguage }) => {
+			void import('$lib/languages/typst/source/typstLanguage').then(({ typstIslandLanguage }) => {
 				this.cm.dispatch({ effects: this.languageConf.reconfigure(typstIslandLanguage()) });
 			});
 		} else if (String(node.attrs.lang ?? 'latex') === 'latex') {

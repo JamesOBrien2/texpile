@@ -8,7 +8,7 @@ import { EditorView } from '@codemirror/view';
 import { toggleComment } from '@codemirror/commands';
 import { syntaxTree } from '@codemirror/language';
 import { highlightTree, tagHighlighter, tags } from '@lezer/highlight';
-import { typstLanguage } from '$lib/languages/typst/typstLanguage';
+import { typstLanguage } from '$lib/languages/typst/source/typstLanguage';
 
 const DOC = `// a comment
 = Heading

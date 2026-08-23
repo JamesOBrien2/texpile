@@ -9,7 +9,7 @@
 	import { unifiedMergeView, MergeView } from '@codemirror/merge';
 	import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
 	import { bibtex } from '$lib/languages/bib/bibtexLanguage';
-	import { latex } from '$lib/languages/latex/latexLanguage';
+	import { latex } from '$lib/languages/latex/source/latexLanguage';
 
 	let {
 		filename = '',
@@ -45,7 +45,7 @@
 		let cancelled = false;
 		if (/\.typ$/i.test(f)) {
 			// island flavour: highlighting only, no fold gutter in a read-only diff
-			void import('$lib/languages/typst/typstLanguage').then(({ typstIslandLanguage }) => {
+			void import('$lib/languages/typst/source/typstLanguage').then(({ typstIslandLanguage }) => {
 				if (!cancelled) langExt = typstIslandLanguage();
 			});
 			return () => {

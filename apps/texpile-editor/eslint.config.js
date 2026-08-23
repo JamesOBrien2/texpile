@@ -34,12 +34,11 @@ function languageBoundary(bans) {
 // subfolder must be added here to stay fenced
 const banLatex = {
 	group: [
-		'**/languages/latex/latexLanguage',
 		'**/languages/latex/log/**',
 		'**/languages/latex/parser/**',
 		'**/languages/latex/serializer/**',
+		'**/languages/latex/source/**',
 		'**/languages/latex/visual/**',
-		'**/languages/latex/extensions/**',
 		'**/languages/latex/intellisense/**',
 		'**/languages/latex/schema/*',
 		'!**/languages/latex/schema/latexPMSchema'
@@ -48,14 +47,14 @@ const banLatex = {
 };
 const banTypst = {
 	group: [
-		'**/languages/typst/typstLanguage',
 		'**/languages/typst/logParser',
 		'**/languages/typst/filerefs',
 		'**/languages/typst/projectFiles',
 		'**/languages/typst/intellisense/**',
 		'**/languages/typst/preview/**',
-		'**/languages/typst/extensions/**',
+		'**/languages/typst/source/**',
 		'**/languages/typst/visual/*',
+		'**/languages/typst/visual/extensions/**',
 		'!**/languages/typst/visual/sourceMap'
 	],
 	message: 'cross-language import; shared code belongs in editor/ (styles.md)'

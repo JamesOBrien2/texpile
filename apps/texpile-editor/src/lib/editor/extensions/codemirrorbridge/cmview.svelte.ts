@@ -30,7 +30,7 @@ import type { Extension } from '@codemirror/state';
 async function loadLanguageByName(name: string | null | undefined): Promise<{ name: string; support: Extension } | null> {
 	if (!name) return null;
 	if (/^(latex|tex|stex)$/i.test(name)) {
-		const { latex } = await import('$lib/languages/latex/latexLanguage');
+		const { latex } = await import('$lib/languages/latex/source/latexLanguage');
 		return { name: 'LaTeX', support: latex() };
 	}
 	const data = cmlangdata.find((l) => l.name.toLowerCase() === name.toLowerCase());

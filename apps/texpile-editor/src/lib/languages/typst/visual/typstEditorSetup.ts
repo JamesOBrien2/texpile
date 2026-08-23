@@ -6,7 +6,7 @@ import { Fragment, Slice, type Node as PmNode } from 'prosemirror-model';
 import { typstToProseMirror } from './converter';
 import { typstCopyPlugin } from './clipboard';
 import { createSuggestPlugin } from '$lib/editor/extensions/suggest/suggestPlugin';
-import { TypstBibliographyView, isTypstBibliography } from '../extensions/typstBibliographyView.svelte';
+import { TypstBibliographyView, isTypstBibliography } from './extensions/typstBibliographyView.svelte';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { undo as historyUndo, redo as historyRedo, history } from 'prosemirror-history';
@@ -28,7 +28,7 @@ import { inputRules, textblockTypeInputRule, InputRule, undoInputRule, smartQuot
 import { emDashRule, enDashRule, emDashUpgradeRule } from '$lib/editor/extensions/inputrules/dashRules';
 import { search } from 'prosemirror-search';
 import { typSchema } from './schema';
-import { TypstRefView } from '../extensions/typstRefView';
+import { TypstRefView } from './extensions/typstRefView';
 import { TYP_BLOCK_INSERT_ITEMS } from './blockInsertItems';
 import { isMac } from '$lib/platform';
 import { toggleHeading } from '$lib/editor/helperCommands';

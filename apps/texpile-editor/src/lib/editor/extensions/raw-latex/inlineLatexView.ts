@@ -8,7 +8,7 @@ import type { Node } from 'prosemirror-model';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 import { languages as cmlangdata } from '@codemirror/language-data';
 import { latexAutocomplete } from '$lib/languages/latex/intellisense/intellisense';
-import { latex } from '$lib/languages/latex/latexLanguage';
+import { latex } from '$lib/languages/latex/source/latexLanguage';
 import { renderStaticInlineCode, setStaticCode } from '$lib/editor/extensions/codemirrorbridge/cmStatic';
 import { cmCommentHighlights, cmCommentClicks, syncCmCommentHighlights } from '$lib/editor/extensions/codemirrorbridge/cmComments';
 import { upgradeWhenNear, cancelUpgrade } from '$lib/editor/extensions/mathlivebridge/mathViewport';
@@ -102,7 +102,7 @@ export class InlineLatexView {
 		if (String(this.node.attrs.lang ?? 'latex') === 'typst') {
 			// typst isn't in @codemirror/language-data; the app ships its own wasm-backed language
 			// (island flavour: no fold gutter on a chip)
-			void import('$lib/languages/typst/typstLanguage').then(({ typstIslandLanguage }) =>
+			void import('$lib/languages/typst/source/typstLanguage').then(({ typstIslandLanguage }) =>
 				cm.dispatch({ effects: this.languageConf.reconfigure(typstIslandLanguage()) })
 			);
 		} else if (String(this.node.attrs.lang ?? 'latex') === 'latex') {

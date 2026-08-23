@@ -17,7 +17,7 @@ import { Language, LanguageSupport, defineLanguageFacet, foldKeymap, languageDat
 import { keymap } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 import { TypstParser, typstHighlight } from 'texpile-typst-syntax-wasm';
-import { typstFold, typstFoldSections } from './intellisense/typstFold';
+import { typstFold, typstFoldSections } from '../intellisense/typstFold';
 
 /**
  * Fold RANGES and the fold keymap - deliberately NOT the gutter.

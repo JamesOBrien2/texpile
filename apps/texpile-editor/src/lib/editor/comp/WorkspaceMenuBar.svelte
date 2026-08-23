@@ -27,14 +27,14 @@
 		computeImage as mdImage,
 		computeHr as mdHr,
 		computeLink as mdLink
-	} from '$lib/languages/markdown/visual/sourceInsert';
+	} from '$lib/languages/markdown/source/sourceInsert';
 	import {
 		computeFence as typFence,
 		computeTableSkeleton as typTable,
 		computeFigureSkeleton as typFigure,
 		computeHr as typHr,
 		computeLink as typLink
-	} from '$lib/languages/typst/visual/sourceInsert';
+	} from '$lib/languages/typst/source/sourceInsert';
 	import { startImageUpload } from '$lib/editor/extensions/image';
 	import { createLocalImageSettings } from '$lib/editor/extensions/image/imageplugin.svelte';
 	import { hasVisualMode, isRawTextKind, formatOf, type FileKind } from '$lib/workspace/documentBuffer.svelte';

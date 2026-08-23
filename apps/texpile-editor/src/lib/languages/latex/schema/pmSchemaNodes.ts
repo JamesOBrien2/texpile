@@ -1,5 +1,5 @@
-import { citationNodeSpec } from '$lib/languages/latex/extensions/citation/citationSchema';
-import { refNodeSpec } from '$lib/languages/latex/extensions/ref/refSchema';
+import { citationNodeSpec } from '$lib/languages/latex/visual/extensions/citation/citationSchema';
+import { refNodeSpec } from '$lib/languages/latex/visual/extensions/ref/refSchema';
 import { createListSpec } from 'prosemirror-flat-list';
 import { imageNodes, tableFamilyNodes } from './pmSchemaFloatNodes';
 import type { NodeSpec, DOMOutputSpec } from 'prosemirror-model';

@@ -8,7 +8,7 @@ import { EditorState } from '@codemirror/state';
 import { ensureSyntaxTree } from '@codemirror/language';
 import { toggleComment } from '@codemirror/commands';
 import { highlightTree, tagHighlighter, tags } from '@lezer/highlight';
-import { latex } from '$lib/languages/latex/latexLanguage';
+import { latex } from '$lib/languages/latex/source/latexLanguage';
 
 const DOC = `% a comment
 \\documentclass{article}

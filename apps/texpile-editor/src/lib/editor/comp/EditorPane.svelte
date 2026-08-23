@@ -7,7 +7,7 @@
 	import { Loader2, CircleAlert, Info } from '@lucide/svelte';
 	import { isTexpileManaged } from '$lib/comments/managed';
 	import LatexToolbar from '$lib/languages/latex/visual/LatexToolbar.svelte';
-	import LatexSourceToolbar from '$lib/languages/latex/visual/LatexSourceToolbar.svelte';
+	import LatexSourceToolbar from '$lib/languages/latex/source/LatexSourceToolbar.svelte';
 	import SearchBar from './SearchBar.svelte';
 	import StarterPicker from './StarterPicker.svelte';
 	import DiffPane from './DiffPane.svelte';
@@ -18,10 +18,10 @@
 	import LatexEditorView from '$lib/languages/latex/visual/LatexEditorView.svelte';
 	import MarkdownEditorView from '$lib/languages/markdown/visual/MarkdownEditorView.svelte';
 	import MarkdownToolbar from '$lib/languages/markdown/visual/MarkdownToolbar.svelte';
-	import MarkdownSourceToolbar from '$lib/languages/markdown/visual/MarkdownSourceToolbar.svelte';
+	import MarkdownSourceToolbar from '$lib/languages/markdown/source/MarkdownSourceToolbar.svelte';
 	import TypstEditorView from '$lib/languages/typst/visual/TypstEditorView.svelte';
 	import TypstToolbar from '$lib/languages/typst/visual/TypstToolbar.svelte';
-	import TypstSourceToolbar from '$lib/languages/typst/visual/TypstSourceToolbar.svelte';
+	import TypstSourceToolbar from '$lib/languages/typst/source/TypstSourceToolbar.svelte';
 	import type { EditSession } from '$lib/collab/editSession';
 	import type { ParsedLatexFile, ParsePhase } from '$lib/workspace/latexRoundtrip';
 	import VisualLoading from './VisualLoading.svelte';

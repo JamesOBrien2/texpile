@@ -59,7 +59,7 @@
 			} else {
 				// the app's own LaTeX mode (same tags and colours as the source editor), not
 				// language-data's stex, which paints commands in a tag the shared style ignores
-				const { latex } = await import('$lib/languages/latex/latexLanguage');
+				const { latex } = await import('$lib/languages/latex/source/latexLanguage');
 				languageExtension = [languageCompartment.of(latex())];
 			}
 		} catch {

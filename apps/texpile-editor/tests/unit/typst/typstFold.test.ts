@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { foldable } from '@codemirror/language';
-import { typstLanguage } from '$lib/languages/typst/typstLanguage';
+import { typstLanguage } from '$lib/languages/typst/source/typstLanguage';
 
 const state = (doc: string) => EditorState.create({ doc, extensions: [typstLanguage()] });
 
