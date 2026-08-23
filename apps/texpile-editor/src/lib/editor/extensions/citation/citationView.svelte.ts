@@ -11,7 +11,7 @@ type CitationDisplayProps = {
 	onChangeKey: (key: string) => void;
 };
 
-export default class CitationView implements NodeView {
+export class CitationView implements NodeView {
 	dom: HTMLElement;
 	private svelteComponent: ReturnType<typeof mount>;
 	// all props in one $state object: svelte 5 only tracks node changes when it lives

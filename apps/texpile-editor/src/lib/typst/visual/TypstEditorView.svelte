@@ -33,7 +33,7 @@
 	import { emDashRule, enDashRule, emDashUpgradeRule } from '$lib/editor/extensions/inputrules/dashRules';
 	import { search } from 'prosemirror-search';
 	import { typSchema } from './schema';
-	import TypstRefView from './typstRefView';
+	import { TypstRefView } from './typstRefView';
 	import { TYP_BLOCK_INSERT_ITEMS } from './blockInsertItems';
 	import { isMac } from '$lib/platform';
 	import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
@@ -60,11 +60,11 @@
 	import { createBlockHandlePlugin } from '$lib/editor/extensions/block-handle-plugin.svelte';
 	import { createNodeFlashPlugin } from '$lib/editor/extensions/flash-plugin';
 	import { remoteCursorsPlugin } from '$lib/editor/extensions/remoteCursors';
-	import CodeBlockView from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
+	import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
 	import { typstTableWrapperView } from '$lib/editor/extensions/table/tableWrapperView.svelte';
-	import RawLatexView from '$lib/editor/extensions/raw-latex/rawLatexView';
-	import InlineLatexView from '$lib/editor/extensions/raw-latex/inlineLatexView';
-	import IncludeDocView from '$lib/editor/extensions/includedoc/includeDocView.svelte';
+	import { RawLatexView } from '$lib/editor/extensions/raw-latex/rawLatexView';
+	import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
+	import { IncludeDocView } from '$lib/editor/extensions/includedoc/includeDocView.svelte';
 	import ContextMenu from '$lib/editor/comp/toolbar/ContextMenu.svelte';
 	import { pmComments } from '$lib/editor/extensions/pmComments';
 	import { syncPmComments } from '$lib/editor/extensions/pmCommentsSync.svelte';

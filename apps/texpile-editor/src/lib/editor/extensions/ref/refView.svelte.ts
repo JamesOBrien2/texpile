@@ -3,7 +3,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { mount, unmount } from 'svelte';
 import RefDisplay from './RefDisplay.svelte';
 
-export default class RefView implements NodeView {
+export class RefView implements NodeView {
 	dom: HTMLElement;
 	private svelteComponent: ReturnType<typeof mount>;
 	private componentProps = $state<{

@@ -18,7 +18,7 @@ import { cmCommentHighlights, cmCommentClicks, syncCmCommentHighlights } from '$
 // 'markdown' for the raw islands a markdown doc produces.
 const LANG_NAMES: Record<string, string> = { latex: 'LaTeX', html: 'HTML', markdown: 'Markdown' };
 
-class RawLatexView {
+export class RawLatexView {
 	node: Node;
 	view: ProseMirrorView;
 	getPos: () => number;
@@ -263,5 +263,3 @@ class RawLatexView {
 		this.cm.destroy();
 	}
 }
-
-export default RawLatexView;

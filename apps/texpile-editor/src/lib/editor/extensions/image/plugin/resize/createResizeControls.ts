@@ -120,7 +120,7 @@ const createResizeControl = (
 	wrapper.appendChild(resizeControl);
 };
 
-export default (
+export function createResizeControls(
 	height: number,
 	width: number,
 	getPos: () => number | undefined,
@@ -130,7 +130,7 @@ export default (
 	setResizeActive: (value: boolean) => void,
 	maxWidth: number,
 	pluginSettings: ImagePluginSettings
-) => {
+) {
 	const controlsWrapper = document.createElement('div');
 	controlsWrapper.className = imagePluginClassNames.imageResizeBoxWrapper;
 	const centeredWrapper = document.createElement('div');
@@ -147,4 +147,4 @@ export default (
 		createResizeControl(controlsRoot, resizeDirection[direction], getPos, node, view, image, setResizeActive, maxWidth, pluginSettings)
 	);
 	return controlsWrapper;
-};
+}

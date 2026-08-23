@@ -43,7 +43,7 @@ type SettingsHost = {
 	__svelteComponentProps?: { node: Node; view: ProseMirrorView; getPos: () => number | undefined };
 } & HTMLElement;
 
-class CodeBlockView {
+export class CodeBlockView {
 	node: Node;
 	view: ProseMirrorView;
 	getPos: () => number;
@@ -396,4 +396,3 @@ class CodeBlockView {
 	}
 }
 
-export default CodeBlockView;

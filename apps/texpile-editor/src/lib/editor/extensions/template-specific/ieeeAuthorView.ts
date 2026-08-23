@@ -1,4 +1,4 @@
-import RawLatexView from '../raw-latex/rawLatexView';
+import { RawLatexView } from '../raw-latex/rawLatexView';
 import { parseIEEEAuthors, isIEEEAuthorBlock, ordinalLabel } from './ieeeAuthor';
 import type { Node } from 'prosemirror-model';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
@@ -64,4 +64,3 @@ export class IEEEAuthorView extends RawLatexView {
 	}
 }
 
-export default IEEEAuthorView;

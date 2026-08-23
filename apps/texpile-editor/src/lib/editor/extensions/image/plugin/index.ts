@@ -3,9 +3,9 @@ import type { Node as PMNode } from 'prosemirror-model';
 
 import type { ImagePluginSettings, ImagePluginState } from '../types';
 import { imagePluginKey } from '../imagepluginutils';
-import dropHandler from './dropHandler';
-import imageNodeView from './imageNodeView';
-import pasteHandler from './pasteHandler';
+import { dropHandler } from './dropHandler';
+import { imageNodeView } from './imageNodeView';
+import { pasteHandler } from './pasteHandler';
 import { copyImage } from '$lib/editor/request';
 import { currentDocMetaStore } from '$lib/stores/metaStore';
 import { get } from 'svelte/store';
@@ -59,7 +59,7 @@ function createUpdateImageSrcTransaction(state: EditorState, oldSrc: string, new
 	return tr;
 }
 
-const imagePlugin = (pluginSettings: ImagePluginSettings): Plugin<ImagePluginState> =>
+export const imagePlugin = (pluginSettings: ImagePluginSettings): Plugin<ImagePluginState> =>
 	new Plugin({
 		key: imagePluginKey,
 		state: pluginSettings.createState(pluginSettings),
@@ -139,5 +139,3 @@ const imagePlugin = (pluginSettings: ImagePluginSettings): Plugin<ImagePluginSta
 			};
 		}
 	});
-
-export default imagePlugin;

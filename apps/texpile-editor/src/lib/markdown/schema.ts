@@ -7,7 +7,7 @@
 // A separate Schema object keeps the editors fully independent: an md doc physically cannot
 // contain a citation/environment/includedoc node, and md UI can never dispatch tex mark types.
 // Nodes/marks from different Schema objects must never mix in one document.
-import updateImageNode, { type SchemaImageSettings } from '$lib/editor/extensions/image/updateImageNode';
+import { updateImageNode, type SchemaImageSettings } from '$lib/editor/extensions/image/updateImageNode';
 import { Schema, type NodeSpec, type MarkSpec } from 'prosemirror-model';
 import { nodes as texNodes, marks as texMarks } from '$lib/schema/schema';
 

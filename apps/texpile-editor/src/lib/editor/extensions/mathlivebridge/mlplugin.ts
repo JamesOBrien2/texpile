@@ -1,7 +1,7 @@
 import { Plugin, PluginKey, type PluginSpec } from 'prosemirror-state';
 import { EditorView, type NodeViewConstructor } from 'prosemirror-view';
 import type { Node, ResolvedPos } from 'prosemirror-model';
-import MathLiveView from './mlview.svelte';
+import { MathLiveView } from './mlview.svelte';
 
 export type MathLivePluginState = {
 	/** cursor pos before entering a math node, decides front vs back placement on expand. */

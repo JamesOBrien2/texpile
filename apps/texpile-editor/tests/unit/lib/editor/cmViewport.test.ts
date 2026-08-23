@@ -9,8 +9,8 @@
 // screen must be a real, syntax-highlighted CodeMirror, never plain text.
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { schema } from '$lib/schema/schema';
-import InlineLatexView from '$lib/editor/extensions/raw-latex/inlineLatexView';
-import CodeBlockView from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
+import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
+import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
 import { CM_PLACEHOLDER_CLASS } from '$lib/editor/extensions/codemirrorbridge/cmStatic';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 

@@ -73,7 +73,7 @@ vi.mock('svelte', async (orig) => ({ ...(await orig<Record<string, unknown>>()),
 
 const { schema } = await import('$lib/schema/schema');
 const { PLACEHOLDER_CLASS } = await import('$lib/editor/extensions/mathlivebridge/mathStatic');
-const { default: MathLiveView } = await import('$lib/editor/extensions/mathlivebridge/mlview.svelte');
+const { MathLiveView } = await import('$lib/editor/extensions/mathlivebridge/mlview.svelte');
 
 function makeView(latex = 'x^2', isBlock = false) {
 	const type = isBlock ? schema.nodes.block_math : schema.nodes.inline_math;

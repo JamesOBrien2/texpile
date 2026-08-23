@@ -44,9 +44,9 @@
 	import { createNodeFlashPlugin } from '$lib/editor/extensions/flash-plugin';
 	import { remoteCursorsPlugin } from '$lib/editor/extensions/remoteCursors';
 	import { MD_BLOCK_INSERT_ITEMS } from './blockInsertItems';
-	import CodeBlockView from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
-	import RawLatexView from '$lib/editor/extensions/raw-latex/rawLatexView';
-	import InlineLatexView from '$lib/editor/extensions/raw-latex/inlineLatexView';
+	import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
+	import { RawLatexView } from '$lib/editor/extensions/raw-latex/rawLatexView';
+	import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
 	import ContextMenu from '$lib/editor/comp/toolbar/ContextMenu.svelte';
 	import { pmComments } from '$lib/editor/extensions/pmComments';
 	import { syncPmComments } from '$lib/editor/extensions/pmCommentsSync.svelte';

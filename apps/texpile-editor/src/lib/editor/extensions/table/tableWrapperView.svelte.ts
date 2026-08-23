@@ -124,7 +124,7 @@ function collectRowRules(tableWrapperNode: Node): { rowRules: string[]; bottomRu
 	return { rowRules, bottomRule };
 }
 
-export default function tableWrapperView(node: Node, view: EditorView, getPos: () => number | undefined): NodeView {
+export function tableWrapperView(node: Node, view: EditorView, getPos: () => number | undefined): NodeView {
 	return buildTableWrapperView('latex', node, view, getPos);
 }
 

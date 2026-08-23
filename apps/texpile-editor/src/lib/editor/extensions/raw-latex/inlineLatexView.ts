@@ -14,7 +14,7 @@ import { cmCommentHighlights, cmCommentClicks, syncCmCommentHighlights } from '$
 import { upgradeWhenNear, cancelUpgrade } from '$lib/editor/extensions/mathlivebridge/mathViewport';
 
 // single-line inline codemirror for inline_latex; newlines rejected, enter / arrow-out exit the node
-class InlineLatexView {
+export class InlineLatexView {
 	node: Node;
 	view: ProseMirrorView;
 	getPos: () => number;
@@ -270,5 +270,3 @@ class InlineLatexView {
 		this.cm.destroy();
 	}
 }
-
-export default InlineLatexView;

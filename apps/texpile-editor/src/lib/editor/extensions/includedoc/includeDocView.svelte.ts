@@ -27,7 +27,7 @@ export function resolveIncludePath(baseDir: string, rawPath: string, defaultExt 
 }
 
 /** NodeView for includedoc (\input/\include/\subfile): a clickable chip that opens the referenced .tex file. */
-export default class IncludeDocView implements NodeView {
+export class IncludeDocView implements NodeView {
 	dom: HTMLElement;
 	private svelteComponent: ReturnType<typeof mount>;
 	private componentProps = $state<{ node: PMNode; onOpen: () => void }>();

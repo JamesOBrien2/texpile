@@ -6,7 +6,7 @@ import { keymap } from 'prosemirror-keymap';
 import { baseKeymap } from 'prosemirror-commands';
 import { history, undo, redo } from 'prosemirror-history';
 import { schema } from '$lib/schema/schema';
-import CodeBlockView from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
+import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
 
 const doc = schema.nodes.doc.create(null, [
 	schema.nodes.paragraph.create(null, schema.text('paragraph before')),

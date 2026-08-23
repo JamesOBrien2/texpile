@@ -5,7 +5,7 @@ import type { EditorView, NodeView } from 'prosemirror-view';
 import { mount, unmount } from 'svelte';
 import EnvironmentComponent from './EnvironmentComponent.svelte';
 
-export default function environmentView(node: Node, view: EditorView, getPos: () => number | undefined): NodeView {
+export function environmentView(node: Node, view: EditorView, getPos: () => number | undefined): NodeView {
 	let currentNode = node;
 
 	const dom = document.createElement('div');

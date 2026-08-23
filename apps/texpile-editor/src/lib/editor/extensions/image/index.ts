@@ -1,9 +1,9 @@
 import { createDefaultSettings } from './imageplugin.svelte';
-import imagePlugin from './plugin/index';
+import { imagePlugin } from './plugin/index';
 
 import type { ImagePluginSettings, RemoveImagePlaceholder, InsertImagePlaceholder, ImagePluginAction, ImagePluginState } from './types';
 
-import updateImageNode from './updateImageNode';
+import { updateImageNode } from './updateImageNode';
 import {
 	startImageUpload,
 	startImageUploadFn,

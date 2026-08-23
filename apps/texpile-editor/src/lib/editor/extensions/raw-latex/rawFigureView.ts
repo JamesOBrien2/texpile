@@ -1,4 +1,4 @@
-import RawLatexView from './rawLatexView';
+import { RawLatexView } from './rawLatexView';
 import { joinPath, isRemoteSrc } from '$lib/workspace/fileSystem';
 import { editorFileUrl } from '$lib/editor/fileAccess';
 import type { Node } from 'prosemirror-model';
@@ -83,5 +83,3 @@ export class RawFigureView extends RawLatexView {
 		return ok;
 	}
 }
-
-export default RawFigureView;

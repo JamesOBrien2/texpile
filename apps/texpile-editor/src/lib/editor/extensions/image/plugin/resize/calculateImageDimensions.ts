@@ -1,6 +1,6 @@
 import type { ImagePluginSettings } from '../../types';
 
-export default (
+export function calculateImageDimensions(
 	maxWidth: number,
 	containerWidth: number,
 	sourceWidth: number,
@@ -9,7 +9,7 @@ export default (
 	nodeWidth?: number,
 	nodeHeight?: number,
 	nodeMaxWidth?: number
-): { width: number; height: number } => {
+): { width: number; height: number } {
 	const aspectRatio = sourceWidth && sourceHeight ? sourceWidth / sourceHeight : 1;
 	const scale = pluginSettings.scaleImage && nodeMaxWidth ? maxWidth / nodeMaxWidth : null;
 	let width = scale && nodeWidth ? nodeWidth * scale : nodeWidth;
@@ -38,4 +38,4 @@ export default (
 		width,
 		height
 	};
-};
+}

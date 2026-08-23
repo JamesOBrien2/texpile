@@ -116,7 +116,7 @@ if (browser) {
 	MathfieldElement.soundsDirectory = null;
 	configureMathVirtualKeyboard();
 }
-export default class MathLiveView implements NodeView {
+export class MathLiveView implements NodeView {
 	dom: HTMLElement;
 	/** undefined until materialize() runs; see the placeholder note there */
 	mathField?: MathfieldElement;

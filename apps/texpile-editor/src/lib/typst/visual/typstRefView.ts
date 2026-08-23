@@ -15,7 +15,7 @@ import type { EditorView, NodeView } from 'prosemirror-view';
 import { get } from 'svelte/store';
 import { referenceStore } from '$lib/stores/editorStore';
 
-export default class TypstRefView implements NodeView {
+export class TypstRefView implements NodeView {
 	dom: HTMLElement;
 	node: PMNode;
 	private unsubscribe: () => void;

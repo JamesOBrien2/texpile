@@ -3,10 +3,10 @@ import type { Node } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import imageNotFoundPng from '$lib/assets/compile/image_not_found_placeholder.png';
 import { imagePluginClassNames, type ImagePluginSettings } from '../types';
-import createResizeControls from './resize/createResizeControls';
-import getImageDimensions from './resize/getImageDimensions';
-import getMaxWidth from './resize/getMaxWidth';
-import calculateImageDimensions from './resize/calculateImageDimensions';
+import { createResizeControls } from './resize/createResizeControls';
+import { getImageDimensions } from './resize/getImageDimensions';
+import { getMaxWidth } from './resize/getMaxWidth';
+import { calculateImageDimensions } from './resize/calculateImageDimensions';
 
 const getSrc = (
 	image: HTMLImageElement,
@@ -56,7 +56,7 @@ const getSrc = (
 	return { newSrc: node.attrs.src };
 };
 
-const imageNodeView =
+export const imageNodeView =
 	(pluginSettings: ImagePluginSettings) =>
 	(node: Node, view: EditorView, getPos: () => number | undefined): NodeView => {
 		let finalSrc: string | undefined;
@@ -236,5 +236,3 @@ const imageNodeView =
 			}
 		};
 	};
-
-export default imageNodeView;

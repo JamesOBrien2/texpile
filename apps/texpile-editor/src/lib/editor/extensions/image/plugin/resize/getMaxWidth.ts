@@ -1,6 +1,6 @@
 import type { ImagePluginSettings } from '../../types';
 
-export default (el: Node, pluginSettings: ImagePluginSettings): number => {
+export function getMaxWidth(el: Node, pluginSettings: ImagePluginSettings): number {
 	const { imageMargin, minSize, maxSize } = pluginSettings;
 	let node = el.parentElement;
 
@@ -22,4 +22,4 @@ export default (el: Node, pluginSettings: ImagePluginSettings): number => {
 		return Math.min(Math.max(width, minSize), pluginSettings.maxSize);
 	}
 	return maxSize;
-};
+}

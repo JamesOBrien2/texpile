@@ -39,7 +39,7 @@ const unmountSpy = vi.fn();
 vi.mock('svelte', async (orig) => ({ ...(await orig<Record<string, unknown>>()), mount: mountSpy, unmount: unmountSpy }));
 
 const { schema } = await import('$lib/schema/schema');
-const { default: MathLiveView } = await import('$lib/editor/extensions/mathlivebridge/mlview.svelte');
+const { MathLiveView } = await import('$lib/editor/extensions/mathlivebridge/mlview.svelte');
 
 function makeView(isBlock: boolean) {
 	const type = isBlock ? schema.nodes.block_math : schema.nodes.inline_math;
