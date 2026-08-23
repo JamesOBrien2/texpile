@@ -9,98 +9,15 @@
 // stays all-or-nothing and an item edit regenerates the whole list.
 import type { Token } from 'markdown-it';
 import { el, txtNodes, collapseTextNodes, type PmNode, type PmMark, realMarks } from './builders';
+import { type Cap, buildLineStarts, offsetOfLine, sliceEnd, constructEnd } from './sourceSlices';
+import { attrStr, dest, imageMarkdown, imageBlock } from './tokenAttrs';
 import { createMarkdownEngine } from '../engine';
-
-type Cap = {
-	source: string;
-	lineStarts: number[];
-	seq: number;
-	prevEnd: number;
-	group: number;
-};
-
-function buildLineStarts(source: string): number[] {
-	const starts = [0];
-	for (let i = 0; i < source.length; i++) if (source[i] === '\n') starts.push(i + 1);
-	return starts;
-}
-
-function offsetOfLine(cap: Cap, line: number): number {
-	return line < cap.lineStarts.length ? cap.lineStarts[line] : cap.source.length;
-}
-
-/** byte just past the construct's last line, excluding that line's own trailing newline (the
- *  newline is inter-block gap and belongs to the next block's `pre`). */
-function sliceEnd(cap: Cap, endLine: number): number {
-	const end = offsetOfLine(cap, endLine);
-	return end > 0 && cap.source[end - 1] === '\n' ? end - 1 : end;
-}
-
-/** index of the token closing the construct opened at `i`; `i` itself for self-closed tokens. */
-function constructEnd(tokens: Token[], i: number): number {
-	if (tokens[i].nesting !== 1) return i;
-	let depth = 0;
-	for (let k = i; k < tokens.length; k++) {
-		depth += tokens[k].nesting;
-		if (depth === 0) return k;
-	}
-	return tokens.length - 1; // unbalanced stream: consume to the end rather than loop
-}
 
 function withMarks(node: PmNode, marks: PmMark[]): PmNode {
 	return marks.length > 0 ? node.mark(realMarks(marks)) : node;
 }
 
 /** attrGet returns string | number | null; normalize to a string ('' when absent). */
-function attrStr(tok: Token, name: string): string {
-	const v = tok.attrGet(name);
-	return v == null ? '' : String(v);
-}
-
-/**
- * A link/image destination as the AUTHOR wrote it.
- *
- * markdown-it percent-encodes every destination it parses (normalizeLink), which is right for a
- * renderer emitting `<img src>` and wrong for us twice over: the src is a path we look up ON DISK,
- * so `images/图片.png` arriving as `images/%E5%9B%BE%E7%89%87.png` finds no file and the image
- * never loads; and it is a value we write BACK to the .md, so editing the block around it rewrote
- * the author's filename into escapes.
- *
- * decodeURI, not decodeURIComponent: it leaves the reserved set (`?#&=+`) alone, so a query string
- * or a `#gh-dark-mode-only` fragment survives intact - the same characters mdurl excludes from the
- * encode this undoes. A destination holding a literal `%` (`100%.png`) is not valid escaping and
- * throws; that one was never encoded, so the raw string is already what the author wrote.
- */
-function dest(tok: Token, name: string): string {
-	const raw = attrStr(tok, name);
-	try {
-		return decodeURI(raw);
-	} catch {
-		return raw;
-	}
-}
-
-/** reconstruct the literal markdown of an image token, for the mixed-content inline chip. */
-function imageMarkdown(tok: Token): string {
-	const title = attrStr(tok, 'title');
-	return `![${tok.content}](${dest(tok, 'src')}${title ? ` "${title}"` : ''})`;
-}
-
-/** `![alt](src "title")` alone in a paragraph: a block figure. title becomes the caption. */
-function imageBlock(tok: Token): PmNode {
-	const title = attrStr(tok, 'title');
-	return el(
-		'image',
-		{
-			src: dest(tok, 'src'),
-			alt: tok.content || null,
-			numbered: false,
-			showCaption: !!title
-		},
-		title ? txtNodes(title) : null
-	);
-}
-
 const MARK_TOKENS: Record<string, string> = {
 	strong: 'strong',
 	em: 'em',

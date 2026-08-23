@@ -155,6 +155,11 @@ export default ts.config(
 			'no-restricted-exports': ['warn', { restrictDefaultExports: { direct: true, named: true } }]
 		}
 	},
+	// curated/vendored completion data: tables, not logic - line count is not a smell there
+	{
+		files: ['src/lib/languages/latex/intellisense/data/**'],
+		rules: { 'max-lines': 'off' }
+	},
 	// package-private folders: internals are importable only within their own folder
 	{
 		files: ['src/**'],

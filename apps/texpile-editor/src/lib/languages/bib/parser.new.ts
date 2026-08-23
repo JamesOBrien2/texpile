@@ -1,5 +1,6 @@
 import type { BiblatexReference } from './types';
-import { parseBibtexTokens, toBibtex, type BibToken } from './bibtexParser';
+import { parseBibtexTokens, type BibToken } from './bibtexParser';
+import { toBibtex } from './bibtexWriter';
 
 /** internal bookkeeping fields, must never leak into .bib output. */
 const INTERNAL_FIELDS = new Set(['key', 'entrytype', 'raw', 'displayLabel', 'hasInlineComment']);

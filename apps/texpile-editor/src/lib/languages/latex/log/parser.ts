@@ -1,13 +1,8 @@
 // regex line lexer + a pushdown stack tracking which file the engine has open (the log's "(file" / ")" markers)
 
 import { LogScanner } from './scanner';
+import { FILE_LINE_ERROR, RUNAWAY, collectErrorBlock, collectWarningContinuation } from './diagnosticBlocks';
 import type { LatexLogParseResult, LogEntry, LogFileNode, LogRunStatus, ParseLatexLogOptions } from '$lib/compileLog/types';
-
-// -file-line-error mode replaces "! " with "<file>:<line>: ". TeX Live prints resolved paths
-// ("./main.tex", "/abs/x.tex", "c:/..."); MikTeX can print a bare "file.tex:12:", so a second
-// form accepts an extensioned bare name (the extension requirement keeps prose "note: 1: ..."
-// out).
-const FILE_LINE_ERROR = /^((?:[A-Za-z]:\/|\/|\.{1,2}\/)[^:]*|[^:\s()\\{}]+\.[\w-]+):(\d+): (.*)$/;
 
 // warning prefix vocabulary is open (l3msg module types), so match the shape, not a fixed list
 const KERNEL_WARNING = /^(LaTeX(?:3| Font)?) (Warning|Info): (.*)$/;
@@ -15,15 +10,8 @@ const MODULE_WARNING = /^(Package|Class|Module) ([\w@.-]+) (Warning|Info): (.*)$
 
 const BADBOX = /^(Overfull|Underfull|Loose|Tight) \\([hv])box \(((?:badness \d+)|(?:[\d.]+pt too (?:wide|high|deep)))\)(.*)$/;
 
-const ON_INPUT_LINE = / on input line (\d+)\.?\s*$/;
 const AT_LINES = / at lines (\d+)--(\d+)/;
 const AT_LINE = / (?:detected )?at line (\d+)/;
-
-// engine error context: "l.<n> <text>"
-const CONTEXT_LINE = /^l\.(\d+)( .*|$)/;
-
-// "Runaway argument?" preludes a following "! ..." error
-const RUNAWAY = /^Runaway (argument|definition|text|preamble)\?/;
 
 const MISSING_CHARACTER = /^\s*Missing character: There is no .* in font/;
 
@@ -33,12 +21,6 @@ const PDFTEX_WARNING = /^pdfTeX warning(?: \([^)]*\))?: ?(.*)$/;
 const OUTPUT_ACTIVE = / has occurred while \\output is active(?: \[(\d+)\])?/;
 
 const OUTPUT_WRITTEN = /^Output written on (.*) \((\d+) pages?, \d+ bytes\)\.?$/;
-
-// \MessageBreak continuations: "(<name>)" + spaces for Package/Class, deep indent for kernel warnings
-function isWarningContinuation(line: string, moduleName?: string): boolean {
-	if (moduleName && line.startsWith(`(${moduleName})`)) return true;
-	return /^ {3,}\S/.test(line);
-}
 
 /**
  * Reads a file path right after a "(", or null when the paren is plain text.
@@ -94,85 +76,6 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 
 	function push(entry: LogEntry) {
 		if (entries.length < opts.maxEntries) entries.push(entry);
-	}
-
-	/** consume an engine error block: help/context lines up to the l.NN pair or a blank line. */
-	function collectErrorBlock(entry: Readonly<LogEntry>): Partial<LogEntry> {
-		const patch: Partial<LogEntry> = {};
-		const contextLines: string[] = [];
-		let sawContext = false;
-		for (let guard = 0; guard < 60; guard++) {
-			const line = scanner.next();
-			if (line === null) break;
-			if (line.startsWith('!') || FILE_LINE_ERROR.test(line) || RUNAWAY.test(line)) {
-				scanner.rewind(); // next diagnostic begins; errors need not be blank-separated
-				break;
-			}
-			const ctx = line.match(CONTEXT_LINE);
-			if (ctx) {
-				if (entry.line == null) patch.line ??= parseInt(ctx[1], 10);
-				// the l.NN line prints the source up to the error point: its length is the column,
-				// and its tail re-anchors the range if the buffer drifted since the compile
-				const preText = ctx[2].startsWith(' ') ? ctx[2].slice(1) : ctx[2];
-				if (preText.length > 0 && entry.column === undefined && patch.column === undefined) {
-					patch.column = preText.length + 1;
-					const anchor = preText.slice(-24).trimStart();
-					if (anchor.length >= 2) patch.anchorText = anchor;
-				}
-				sawContext = true;
-				contextLines.push(line);
-				// the engine prints one more line: the text after the error point
-				const after = scanner.next();
-				if (after !== null) {
-					if (after.trim().length > 0) contextLines.push(after);
-					else scanner.rewind();
-				}
-				continue;
-			}
-			if (line.trim().length === 0) {
-				if (sawContext) break; // blank after the l.NN pair ends the block
-				if (contextLines.length > 0 && contextLines[contextLines.length - 1].trim() === '') break; // two blanks with no context in sight: give up
-				contextLines.push('');
-				continue;
-			}
-			contextLines.push(line);
-		}
-		const context = contextLines.join('\n').replace(/\n+$/, '');
-		if (context.length > 0) patch.context = context;
-		patch.raw = [entry.raw, context].filter(Boolean).join('\n');
-		return patch;
-	}
-
-	/** consume \MessageBreak continuation lines and fold them into one message. */
-	function collectWarningContinuation(entry: Readonly<LogEntry>, moduleName?: string): Partial<LogEntry> {
-		const patch: Partial<LogEntry> = {};
-		const parts: string[] = [];
-		let raw = entry.raw;
-		for (let guard = 0; guard < 20; guard++) {
-			const line = scanner.next();
-			if (line === null) break;
-			if (!isWarningContinuation(line, moduleName)) {
-				scanner.rewind();
-				break;
-			}
-			let text = line;
-			if (moduleName && text.startsWith(`(${moduleName})`)) text = text.slice(moduleName.length + 2);
-			parts.push(text.trim());
-			raw += '\n' + line;
-		}
-		let message = entry.message;
-		if (parts.length > 0) {
-			message = [message, ...parts].join(' ').replace(/\s+/g, ' ').trim();
-		}
-		const online = message.match(ON_INPUT_LINE);
-		if (online) {
-			patch.line = parseInt(online[1], 10);
-			// the row already shows ":<line>", so drop the redundant phrase from the text
-			message = message.replace(ON_INPUT_LINE, '.').replace(/([.!?])\.$/, '$1');
-		}
-		patch.raw = raw;
-		patch.message = message;
-		return patch;
 	}
 
 	/** walk a line's parentheses, maintaining the file stack. */
@@ -243,7 +146,7 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 				file: currentFile(),
 				raw: line
 			};
-			Object.assign(entry, collectErrorBlock(entry));
+			Object.assign(entry, collectErrorBlock(scanner, entry));
 			push(entry);
 			continue;
 		}
@@ -256,7 +159,7 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 				line: parseInt(fle[2], 10),
 				raw: line
 			};
-			Object.assign(entry, collectErrorBlock(entry));
+			Object.assign(entry, collectErrorBlock(scanner, entry));
 			push(entry);
 			continue;
 		}
@@ -285,7 +188,7 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 			if (level === 'info' && !opts.includeInfo) {
 				// still consume continuations so their parens don't hit the stack
 				const e: LogEntry = { level, message: kern[3], raw: line };
-				collectWarningContinuation(e);
+				collectWarningContinuation(scanner, e);
 				continue;
 			}
 			const entry: LogEntry = {
@@ -294,7 +197,7 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 				file: currentFile(),
 				raw: line
 			};
-			Object.assign(entry, collectWarningContinuation(entry));
+			Object.assign(entry, collectWarningContinuation(scanner, entry));
 			if (/Empty `thebibliography' environment/.test(entry.message)) continue; // noise, not actionable
 			push(entry);
 			continue;
@@ -304,7 +207,7 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 			const level = mod[3] === 'Warning' ? 'warning' : 'info';
 			if (level === 'info' && !opts.includeInfo) {
 				const e: LogEntry = { level, message: mod[4], raw: line };
-				collectWarningContinuation(e, mod[2]);
+				collectWarningContinuation(scanner, e, mod[2]);
 				continue;
 			}
 			const entry: LogEntry = {
@@ -313,7 +216,7 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 				file: currentFile(),
 				raw: line
 			};
-			Object.assign(entry, collectWarningContinuation(entry, mod[2]));
+			Object.assign(entry, collectWarningContinuation(scanner, entry, mod[2]));
 			push(entry);
 			continue;
 		}

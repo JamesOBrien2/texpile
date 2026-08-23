@@ -10,79 +10,11 @@ import { serializeTable } from './tableSerializer';
 import { FIG_IMG_SLOT, FIG_CAP_SLOT, FIG_LAB_SLOT } from '../parser/converter';
 import { createBlockAssembly, type DocSerializeResult } from '$lib/serializer/blockAssembly';
 import type { Ctx, NodeHandler } from '$lib/serializer/types';
+import { esc, applyMarks, markableMarks, marksKey } from './textEscapes';
+import { blockMath, alignEnvironment } from './mathBlocks';
+export { esc, sanitizeText, type EscMode } from './textEscapes';
 
 export type { DocSerializeResult } from '$lib/serializer/blockAssembly';
-
-const ESCAPE_RE = /[\\{}#%&$_^]/g;
-const ESCAPE_MAP: Record<string, string> = {
-	'\\': '\\textbackslash{}',
-	'{': '\\{',
-	'}': '\\}',
-	'#': '\\#',
-	'%': '\\%',
-	'&': '\\&',
-	$: '\\$',
-	_: '\\_',
-	'^': '\\^{}'
-};
-
-/** text-mode escaping, single pass (runs per text node on every serialization). */
-export function sanitizeText(text: string): string {
-	return text.replace(ESCAPE_RE, (ch) => ESCAPE_MAP[ch]);
-}
-
-export type EscMode = 'text' | 'href' | 'math' | 'verbatim' | 'raw';
-
-/** The single escaper. Only `text` mutates; href/math/verbatim/raw pass through. */
-export function esc(value: string, mode: EscMode = 'text'): string {
-	return mode === 'text' ? sanitizeText(value) : value;
-}
-
-// em is \textit (not \emph); highlight is soul's \hl. href is NOT escaped.
-const MARKS: Record<string, (attrs: Record<string, unknown>) => { open: string; close: string }> = {
-	strong: () => ({ open: '\\textbf{', close: '}' }),
-	em: () => ({ open: '\\textit{', close: '}' }),
-	u: () => ({ open: '\\underline{', close: '}' }),
-	sup: () => ({ open: '\\textsuperscript{', close: '}' }),
-	sub: () => ({ open: '\\textsubscript{', close: '}' }),
-	code: () => ({ open: '\\texttt{', close: '}' }),
-	link: (a) => ({ open: `\\href{${String(a.href ?? '')}}{`, close: '}' }),
-	textcolor: (a) => ({ open: `\\textcolor{${esc(String(a.color ?? 'black'))}}{`, close: '}' }),
-	highlight: (a) => ({ open: `{\\sethlcolor{${esc(String(a.color ?? 'yellow'))}}\\hl{`, close: '}}' })
-};
-
-/** Wrap `result` in each mark's open/close pair, inner to outer. shared with non-text leaves
- * that carry marks (an unknown macro chip under \textbf has no text node to carry the bold). */
-function applyMarks(text: string, marks: readonly Mark[]): string {
-	let result = text;
-	for (const mark of marks) {
-		// a bare \url{href} parses to a link whose text IS the href; if unedited, round-trip
-		// \url back instead of widening to \href{href}{href} (a visible styling change under
-		// most hyperref setups). compare against the esc()'d href: `result` is already
-		// text-escaped, but \url's own argument must stay RAW.
-		if (mark.type.name === 'link' && mark.attrs?.bare && result === esc(String(mark.attrs.href ?? ''), 'text')) {
-			result = `\\url{${String(mark.attrs.href ?? '')}}`;
-			continue;
-		}
-		const make = MARKS[mark.type.name];
-		if (!make) continue;
-		const { open, close } = make(mark.attrs ?? {});
-		result = open + result + close;
-	}
-	return result;
-}
-
-/** The marks a node's own handler wraps around it (text, and leaf atoms borrowing a mark);
- * null for anything else, which renderChildren's run-merge leaves untouched. */
-function markableMarks(node: Node): readonly Mark[] | null {
-	return node.isText || node.type.spec.leafText ? node.marks : null;
-}
-
-/** Order-sensitive on purpose: same set in a different order must NOT merge
- * (\textbf{\texttt{X}} vs \texttt{\textbf{X}} are different commands), so require exact match. */
-function marksKey(marks: readonly Mark[]): string {
-	return marks.map((m) => `${m.type.name}:${JSON.stringify(m.attrs)}`).join('|');
-}
 
 /** A text/leaf node's content WITHOUT its own marks, for runs wrapped once by the caller. */
 function serializeBare(node: Node): string {
@@ -460,62 +392,4 @@ function isEmptyParagraph(node: Node): boolean {
 		}
 	});
 	return empty;
-}
-
-const DISPLAY_ENVIRONMENTS = [
-	'align',
-	'align*',
-	'alignat',
-	'alignat*',
-	'equation',
-	'equation*',
-	'gather',
-	'gather*',
-	'multline',
-	'multline*',
-	'flalign',
-	'flalign*',
-	'eqnarray',
-	'eqnarray*'
-];
-
-function hasDisplayEnvironment(content: string): boolean {
-	const t = content.trim();
-	return DISPLAY_ENVIRONMENTS.some((env) => t.startsWith(`\\begin{${env}}`));
-}
-
-function blockMath(content: string, opts: { numbered: boolean; label?: string }): string {
-	const processed = content.trim();
-	if (hasDisplayEnvironment(processed)) return processed + '\n';
-	if (opts.numbered && opts.label) return `\\begin{equation}\\label{${opts.label}}\n${processed}\n\\end{equation}\n`;
-	if (opts.numbered) return `\\begin{equation}\n${processed}\n\\end{equation}\n`;
-	return `\\[\n${processed}\n\\]\n`;
-}
-
-function extractEnvironmentContent(latex: string, envName: string): string | null {
-	const pattern = new RegExp(`\\\\begin\\{${envName}\\*?\\}([\\s\\S]*)\\\\end\\{${envName}\\*?\\}`, 'i');
-	const m = latex.match(pattern);
-	return m ? m[1].trim() : null;
-}
-
-function alignEnvironment(content: string, opts: { environment: string; lineLabels: string[]; label?: string; numbered: boolean }): string {
-	const envName = opts.numbered ? opts.environment : `${opts.environment}*`;
-	let inner = extractEnvironmentContent(content, opts.environment);
-	if (inner === null) inner = content.trim();
-	const lines = inner.split(/\\\\(?:\s*\[.*?\])?/);
-	// a trailing \\ on the last row leaves one final EMPTY split segment. left in, the re-join
-	// adds a stray separator and the template's own \n compounds into a blank line inside math
-	// mode, which is illegal ("Paragraph ended before \align* was complete"). drop it; the join
-	// places separators only between real rows, the canonical trailing-\\-free form.
-	if (lines.length > 1 && lines[lines.length - 1].trim() === '') lines.pop();
-	const processed = lines.map((line, i) => {
-		const t = line.trim();
-		const lbl = opts.lineLabels[i] || '';
-		return lbl && opts.numbered ? `${t} \\label{${lbl}}` : t;
-	});
-	let joined = processed.join(' \\\\\n');
-	if (opts.label && opts.numbered && opts.environment === 'multline') {
-		joined = joined.replace(/\n$/, '') + ` \\label{${opts.label}}`;
-	}
-	return `\\begin{${envName}}\n${joined}\n\\end{${envName}}\n`;
 }

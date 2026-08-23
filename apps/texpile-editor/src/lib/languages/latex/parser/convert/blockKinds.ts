@@ -1,0 +1,79 @@
+// which AST nodes start a block of their own, and which environments stay verbatim
+import type { Node, Macro } from '@unified-latex/unified-latex-types';
+import { type RawStamped } from '../ast-utils';
+
+export function isBlockNode(node: Node): boolean {
+	if (node.type === 'environment') return true;
+	if (node.type === 'verbatim') return true;
+	if (node.type === 'mathenv') return true;
+	if (node.type === 'displaymath') return true;
+	if (node.type === 'macro') {
+		const macro = node as Macro;
+
+		// a verbatim-captured commented call is ALWAYS a block: it ends in a trailing % comment,
+		// so inline emission would let the paragraph's ` \par` land on the comment line
+		// (commented out) and compound every save.
+		if ((macro as RawStamped<Macro>)._raw != null) return true;
+
+		if (macro.content === 'maketitle' || macro.content === 'title' || macro.content === 'author' || macro.content === 'date') return true;
+
+		const blockMacros = new Set([
+			'section',
+			'subsection',
+			'subsubsection',
+			'paragraph',
+			'subparagraph',
+			'chapter',
+			'part',
+			'hrule',
+			'rule',
+			'bibliography',
+			'printbibliography',
+			'tableofcontents',
+			'listoffigures',
+			'listoftables',
+			'maketitle',
+			'newpage',
+			'clearpage',
+			'pagebreak',
+			// cross-document includes: a standalone includedoc chip (block, not paragraph-wrapped)
+			'input',
+			'include',
+			'subfile',
+			// image is a BLOCK, so \includegraphics must never buffer into a paragraph's inline
+			// content (a mid-paragraph one splits the paragraph, order preserved). in inline-only
+			// contexts the non-inline-result guard demotes it to a verbatim chip instead.
+			'includegraphics',
+			// command-form \abstract builds a block node; through the inline path it buffered a
+			// block inside a paragraph (frozen editor on the first structural edit).
+			'abstract'
+		]);
+		if (blockMacros.has(macro.content)) return true;
+
+		// heuristic: 3+ mandatory args is likely a preamble/config command, treat as a raw block
+		if (macro.args) {
+			const mandatoryArgs = macro.args.filter((arg) => arg.openMark === '{' && arg.closeMark === '}');
+			if (mandatoryArgs.length >= 3) return true;
+		}
+		return false;
+	}
+	return false;
+}
+
+// environments whose body is literal/verbatim and must NOT be parsed as editable content
+export const VERBATIM_ENVS = new Set([
+	'verbatim',
+	'verbatim*',
+	'Verbatim',
+	'lstlisting',
+	'minted',
+	'tikzpicture',
+	'comment',
+	'filecontents',
+	'filecontents*',
+	'alltt',
+	'tabular',
+	'tabularx',
+	'longtable',
+	'array'
+]);

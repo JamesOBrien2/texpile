@@ -50,18 +50,16 @@
 	import { trailingDebounce } from '$lib/trailingDebounce';
 	import { buildBlockMap, pmPosToSourceOffset, firstWordEndOnLine } from '$lib/editor/sourceMap';
 	import {
-		startTypstPreview,
-		killTypstPreview,
 		formatTypstDocument,
 		typstBridgeAvailable,
 		tinymistResolved,
 		setPreviewJumpHandler,
 		setTypstDiagnosticsHandler,
-		scrollTypstPreview,
 		exportTypstPdf,
 		typstServerGen,
 		type TypstDiagnostic
 	} from '$lib/languages/typst/intellisense/lspClient';
+	import { startTypstPreview, killTypstPreview, scrollTypstPreview } from '$lib/languages/typst/preview/previewCommands';
 	import { noteFollowScroll } from '$lib/languages/typst/preview/followSignal';
 	import type { LogEntry } from '$lib/compileLog/compileLog';
 	import {
