@@ -115,7 +115,6 @@
 	import { SavePipeline } from '$lib/workspace/savePipeline.svelte';
 	import { diskChangedSince, recordDiskStamp, retargetDiskStamp } from '$lib/workspace/diskStamp';
 	import { CompilePipeline, resolveCompileCommand, relFromRoot } from '$lib/workspace/compilePipeline.svelte';
-	import { compileBaseDir } from '$lib/workspace/compileCommand';
 	import { TreeOps } from '$lib/workspace/treeOps';
 	import { settings } from '$lib/settings';
 	import { detectMainFile, gatherProjectMacros } from '$lib/workspace/project';
@@ -126,7 +125,6 @@
 		isDesktop,
 		joinPath,
 		samePath,
-		native,
 		revealItem,
 		savePdfAs,
 		purgeUndoBackups,
