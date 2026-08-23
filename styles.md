@@ -1,7 +1,9 @@
 # Code Style Guide
  
 ## Naming Conventions
-  
+
+TLDR: Generally, follow Java Coding Conventions, don't force OOP, use class when needed.
+
 1. Classes, interfaces, types, enums: PascalCase. UserProfile, EditorState
 2. Methods and functions: camelCase, verb first. parseDocument, resolveSelection
 3. Variables and fields: camelCase. activeEditor, pendingChanges
@@ -27,8 +29,8 @@ Exceptions and amendments for this project:
 
 ## File Structure
  
-1. More files with less LOC > 1 file with more LOC. If a component can be separated into sub components then it should always be separated into sub components
-2. Exception: super short components, components under 250 LOC, or large files with easy to understand intentions such as a list of words or a super long map
+1. More files with less LOC > 1 file with more LOC. If a component can be separated into sub components, prefer separating it into sub components
+2. ~250 LOC is a soft benchmark, not a hard cap; lint warns at 300. Exceeding it is fine for files with easy to understand intentions such as a list of words or a super long map
 3. When a file is split, break it into a folder named after the component. EditorToolbar/ holds EditorToolbar.svelte, EditorToolbar.types.ts, editorToolbarState.svelte.ts
 4. Type definitions go into a type file, exception for super short files
 5. UI goes into .svelte, pure logic stays in .ts or .svelte.ts. NEVER put more ts logic than needed to drive the UI in .svelte
@@ -47,6 +49,33 @@ Exceptions and amendments for this project:
 2. Function names should be descriptive. Do not use simple names like load, load what? Variable names should be just as clear
 3. Comments should be avoided as much as possible. In most cases, if you need a comment, making that part of the code a separate function with a separate name is a better option
 4. Exception: a comment explaining why is allowed when a function name cannot carry it. Workarounds, spec quirks, and performance tradeoffs qualify. Comments explaining what the code does do not
+5. Names should be general such that they can be taken out of context and understood. If a name gets too long then it is doing too many things, so consider splitting. ~50 characters is the soft benchmark where lint starts warning:
+
+```
+units.ts // What units?
+meterUnits.ts // This naming assumes the exports in meterUnits.ts will explain what specifically it does about meter units, otherwise the name should be more descriptive
+meterUnitsConversion.ts // Better, in this case your exports should still be descriptive about what, for instance inchesToMeters
+
+// Example only, avoid stores in code
+editorStore // bad, what editor? what is editor? is editor a commonly established concept?
+pmEditorStore // better, it is about ProseMirror, but does it apply to all ProseMirror instances? what does it store, does it store toolbar configs or something else?
+currentPMEditorViewStore // great, this store stores the EditorView, this is a good name
+
+// functions
+run(command) // run what, on what?
+runCommand(command) // better, but which system's commands, and what happens after?
+runCMEditorCommand(command: CMCommand) // great, executes a CodeMirror command against the CM editor
+
+// Folders. A folder is a package: one public entry file named after the folder,
+// internals enforced private by lint, like Java package-private
+
+schema.ts // bad, one super long file, and schema of what? there are several PM schemas
+
+latexPMSchema/ // the LaTeX ProseMirror schema, split:
+  latexPMSchema.ts // the public entry, builds and exports latexPMSchema. The entry's exports carry the full name, they travel out of the folder
+  pmSchemaNodes.ts // internal. Dropping the latex prefix is allowed ONLY because lint bans importing internals from outside the folder
+  pmSchemaMarks.ts // internal, same rule
+```
 
 ## Modules and Errors
  
