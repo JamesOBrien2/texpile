@@ -10,46 +10,17 @@ import { settings } from '$lib/settings';
 import { compileConfig } from './projectConfigSync.svelte';
 import { workspaceRoot, mainFile, texFiles, effectiveCompileFormat, savedMainFile } from './workspaceStore';
 import * as cc from './compileCommand';
-import { relFromRoot, resolveCompileCommand, withBatchFlags } from './compileResolve';
+import { expandMain, relFromRoot, resolveCompileCommand, withBatchFlags } from './compileResolve';
+import type { CompileDeps } from './compileDeps';
+import { CompileWatchers } from './compileWatchers';
 
 export { relFromRoot, resolveCompileCommand, resolveFormatCommand } from './compileResolve';
+export type { CompileDeps } from './compileDeps';
 import { drivesTypst, isTypstCommand } from './typstCommand';
 import { basename, joinPath, samePath } from './fileSystem';
-import type { EditSession } from '$lib/collab/editSession';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { reportMissingTool } from './toolMissing';
 import { m } from '$lib/paraglide/messages';
-
-export type CompileDeps = {
-	getLoadedPath(): string | null;
-	/** the reactive compile command; {main} expands to the main file's path. */
-	getCompileCommand(): string;
-	terminalAvailable(): boolean;
-	/** first-compile main-file confirmation state (null = unresolved for the current folder). */
-	mainConfirmed(): boolean | null;
-	/** the project names a compile command this machine has not accepted yet; nothing runs until
-	 * the bar is answered. See projectConfig.ts for why the command alone needs consent. */
-	commandPending(): boolean;
-	getSession(): EditSession;
-	getDock(): { runCommand(cmd: string, onDone?: (output: string) => void): void; interrupt(): void } | undefined;
-	stat(path: string): Promise<{ exists: boolean; mtimeMs: number; size: number }>;
-	readText(path: string): Promise<string>;
-	create(path: string, type: 'file' | 'dir'): Promise<unknown>;
-	fileUrl(path: string): string;
-	/** flush the queued autosave and wait for it to land (SyncTeX needs the on-disk copy current). */
-	flushSaves(): Promise<void>;
-	refreshTree(): Promise<void>;
-	showTerminal(): void;
-	setDockView(view: 'terminal' | 'problems' | 'comments'): void;
-	setPdfPaneOpen(open: boolean): void;
-	openCompileModal(): void;
-	openMainConfirm(then?: () => void): void;
-	runDraftCompile(): Promise<void>;
-	/** open the Typst live preview pane (its own attach effect does the rest). */
-	openTypstPreview(): void;
-	/** publish the parsed compile products (aux numbers + diagnostics) to session guests. */
-	shareCompileState(): void;
-};
 
 export class CompilePipeline {
 	// true from Compile until the run visibly ends (PDF landed, log settled, or timeout);
@@ -61,8 +32,14 @@ export class CompilePipeline {
 	// overlapping compile has to work whether or not the marker is on.
 	busy = $state(false);
 	pdfFilename = $state('output.pdf');
-	private pdfWatchTimer: ReturnType<typeof setTimeout> | null = null;
-	private logWatchTimer: ReturnType<typeof setTimeout> | null = null;
+	private watchers = new CompileWatchers({
+		isCurrent: (gen) => gen === this.compileGen,
+		stat: (p) => this.deps.stat(p),
+		showCompiledPdf: (p, mtimeMs) => this.showCompiledPdf(p, mtimeMs),
+		publishLog: (logPath, mtimeMs) => this.publishLogDiagnostics(logPath, mtimeMs),
+		logMayBeEmpty: () => this.logMayBeEmpty(),
+		endRun: () => this.endRun()
+	});
 	// bumped when a compile starts, ends, or the folder changes; pollers from a superseded run
 	// check it and stand down (their timeout may already be in flight when the timers are cleared)
 	private compileGen = 0;
@@ -90,22 +67,11 @@ export class CompilePipeline {
 	};
 
 	// component teardown: stop the pollers
-	dispose = () => {
-		if (this.pdfWatchTimer) clearTimeout(this.pdfWatchTimer);
-		if (this.logWatchTimer) clearTimeout(this.logWatchTimer);
-	};
+	dispose = () => this.watchers.dispose();
 
 	// expand {main} to the project's main file (relative to the folder root), else the open file
 	private resolvedCompileCommand(cmd: string): string {
-		const root = get(workspaceRoot);
-		const target = get(mainFile) ?? this.deps.getLoadedPath();
-		const rel = root && target ? relFromRoot(target, root) : '';
-		// quote a path containing spaces so the shell keeps it one argument;
-		// a {main} the user already wrapped in quotes stays untouched
-		const quoted = /\s/.test(rel) ? `"${rel}"` : rel;
-		// function replacements so a path containing $&, $1, $` etc. is inserted literally, not as a
-		// replacement-pattern reference
-		return cmd.replace(/(["']){main}\1/g, (_m, q: string) => `${q}${rel}${q}`).replaceAll('{main}', () => quoted);
+		return expandMain(cmd, get(workspaceRoot), get(mainFile) ?? this.deps.getLoadedPath());
 	}
 
 	// show the terminal, wait for mount, then run (the shell queues the command until it has
@@ -242,8 +208,8 @@ export class CompilePipeline {
 		// mid-write), so an early poll would load a partial/pass-1 PDF, then finalize reloads the
 		// final one -- a double reload that flashes. Without the marker there's no exit signal, so
 		// watchPdf is the fallback, and it now waits for the file to stop changing before loading.
-		if (!track && pdfPath) this.watchPdf(gen, pdfPath, before);
-		if (logPath) this.watchLog(gen, logPath, logBefore, track);
+		if (!track && pdfPath) this.watchers.watchPdf(gen, pdfPath, before);
+		if (logPath) this.watchers.watchLog(gen, logPath, logBefore, track);
 		// reload the explorer as the build writes its output (also covers builds that produce no PDF)
 		[2000, 6000].forEach((d) => setTimeout(this.deps.refreshTree, d));
 	};
@@ -316,51 +282,6 @@ export class CompilePipeline {
 		}
 	};
 
-	// poll the .log and parse once it settles: the engine rewrites the log during each pass, so
-	// "newer than baseline AND unchanged across two polls" re-parses after each pass and also
-	// catches failed builds, where no PDF ever appears but the log does.
-	//
-	// Settling is a HEURISTIC, and it must not end a sentinel-tracked run: any engine pause longer
-	// than the two polls (biber grinding between passes, MiKTeX installing a package on the fly)
-	// makes the log look settled mid-run, and dropping `busy` there hands an MCP poller pass-1
-	// diagnostics as final while latexmk is still going. When `tracked`, publishing stays (live
-	// Problems updates per pass) but the end belongs to finalizeCompile's shell-exit signal alone.
-	private watchLog(
-		gen: number,
-		logPath: string,
-		before: number,
-		tracked = false,
-		elapsed = 0,
-		prev: { mtimeMs: number; size: number } | null = null,
-		lastParsed = 0
-	) {
-		let parsedAt = lastParsed;
-		if (this.logWatchTimer) clearTimeout(this.logWatchTimer);
-		this.logWatchTimer = setTimeout(async () => {
-			if (gen !== this.compileGen) return; // superseded: a newer compile, finalize, or folder switch
-			const s = await this.deps.stat(logPath);
-			const changedSinceCompile = s.exists && (s.size > 0 || this.logMayBeEmpty()) && s.mtimeMs > before;
-			const stable = prev !== null && s.mtimeMs === prev.mtimeMs && s.size === prev.size;
-			if (changedSinceCompile && stable && s.mtimeMs !== parsedAt) {
-				try {
-					await this.publishLogDiagnostics(logPath, s.mtimeMs);
-					// a settled log is only "the run ended" when nothing better is coming; tracked runs
-					// end on the shell's exit signal, and this settle may just be a between-pass pause
-					if (!tracked) this.endRun();
-					parsedAt = s.mtimeMs;
-				} catch {
-					/* transient read race with the engine; next poll retries */
-				}
-			}
-			if (elapsed < 180000) {
-				this.watchLog(gen, logPath, before, tracked, elapsed + 1200, { mtimeMs: s.mtimeMs, size: s.size }, parsedAt);
-			} else {
-				this.logWatchTimer = null;
-				this.endRun();
-			}
-		}, 1200);
-	}
-
 	// the shell reported the command finished (sentinel echo). the pollers only notice runs that
 	// WRITE something; a run that dies without touching the log or PDF would leave Stop showing
 	// until their timeout. give trailing writes a beat, check both artifacts once, stand pollers down.
@@ -368,14 +289,7 @@ export class CompilePipeline {
 		setTimeout(async () => {
 			if (gen !== this.compileGen) return; // a newer compile or a folder switch took over
 			this.compileGen++; // this run is over; its pollers stand down
-			if (this.pdfWatchTimer) {
-				clearTimeout(this.pdfWatchTimer);
-				this.pdfWatchTimer = null;
-			}
-			if (this.logWatchTimer) {
-				clearTimeout(this.logWatchTimer);
-				this.logWatchTimer = null;
-			}
+			this.watchers.dispose();
 			let logAdvanced = false;
 			let pdfExists = true; // benefit of the doubt on an fs hiccup: no warning then
 			try {
@@ -461,34 +375,6 @@ export class CompilePipeline {
 			if (s.exists && s.size > 0) await this.publishLogDiagnostics(logPath, s.mtimeMs, true);
 		}
 	};
-
-	// poll the expected PDF after a compile (no-completion-marker fallback); load it once it has
-	// stopped changing, so a mid-write partial or an intermediate latexmk pass isn't shown. `stableAt`
-	// is the mtime seen on the previous poll; a match means the file settled.
-	private watchPdf(gen: number, pdfPath: string, before: number, elapsed = 0, stableAt = 0) {
-		if (this.pdfWatchTimer) clearTimeout(this.pdfWatchTimer);
-		this.pdfWatchTimer = setTimeout(
-			async () => {
-				if (gen !== this.compileGen) return; // superseded: a newer compile, finalize, or folder switch
-				const s = await this.deps.stat(pdfPath);
-				if (s.exists && s.size > 0 && s.mtimeMs > before) {
-					if (s.mtimeMs === stableAt) {
-						this.showCompiledPdf(pdfPath, s.mtimeMs); // unchanged since the last poll: it's done
-						this.pdfWatchTimer = null;
-						this.endRun();
-					} else {
-						this.watchPdf(gen, pdfPath, before, elapsed + 600, s.mtimeMs); // still changing: re-check soon
-					}
-				} else if (elapsed < 180000) {
-					this.watchPdf(gen, pdfPath, before, elapsed + 1200); // keep polling up to 3 min
-				} else {
-					this.pdfWatchTimer = null;
-					this.endRun();
-				}
-			},
-			stableAt ? 600 : 1200 // poll faster once the file has started changing, to catch it settling
-		);
-	}
 
 	// on load and main-file change, show the already-compiled PDF sitting on disk; clears the
 	// preview when the expected PDF is absent so a stale one doesn't linger. runs only at

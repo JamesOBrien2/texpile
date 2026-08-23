@@ -9,7 +9,7 @@ import { CollabSession, manifestOf, locksOf, metaOf, textOf, type PeerInfo } fro
 import { isSafeRel, type ControlPayload, type PreviewPayload } from './protocol';
 import type { SharedCompileIntel } from './editSession';
 import type { CommentEvent } from '$lib/comments/log';
-import { HostMaterializer, isLikelyTextName, isShared } from './materialize';
+import { HostMaterializer, isShared } from './materialize';
 import { RelayTransport, createRelaySession } from './transport';
 import {
 	writeTextFile,
@@ -17,38 +17,13 @@ import {
 	renameEntry,
 	deleteEntry,
 	scanTree,
-	statFile,
 	fileUrl,
 	relativeTo,
-	joinPath,
-	type TreeEntry
+	joinPath
 } from '$lib/workspace/fileSystem';
 import { settings } from '$lib/settings';
 import { users } from '$lib/storage/users';
-
-function toLf(s: string) {
-	return s.replace(/\r\n?/g, '\n');
-}
-
-async function flattenTree(children: TreeEntry[], root: string): Promise<{ rel: string; size: number; mtimeMs?: number }[]> {
-	const out: { rel: string; size: number }[] = [];
-	function walk(entries: TreeEntry[]) {
-		for (const e of entries) {
-			if (e.type === 'dir') walk(e.children ?? []);
-			else out.push({ rel: relativeTo(root, e.path).replace(/\\/g, '/'), size: 0 });
-		}
-	}
-	walk(children);
-	// stat only the files served as blobs. Text bodies live in the CRDT and carry their own edits,
-	// so they need no rev, and statting every file would make each tree refresh O(n) IPC round-trips.
-	// The name is only a fast-path HINT here: a hinted file that sniffs binary anyway just costs a
-	// rev of 0, while an unhinted one that sniffs text carries a rev nothing reads.
-	return Promise.all(
-		out.map(async (f) =>
-			isLikelyTextName(f.rel) || !isShared(f.rel) ? f : { ...f, mtimeMs: (await statFile(joinPath(root, f.rel))).mtimeMs }
-		)
-	);
-}
+import { flattenShareManifest } from './shareManifest';
 
 class HostCollabController {
 	active = $state(false);
@@ -128,7 +103,7 @@ class HostCollabController {
 				transport,
 				key: keys.contentKey,
 				role: 'host',
-				user: { name: hostName(), color: '#2563eb' },
+				user: { name: get(users).collabName || 'Host', color: '#2563eb' },
 				events: {
 					onPeersChange: (peers) => {
 						this.peers = [...peers.values()];
@@ -176,7 +151,7 @@ class HostCollabController {
 						return new Uint8Array(await res.arrayBuffer());
 					},
 					writeText: writeTextFile,
-					listFiles: (r) => scanTree(r).then((t) => flattenTree(t.children, r))
+					listFiles: (r) => scanTree(r).then((t) => flattenShareManifest(t.children, r))
 				},
 				joinPath
 			);
@@ -233,7 +208,7 @@ class HostCollabController {
 	edit(absPath: string, content: string): void {
 		const rel = this.active ? this.rel(absPath) : null;
 		// text-or-not is the manifest's call now (hostEdit checks the entry's kind itself)
-		if (rel && isShared(rel)) this.materializer?.hostEdit(rel, toLf(content));
+		if (rel && isShared(rel)) this.materializer?.hostEdit(rel, content.replace(/\r\n?/g, '\n'));
 	}
 
 	/** flush any pending guest-edit write before the host reads the file from disk. */
@@ -426,10 +401,6 @@ class HostCollabController {
 	guestCount(): number {
 		return this.peers.filter((p) => p.role === 'guest').length;
 	}
-}
-
-function hostName(): string {
-	return get(users).collabName || 'Host';
 }
 
 export const collabHost = new HostCollabController();

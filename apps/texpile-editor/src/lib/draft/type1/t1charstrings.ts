@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- mirrors the vendored pdf.js parser's untyped glyph records */
 // the Type 1 charstring interpreter: one converted charstring to absolute font-unit commands
 import { StandardEncoding } from './encodings.js';
 import type { Cmd } from './t1font';

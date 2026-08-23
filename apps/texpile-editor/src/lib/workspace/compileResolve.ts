@@ -42,3 +42,14 @@ export function withBatchFlags(cmd: string): string {
 	if (!/-file-line-error\b/.test(cmd)) flags.push('-file-line-error');
 	return flags.length > 0 ? cmd.replace(hit[1], `${hit[1]} ${flags.join(' ')}`) : cmd;
 }
+
+/** expand {main} to the target file's root-relative path, quoted when it holds spaces */
+export function expandMain(cmd: string, root: string | null, target: string | null): string {
+	const rel = root && target ? relFromRoot(target, root) : '';
+	// quote a path containing spaces so the shell keeps it one argument;
+	// a {main} the user already wrapped in quotes stays untouched
+	const quoted = /\s/.test(rel) ? `"${rel}"` : rel;
+	// function replacements so a path containing $&, $1, $` etc. is inserted literally, not as a
+	// replacement-pattern reference
+	return cmd.replace(/(["']){main}\1/g, (_m, q: string) => `${q}${rel}${q}`).replaceAll('{main}', () => quoted);
+}

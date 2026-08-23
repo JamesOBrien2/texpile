@@ -8,6 +8,9 @@ import { deriveSessionKeys } from './e2e/keys';
 import { isValidShareCode } from './e2e/shareCode';
 import { CollabSession, manifestOf, locksOf, metaOf, textOf, type PeerInfo, type ManifestEntry } from './session';
 import { GhostDirs } from './guestGhostDirs';
+import { GuestFileCache } from './guestFileCache';
+import { guestColor } from './guestColors';
+import { GuestSyncRequests } from './guestSyncRequests';
 import { RelayTransport } from './transport';
 import type { SharedCompileIntel } from './editSession';
 import type { ControlPayload, PreviewPayload } from './protocol';
@@ -51,10 +54,7 @@ class GuestCollabController {
 	/** the name this guest joined with - the identity peers see, and what comments sign as */
 	selfName = $state('');
 	private previewPageAsked = false;
-	private imageCache = new Map<string, { rev: number; url: string }>(); // rel -> the host's bytes at a rev
-	private imageReq = new Set<string>(); // in-flight 'rel@rev' requests, so we ask once per revision
-	private syncResolvers = new Map<number, (r: ControlPayload) => void>();
-	private syncSeq = 0;
+	private fileCache = new GuestFileCache(() => this.imageRev++);
 	/** subscribers to host -> guest LSP traffic; a set because each open .typ editor has a transport */
 	private lspHandlers = new Set<(p: ControlPayload) => void>();
 	// intact master; `pdf` is always a copy, because pdf.js detaches the ArrayBuffer it renders and
@@ -118,15 +118,14 @@ class GuestCollabController {
 							this.pdfMaster = bytes.slice();
 							this.pdf = this.pdfMaster.slice().buffer; // a copy for the viewer to consume/detach
 						} else if (blobName.startsWith('f:')) {
-							this.receiveFileBlob(blobName.slice(2), rev, bytes);
+							this.fileCache.receive(blobName.slice(2), rev, bytes);
 						}
 					},
 					onPreview: (p) => this.onPreviewFrame?.(p),
 					onControl: (payload) => {
 						if (payload.kind === 'comment-event') this.onCommentEvent?.(payload.event);
 						else if (payload.kind === 'synctex-inverse-result' || payload.kind === 'synctex-forward-result') {
-							this.syncResolvers.get(payload.reqId)?.(payload);
-							this.syncResolvers.delete(payload.reqId);
+							this.syncRequests.resolve(payload);
 						} else if (payload.kind === 'typst-jump') this.onTypstJump?.(payload);
 						else if (payload.kind === 'lsp-result' || payload.kind === 'lsp-notify') {
 							for (const h of this.lspHandlers) h(payload);
@@ -289,10 +288,8 @@ class GuestCollabController {
 	}
 
 	private clearJoinTimer(): void {
-		if (this.joinTimer) {
-			clearTimeout(this.joinTimer);
-			this.joinTimer = null;
-		}
+		if (this.joinTimer) clearTimeout(this.joinTimer);
+		this.joinTimer = null;
 	}
 
 	/** hand the viewer a fresh, intact copy (call before re-showing a PDF pane that was closed). */
@@ -304,35 +301,13 @@ class GuestCollabController {
 		return this.doc ? textOf(this.doc, rel) : null;
 	}
 
-	private receiveFileBlob(rel: string, rev: number, bytes: Uint8Array): void {
-		const old = this.imageCache.get(rel);
-		if (old) URL.revokeObjectURL(old.url);
-		this.imageCache.set(rel, { rev, url: URL.createObjectURL(new Blob([bytes as BlobPart])) });
-		this.imageReq.delete(rel + '@' + rev);
-		this.imageRev++;
-	}
-
-	/** the host's revision for a shared binary; changes when the bytes on its disk do. */
-	private fileRevOf(rel: string): number {
-		if (!this.doc) return 0;
-		return Number((manifestOf(this.doc).get(rel) as ManifestEntry | undefined)?.rev ?? 0);
-	}
-
 	/** object URL for a file the host serves on demand (images); '' until it arrives. */
 	fileUrl(rel: string): string {
 		void this.imageRev; // reactive: re-run when the bytes land
 		void this.rev; // and when the manifest moves, since that is what carries a new file rev
-		const rev = this.fileRevOf(rel);
-		const hit = this.imageCache.get(rel);
-		if (hit && hit.rev === rev) return hit.url;
-		// missing, or the host replaced the file since we cached it: fetch that revision once
-		const key = rel + '@' + rev;
-		if (rel && !this.imageReq.has(key) && this.session) {
-			this.imageReq.add(key);
-			this.session.requestBlob('f:' + rel);
-		}
-		// keep showing the stale copy while the fresh one is in flight, rather than blanking
-		return hit?.url ?? '';
+		// the manifest entry's rev is the host's revision for the bytes on its disk
+		const rev = this.doc ? Number((manifestOf(this.doc).get(rel) as ManifestEntry | undefined)?.rev ?? 0) : 0;
+		return this.fileCache.urlFor(rel, rev, this.session ? (name) => this.session?.requestBlob(name) : null);
 	}
 
 	/** send a new file to the host, which writes it to disk (drag-in / paste / upload). */
@@ -340,29 +315,14 @@ class GuestCollabController {
 		this.session?.sendUpload(rel, bytes);
 	}
 
-	/** ask the host to resolve a SyncTeX position (it holds the .synctex data); null on timeout. */
-	private syncRequest(
-		base: { kind: 'synctex-inverse'; page: number; x: number; y: number } | { kind: 'synctex-forward'; file: string; line: number }
-	): Promise<ControlPayload | null> {
-		if (!this.session) return Promise.resolve(null);
-		const reqId = ++this.syncSeq;
-		const payload = { ...base, reqId } as ControlPayload;
-		return new Promise((resolve) => {
-			this.syncResolvers.set(reqId, resolve);
-			this.session!.sendControl(payload);
-			setTimeout(() => {
-				if (this.syncResolvers.delete(reqId)) resolve(null);
-			}, 4000);
-		});
-	}
-	async syncInverse(page: number, x: number, y: number): Promise<{ file: string; line: number; selectText?: string } | null> {
-		const r = await this.syncRequest({ kind: 'synctex-inverse', page, x, y });
-		return r && r.kind === 'synctex-inverse-result' ? { file: r.file, line: r.line, selectText: r.selectText } : null;
-	}
-	async syncForward(file: string, line: number): Promise<{ page: number; x: number; y: number; w?: number; h?: number } | null> {
-		const r = await this.syncRequest({ kind: 'synctex-forward', file, line });
-		return r && r.kind === 'synctex-forward-result' ? { page: r.page, x: r.x, y: r.y, w: r.w, h: r.h } : null;
-	}
+	/** SyncTeX asks ride the control channel; see GuestSyncRequests */
+	private syncRequests = new GuestSyncRequests((p) => {
+		if (!this.session) return false;
+		this.session.sendControl(p);
+		return true;
+	});
+	syncInverse = (page: number, x: number, y: number) => this.syncRequests.inverse(page, x, y);
+	syncForward = (file: string, line: number) => this.syncRequests.forward(file, line);
 
 	/**
 	 * The session as an LSP transport's back end: a guest's intellisense is the host's tinymist,
@@ -415,9 +375,7 @@ class GuestCollabController {
 		this.fileWatchers.clear();
 		// revoke, don't just drop: these are object URLs, and a surviving entry would also let the
 		// next session render a previous host's image for a path that happens to match
-		for (const { url } of this.imageCache.values()) URL.revokeObjectURL(url);
-		this.imageCache.clear();
-		this.imageReq.clear();
+		this.fileCache.clear();
 		this.ghostState.clear();
 		const session = this.session;
 		this.session = null;
@@ -440,11 +398,6 @@ class GuestCollabController {
 		this.requestedPdfRev = 0;
 		if (destroySession) session?.destroy();
 	}
-}
-
-const GUEST_COLORS = ['#e11d48', '#d97706', '#059669', '#7c3aed', '#0891b2', '#c026d3', '#65a30d', '#ea580c'];
-function guestColor(clientId: number): string {
-	return GUEST_COLORS[clientId % GUEST_COLORS.length];
 }
 
 export const collabGuest = new GuestCollabController();
