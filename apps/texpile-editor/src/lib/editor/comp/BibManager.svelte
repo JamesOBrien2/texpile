@@ -4,12 +4,12 @@
 	import { Pencil, Trash2, ChevronDown, Code } from '@lucide/svelte';
 	import { generateLabel } from '$lib/editor/utils/label';
 	import {
-		type BibLaTeXReference,
+		type BiblatexReference,
 		type BibToken,
 		biblatexReferenceSchema,
-		parseBibTeXWithWarnings,
+		parseBibtexWithWarnings,
 		parseSingleEntry,
-		serializeBibTeX,
+		serializeBibtex,
 		fitsVisualEditor,
 		getFieldsForType,
 		getEntryTypeOptions,
@@ -23,7 +23,7 @@
 	let { value = '', onInput }: { value?: string; onInput?: (v: string) => void } = $props();
 
 	// refs = entries, tokens = file-order stream for round-trip, parseError switches to whole-file raw mode
-	let refs = $state<BibLaTeXReference[]>([]);
+	let refs = $state<BiblatexReference[]>([]);
 	let tokens = $state<BibToken[]>([]);
 	let parseError = $state<string | null>(null);
 	// initial value by design; the $effect below re-parses on later external changes
@@ -31,7 +31,7 @@
 	let lastSerialized = $state(value);
 
 	function reparse(text: string) {
-		const result = parseBibTeXWithWarnings(text);
+		const result = parseBibtexWithWarnings(text);
 		refs = result.entries;
 		tokens = result.tokens;
 		parseError = result.parseError ?? null;
@@ -48,7 +48,7 @@
 		}
 	});
 
-	let currentReference: Partial<BibLaTeXReference> = $state({});
+	let currentReference: Partial<BiblatexReference> = $state({});
 	let isEditing = $state(false);
 	let editMode = $state<'form' | 'raw'>('form');
 	let originalKey: string | null = $state(null);
@@ -101,7 +101,7 @@
 		if (appended.length) tokens = [...tokens, ...appended];
 
 		const refsByKey = new Map(refs.map((r) => [r.key, r]));
-		const text = serializeBibTeX(tokens, refsByKey);
+		const text = serializeBibtex(tokens, refsByKey);
 		lastSerialized = text;
 		referenceStore.set([...refs]);
 		onInput?.(text);
@@ -134,7 +134,7 @@
 
 	// entries the form can render losslessly get the pretty form; anything with unknown
 	// fields/types or an in-entry comment gets raw CM so nothing is silently lost
-	function editReference(r: BibLaTeXReference) {
+	function editReference(r: BiblatexReference) {
 		originalKey = r.key;
 		isEditing = true;
 		formErrors = {};
@@ -144,7 +144,7 @@
 		if (fitsVisualEditor(r)) {
 			editMode = 'form';
 			// strip internal bookkeeping fields so they don't land in the form inputs
-			const ref: BibLaTeXReference = { ...r };
+			const ref: BiblatexReference = { ...r };
 			delete ref.raw;
 			delete ref.displayLabel;
 			delete ref.hasInlineComment;
@@ -164,7 +164,7 @@
 			formErrors = mapIssues(parsed.error.issues);
 			return;
 		}
-		const data = parsed.data as BibLaTeXReference;
+		const data = parsed.data as BiblatexReference;
 		if (!isKeyUnique(data.key)) {
 			formErrors.key = [m.bib_error_key_unique()];
 			return;
@@ -196,7 +196,7 @@
 	// whole .bib failed to parse; on a clean re-parse drop back to the normal split-pane UI
 	function saveFileRaw() {
 		fileRawError = null;
-		const result = parseBibTeXWithWarnings(fileRawText);
+		const result = parseBibtexWithWarnings(fileRawText);
 		if (result.parseError) {
 			fileRawError = result.parseError;
 			return;
@@ -209,7 +209,7 @@
 		onInput?.(fileRawText);
 	}
 
-	function renderReferenceAsBibText(ref: BibLaTeXReference): string {
+	function renderReferenceAsBibText(ref: BiblatexReference): string {
 		// fallback when ref.raw is missing (brand-new entry); skips internal bookkeeping fields
 		const internal = new Set(['key', 'entrytype', 'raw', 'displayLabel', 'hasInlineComment']);
 		const lines: string[] = [`@${ref.entrytype}{${ref.key},`];
@@ -227,10 +227,10 @@
 		if (currentReference.key === key) resetForm();
 	}
 
-	function importBibTeX() {
+	function importBibtex() {
 		bibTeXWarnings = [];
 		if (!bibTeXContent.trim()) return;
-		const result = parseBibTeXWithWarnings(bibTeXContent);
+		const result = parseBibtexWithWarnings(bibTeXContent);
 		if (result.parseError) {
 			bibTeXWarnings = [{ key: m.bib_parse_error_label(), issues: [result.parseError] }];
 			return;
@@ -438,7 +438,7 @@
 						</div>
 					{/if}
 					<div class="mt-2 flex justify-end">
-						<button class="btn btn-xs preset-outlined-primary-500 hover:preset-tonal" type="button" onclick={importBibTeX}
+						<button class="btn btn-xs preset-outlined-primary-500 hover:preset-tonal" type="button" onclick={importBibtex}
 							>{m.bib_import_button()}</button
 						>
 					</div>

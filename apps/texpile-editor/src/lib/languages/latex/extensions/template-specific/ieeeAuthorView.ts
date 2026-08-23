@@ -1,13 +1,13 @@
 import { RawLatexView } from '$lib/editor/extensions/raw-latex/rawLatexView';
-import { parseIEEEAuthors, isIEEEAuthorBlock, ordinalLabel } from './ieeeAuthor';
+import { parseIeeeAuthors, isIeeeAuthorBlock, ordinalLabel } from './ieeeAuthor';
 import type { Node } from 'prosemirror-model';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 
-export { isIEEEAuthorBlock };
+export { isIeeeAuthorBlock };
 
 // read-only rendered author preview on top of the verbatim raw_latex block (still edited as plain
 // latex in the CodeMirror below). no structured editing, so nothing can mangle the source.
-export class IEEEAuthorView extends RawLatexView {
+export class IeeeAuthorView extends RawLatexView {
 	preview: HTMLElement;
 	private shownKey = '\0';
 
@@ -21,7 +21,7 @@ export class IEEEAuthorView extends RawLatexView {
 	}
 
 	private renderPreview(text: string): void {
-		const authors = parseIEEEAuthors(text);
+		const authors = parseIeeeAuthors(text);
 		const key = JSON.stringify(authors);
 		if (key === this.shownKey) return;
 		this.shownKey = key;

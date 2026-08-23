@@ -821,8 +821,10 @@ function tableParts(call: SyntaxNode, src: string): TableParts | null {
 	if (!cIdent || cIdent.name !== 'Ident' || src.slice(cIdent.from, cIdent.to) !== 'columns') return null;
 	const value = children(colArg).find((c) => !['Ident', 'Colon', 'Space'].includes(c.name));
 	if (!value) return null;
-	const cols = columnCount(value, src);
-	if (cols == null) return null;
+	const colsFound = columnCount(value, src);
+	if (colsFound == null) return null;
+	// re-bound as a plain number so hoisted helpers keep the narrowing
+	const cols: number = colsFound;
 
 	// the remaining named arguments, in source order. align: is pulled out because it carries a
 	// per-column staleness rule the serializer enforces; the rest only have to survive.
@@ -890,14 +892,14 @@ function tableParts(call: SyntaxNode, src: string): TableParts | null {
 	let pending: string[] = [];
 	let r = 0;
 	let c = 0;
-	const advance = () => {
+	function advance() {
 		for (;;) {
 			while (c < cols && covered.has(at(r, c))) c++;
 			if (c < cols) return;
 			r++;
 			c = 0;
 		}
-	};
+	}
 
 	for (; idx < real.length; idx++) {
 		const item = real[idx];

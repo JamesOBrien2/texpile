@@ -85,14 +85,14 @@ const LET_LIKE_PRIMITIVES = new Set(['let', 'futurelet']);
  * turning a working definition into something pdflatex can't compile. so capture the WHOLE
  * construct's exact source span verbatim and splice out the consumed siblings.
  */
-export function heuristicMarkTeXPrimitiveDefs(nodes: Node[] | undefined, source: string, pairsOut?: Map<string, string>): void {
+export function heuristicMarkTexPrimitiveDefs(nodes: Node[] | undefined, source: string, pairsOut?: Map<string, string>): void {
 	if (!Array.isArray(nodes) || !source) return;
 	for (let i = 0; i < nodes.length; i++) {
 		const node = nodes[i] as LooseNode;
 		// recurse into CONTENT only, never macro args: an unknown macro's args are rebuilt by the
 		// generic printRaw printer, which never reads `_raw`; splicing "consumed" siblings there
 		// deletes content that was already round-tripping fine (a nested \edef collapsed to bare).
-		if (Array.isArray(node.content)) heuristicMarkTeXPrimitiveDefs(node.content as Node[], source, pairsOut);
+		if (Array.isArray(node.content)) heuristicMarkTexPrimitiveDefs(node.content as Node[], source, pairsOut);
 
 		if (node.type !== 'macro' || (node.args && node.args.length) || !node.position) continue;
 		const name = node.content as string;
@@ -181,7 +181,7 @@ export function heuristicMarkTeXPrimitiveDefs(nodes: Node[] | undefined, source:
  * Preserve a whole `\NAME ... \DELIM` call verbatim when \NAME was \def-ined with a delimited
  * parameter. the span is the macro's ARGUMENT, very often math, but the parser sees \NAME as an
  * unknown zero-arg macro and text-escapes the span as prose (& to \&, _ to \_), destroying it.
- * must run AFTER heuristicMarkTeXPrimitiveDefs (which consumes the definitions' own tokens, so
+ * must run AFTER heuristicMarkTexPrimitiveDefs (which consumes the definitions' own tokens, so
  * only real call sites remain visible). the scan stops at a parbreak: a delimited macro's
  * argument can't contain a blank line, so an unmatched \NAME can never swallow unrelated content.
  */
@@ -189,7 +189,7 @@ export function heuristicMarkDelimitedMacroSpans(nodes: Node[] | undefined, sour
 	if (!Array.isArray(nodes) || !source || pairs.size === 0) return;
 	for (let i = 0; i < nodes.length; i++) {
 		const node = nodes[i] as LooseNode;
-		// content only, not args: same reasoning as heuristicMarkTeXPrimitiveDefs above.
+		// content only, not args: same reasoning as heuristicMarkTexPrimitiveDefs above.
 		if (Array.isArray(node.content)) heuristicMarkDelimitedMacroSpans(node.content as Node[], source, pairs);
 
 		if (node.type !== 'macro' || (node.args && node.args.length) || node._raw != null || !node.position) continue;

@@ -96,10 +96,10 @@
 		$editorViewStore.focus();
 	}
 
-	const insertHr: Cmd = (state, dispatch) => {
+	function insertHr(state: EditorState, dispatch?: (tr: Transaction) => void): boolean {
 		dispatch?.(state.tr.replaceSelectionWith(mdSchema.nodes.horizontal_rule.create()).scrollIntoView());
 		return true;
-	};
+	}
 
 	const bulletList = createWrapInListCommand({ kind: 'bullet' });
 	const orderedList = createWrapInListCommand({ kind: 'ordered' });

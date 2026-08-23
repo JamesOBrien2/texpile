@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import type { Node as PMNode } from 'prosemirror-model';
-	import type { EditorView } from 'prosemirror-view';
 	import { referenceStore } from '$lib/stores/editorStore';
 	import { splitCitationKeys } from './citationKeys';
 	import CitationEditForm from './CitationEditForm.svelte';
@@ -12,8 +11,6 @@
 		onChangeKey
 	}: {
 		node: PMNode;
-		view: EditorView;
-		getPos: () => number;
 		onUpdate: (attrs: { prenote?: string; postnote?: string; variant?: string }) => void;
 		onChangeKey: (key: string) => void;
 	} = $props();

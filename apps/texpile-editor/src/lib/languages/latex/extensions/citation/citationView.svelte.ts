@@ -5,8 +5,6 @@ import CitationDisplay from './CitationDisplay.svelte';
 
 type CitationDisplayProps = {
 	node: PMNode;
-	view: EditorView;
-	getPos: () => number;
 	onUpdate: (attrs: { prenote?: string; postnote?: string; variant?: string }) => void;
 	onChangeKey: (key: string) => void;
 };
@@ -38,8 +36,6 @@ export class CitationView implements NodeView {
 
 		this.componentProps = {
 			node: this.node,
-			view: this.view,
-			getPos: this.getPos,
 			onUpdate: this.forwardUpdate,
 			onChangeKey: this.changeKey
 		};

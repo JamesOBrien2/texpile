@@ -8,7 +8,7 @@ export type AffilLine = {
 	italic: boolean;
 };
 
-export type IEEEAuthor = {
+export type IeeeAuthor = {
 	name: string;
 	/** Name carried a leading "N\textsuperscript{st|nd|…}" ordinal (regenerated from card order). */
 	ordinal: boolean;
@@ -16,7 +16,7 @@ export type IEEEAuthor = {
 };
 
 /** A raw block that looks like an IEEE \author{…\IEEEauthorblockN…} block. */
-export function isIEEEAuthorBlock(text: string): boolean {
+export function isIeeeAuthorBlock(text: string): boolean {
 	const t = text.trim();
 	return /^\\author\s*\{/.test(t) && /\\IEEEauthorblockN/.test(t);
 }
@@ -59,10 +59,10 @@ function splitByAnd(inner: string): string[] {
 }
 
 /** Parse an IEEE \author block into author cards, or null if it isn't the expected shape. */
-export function parseIEEEAuthors(text: string): IEEEAuthor[] | null {
+export function parseIeeeAuthors(text: string): IeeeAuthor[] | null {
 	const inner = braced(text.trim(), '\\author');
 	if (inner == null) return null;
-	const authors: IEEEAuthor[] = [];
+	const authors: IeeeAuthor[] = [];
 	for (const chunk of splitByAnd(inner)) {
 		const name = braced(chunk, '\\IEEEauthorblockN');
 		if (name == null) return null; // not the shape we model, bail to raw

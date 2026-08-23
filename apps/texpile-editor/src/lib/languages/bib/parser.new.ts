@@ -1,10 +1,10 @@
-import type { BibLaTeXReference } from './types';
-import { parseBibTeXTokens, toBibTeX, type BibToken } from './bibtexParser';
+import type { BiblatexReference } from './types';
+import { parseBibtexTokens, toBibtex, type BibToken } from './bibtexParser';
 
 /** internal bookkeeping fields, must never leak into .bib output. */
 const INTERNAL_FIELDS = new Set(['key', 'entrytype', 'raw', 'displayLabel', 'hasInlineComment']);
 
-export function findDuplicateKeys(references: BibLaTeXReference[]): string[] {
+export function findDuplicateKeys(references: BiblatexReference[]): string[] {
 	const keys = new Set<string>();
 	const duplicates = new Set<string>();
 
@@ -20,39 +20,39 @@ export function findDuplicateKeys(references: BibLaTeXReference[]): string[] {
 }
 
 /** true when the key is unique; excludeKey ignores the ref being edited. */
-export function isKeyUnique(key: string, existingReferences: BibLaTeXReference[], excludeKey?: string): boolean {
+export function isKeyUnique(key: string, existingReferences: BiblatexReference[], excludeKey?: string): boolean {
 	return !existingReferences.some((r) => r.key === key && r.key !== excludeKey);
 }
 
 /** tokens is the full file-order stream so the serializer can round-trip everything; entries is the entry-only view. */
-export type ParseBibTeXResult = {
+export type ParseBibtexResult = {
 	tokens: BibToken[];
-	entries: BibLaTeXReference[];
+	entries: BiblatexReference[];
 	warnings: { key: string; issues: string[] }[];
 	parseError?: string;
 };
 
-export function parseBibTeX(bibtexContent: string): BibLaTeXReference[] {
-	return parseBibTeXWithWarnings(bibtexContent).entries;
+export function parseBibtex(bibtexContent: string): BiblatexReference[] {
+	return parseBibtexWithWarnings(bibtexContent).entries;
 }
 
 /**
  * Read path: every syntactically valid entry survives, no schema enforcement or aliasing.
  * A whole-file parse failure returns parseError so the UI can fall back to raw CodeMirror.
  */
-export function parseBibTeXWithWarnings(bibtexContent: string): ParseBibTeXResult {
+export function parseBibtexWithWarnings(bibtexContent: string): ParseBibtexResult {
 	if (!bibtexContent || !bibtexContent.trim()) {
 		return { tokens: [], entries: [], warnings: [] };
 	}
 
 	let tokens: BibToken[];
 	try {
-		tokens = parseBibTeXTokens(bibtexContent);
+		tokens = parseBibtexTokens(bibtexContent);
 	} catch (error) {
 		return { tokens: [], entries: [], warnings: [], parseError: String(error) };
 	}
 
-	const entries: BibLaTeXReference[] = [];
+	const entries: BiblatexReference[] = [];
 	for (const token of tokens) {
 		if (token.kind !== 'entry') continue;
 		const rawEntry = token.entry;
@@ -63,10 +63,10 @@ export function parseBibTeXWithWarnings(bibtexContent: string): ParseBibTeXResul
 	return { tokens, entries, warnings: [] };
 }
 
-/** converts one entry token into the loose BibLaTeXReference consumers read. */
-function entryFromToken(token: Extract<BibToken, { kind: 'entry' }>): BibLaTeXReference {
+/** converts one entry token into the loose BiblatexReference consumers read. */
+function entryFromToken(token: Extract<BibToken, { kind: 'entry' }>): BiblatexReference {
 	const rawEntry = token.entry;
-	const entry: BibLaTeXReference = {
+	const entry: BiblatexReference = {
 		key: rawEntry.citationKey,
 		entrytype: rawEntry.entryType.toLowerCase()
 	};
@@ -82,10 +82,10 @@ function entryFromToken(token: Extract<BibToken, { kind: 'entry' }>): BibLaTeXRe
 }
 
 /** re-parses one entry edited in the raw pane; returns { error } unless exactly one keyed entry parses. */
-export function parseSingleEntry(text: string): { entry: BibLaTeXReference } | { error: string } {
+export function parseSingleEntry(text: string): { entry: BiblatexReference } | { error: string } {
 	let tokens: BibToken[];
 	try {
-		tokens = parseBibTeXTokens(text);
+		tokens = parseBibtexTokens(text);
 	} catch (e) {
 		return { error: String(e) };
 	}
@@ -102,7 +102,7 @@ export function parseSingleEntry(text: string): { entry: BibLaTeXReference } | {
  * @Preamble and @String round-trip); entry tokens look up refsByKey, missing means deleted.
  * Tokens are joined by one blank line; spacing between blocks isn't preserved beyond that.
  */
-export function serializeBibTeX(tokens: BibToken[], refsByKey: Map<string, BibLaTeXReference>): string {
+export function serializeBibtex(tokens: BibToken[], refsByKey: Map<string, BiblatexReference>): string {
 	const parts: string[] = [];
 	for (const token of tokens) {
 		if (token.kind === 'entry') {
@@ -118,18 +118,18 @@ export function serializeBibTeX(tokens: BibToken[], refsByKey: Map<string, BibLa
 }
 
 /** renders one loose reference as a pretty-printed @type{key, field = {value}, ...} block. */
-function renderReferenceAsBib(ref: BibLaTeXReference): string {
+function renderReferenceAsBib(ref: BiblatexReference): string {
 	const entryTags: Record<string, string> = {};
 	for (const [field, value] of Object.entries(ref)) {
 		if (INTERNAL_FIELDS.has(field)) continue;
 		if (value === undefined || value === '') continue;
 		entryTags[field] = Array.isArray(value) ? value.join(' and ') : String(value);
 	}
-	return toBibTeX([{ citationKey: ref.key, entryType: ref.entrytype, entryTags }], false).trimEnd();
+	return toBibtex([{ citationKey: ref.key, entryType: ref.entrytype, entryTags }], false).trimEnd();
 }
 
 /** short label for \cite autocomplete, best effort. */
-function computeDisplayLabel(entry: BibLaTeXReference): string {
+function computeDisplayLabel(entry: BiblatexReference): string {
 	// first author's last name: split on " and ", take the part before the comma
 	const firstAuthor = entry.author
 		?.split(/\s+and\s+/i)[0]
@@ -146,14 +146,14 @@ function computeDisplayLabel(entry: BibLaTeXReference): string {
 }
 
 export function referencesToBib(
-	references: BibLaTeXReference[] | Record<string, BibLaTeXReference> | BibLaTeXReference | null | undefined
+	references: BiblatexReference[] | Record<string, BiblatexReference> | BiblatexReference | null | undefined
 ): string {
-	const refsArray: BibLaTeXReference[] = Array.isArray(references)
+	const refsArray: BiblatexReference[] = Array.isArray(references)
 		? references
 		: references && typeof references === 'object'
 			? 'entrytype' in references && 'key' in references
-				? [references as BibLaTeXReference]
-				: Object.values(references as Record<string, BibLaTeXReference>)
+				? [references as BiblatexReference]
+				: Object.values(references as Record<string, BiblatexReference>)
 			: [];
 
 	// skip internal fields so they don't leak into the emitted .bib
@@ -167,5 +167,5 @@ export function referencesToBib(
 		return { citationKey: ref.key, entryType: ref.entrytype, entryTags };
 	});
 
-	return toBibTeX(rawEntries, false); // false = pretty-printed
+	return toBibtex(rawEntries, false); // false = pretty-printed
 }

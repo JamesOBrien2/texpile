@@ -71,7 +71,7 @@ export function el(
 			return nodeType.createChecked(attrs ?? null, kids.length > 0 ? kids : undefined);
 		} catch (e) {
 			const shape = kids.map((k) => k.type.name).join(', ');
-			throw new Error(`el('${type}') built invalid content [${shape}]: ${e instanceof Error ? e.message : String(e)}`);
+			throw new Error(`el('${type}') built invalid content [${shape}]: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
 		}
 	}
 	return nodeType.create(attrs ?? null, kids.length > 0 ? kids : undefined);

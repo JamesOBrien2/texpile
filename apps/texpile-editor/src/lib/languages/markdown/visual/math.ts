@@ -3,13 +3,10 @@
 // untouched, so a false negative costs display fidelity, never bytes.
 import type { MarkdownIt, StateBlock, StateInline } from 'markdown-it';
 
-type RuleInline = (state: StateInline, silent: boolean) => boolean;
-type RuleBlock = (state: StateBlock, startLine: number, endLine: number, silent: boolean) => boolean;
-
 const DOLLAR = 0x24;
 const BACKSLASH = 0x5c;
 
-const mathInline: RuleInline = (state, silent) => {
+function mathInline(state: StateInline, silent: boolean): boolean {
 	const src = state.src;
 	const pos = state.pos;
 	if (src.charCodeAt(pos) !== DOLLAR) return false;
@@ -36,9 +33,9 @@ const mathInline: RuleInline = (state, silent) => {
 	}
 	state.pos = end + 1;
 	return true;
-};
+}
 
-const mathBlock: RuleBlock = (state, startLine, endLine, silent) => {
+function mathBlock(state: StateBlock, startLine: number, endLine: number, silent: boolean): boolean {
 	let pos = state.bMarks[startLine] + state.tShift[startLine];
 	let max = state.eMarks[startLine];
 	if (pos + 2 > max || state.src.slice(pos, pos + 2) !== '$$') return false;
@@ -79,7 +76,7 @@ const mathBlock: RuleBlock = (state, startLine, endLine, silent) => {
 	token.map = [startLine, state.line];
 	token.markup = '$$';
 	return true;
-};
+}
 
 export function mathPlugin(md: MarkdownIt): void {
 	md.inline.ruler.after('escape', 'math_inline', mathInline);

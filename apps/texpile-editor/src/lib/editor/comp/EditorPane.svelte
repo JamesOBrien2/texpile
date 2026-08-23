@@ -25,7 +25,7 @@
 	import type { EditSession } from '$lib/collab/editSession';
 	import type { ParsedLatexFile, ParsePhase } from '$lib/workspace/latexRoundtrip';
 	import VisualLoading from './VisualLoading.svelte';
-	import type { BibLaTeXReference } from '$lib/workspace/citations';
+	import type { BiblatexReference } from '$lib/workspace/citations';
 	import type { Starter, ImportedFile } from '$lib/workspace/starters';
 	import { get } from 'svelte/store';
 	import { basename, dirname } from '$lib/workspace/fileSystem';
@@ -64,7 +64,7 @@
 		/** escape hatch offered once the parse looks slow */
 		onUseSource?: () => void;
 		docMeta: Pick<ParsedLatexFile, 'preamble' | 'postamble' | 'hadDocumentEnv'> | null;
-		allReferences: BibLaTeXReference[];
+		allReferences: BiblatexReference[];
 		sourceGotoLine: { line: number; token: number; selectText?: string } | undefined;
 		sourceScrollAnchor: { scroll: number | null; cursor: number | null } | null;
 		sourceDiagnostics: NonNullable<ComponentProps<typeof SourceEditor>['diagnostics']>;

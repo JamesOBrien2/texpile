@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 import type { EditorView } from 'prosemirror-view';
 import type { EditorView as CodeMirrorView } from '@codemirror/view';
-import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
+import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 import type { EditorConfiguration } from '$lib/types/editorcfg';
 
 export const editorViewStore = writable<EditorView | null>(null);
@@ -18,7 +18,7 @@ export const sourceCmView = writable<CodeMirrorView | null>(null);
 // true when the PM selection is inside a CodeMirror-backed block; the menu bar disables
 // Insert/Format there (they would split/convert the block). maintained by createCursorPlugin.
 export const cursorInCm = writable<boolean>(false);
-export const referenceStore = writable<BibLaTeXReference[] | null>(null);
+export const referenceStore = writable<BiblatexReference[] | null>(null);
 // all \label{} keys in the current file, consumed by \ref/\eqref/\cref autocompletion
 export const labelStore = writable<string[]>([]);
 // workspace files as root-relative forward-slash paths, consumed by file-path autocompletion

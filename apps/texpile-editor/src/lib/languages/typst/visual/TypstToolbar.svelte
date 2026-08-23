@@ -108,10 +108,10 @@
 	const bulletList = createWrapInListCommand({ kind: 'bullet' });
 	const orderedList = createWrapInListCommand({ kind: 'ordered' });
 
-	const insertHr: Cmd = (state, dispatch) => {
+	function insertHr(state: EditorState, dispatch?: (tr: Transaction) => void): boolean {
 		dispatch?.(state.tr.replaceSelectionWith(typSchema.nodes.horizontal_rule.create()).scrollIntoView());
 		return true;
-	};
+	}
 </script>
 
 {#snippet iconButton(label: string, isActive: boolean, cmd: Cmd, IconComp: typeof Bold, iconClass = 'h-5 w-5')}

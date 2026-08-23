@@ -1,4 +1,4 @@
-type ParsedBibTeXEntry = {
+type ParsedBibtexEntry = {
 	citationKey: string;
 	entryType: string;
 	entryTags: Record<string, string>;
@@ -9,7 +9,7 @@ type ParsedBibTeXEntry = {
  * serializer can round-trip them; entries carry their raw source range plus hasInlineComment.
  */
 export type BibToken =
-	| { kind: 'entry'; entry: ParsedBibTeXEntry; raw: string; hasInlineComment: boolean }
+	| { kind: 'entry'; entry: ParsedBibtexEntry; raw: string; hasInlineComment: boolean }
 	| { kind: 'comment'; text: string } //   `%…\n`  OR  `@Comment{…}`
 	| { kind: 'preamble'; text: string } // `@Preamble{…}`
 	| { kind: 'string'; text: string }; //   `@String{name = "value"}`
@@ -22,7 +22,7 @@ class BibtexParser {
 	private pos = 0;
 	private input = '';
 	private tokens: BibToken[] = [];
-	private currentEntry: Partial<ParsedBibTeXEntry> = {};
+	private currentEntry: Partial<ParsedBibtexEntry> = {};
 	/** true while parsing an entry body, routes % detection to hasInlineComment. */
 	private insideEntry = false;
 	/** set when skipWhitespace swallows a % inside the current entry's body. */
@@ -36,7 +36,7 @@ class BibtexParser {
 		this.currentHasInlineComment = false;
 	}
 
-	getEntries(): ParsedBibTeXEntry[] {
+	getEntries(): ParsedBibtexEntry[] {
 		return this.tokens.filter((t): t is Extract<BibToken, { kind: 'entry' }> => t.kind === 'entry').map((t) => t.entry);
 	}
 
@@ -336,7 +336,7 @@ class BibtexParser {
 				this.closeBlock();
 				this.tokens.push({
 					kind: 'entry',
-					entry: this.currentEntry as ParsedBibTeXEntry,
+					entry: this.currentEntry as ParsedBibtexEntry,
 					raw: this.input.substring(tokStart, this.pos),
 					hasInlineComment: this.currentHasInlineComment
 				});
@@ -349,7 +349,7 @@ class BibtexParser {
 }
 
 /** parses BibTeX and returns just the entries, for callers that don't need the token stream. */
-export function parseBibTeXRaw(bibtexContent: string): ParsedBibTeXEntry[] {
+export function parseBibtexRaw(bibtexContent: string): ParsedBibtexEntry[] {
 	const parser = new BibtexParser();
 	parser.setInput(bibtexContent);
 	parser.parse();
@@ -357,14 +357,14 @@ export function parseBibTeXRaw(bibtexContent: string): ParsedBibTeXEntry[] {
 }
 
 /** parses BibTeX into the file-order token stream used by the round-trip in parser.new.ts. */
-export function parseBibTeXTokens(bibtexContent: string): BibToken[] {
+export function parseBibtexTokens(bibtexContent: string): BibToken[] {
 	const parser = new BibtexParser();
 	parser.setInput(bibtexContent);
 	return parser.parse();
 }
 
 /** serializes entries back to BibTeX; compact skips the pretty-print indentation. */
-export function toBibTeX(entries: ParsedBibTeXEntry[], compact = false): string {
+export function toBibtex(entries: ParsedBibtexEntry[], compact = false): string {
 	let output = '';
 	const entrySep = compact ? ',' : ',\n';
 	const indent = compact ? '' : '    ';

@@ -17,9 +17,9 @@ export function environmentView(node: Node, view: EditorView, getPos: () => numb
 	header.contentEditable = 'false';
 	dom.appendChild(header);
 
-	const contentDOM = document.createElement('div');
-	contentDOM.className = 'tex-environment-body';
-	dom.appendChild(contentDOM);
+	const contentDom = document.createElement('div');
+	contentDom.className = 'tex-environment-body';
+	dom.appendChild(contentDom);
 
 	function updateAttrs(attrs: Record<string, unknown>) {
 		const pos = getPos();
@@ -32,7 +32,7 @@ export function environmentView(node: Node, view: EditorView, getPos: () => numb
 
 	return {
 		dom,
-		contentDOM,
+		contentDOM: contentDom,
 		update(newNode) {
 			if (newNode.type !== currentNode.type) return false;
 			currentNode = newNode;

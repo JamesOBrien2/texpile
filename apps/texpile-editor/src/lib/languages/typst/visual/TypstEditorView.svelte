@@ -37,7 +37,7 @@
 	import { TYP_BLOCK_INSERT_ITEMS } from './blockInsertItems';
 	import { isMac } from '$lib/platform';
 	import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
-	import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
+	import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 	import { preferences } from '$lib/stores/preferencesStore.svelte';
 	import { toggleHeading } from '$lib/editor/helperCommands';
 	import { createMathField } from '$lib/editor/extensions/mathlivebridge/mlcommands';
@@ -90,7 +90,7 @@
 		/** the open file's directory; #include chips resolve their paths against it */
 		docDir?: string;
 		/** the project's bibliography; @target chips resolve against it for display */
-		localReferences?: BibLaTeXReference[];
+		localReferences?: BiblatexReference[];
 		/** review comments, same contract as the latex EditorView; see extensions/pmComments */
 		commentThreads?: CommentThread[];
 		selectedComment?: string | null;
@@ -346,7 +346,7 @@
 			const pos = Math.min(Math.max(1, prevAnchor), base.doc.content.size);
 			restored = base.apply(base.tr.setSelection(TextSelection.near(base.doc.resolve(pos))).setMeta('addToHistory', false));
 		} catch {
-			restored = base;
+			// structural change, position didn't map, fall back to default selection
 		}
 		editorView.updateState(restored);
 		mountedDoc = next;

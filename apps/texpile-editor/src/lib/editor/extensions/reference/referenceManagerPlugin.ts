@@ -1,6 +1,6 @@
 import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
-import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
+import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 import { referenceStore, templateFeaturesStore } from '$lib/stores/editorStore';
 import { get } from 'svelte/store';
 import { mount, unmount } from 'svelte';
@@ -24,7 +24,7 @@ export type ReferenceItem = {
 	id: string;
 	displayText: string;
 	subtitle?: string;
-	data: BibLaTeXReference | ReferenceItemMeta;
+	data: BiblatexReference | ReferenceItemMeta;
 };
 
 let selectedIndex = 0;
@@ -34,7 +34,7 @@ let dropdownContainer: HTMLElement | null = null;
 let currentView: EditorView | null = null;
 let currentRange: { from: number; to: number } | null = null;
 
-function convertBibliographyToReferenceItems(citations: BibLaTeXReference[]): ReferenceItem[] {
+function convertBibliographyToReferenceItems(citations: BiblatexReference[]): ReferenceItem[] {
 	return citations.map((citation) => ({
 		type: 'bibliography',
 		id: citation.key,
@@ -263,7 +263,7 @@ function filterReferences(items: ReferenceItem[], query: string): ReferenceItem[
 	const searchTerm = query.toLowerCase();
 	return items.filter((item) => {
 		if (item.type === 'bibliography') {
-			const citation = item.data as BibLaTeXReference;
+			const citation = item.data as BiblatexReference;
 			const authorStr = Array.isArray(citation.author) ? citation.author.join(' ') : citation.author || '';
 
 			// auto-generated texpile-cite- keys aren't searchable, user custom keys are

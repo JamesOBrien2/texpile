@@ -4,7 +4,7 @@
 // `\bibliography` for LaTeX, `#bibliography(...)` for Typst - because that is the file the
 // compile actually reads. Everything here is text-in/text-out so it can be unit tested without
 // Zotero, disk, or an editor.
-import { parseBibTeX, referencesToBib } from '$lib/languages/bib/biblatex';
+import { parseBibtex, referencesToBib } from '$lib/languages/bib/biblatex';
 
 /**
  * The bib path the main file declares, relative as written (resolution against the main file's
@@ -59,11 +59,11 @@ export type AppendResult = {
  * because clobbering hand-edits with a re-import is worse than a stale field.
  */
 export function appendBibEntries(existing: string, incoming: string): AppendResult {
-	const have = new Set(parseBibTeX(existing).map((e) => e.key));
+	const have = new Set(parseBibtex(existing).map((e) => e.key));
 	const added: string[] = [];
 	const skipped: string[] = [];
 	const chunks: string[] = [];
-	for (const entry of parseBibTeX(incoming)) {
+	for (const entry of parseBibtex(incoming)) {
 		if (have.has(entry.key)) {
 			skipped.push(entry.key);
 			continue;

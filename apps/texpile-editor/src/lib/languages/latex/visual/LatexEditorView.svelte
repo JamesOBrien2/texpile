@@ -53,7 +53,7 @@
 	import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
 	import { RawLatexView } from '$lib/editor/extensions/raw-latex/rawLatexView';
 	import { RawFigureView, isRawFigure } from '$lib/editor/extensions/raw-latex/rawFigureView';
-	import { IEEEAuthorView, isIEEEAuthorBlock } from '$lib/languages/latex/extensions/template-specific/ieeeAuthorView';
+	import { IeeeAuthorView, isIeeeAuthorBlock } from '$lib/languages/latex/extensions/template-specific/ieeeAuthorView';
 	import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
 	import { inlinePlaceholder, InlinePlaceholderView } from '$lib/editor/extensions/raw-latex/inlinePlaceholderView';
 	import {
@@ -74,7 +74,7 @@
 	import { syncPmComments } from '$lib/editor/extensions/pmCommentsSync.svelte';
 	import type { CommentAnchor } from '$lib/comments/anchor';
 	import type { CommentThread } from '$lib/comments/log';
-	import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
+	import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 
 	type Props = {
 		// the document as a ProseMirror Node
@@ -83,7 +83,7 @@
 		/** any caret/selection movement (shared-session presence publishes through this). */
 		onSelectionChange?: () => void;
 		// references for @ citation suggestions
-		localReferences?: BibLaTeXReference[];
+		localReferences?: BiblatexReference[];
 		// where inserted images go (an images/ subfolder)
 		imageDir?: string;
 		placeholder?: string;
@@ -258,8 +258,8 @@
 							? new BibliographyNodeView(node, view, getPos as () => number)
 							: placeholderCommand(node.textContent)
 								? new PlaceholderRawView(node, view, getPos as () => number)
-								: isIEEEAuthorBlock(node.textContent)
-									? new IEEEAuthorView(node, view, getPos as () => number)
+								: isIeeeAuthorBlock(node.textContent)
+									? new IeeeAuthorView(node, view, getPos as () => number)
 									: isRawFigure(node.textContent)
 										? new RawFigureView(node, view, getPos as () => number, imageDir ?? '')
 										: new RawLatexView(node, view, getPos as () => number),
@@ -348,7 +348,7 @@
 			const pos = Math.min(Math.max(1, prevAnchor), base.doc.content.size);
 			restored = base.apply(base.tr.setSelection(TextSelection.near(base.doc.resolve(pos))).setMeta('addToHistory', false));
 		} catch {
-			restored = base; // structural change, position didn't map, fall back to default selection
+			// structural change, position didn't map, fall back to default selection
 		}
 		editorView.updateState(restored);
 		mountedDoc = next;

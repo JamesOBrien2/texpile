@@ -4,11 +4,11 @@ import { createListSpec } from 'prosemirror-flat-list';
 import type { NodeSpec, DOMOutputSpec } from 'prosemirror-model';
 import { tableNodes, type TableNodesOptions } from 'prosemirror-tables';
 
-const pDOM: DOMOutputSpec = ['p', 0],
-	blockquoteDOM: DOMOutputSpec = ['blockquote', { class: 'blockquote' }, 0],
-	hrDOM: DOMOutputSpec = ['hr'],
-	preDOM: DOMOutputSpec = ['pre', ['code', 0]],
-	brDOM: DOMOutputSpec = ['br'];
+const pDom: DOMOutputSpec = ['p', 0],
+	blockquoteDom: DOMOutputSpec = ['blockquote', { class: 'blockquote' }, 0],
+	hrDom: DOMOutputSpec = ['hr'],
+	preDom: DOMOutputSpec = ['pre', ['code', 0]],
+	brDom: DOMOutputSpec = ['br'];
 
 const tableNodeSpecs = tableNodes({
 	tableGroup: 'block',
@@ -55,7 +55,7 @@ export const nodes = {
 		attrs: { indent: { default: 'auto' } },
 		parseDOM: [{ tag: 'p', getAttrs: (dom) => ({ indent: (dom as HTMLElement).getAttribute('data-indent') || 'auto' }) }],
 		toDOM(node) {
-			return node.attrs.indent !== 'auto' ? ['p', { 'data-indent': node.attrs.indent }, 0] : pDOM;
+			return node.attrs.indent !== 'auto' ? ['p', { 'data-indent': node.attrs.indent }, 0] : pDom;
 		}
 	} as NodeSpec,
 
@@ -65,7 +65,7 @@ export const nodes = {
 		defining: true,
 		parseDOM: [{ tag: 'blockquote' }],
 		toDOM() {
-			return blockquoteDOM;
+			return blockquoteDom;
 		}
 	} as NodeSpec,
 
@@ -73,7 +73,7 @@ export const nodes = {
 		group: 'block',
 		parseDOM: [{ tag: 'hr' }],
 		toDOM() {
-			return hrDOM;
+			return hrDom;
 		}
 	} as NodeSpec,
 
@@ -110,7 +110,7 @@ export const nodes = {
 		defining: true,
 		parseDOM: [{ tag: 'pre', preserveWhitespace: 'full' }],
 		toDOM() {
-			return preDOM;
+			return preDom;
 		}
 	} as NodeSpec,
 
@@ -319,7 +319,7 @@ export const nodes = {
 		attrs: { lineBreak: { default: true } },
 		parseDOM: [{ tag: 'br' }],
 		toDOM() {
-			return brDOM;
+			return brDom;
 		}
 	} as NodeSpec,
 

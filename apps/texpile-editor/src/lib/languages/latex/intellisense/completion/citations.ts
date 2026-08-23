@@ -3,7 +3,7 @@
 // the key, so typing an author surname or a title word surfaces the entry.
 import { get } from 'svelte/store';
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
-import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
+import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 import { referenceStore } from '$lib/stores/editorStore';
 import { lastListToken } from './shared';
 
@@ -12,7 +12,7 @@ import { lastListToken } from './shared';
 const CITE_BEFORE =
 	/\\(?:[a-zA-Z]*[Cc]ite[a-zA-Z]*\*?(?:\([^()]*\)){0,2}|bibentry|(?:text)?cquote\*?)(?:<[^<>]*>)?(?:\[[^\]]*\])*\{[^{}]*$/;
 
-const INFO_FIELDS: Array<keyof BibLaTeXReference> = [
+const INFO_FIELDS: Array<keyof BiblatexReference> = [
 	'author',
 	'title',
 	'journal',
@@ -23,7 +23,7 @@ const INFO_FIELDS: Array<keyof BibLaTeXReference> = [
 	'date'
 ];
 
-function citationInfo(r: BibLaTeXReference): (() => Node) | undefined {
+function citationInfo(r: BiblatexReference): (() => Node) | undefined {
 	const rows = INFO_FIELDS.map((f) => [f, r[f]] as const).filter(([, v]) => v != null && v !== '');
 	if (!rows.length) return undefined;
 	return () => {
@@ -36,7 +36,7 @@ function citationInfo(r: BibLaTeXReference): (() => Node) | undefined {
 	};
 }
 
-function citationOption(r: BibLaTeXReference): Completion {
+function citationOption(r: BiblatexReference): Completion {
 	const author = r.author ? String(r.author) : '';
 	const title = r.title ? String(r.title) : '';
 	const year = r.year ? String(r.year) : r.date ? String(r.date) : '';

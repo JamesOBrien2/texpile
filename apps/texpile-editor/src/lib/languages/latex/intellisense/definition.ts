@@ -10,7 +10,7 @@ import { tokenAt, findLabelOffset } from './hover';
 
 const INCLUDE_TRIGGER = /\\(?:input|include|subfile|subfileinclude)\{([^{}]+)\}/g;
 
-function DEF_PATTERNS(escaped: string) {
+function defPatterns(escaped: string) {
 	return [
 		`\\\\(?:new|renew|provide)command\\*?\\s*\\{?\\\\${escaped}\\}?`,
 		`\\\\(?:New|Renew|Provide|Declare)(?:Expandable)?DocumentCommand\\s*\\{?\\\\${escaped}\\}?`,
@@ -22,7 +22,7 @@ function DEF_PATTERNS(escaped: string) {
 
 export function findMacroDefinition(text: string, name: string): number | null {
 	const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	const idx = text.search(new RegExp(DEF_PATTERNS(escaped).join('|')));
+	const idx = text.search(new RegExp(defPatterns(escaped).join('|')));
 	return idx < 0 ? null : idx;
 }
 

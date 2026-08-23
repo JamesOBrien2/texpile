@@ -1,15 +1,15 @@
-export type { BibLaTeXReference } from './types';
+export type { BiblatexReference } from './types';
 
 export {
-	parseBibTeX,
-	parseBibTeXWithWarnings,
+	parseBibtex,
+	parseBibtexWithWarnings,
 	parseSingleEntry,
-	serializeBibTeX,
+	serializeBibtex,
 	referencesToBib,
 	findDuplicateKeys,
 	isKeyUnique
 } from './parser.new';
-export type { ParseBibTeXResult } from './parser.new';
+export type { ParseBibtexResult } from './parser.new';
 export type { BibToken } from './bibtexParser';
 
 // schema validation is opt-in, used only by the visual add/edit form on save

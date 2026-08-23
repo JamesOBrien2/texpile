@@ -1,22 +1,22 @@
 // parses the folder's .bib files into the shared references store; read-only
 import { writable } from 'svelte/store';
-import { parseBibTeX, type BibLaTeXReference } from '$lib/languages/bib/biblatex';
+import { parseBibtex, type BiblatexReference } from '$lib/languages/bib/biblatex';
 import { extractDocRefs, type BibItemSlice } from '$lib/languages/latex/parser/labels';
 import { scanFiles, readTextFile, type TexFile } from './fileSystem';
 
-export type { BibLaTeXReference };
+export type { BiblatexReference };
 
 /** references from the folder's .bib files, also fed to the editor for @-cites. */
-export const references = writable<BibLaTeXReference[]>([]);
+export const references = writable<BiblatexReference[]>([]);
 
 /** parses several .bib texts into one list, de-duplicated by key (first occurrence wins). */
-export function mergeReferences(texts: string[]): BibLaTeXReference[] {
-	const all: BibLaTeXReference[] = [];
+export function mergeReferences(texts: string[]): BiblatexReference[] {
+	const all: BiblatexReference[] = [];
 	const seen = new Set<string>();
 	for (const text of texts) {
-		let parsed: BibLaTeXReference[] = [];
+		let parsed: BiblatexReference[] = [];
 		try {
-			parsed = parseBibTeX(text);
+			parsed = parseBibtex(text);
 		} catch {
 			continue; // skip an unparseable file rather than failing the whole load
 		}
@@ -34,13 +34,13 @@ export function mergeReferences(texts: string[]): BibLaTeXReference[] {
  * Turns \bibitem slices into loose references so @-citations work without a .bib file.
  * Only key is reliable; author/title/year are display heuristics over the free text.
  */
-export function bibItemsToReferences(items: BibItemSlice[]): BibLaTeXReference[] {
-	const out: BibLaTeXReference[] = [];
+export function bibItemsToReferences(items: BibItemSlice[]): BiblatexReference[] {
+	const out: BiblatexReference[] = [];
 	for (const item of items) {
 		const { key } = item;
 		// display cleanup only, the raw slice stays untouched
 		const body = item.body.replace(/\s+/g, ' ').replace(/[{}]/g, '').replace(/~/g, ' ').replace(/\\&/g, '&').trim();
-		const ref: BibLaTeXReference = { key, entrytype: 'misc', fromBibitem: true, raw: `\\bibitem{${key}} ${item.body.trim()}` };
+		const ref: BiblatexReference = { key, entrytype: 'misc', fromBibitem: true, raw: `\\bibitem{${key}} ${item.body.trim()}` };
 		const titleM = body.match(/``(.+?)''/) ?? body.match(/[“"](.+?)[”"]/);
 		if (titleM) {
 			ref.title = titleM[1].trim().replace(/[,.]$/, '');
@@ -71,7 +71,7 @@ export function bibItemsToReferences(items: BibItemSlice[]): BibLaTeXReference[]
  * Best-effort \bibitem parse from a .tex (thebibliography). AST-scanned, so a commented or
  * verbatim \bibitem doesn't count. Callers already running extractDocRefs should reuse its result.
  */
-export function parseBibItems(tex: string): BibLaTeXReference[] {
+export function parseBibItems(tex: string): BiblatexReference[] {
 	return bibItemsToReferences(extractDocRefs(tex).bibitems);
 }
 

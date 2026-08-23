@@ -6,7 +6,7 @@
 // renaming a label used in three files patched the open one and dropped the rest on the floor,
 // leaving dangling references with no error. This version writes every file tinymist names: the
 // open one through the editor (so Ctrl+Z undoes it), the rest straight to disk.
-import { showDialog, getDialog, keymap, type Command, type EditorView } from '@codemirror/view';
+import { showDialog, getDialog, keymap, type EditorView } from '@codemirror/view';
 import { Prec, type Extension } from '@codemirror/state';
 import { LSPPlugin } from '@codemirror/lsp-client';
 import { get } from 'svelte/store';
@@ -67,7 +67,7 @@ async function doRename(view: EditorView, newName: string): Promise<void> {
 }
 
 /** F2: prompt for a new name for the symbol under the cursor, then rename it project-wide. */
-export const renameTypstSymbolCommand: Command = (view) => {
+export function renameTypstSymbolCommand(view: EditorView): boolean {
 	const wordRange = view.state.wordAt(view.state.selection.main.head);
 	const plugin = LSPPlugin.get(view);
 	// capabilities are known only once the server has answered initialize; absent means "not yet",
@@ -99,7 +99,7 @@ export const renameTypstSymbolCommand: Command = (view) => {
 		if (next && next !== word) void doRename(view, next);
 	});
 	return true;
-};
+}
 
 /** Bound at high precedence so it wins over the identical binding inside languageServerSupport. */
 export const typstRenameKeymap: Extension = Prec.high(keymap.of([{ key: 'F2', run: renameTypstSymbolCommand, preventDefault: true }]));

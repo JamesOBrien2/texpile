@@ -1,6 +1,6 @@
 // decides whether an entry can render and round-trip in BibManager's visual form;
 // anything that can't gets demoted to a raw CodeMirror row so no data is silently lost
-import type { BibLaTeXReference } from './types';
+import type { BiblatexReference } from './types';
 import { biblatexReferenceSchema, perTypeSchemas } from './schema';
 
 const INTERNAL_FIELDS = new Set(['key', 'entrytype', 'raw', 'displayLabel', 'hasInlineComment']);
@@ -10,7 +10,7 @@ const KNOWN_FIELDS_BY_TYPE: Record<string, Set<string>> = Object.fromEntries(
 	Object.entries(perTypeSchemas).map(([type, schema]) => [type, new Set(Object.keys(schema.shape))])
 );
 
-export function fitsVisualEditor(ref: BibLaTeXReference): boolean {
+export function fitsVisualEditor(ref: BiblatexReference): boolean {
 	// a % comment inside the entry body: regenerating from fields would lose it
 	if (ref.hasInlineComment) return false;
 

@@ -3,7 +3,7 @@
  * on the read path. Only key and entrytype are guaranteed; legacy names like journal/address
  * come through unmodified. Zod validation is opt-in via the visual form (./schema.ts).
  */
-export type BibLaTeXReference = {
+export type BiblatexReference = {
 	/** the only field consumers can rely on. */
 	key: string;
 	/** lowercased, no normalization or alias mapping. */

@@ -93,20 +93,20 @@ export function foldRangeAt(state: EditorState, lineStart: number, lineEnd: numb
 // markerDOM runs per visible line, so render each icon once and clone it
 const iconCache = new Map<Component, string>();
 
-function iconHtml(Icon: Component): string {
-	let html = iconCache.get(Icon);
+function iconHtml(icon: Component): string {
+	let html = iconCache.get(icon);
 	if (html === undefined) {
 		const host = document.createElement('div');
-		const app = mount(Icon, { target: host, props: { size: 12, strokeWidth: 2.5 } });
+		const app = mount(icon, { target: host, props: { size: 12, strokeWidth: 2.5 } });
 		html = host.innerHTML;
 		void unmount(app);
-		iconCache.set(Icon, html);
+		iconCache.set(icon, html);
 	}
 	return html;
 }
 
 /** shared with the Typst folding setup, so every source pane folds with the same chevrons */
-export function foldMarkerDOM(open: boolean): HTMLElement {
+export function foldMarkerDom(open: boolean): HTMLElement {
 	const span = document.createElement('span');
 	span.className = 'cm-foldMarker';
 	// markerDOM opts out of CodeMirror's own title, so carry it ourselves
@@ -129,5 +129,5 @@ export const foldMarkerTheme = EditorView.baseTheme({
 
 /** folding for LaTeX source: environments and section headings. */
 export function latexFolding(): Extension {
-	return [foldService.of(foldRangeAt), foldGutter({ markerDOM: foldMarkerDOM }), foldMarkerTheme, keymap.of(foldKeymap)];
+	return [foldService.of(foldRangeAt), foldGutter({ markerDOM: foldMarkerDom }), foldMarkerTheme, keymap.of(foldKeymap)];
 }

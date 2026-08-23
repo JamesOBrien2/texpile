@@ -52,7 +52,7 @@
 	import { syncPmComments } from '$lib/editor/extensions/pmCommentsSync.svelte';
 	import type { CommentAnchor } from '$lib/comments/anchor';
 	import type { CommentThread } from '$lib/comments/log';
-	import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
+	import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 	import 'prosemirror-view/style/prosemirror.css';
 	import 'prosemirror-tables/style/tables.css';
 	import 'prosemirror-gapcursor/style/gapcursor.css';
@@ -67,7 +67,7 @@
 		localValue?: PMNode | null;
 		onLocalChange?: (value: PMNode) => void;
 		onSelectionChange?: () => void;
-		localReferences?: BibLaTeXReference[];
+		localReferences?: BiblatexReference[];
 		imageDir?: string;
 		placeholder?: string;
 		onHistoryBoundary?: (dir: 'undo' | 'redo') => boolean;
@@ -269,7 +269,7 @@
 			const pos = Math.min(Math.max(1, prevAnchor), base.doc.content.size);
 			restored = base.apply(base.tr.setSelection(TextSelection.near(base.doc.resolve(pos))).setMeta('addToHistory', false));
 		} catch {
-			restored = base;
+			// structural change, position didn't map, fall back to default selection
 		}
 		editorView.updateState(restored);
 		mountedDoc = next;

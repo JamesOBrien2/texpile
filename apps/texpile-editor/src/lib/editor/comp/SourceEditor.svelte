@@ -18,7 +18,7 @@
 	import { searchKeymap } from '@codemirror/search';
 	import { texpileSearch } from '$lib/editor/extensions/search-panel/searchPanel';
 	import { latexAutocomplete, latexIntellisense } from '$lib/languages/latex/intellisense/intellisense';
-	import { foldMarkerDOM, foldMarkerTheme } from '$lib/languages/latex/intellisense/fold';
+	import { foldMarkerDom, foldMarkerTheme } from '$lib/languages/latex/intellisense/fold';
 	import { mdSourceShortcuts } from '$lib/languages/markdown/visual/sourceExtensions';
 	import { typSourceShortcuts } from '$lib/languages/typst/visual/sourceExtensions';
 	import { mdPathCompletion } from '$lib/languages/markdown/pathCompletion';
@@ -307,7 +307,7 @@
 									? // completion/hover/diagnostics arrive over LSP, filled into lspConf below. the fold
 										// RAIL is mounted here rather than with the language, whose parser is a dynamic
 										// import: a gutter arriving a second late shoves the text sideways on every open
-										[typSourceShortcuts(), cmSpellcheck('typst'), foldGutter({ markerDOM: foldMarkerDOM }), foldMarkerTheme]
+										[typSourceShortcuts(), cmSpellcheck('typst'), foldGutter({ markerDOM: foldMarkerDom }), foldMarkerTheme]
 									: []),
 					lspConf.of([]),
 					synctexFlash(), // flash the line jumped to by SyncTeX inverse search / Find-in-Files

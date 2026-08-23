@@ -17,7 +17,7 @@
 import { describe, it, beforeAll, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseBibTeXWithWarnings, serializeBibTeX, type BibLaTeXReference } from '../../../../src/lib/languages/bib/biblatex';
+import { parseBibtexWithWarnings, serializeBibtex, type BiblatexReference } from '../../../../src/lib/languages/bib/biblatex';
 
 const PAPER_DIRS = process.env.PAPER_DIRS;
 const REPORT_DIR = process.env.CITATION_REPORT_DIR;
@@ -111,11 +111,11 @@ describe('citation/.bib corpus fidelity', () => {
 			try {
 				const bibFiles = listFilesRec(paperDir, '.bib');
 				r.bibFiles = bibFiles.map((f) => path.relative(paperDir, f));
-				const allEntries = new Map<string, BibLaTeXReference>();
+				const allEntries = new Map<string, BiblatexReference>();
 
 				for (const bf of bibFiles) {
 					const src = fs.readFileSync(bf, 'utf8');
-					const parsed = parseBibTeXWithWarnings(src);
+					const parsed = parseBibtexWithWarnings(src);
 					if (parsed.parseError) {
 						r.bibParseErrors.push(`${path.basename(bf)}: ${parsed.parseError}`);
 						continue;
@@ -129,7 +129,7 @@ describe('citation/.bib corpus fidelity', () => {
 
 					// untouched-file byte-identity oracle, the .bib analog of the .tex Tier-1 check
 					const entriesMap = new Map(parsed.entries.map((e) => [e.key, e]));
-					const out = serializeBibTeX(parsed.tokens, entriesMap);
+					const out = serializeBibtex(parsed.tokens, entriesMap);
 					const identical = out === src;
 					r.bibByteIdentical.push({ file: path.basename(bf), identical, firstDiff: identical ? null : firstStringDiff(src, out) });
 				}
@@ -219,7 +219,7 @@ describe('citation/.bib corpus fidelity', () => {
 		expect(bad).toEqual([]);
 	});
 
-	// informational, not gated: serializeBibTeX joins tokens with a hardcoded '\n\n' (no .bib
+	// informational, not gated: serializeBibtex joins tokens with a hardcoded '\n\n' (no .bib
 	// equivalent of the .tex orig/pre gap capture yet), so every observed diff is inter-token
 	// whitespace only, never a field/value change. surfaced via the report; byte-fidelity for
 	// .bib is a tracked follow-up.

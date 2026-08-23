@@ -1,8 +1,8 @@
 import type { DOMOutputSpec, MarkSpec } from 'prosemirror-model';
 
-const emDOM: DOMOutputSpec = ['em', 0],
-	strongDOM: DOMOutputSpec = ['strong', 0],
-	codeDOM: DOMOutputSpec = ['code', 0];
+const emDom: DOMOutputSpec = ['em', 0],
+	strongDom: DOMOutputSpec = ['strong', 0],
+	codeDom: DOMOutputSpec = ['code', 0];
 
 export const marks = {
 	link: {
@@ -43,7 +43,7 @@ export const marks = {
 			{ style: 'font-style=normal', clearMark: (m) => m.type.name == 'em' }
 		],
 		toDOM() {
-			return emDOM;
+			return emDom;
 		}
 	} as MarkSpec,
 
@@ -62,7 +62,7 @@ export const marks = {
 			}
 		],
 		toDOM() {
-			return strongDOM;
+			return strongDom;
 		}
 	} as MarkSpec,
 
@@ -138,7 +138,7 @@ export const marks = {
 	code: {
 		parseDOM: [{ tag: 'code' }],
 		toDOM() {
-			return codeDOM;
+			return codeDom;
 		}
 	} as MarkSpec
 };

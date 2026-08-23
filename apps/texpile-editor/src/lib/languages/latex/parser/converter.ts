@@ -27,7 +27,7 @@ import { ignoredMacros, SCOPED_SWITCHES, FONT_SIZE_SWITCHES, MACRO_SIGNATURES, E
 import { listingLanguage } from './listingLanguage';
 import {
 	heuristicMarkCommentedMacroCalls,
-	heuristicMarkTeXPrimitiveDefs,
+	heuristicMarkTexPrimitiveDefs,
 	heuristicMarkDelimitedMacroSpans,
 	heuristicInferUnknownMacroSignatures
 } from './heuristics';
@@ -1800,7 +1800,7 @@ function scanPreambleText(preamble: string, parseOptions: ParseOptions): Preambl
 			/* a malformed preamble must not break body parsing */
 		}
 		if (preAst) {
-			// listNewcommands first: heuristicMarkTeXPrimitiveDefs splices the tree in place, and
+			// listNewcommands first: heuristicMarkTexPrimitiveDefs splices the tree in place, and
 			// listNewcommands must see the same unmutated tree its own parse used to give it
 			if (wantsNewcommands) {
 				try {
@@ -1811,7 +1811,7 @@ function scanPreambleText(preamble: string, parseOptions: ParseOptions): Preambl
 			}
 			if (wantsDefs) {
 				try {
-					heuristicMarkTeXPrimitiveDefs(preAst.content as Node[], preamble, scan.delimPairs);
+					heuristicMarkTexPrimitiveDefs(preAst.content as Node[], preamble, scan.delimPairs);
 				} catch {
 					/* ditto */
 				}
@@ -1852,7 +1852,7 @@ export function latexToProseMirror(latex: string, options: ConversionOptions = {
 	// parameter pairs (\def\bea#1\eea{...} gives bea->eea) from the AST tokens it consumes: a
 	// definition merely quoted inside verbatim/comment can never register.
 	const delimPairs = new Map<string, string>();
-	heuristicMarkTeXPrimitiveDefs(ast.content as Node[], latex, delimPairs);
+	heuristicMarkTexPrimitiveDefs(ast.content as Node[], latex, delimPairs);
 
 	// cross-file pairs come from the shared preamble scan (see scanPreambleText)
 	const preScan = options.preamble ? scanPreambleText(options.preamble, parseOptions) : null;
@@ -1860,7 +1860,7 @@ export function latexToProseMirror(latex: string, options: ConversionOptions = {
 
 	// a \def with a delimited parameter tells us \bea swallows everything up to \eea, typically
 	// math the prose path would text-escape into invalid LaTeX. must run after
-	// heuristicMarkTeXPrimitiveDefs so only real call sites remain visible.
+	// heuristicMarkTexPrimitiveDefs so only real call sites remain visible.
 	heuristicMarkDelimitedMacroSpans(ast.content as Node[], latex, delimPairs);
 
 	// drop trailing comments so a command's args can attach across them (see fn comment)

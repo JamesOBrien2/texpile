@@ -1,21 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import {
-	parseBibTeXWithWarnings,
+	parseBibtexWithWarnings,
 	parseSingleEntry,
-	serializeBibTeX,
+	serializeBibtex,
 	fitsVisualEditor,
 	type BibToken,
-	type BibLaTeXReference
+	type BiblatexReference
 } from '../../../../src/lib/languages/bib/biblatex';
 
-describe('parseBibTeXWithWarnings — read path', () => {
+describe('parseBibtexWithWarnings — read path', () => {
 	it('emits every syntactically-valid entry regardless of schema fit', () => {
 		// legacy `journal` (not biblatex `journaltitle`) is the deliberate schema misfit
 		const bib = `
 @Article{legacy1, author = {A}, title = {T1}, journal = {J}, year = {2001}}
 @Article{legacy2, author = {B}, title = {T2}, journal = {J}, year = {2002}}
 		`.trim();
-		const result = parseBibTeXWithWarnings(bib);
+		const result = parseBibtexWithWarnings(bib);
 		expect(result.parseError).toBeUndefined();
 		expect(result.entries.map((e) => e.key)).toEqual(['legacy1', 'legacy2']);
 		// no alias rename
@@ -29,7 +29,7 @@ describe('parseBibTeXWithWarnings — read path', () => {
 % between comment
 @Article{b, author = {B}, title = {T2}, journaltitle = {J}, year = {2002}}
 		`.trim();
-		const result = parseBibTeXWithWarnings(bib);
+		const result = parseBibtexWithWarnings(bib);
 		const kinds = result.tokens.map((t) => t.kind);
 		expect(kinds).toEqual(['comment', 'entry', 'comment', 'entry']);
 		const commentTokens = result.tokens.filter((t): t is Extract<BibToken, { kind: 'comment' }> => t.kind === 'comment');
@@ -44,7 +44,7 @@ describe('parseBibTeXWithWarnings — read path', () => {
 @Comment{This is a comment block}
 @Article{x, author = {A}, title = {T}, journaltitle = {J}, year = {2001}}
 		`.trim();
-		const result = parseBibTeXWithWarnings(bib);
+		const result = parseBibtexWithWarnings(bib);
 		const kinds = result.tokens.map((t) => t.kind);
 		expect(kinds).toEqual(['preamble', 'string', 'comment', 'entry']);
 		expect(result.entries.map((e) => e.key)).toEqual(['x']);
@@ -61,7 +61,7 @@ describe('parseBibTeXWithWarnings — read path', () => {
 }
 @Article{clean, author = {B}, title = {T2}, journaltitle = {J}, year = {2002}}
 		`.trim();
-		const result = parseBibTeXWithWarnings(bib);
+		const result = parseBibtexWithWarnings(bib);
 		const [dirty, clean] = result.entries;
 		expect(dirty.hasInlineComment).toBe(true);
 		expect(clean.hasInlineComment).toBe(false);
@@ -69,7 +69,7 @@ describe('parseBibTeXWithWarnings — read path', () => {
 
 	it('preserves field insertion order (matches file order)', () => {
 		const bib = `@Article{x, author = {A}, title = {T}, journaltitle = {J}, year = {2001}, volume = {1}}`;
-		const result = parseBibTeXWithWarnings(bib);
+		const result = parseBibtexWithWarnings(bib);
 		const ref = result.entries[0];
 		// strip internal bookkeeping fields before comparing order
 		const fieldKeys = Object.keys(ref).filter((k) => !['key', 'entrytype', 'raw', 'displayLabel', 'hasInlineComment'].includes(k));
@@ -78,14 +78,14 @@ describe('parseBibTeXWithWarnings — read path', () => {
 
 	it('returns parseError (and no entries/tokens) when the whole file is unparseable', () => {
 		const bib = `@Article{broken, author = {A`; // unclosed brace
-		const result = parseBibTeXWithWarnings(bib);
+		const result = parseBibtexWithWarnings(bib);
 		expect(result.parseError).toBeTruthy();
 		expect(result.entries).toEqual([]);
 	});
 
 	it('computes a displayLabel from author + year + title', () => {
 		const bib = `@Article{k, author = {Smith, John and Doe, Jane}, title = {A Very Long Title Goes Here}, journaltitle = {J}, year = {2001}}`;
-		const [entry] = parseBibTeXWithWarnings(bib).entries;
+		const [entry] = parseBibtexWithWarnings(bib).entries;
 		expect(entry.displayLabel).toContain('Smith');
 		expect(entry.displayLabel).toContain('(2001)');
 		expect(entry.displayLabel).toContain('A Very Long Title');
@@ -93,7 +93,7 @@ describe('parseBibTeXWithWarnings — read path', () => {
 });
 
 describe('fitsVisualEditor — strict fit rule', () => {
-	const article = (extra: Record<string, unknown> = {}, key = 'k'): BibLaTeXReference => ({
+	const article = (extra: Record<string, unknown> = {}, key = 'k'): BiblatexReference => ({
 		key,
 		entrytype: 'article',
 		author: 'Smith',
@@ -108,28 +108,28 @@ describe('fitsVisualEditor — strict fit rule', () => {
 	});
 
 	it('rejects an @Article that uses legacy `journal` instead of `journaltitle`', () => {
-		const ref: BibLaTeXReference = { key: 'k', entrytype: 'article', author: 'A', title: 'T', journal: 'J', year: '2001' };
+		const ref: BiblatexReference = { key: 'k', entrytype: 'article', author: 'A', title: 'T', journal: 'J', year: '2001' };
 		expect(fitsVisualEditor(ref)).toBe(false);
 	});
 
 	it('rejects an @Book with `address` instead of `location`', () => {
-		const ref: BibLaTeXReference = { key: 'k', entrytype: 'book', author: 'A', title: 'T', address: 'NY', year: '2001' };
+		const ref: BiblatexReference = { key: 'k', entrytype: 'book', author: 'A', title: 'T', address: 'NY', year: '2001' };
 		expect(fitsVisualEditor(ref)).toBe(false);
 	});
 
 	it('accepts an @Book with BibLaTeX `location`', () => {
-		const ref: BibLaTeXReference = { key: 'k', entrytype: 'book', author: 'A', title: 'T', location: 'NY', year: '2001' };
+		const ref: BiblatexReference = { key: 'k', entrytype: 'book', author: 'A', title: 'T', location: 'NY', year: '2001' };
 		expect(fitsVisualEditor(ref)).toBe(true);
 	});
 
 	it('rejects when a required field is missing', () => {
 		// article requires journaltitle
-		const ref: BibLaTeXReference = { key: 'k', entrytype: 'article', author: 'A', title: 'T', year: '2001' };
+		const ref: BiblatexReference = { key: 'k', entrytype: 'article', author: 'A', title: 'T', year: '2001' };
 		expect(fitsVisualEditor(ref)).toBe(false);
 	});
 
 	it('rejects an unknown entrytype', () => {
-		const ref: BibLaTeXReference = { key: 'k', entrytype: 'gizmo', title: 'T' };
+		const ref: BiblatexReference = { key: 'k', entrytype: 'gizmo', title: 'T' };
 		expect(fitsVisualEditor(ref)).toBe(false);
 	});
 
@@ -170,7 +170,7 @@ describe('parseSingleEntry — raw-CM save', () => {
 	});
 });
 
-describe('serializeBibTeX — round-trip', () => {
+describe('serializeBibtex — round-trip', () => {
 	it('preserves between-entry `%` comments and their file position', () => {
 		const src = `
 % top note
@@ -178,8 +178,8 @@ describe('serializeBibTeX — round-trip', () => {
 % mid note
 @Article{b, author = {B}, title = {T2}, journaltitle = {J}, year = {2002}}
 		`.trim();
-		const { tokens, entries } = parseBibTeXWithWarnings(src);
-		const out = serializeBibTeX(tokens, new Map(entries.map((e) => [e.key, e])));
+		const { tokens, entries } = parseBibtexWithWarnings(src);
+		const out = serializeBibtex(tokens, new Map(entries.map((e) => [e.key, e])));
 		expect(out.indexOf('% top note')).toBeLessThan(out.indexOf('@Article{a'));
 		expect(out.indexOf('@Article{a')).toBeLessThan(out.indexOf('% mid note'));
 		expect(out.indexOf('% mid note')).toBeLessThan(out.indexOf('@Article{b'));
@@ -192,8 +192,8 @@ describe('serializeBibTeX — round-trip', () => {
 @Article{a, author = {A}, title = {T}, journaltitle = {J}, year = {2001}}
 @Comment{trailing note}
 		`.trim();
-		const { tokens, entries } = parseBibTeXWithWarnings(src);
-		const out = serializeBibTeX(tokens, new Map(entries.map((e) => [e.key, e])));
+		const { tokens, entries } = parseBibtexWithWarnings(src);
+		const out = serializeBibtex(tokens, new Map(entries.map((e) => [e.key, e])));
 		expect(out).toContain('@Preamble');
 		expect(out).toContain('@String');
 		expect(out).toContain('@Comment{trailing note}');
@@ -204,26 +204,26 @@ describe('serializeBibTeX — round-trip', () => {
 @Article{keep, author = {A}, title = {T1}, journaltitle = {J}, year = {2001}}
 @Article{drop, author = {B}, title = {T2}, journaltitle = {J}, year = {2002}}
 		`.trim();
-		const { tokens, entries } = parseBibTeXWithWarnings(src);
+		const { tokens, entries } = parseBibtexWithWarnings(src);
 		const kept = new Map(entries.filter((e) => e.key === 'keep').map((e) => [e.key, e]));
-		const out = serializeBibTeX(tokens, kept);
+		const out = serializeBibtex(tokens, kept);
 		expect(out).toContain('@Article{keep');
 		expect(out).not.toContain('@Article{drop');
 	});
 
 	it('uses ref.raw when present (round-trip untouched by the visual form)', () => {
 		const src = `@Article{a, author = {A}, title = {T}, journaltitle = {J}, year = {2001}}`;
-		const { tokens, entries } = parseBibTeXWithWarnings(src);
-		const out = serializeBibTeX(tokens, new Map(entries.map((e) => [e.key, e])));
+		const { tokens, entries } = parseBibtexWithWarnings(src);
+		const out = serializeBibtex(tokens, new Map(entries.map((e) => [e.key, e])));
 		// raw is populated from the source range; the serializer prefers it
 		expect(out).toContain(entries[0].raw!.trim());
 	});
 
 	it('regenerates from fields when ref.raw is cleared (visual-form edit path)', () => {
 		const src = `@Article{a, author = {A}, title = {T}, journaltitle = {J}, year = {2001}}`;
-		const { tokens, entries } = parseBibTeXWithWarnings(src);
-		const edited: BibLaTeXReference = { ...entries[0], title: 'New Title', raw: undefined };
-		const out = serializeBibTeX(tokens, new Map([[edited.key, edited]]));
+		const { tokens, entries } = parseBibtexWithWarnings(src);
+		const edited: BiblatexReference = { ...entries[0], title: 'New Title', raw: undefined };
+		const out = serializeBibtex(tokens, new Map([[edited.key, edited]]));
 		expect(out).toContain('New Title');
 		expect(out).not.toContain('title = {T}');
 	});

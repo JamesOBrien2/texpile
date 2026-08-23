@@ -5,7 +5,7 @@
 // worker (latest-wins; a null result means superseded or failed, and the previous registries
 // stay rather than blinking empty).
 import { get } from 'svelte/store';
-import { references, bibItemsToReferences, type BibLaTeXReference } from '$lib/workspace/citations';
+import { references, bibItemsToReferences, type BiblatexReference } from '$lib/workspace/citations';
 import { labelStore, referenceStore } from '$lib/stores/editorStore';
 import { extractDocRefsAsync } from '$lib/languages/latex/parser/labelsClient';
 
@@ -21,14 +21,14 @@ export type DocRegistryDeps = {
 
 export class DocRegistries {
 	/** \bibitem entries found in the current doc; .bib entries win on key clashes */
-	bibitemRefs = $state<BibLaTeXReference[]>([]);
+	bibitemRefs = $state<BiblatexReference[]>([]);
 	private timer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(private deps: DocRegistryDeps) {}
 
 	/** the folder's .bib entries plus any \bibitem ones not already covered, so citations resolve
 	 * in BOTH modes. The editor re-syncs this same merged list, so both writers must agree. */
-	get merged(): BibLaTeXReference[] {
+	get merged(): BiblatexReference[] {
 		const bib = get(references);
 		if (!this.bibitemRefs.length) return bib;
 		const seen = new Set(bib.map((r) => r.key));
@@ -36,7 +36,7 @@ export class DocRegistries {
 	}
 
 	/** publish the merged list for the editors */
-	publish(merged: BibLaTeXReference[]): void {
+	publish(merged: BiblatexReference[]): void {
 		referenceStore.set(merged);
 	}
 
