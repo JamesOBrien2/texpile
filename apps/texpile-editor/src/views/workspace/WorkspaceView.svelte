@@ -17,13 +17,13 @@
 	import { DraftController } from '$lib/draft/draftController.svelte';
 	import GlobalSearch from '$lib/search/GlobalSearch.svelte';
 	import TutorialConfirmModal from '$lib/modals/start/TutorialConfirmModal.svelte';
-	import type { Starter, ImportedFile } from '$lib/workspace/starters';
 	import { StarterActions } from '$lib/workspace/starterActions.svelte';
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import { revealPmComment } from '$lib/editor/visual/extensions/pmComments';
 	import { tabs } from '$lib/workspace/tabs.svelte';
 	import { docPositions } from '$lib/workspace/docPositions';
-	import { SyncTexNav, sessionRelativeTarget, needsActivate, normSyncPath } from '$lib/workspace/syncTexNav';
+	import { WorkspaceNav } from './workspaceNav.svelte';
+	import { makeMainActions, makeChromeActions, makePaletteActions, type ActionSurfaceDeps } from './workspaceActionSurfaces';
 	import { sourceTocStore } from '$lib/editor/visual/extensions/tableofcontents/tocStore';
 	import { parseOutlineRaw, assembleProjectOutline } from '$lib/editor/visual/extensions/tableofcontents/latexHeadings';
 	import { refreshProjectIntel } from '$lib/workspace/projectIntel';
@@ -34,7 +34,6 @@
 	import { initSpellcheckConfig } from '$lib/editor/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
 	import { isSafeRel } from '$lib/collab/protocol';
-	import { updateLayout } from '$lib/storage/layout';
 	import { users } from '$lib/storage/users';
 	import { visualCollabBridge, attachSessionHandlers } from '$lib/collab/workspaceSession';
 	import { collabGuest } from '$lib/collab/guestStore.svelte';
@@ -46,7 +45,6 @@
 	import { DocRegistries } from '$lib/workspace/docRegistries.svelte';
 	import { filePathStore } from '$lib/stores/editorStore';
 	import { trailingDebounce } from '$lib/trailingDebounce';
-	import { buildBlockMap, pmPosToSourceOffset, firstWordEndOnLine } from '$lib/editor/visual/sourceMap';
 	import { formatTypstDocument, typstBridgeAvailable } from '$lib/languages/typst/intellisense/lspClient';
 	import { TypstPreviewController } from '$lib/languages/typst/preview/previewController.svelte';
 	import {
@@ -54,30 +52,25 @@
 		closeGlobalSearch as closeSearchPanel,
 		runFormat,
 		insertIncludeAtCursor,
-		insertTypstIncludeAtCursor,
-		jumpToInclude as jumpToIncludeTarget
+		insertTypstIncludeAtCursor
 	} from '$lib/workspace/editorCommands';
 	import { DiffMode } from '$lib/workspace/diffMode.svelte';
 	import { CommentsController } from '$lib/workspace/commentsController.svelte';
 	import { projectConfigSync as projectConfig, compileConfig } from '$lib/workspace/projectConfigSync.svelte';
-	import type { CommentMessage, CommentThread } from '$lib/comments/log';
-	import type { CommentAnchor } from '$lib/comments/anchor';
 	import { attachWindowListeners, attachCloseGuard } from '$lib/workspace/workspaceMount';
 	import { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
-	import { saveVisualPosition, restoreVisualPosition } from '$lib/workspace/visualPositions';
-	import { stripTypst } from '$lib/languages/typst/visual/sourceMap';
+	import { saveVisualPosition } from '$lib/workspace/visualPositions';
 	import { bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
 	import { publishWindowState } from '$lib/workspace/mcpPublish';
 	import { attachMcpCommands } from '$lib/workspace/mcpCommands';
 	import { setPaletteActions } from '$lib/workspace/commandPalette.svelte';
-	import { preferencesOpen } from '$lib/stores/dialogStore';
 	import { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 	import { TerminalDockState } from '$lib/workspace/terminalDockState.svelte';
 	import { CompileSettings } from '$lib/workspace/compileSettings.svelte';
 	import { ExternalChangeWatcher } from '$lib/workspace/externalChange.svelte';
 	import { FolderLifecycle } from '$lib/workspace/folderLifecycle';
 	import { UnsavedGuard } from '$lib/workspace/unsavedGuard.svelte';
-	import { createKeydownHandler, uiZoomIn, uiZoomOut, uiZoomReset } from '$lib/workspace/shortcuts';
+	import { createKeydownHandler } from '$lib/workspace/shortcuts';
 	import { MainFilePrompt } from '$lib/workspace/mainFilePrompt.svelte';
 	import { scanRenamedRefs, applyRefUpdate, flattenPaths } from '$lib/workspace/refUpdate';
 	import {
@@ -91,7 +84,6 @@
 		setLastFile,
 		effectiveCompileFormat
 	} from '$lib/workspace/workspaceStore';
-	import { refreshGitStatus } from '$lib/workspace/gitStore';
 	import { insertCitationFromZotero, zoteroAvailable } from '$lib/zotero/insertFromZotero';
 	import ZoteroCitationDialog from '$lib/zotero/ZoteroCitationDialog.svelte';
 	import { refreshTree as refreshTreeState, flatFiles } from '$lib/workspace/treeRefresh';
@@ -103,16 +95,7 @@
 	import { TreeOps } from '$lib/workspace/treeOps';
 	import { settings } from '$lib/settings';
 	import { detectMainFile, gatherProjectMacros } from '$lib/workspace/project';
-	import {
-		basename,
-		dirname,
-		claimWorkspace,
-		isDesktop,
-		samePath,
-		revealItem,
-		purgeUndoBackups,
-		type TreeEntry
-	} from '$lib/workspace/fileSystem';
+	import { basename, dirname, claimWorkspace, isDesktop, samePath, purgeUndoBackups, type TreeEntry } from '$lib/workspace/fileSystem';
 	import { isTypstCommand } from '$lib/workspace/typstCommand';
 	import { diskProvider } from '$lib/workspace/diskProvider';
 	import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
@@ -199,7 +182,6 @@
 	import { DocumentBuffer, fileKind, formatOf, hasVisualMode, isRawTextKind } from '$lib/workspace/documentBuffer.svelte';
 	import { FileOpener } from '$lib/workspace/fileOpener';
 	import { VisualParser, type ParseFailure } from '$lib/workspace/visualParse.svelte';
-	import type { Node as PMNode } from 'prosemirror-model';
 	import { toaster } from '$lib/modals/toaster-svelte';
 	import { m } from '$lib/paraglide/messages';
 
@@ -245,12 +227,6 @@
 	function setViewMode(mode: 'visual' | 'source' | 'diff') {
 		return modes.set(mode);
 	}
-	function exitDiff() {
-		return modes.exitDiff();
-	}
-	function workspaceHistoryStep(dir: 'undo' | 'redo') {
-		return modes.historyStep(dir);
-	}
 	// the doc.visualDoc dep re-fires this when an async re-parse lands (the doc swap itself is untracked)
 	$effect(() => {
 		void $editorViewStore;
@@ -267,19 +243,6 @@
 	});
 	function captureDiffSnapshot() {
 		return diff.snapshot();
-	}
-
-	/**
-	 * The refresh buttons confirm they ran.
-	 *
-	 * All three do their work silently and usually change nothing visible - the point of pressing one
-	 * is that you already suspect the view is stale - so there was no way to tell a working button
-	 * from a dead one. Only the BUTTON paths toast: the same refreshes also run on the watcher, on
-	 * focus and on session events, and a toast for those would be a notification every few seconds.
-	 */
-	async function toastAfter(title: string, work: () => unknown): Promise<void> {
-		await work();
-		toaster.success({ title, duration: 1500 });
 	}
 
 	// Review comments. The log lives in .texpile/comments.jsonl; anchors are re-resolved whenever a
@@ -306,7 +269,7 @@
 		activeText: () => commentText(),
 		// the mode-preserving jump, not openFileAtLine: revealing a comment from the panel must not
 		// yank a visual-mode reader into source - the same courtesy SyncTeX inverse clicks get
-		openFileAt: (abs, line) => syncJumpToFileLine(abs, line),
+		openFileAt: (abs, line) => nav.syncJumpToFileLine(abs, line),
 		// Preferred over the line jump while the reader is in visual mode: pmComments has the thread's
 		// exact range in the rendered document, so this lands ON the highlight instead of at the top of
 		// the block containing it. False whenever that is not available - source/diff mode, a file with
@@ -361,7 +324,7 @@
 		// the answer back here - the same landing an own-preview click gets on the host
 		collabGuest.onTypstJump = (p) => {
 			if (!isSafeRel(p.file) || !Number.isFinite(p.line) || p.line < 0) return;
-			syncJumpToFileLine(p.file, Math.floor(p.line) + 1);
+			nav.syncJumpToFileLine(p.file, Math.floor(p.line) + 1);
 		};
 		return () => {
 			collabGuest.onCommentEvent = null;
@@ -429,15 +392,6 @@
 		refreshTree: () => refreshTree(),
 		createEntry: (root, name, type) => treeOps.create(root, name, type)
 	});
-	function pickStarter(s: Starter) {
-		return starters.pick(s);
-	}
-	function importStarterFiles(files: ImportedFile[]) {
-		return starters.importFiles(files);
-	}
-	function newTexFile() {
-		return starters.newTexFile();
-	}
 	// File menu "New": inline create in the tree, pre-named for the chosen type
 	function newFileOfType(ext?: string) {
 		layout.sidebarOpen = true;
@@ -613,11 +567,11 @@
 			getLoadedPath: () => doc.path,
 			getBuffer: () => doc.buffer,
 			openFile: (abs) => activeFilePath.set(abs),
-			openFileAtLine: (abs, line) => openFileAtLine(abs, line),
+			openFileAtLine: (abs, line) => nav.openFileAtLine(abs, line),
 			showDiff: () => setViewMode('diff'),
 			setViewMode,
 			getViewMode: () => modes.mode,
-			syncToLine: (line) => syncToLine(line),
+			syncToLine: (line) => nav.syncToLine(line),
 			runCompile: () => compiler.runCompile(),
 			setMainFile: (abs) => applyMainFile(abs),
 			isCompiling: () => compiler.busy,
@@ -752,17 +706,8 @@
 	function showTerminal() {
 		return termDock.show();
 	}
-	function toggleTerminal() {
-		return termDock.toggle();
-	}
-	function toggleTerminalShrink() {
-		return termDock.toggleShrink();
-	}
 	function resetTerminalsForWorkspace() {
 		return termDock.resetForWorkspace();
-	}
-	function newTerminalFromMenu() {
-		return termDock.newTerminal();
 	}
 
 	let compileCommand = $state(''); // the compile command; {main} expands to the main file's path
@@ -836,7 +781,6 @@
 		const wants = $compileConfig.latex.liveMode && layout.pdfPaneOpen && !draftCtl.paused && !!$workspaceRoot && $texFiles.length > 1;
 		if (wants && mainPrompt.confirmed === false && !mainPrompt.open) void mainPrompt.prompt();
 	});
-	const runDraftDecision = draftCtl.runDecision;
 	// Draft mode leans on the on-disk file staying current: the full compile reads from disk,
 	// Live mode and hosting a session both need current-on-disk content (the draft engine writes
 	// nothing until a recompile; a session's host is the persistence authority). So autosave is
@@ -892,17 +836,9 @@
 		guest ? guestDiagnosticsFor(session.compileIntel, doc.path) : hostDiagnosticsFor($compileLog, $workspaceRoot, doc.path)
 	);
 
-	// ref to the compile-pane PDF viewer, for SyncTeX forward search
-	let pdfPaneRef = $state<{ scrollToPosition: (page: number, x: number, y: number, w?: number, h?: number) => void }>();
-	// a SyncTeX-inverse / Find-in-Files jump. the token distinguishes repeat jumps to the same line
-	// so the editor re-fires; selectText is the word double-clicked in the PDF, anchored on to
-	// correct for line drift (see SourceEditor's gotoLine effect)
-	let sourceGotoLine = $state<{ line: number; token: number; selectText?: string; path: string } | undefined>(undefined);
-	let gotoToken = 0;
-
 	// the Typst live preview, whole: task lifecycle, caret follow, forward sync, the guest
 	// stream relay, and its Problems feed live in languages/typst/preview/previewController.svelte.ts
-	const typstPreview = new TypstPreviewController({
+	const typstPreview: TypstPreviewController = new TypstPreviewController({
 		getGuest: () => guest,
 		getMainFile: () => $mainFile,
 		getPreviewSwitchOn: () => typstPreviewAvailable,
@@ -913,10 +849,10 @@
 		getDocPath: () => doc.path,
 		getFollow: () => $settings.typstPreviewFollow === true,
 		getCompileCommand: () => compileCommand,
-		getVisualCaretSourcePos: visualCaretSourcePos,
+		getVisualCaretSourcePos: (): { line: number; character: number } | null => nav.visualCaretSourcePos(),
 		flushSaves: () => saver.flushAndWait(),
 		refreshTree,
-		syncJumpToFileLine
+		syncJumpToFileLine: (file: string, line: number) => nav.syncJumpToFileLine(file, line)
 	});
 
 	// compile / terminal / PDF-watch orchestration lives in lib/workspace/compilePipeline.svelte.ts
@@ -944,55 +880,21 @@
 		shareCompileState: () => shareCompileState()
 	});
 
-	/**
-	 * Visual-mode follow: the PM caret has no source line of its own, so it goes through the orig
-	 * block map - block-granular from the parse stamps, refined inside the block by text anchoring,
-	 * the same machinery the mode switch uses to carry the caret across. Blocks edited since the
-	 * last reparse anchor approximately until the post-save reparse restamps them, which is the
-	 * accuracy collab presence already lives with.
-	 */
-	/** the tex preamble's length in visual mode; 0 for typst, whose whole file is body. */
-	function visBodyOffset() {
-		return doc.docMeta ? bodyOffsetOf(doc.docMeta) : 0;
-	}
-	/** the visual caret as a zero-based source line/character, through the orig block map -
-	 *  dialect-agnostic (the stamps carry absolute file offsets once bodyOffset is applied).
-	 *  Never returns column 0: it resolves to the line's first word end instead, or null. */
-	function visualCaretSourcePos(): { line: number; character: number } | null {
-		const v = get(editorViewStore);
-		if (!v) return null;
-		const pmDoc = v.state.doc;
-		const off = pmPosToSourceOffset(pmDoc, buildBlockMap(pmDoc, visBodyOffset()), v.state.selection.head);
-		if (off == null) return null;
-		const upto = doc.texSource.slice(0, Math.min(off, doc.texSource.length));
-		const nl = upto.lastIndexOf('\n');
-		const character = upto.length - nl - 1;
-		const line = (upto.match(/\n/g) ?? []).length;
-		if (character > 0) return { line, character };
-		// column 0: `off` is the line start, so rescue the jump onto the same line's first word
-		const rescued = firstWordEndOnLine(doc.texSource, off);
-		return rescued == null ? null : { line, character: rescued };
-	}
-	/**
-	 * Inverse sync landing (SyncTeX click and the typst preview's click alike): visual mode stays
-	 * visual - the jump becomes a caret placement through the block map (same file) or a stored
-	 * position the visual restore reads back on mount (another file). Source/diff keep the source
-	 * jump. Find-in-Files style jumps keep calling openFileAtLine directly: those want the line.
-	 */
-	function syncJumpToFileLine(file: string, line: number, selectText?: string) {
-		if (modes.mode === 'visual' && hasVisualMode(kind)) {
-			const target = sessionRelativeTarget(file, guest);
-			docPositions.set(target, { row: line - 1, column: 0, firstVisibleLine: line });
-			if (target === doc.path) {
-				const v = get(editorViewStore);
-				if (v) restoreVisualPosition(v, target, doc.texSource, visBodyOffset(), kind === 'typ' ? stripTypst : undefined);
-			} else if (needsActivate(target)) {
-				activeFilePath.set(target);
-			}
-			return;
-		}
-		openFileAtLine(file, line, selectText);
-	}
+	// every jump route (SyncTeX forward/inverse, visual caret mapping, include targets, the PDF
+	// pane scroll plumbing) lives in ./workspaceNav.svelte.ts
+	const nav: WorkspaceNav = new WorkspaceNav({
+		doc,
+		modes,
+		kind: () => kind,
+		guest: () => guest,
+		setPdfPaneOpen: (open) => layout.setPdfPaneOpen(open),
+		getDraftRoot: () => draftCtl.root,
+		syncDraftTo: (page, x, y, w, h) => draftCtl.view?.syncTo(page, x, y, w, h),
+		expectedPdfPath: () => compiler.expectedPdfPath(),
+		typstSyncForward: () => typstPreview.syncForward(),
+		typstSyncToLine: (line) => typstPreview.syncToLine(line),
+		statFile
+	});
 
 	// share the current pdf + log once when we start hosting (see CompilePipeline.shareExistingOutputs)
 	let outputsSharedForSession = false;
@@ -1038,62 +940,6 @@
 			})();
 		});
 	});
-	// open/close the PDF pane and remember the choice so a reload restores it
-	function jumpPdf(page: number, x: number, y: number, w: number, h: number, tries = 0) {
-		if (pdfPaneRef) {
-			pdfPaneRef.scrollToPosition(page, x, y, w, h);
-			return;
-		}
-		if (tries < 30) setTimeout(() => jumpPdf(page, x, y, w, h, tries + 1), 30); // wait for the pane to mount
-	}
-	// open a file in source mode and jump to a 1-based line (SyncTeX inverse + Find-in-Files)
-	function openFileAtLine(file: string, line: number, selectText?: string) {
-		const target = sessionRelativeTarget(file, guest);
-		modes.mode = 'source';
-		updateLayout({ viewMode: 'source' });
-		sourceGotoLine = { line, token: ++gotoToken, selectText, path: target };
-		if (needsActivate(target)) activeFilePath.set(target);
-	}
-	// forward/inverse SyncTeX resolution lives in lib/workspace/syncTexNav.ts
-	const syncTex = new SyncTexNav({
-		isGuest: () => guest,
-		getLoadedPath: () => doc.path,
-		isTex: () => kind === 'tex',
-		getDraftRoot: () => draftCtl.root,
-		expectedPdfPath: () => compiler.expectedPdfPath(),
-		setPdfPaneOpen: (open: boolean) => layout.setPdfPaneOpen(open),
-		scrollPdfTo: jumpPdf,
-		syncDraftTo: (page, x, y, w, h) => draftCtl.view?.syncTo(page, x, y, w, h),
-		// inverse clicks land in whichever mode the user is in; see syncJumpToFileLine
-		openFileAtLine: syncJumpToFileLine
-	});
-	function syncForwardLine(line: number) {
-		return syncTex.forwardToLine(line);
-	}
-
-	function syncForward() {
-		if (kind === 'typ') {
-			void typstPreview.syncForward();
-			return;
-		}
-		// SyncTeX from the visual editor: the PM caret's block-map line feeds the line-based
-		// forward search (SyncTeX is line-granular anyway)
-		if (modes.mode === 'visual') {
-			const pos = visualCaretSourcePos();
-			if (pos) syncTex.forwardToLine(pos.line + 1);
-			return;
-		}
-		syncTex.forwardFromCursor();
-	}
-
-	/** per-language routing for every "jump the output to line N" entry point */
-	function syncToLine(line: number) {
-		return kind === 'typ' ? typstPreview.syncToLine(line) : syncForwardLine(line);
-	}
-	function onPdfDoubleClick(page: number, x: number, y: number, selectText?: string) {
-		return syncTex.inverseFromClick(page, x, y, selectText);
-	}
-
 	// Zotero citations (host-only; see lib/zotero)
 	// The open file's dialect must match the main's engine: the imported entries land in the
 	// bibliography the MAIN file declares, so a .typ scratch file open in a LaTeX project has
@@ -1301,10 +1147,6 @@
 		})
 	);
 
-	// F12 on an \input{...} target: resolve like LaTeX would (current dir, then root, .tex added)
-	function jumpToInclude(name: string) {
-		return jumpToIncludeTarget(name, doc.path, statFile, guest);
-	}
 	// keep the label registry, the embedded bibitem refs, and the cross-mode undo history fresh
 	$effect(() => {
 		void doc.texSource; // dependency: re-arm the debounce on every source change
@@ -1374,9 +1216,7 @@
 	function clearPerFileViewState() {
 		modes.sourceScrollAnchor = null;
 		modes.pendingVisualAnchor = null;
-		// a jump asked for THIS file survives (that is why we're opening it); an older one must not,
-		// or every later tab switch remounts the source editor and replays it
-		if (sourceGotoLine && !samePath(sourceGotoLine.path, doc.path ?? '')) sourceGotoLine = undefined;
+		nav.clearStaleGoto(doc.path);
 	}
 
 	// opening the active file into the buffers lives in lib/workspace/fileOpener.ts
@@ -1450,19 +1290,6 @@
 		raiseConflict: () => void checkExternalChange()
 	});
 
-	function onChange(node: PMNode) {
-		return doc.onVisualChange(node);
-	}
-	function editPreambleFrontmatter(kind: string, inner: string) {
-		return doc.editFrontmatter(kind, inner);
-	}
-	function onTexInput(v: string) {
-		return doc.onTexInput(v);
-	}
-	function onRawInput(v: string) {
-		return doc.onRawInput(v);
-	}
-
 	// source control ops live in lib/workspace/scmActions.svelte.ts; the panel is presentational.
 	const scm = new ScmActions({
 		getLoadedPath: () => doc.path,
@@ -1529,190 +1356,55 @@
 		return closeSearchPanel(searchDeps);
 	}
 
-	// the callback surface WorkspaceMain hands down to the topbar / editor / preview / dock
-	const actions = {
-		// "Comment" on a selection: reveal the dock's Comments tab with a composer for it. The thread
-		// is not written until the first message, so an abandoned composer leaves nothing behind.
-		beginComment: (from: number, to: number) => {
-			commentsCtl.beginAdd(from, to);
-			dockView = 'comments';
-			termDock.show();
-		},
-		// same gesture from the visual editor, which brings its own anchor (see beginAddAnchored)
-		beginCommentAnchored: (anchor: CommentAnchor | null) => {
-			commentsCtl.beginAddAnchored(anchor);
-			if (!commentsCtl.pending) return; // nothing to compose (no file, or an empty anchor)
-			dockView = 'comments';
-			termDock.show();
-		},
-		// The visual editor's placement report. Goes through the controller rather than straight onto
-		// the set, because this is also the only moment anyone can observe visual placement - so it is
-		// what gets recorded to the log for the files nobody has open. Cleared on leaving visual (below).
-		visualCommentsPlaced: (lost: string[]) => {
-			const file = commentsCtl.activeFile;
-			if (file) void commentsCtl.recordHidden(file, new Set(lost));
-		},
-		/**
-		 * A thread was clicked in the editor.
-		 *
-		 * From the gutter this opens the panel: that mark exists for no other reason than to point at
-		 * a comment, so clicking it means "show me it". From source PROSE it only selects - someone
-		 * working in their own document happened to land on commented text, and taking over the dock
-		 * for that would throw away whatever terminal they were reading; the gutter is right there
-		 * for the deliberate gesture. The visual editor HAS no gutter, so its highlight is the only
-		 * affordance pointing at the thread and a click on it opens the panel too.
-		 */
-		selectComment: (id: string, from: 'text' | 'gutter' | 'visual') => {
-			commentsCtl.selected = id;
-			if (from === 'text') return;
-			dockView = 'comments';
-			termDock.show();
-		},
-		submitComment: (body: string) => void commentsCtl.commitAdd(body),
-		cancelComment: () => commentsCtl.cancelAdd(),
-		openComment: (t: CommentThread) => commentsCtl.open(t),
-		replyToComment: (t: CommentThread, body: string) => void commentsCtl.reply(t, body),
-		resolveComment: (t: CommentThread, resolved: boolean) => void commentsCtl.setResolved(t, resolved),
-		deleteComment: (t: CommentThread) => void commentsCtl.remove(t),
-		editCommentMessage: (msg: CommentMessage, body: string) => void commentsCtl.editMessage(msg, body),
-		deleteCommentMessage: (t: CommentThread, msg: CommentMessage) => void commentsCtl.removeMessage(t, msg),
+	// the three callback surfaces live in ./workspaceActionSurfaces.ts
+	const actionDeps: ActionSurfaceDeps = {
+		doc,
+		modes,
+		commentsCtl,
+		termDock: () => termDock,
+		layout: () => layout,
+		draftCtl,
+		typstPreview,
+		compiler,
+		nav,
+		starters,
+		provider,
+		kind: () => kind,
+		guest: () => guest,
+		typstProject: () => typstProject,
+		visualCollab: () => visualCollab,
+		setDockView: (v) => (dockView = v),
+		setShareModalOpen: (open) => (shareModalOpen = open),
+		setTutorialModalOpen: (open) => (tutorialModalOpen = open),
 		setViewMode,
-		syncForward,
-		pauseDraft: () => draftCtl.pause(),
-		onCaretMove: (line: number, character: number) => typstPreview.onCaretMove(line, character),
-		onSaveTypstPdf: () => typstPreview.savePdf(),
-		resumeDraft: () => void draftCtl.resume(),
-		requestCompile: () => {
-			collabGuest.requestCompile();
-			toaster.info({ title: m.session_compile_requested(), duration: 2500 });
-		},
-		openCompileModal: () => openCompileModal(),
-		showProblems: () => {
-			showTerminal();
-			dockView = 'problems';
-		},
-		showComments: () => {
-			showTerminal();
-			dockView = 'comments';
-		},
-		insertZoteroCitation,
 		save: () => save(),
+		captureDiffSnapshot: () => void captureDiffSnapshot(),
 		activateTab,
 		closeTab,
-		keepTab: (path: string) => tabs.keep(path),
-		useSource: () => setViewMode('source'),
-		pickStarter,
-		newTexFile,
-		importStarter: importStarterFiles,
-		onTexInput,
-		onRawInput,
-		onVisualChange: onChange,
-		onVisualSelection: () => {
-			visualCollab?.publishCursor();
-			// visual-mode preview follow; gated here too so no timer churn outside typ+follow
-			if (kind === 'typ') typstPreview.onVisualCaretMove();
-		},
-		onEditFrontmatter: editPreambleFrontmatter,
-		syncToPdf: syncToLine,
-		historyStep: workspaceHistoryStep,
-		jumpToFile: jumpToInclude,
-		openFileAt: openFileAtLine,
-		refreshDiff: () => void toastAfter(m.wsview_toast_diff_refreshed(), captureDiffSnapshot),
-		exitDiff,
-		onPdfDoubleClick,
-		onInverseSync: (file: string, line: number, selectText?: string) => openFileAtLine(normSyncPath(file), line, selectText),
-		onPreviewSettled: runDraftDecision,
-		// Live mode's compile has its own log, and the normal pipeline never sees it -- that one
-		// polls the .log of the user's compile command, which does not run in live mode. quiet: a
-		// draft compile fires whenever typing pauses, so it may fill the Problems list but must
-		// never yank the dock open mid-sentence. The topbar's error badge is the signal.
-		onPreviewDiagnostics: async (logPath: string) => {
-			// A compile that never reached the engine (lualatex not on PATH) leaves no log to read,
-			// and publishLogDiagnostics would throw on the missing file. That case is exactly the one
-			// the preview's own banner exists for, so there is nothing to add here.
-			const s = await statFile(logPath);
-			if (!s.exists) return;
-			// the log's OWN mtime, not now(): updatedAt is what tells a reader how old this parse is,
-			// and stamping it with the read time made a day-old log look freshly written
-			await compiler.publishLogDiagnostics(logPath, s.mtimeMs, true, null);
-		},
-		toggleTerminalShrink,
-		toggleTerminal
-	};
-
-	// the callback surface WorkspaceChrome hands to the menu bar and sidebar
-	const chromeActions = {
-		// the project's compile command, accepted for this folder on this machine. Here rather than
-		// in `actions` because its banner is window-wide chrome now, not part of the editor column.
-		acceptProjectCommand: () => {
-			projectConfig.accept();
-			compileCommand = resolveCompileCommand($mainFile);
-		},
-		newFileOfType: (ext?: string) => newFileOfType(ext),
-		openFolder: openFolderFromMenu,
+		newFileOfType,
+		openFolderFromMenu,
 		closeWorkspace,
-		save: () => save(),
-		openShare: () => (shareModalOpen = true),
-		openCompileModal: () => openCompileModal(),
-		newTerminal: newTerminalFromMenu,
-		toggleTerminal,
+		openCompileModal,
 		openFormatModal,
-		openTutorial: () => (tutorialModalOpen = true),
-		uiZoomIn,
-		uiZoomOut,
-		uiZoomReset,
-		refreshTree: () => void toastAfter(m.wsview_toast_tree_refreshed(), refreshTree),
+		canFormatDoc,
 		openGlobalSearch: () => void openGlobalSearch(),
 		closeGlobalSearch: () => void closeGlobalSearch(),
-		openFileAt: openFileAtLine,
+		toggleMainFile: (p) => void toggleMainFile(p),
+		refreshTree,
+		canZoteroCite,
+		insertZoteroCitation,
+		setCompileCommandResolved: () => (compileCommand = resolveCompileCommand(get(mainFile))),
 		openEntry,
-		// the main file is a property of the project, so it goes in .texpile/config.json with the rest
-		setMain: (entry: TreeEntry) => void toggleMainFile(entry.path),
-		revealEntry: (entry: TreeEntry) => void revealItem(entry.path),
-		refreshGit: () => void toastAfter(m.wsview_toast_git_refreshed(), () => refreshGitStatus(get(workspaceRoot)))
+		statFile
 	};
+	const actions = makeMainActions(actionDeps);
+	const chromeActions = makeChromeActions(actionDeps);
 
 	// the Ctrl+K palette. Registered rather than passed down: it reaches roughly a dozen of these
 	// actions, and threading that through WorkspaceChrome and WorkspaceMain to a dialog would touch
 	// four files per command. Cleared on destroy so a keystroke after the workspace closed is inert.
 	onMount(() => {
-		setPaletteActions({
-			save: () => save(),
-			runCompile: () => compiler.runCompile(),
-			stopCompile: () => compiler.stopCompile(),
-			isCompiling: () => compiler.compiling,
-			// caps.compile, not !guest: being a guest is why the toolchain is absent today, not what
-			// is absent. The other four gates below read the capability, so this one does too.
-			compileAvailable: () => termDock.available && provider.caps.compile,
-			setViewMode,
-			getViewMode: () => modes.mode,
-			hasFile: () => !!doc.path,
-			canManageTree: () => provider.caps.manageTree,
-			canSearch: () => provider.caps.search,
-			canFormat: () => canFormatDoc(),
-			formatTool: () => (kind === 'typ' ? 'typstyle' : 'latexindent'),
-			canGit: () => provider.caps.git,
-			openFile: (abs) => activeFilePath.set(abs),
-			toggleSidebar: () => layout.toggleSidebar(),
-			sidebarOpen: () => layout.sidebarOpen,
-			toggleTerminal,
-			terminalVisible: () => termDock.visible,
-			terminalAvailable: () => termDock.available,
-			newTerminal: newTerminalFromMenu,
-			openCompileModal: () => openCompileModal(),
-			openFormatModal,
-			openGlobalSearch: () => void openGlobalSearch(),
-			openPreferences: () => preferencesOpen.set(true),
-			// same condition the app-icon menu uses: desktop only, and never for a guest
-			openShareSession: isDesktop() && !guest ? () => (shareModalOpen = true) : undefined,
-			newFile: (ext) => newFileOfType(ext),
-			openFolder: () => void openFolderFromMenu(),
-			refreshTree: () => void refreshTree(),
-			openTypstPreview: () => typstPreview.enable(),
-			isTypstProject: () => typstProject,
-			canZoteroCite,
-			insertZoteroCitation
-		});
+		setPaletteActions(makePaletteActions(actionDeps));
 		return () => setPaletteActions(null);
 	});
 
@@ -1795,7 +1487,7 @@
 				previewTab: tabs.preview,
 				applyingStarter: starters.applying,
 				allReferences,
-				sourceGotoLine,
+				sourceGotoLine: nav.sourceGotoLine,
 				sourceDiagnostics,
 				fileUrl,
 				cwd: $workspaceRoot ?? '',
@@ -1812,7 +1504,7 @@
 			}}
 			{actions}
 			bind:dockView
-			bind:pdfPaneRef
+			bind:pdfPaneRef={nav.pdfPaneRef}
 		/>
 	</WorkspaceChrome>
 
