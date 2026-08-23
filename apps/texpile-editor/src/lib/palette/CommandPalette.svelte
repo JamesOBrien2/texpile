@@ -12,7 +12,8 @@
 	import Kbd from '$lib/components/Kbd.svelte';
 	import { isMac } from '$lib/platform';
 	import { commandPalette } from '$lib/workspace/commandPalette.svelte';
-	import { buildCommands, buildFileItems, MAX_FILE_RESULTS, type PaletteItem } from './paletteCommands';
+	import { buildCommands, type PaletteItem } from './paletteCommands';
+	import { goToFileItems, MAX_FILE_RESULTS } from './paletteGoItems';
 	import { fuzzyScore, highlightRuns } from './paletteFilter';
 	import { m } from '$lib/paraglide/messages';
 
@@ -62,7 +63,7 @@
 		const a = commandPalette.actions;
 		if (!a) return;
 		commands = buildCommands(a);
-		files = buildFileItems(a);
+		files = goToFileItems(a);
 	});
 
 	type Scored = {
