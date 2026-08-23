@@ -14,7 +14,7 @@
 		getFieldsForType,
 		getEntryTypeOptions,
 		isKeyUnique as checkKeyUnique
-	} from '$lib/biblatex';
+	} from '$lib/languages/bib/biblatex';
 	import type { ZodIssue } from 'zod';
 	import { referenceStore } from '$lib/stores/editorStore';
 	import CodeMirrorLatex from '$lib/components/CodeMirrorLatex.svelte';

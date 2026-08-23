@@ -1,6 +1,6 @@
 // parses the folder's .bib files into the shared references store; read-only
 import { writable } from 'svelte/store';
-import { parseBibTeX, type BibLaTeXReference } from '$lib/biblatex';
+import { parseBibTeX, type BibLaTeXReference } from '$lib/languages/bib/biblatex';
 import { extractDocRefs, type BibItemSlice } from '$lib/languages/latex/parser/labels';
 import { scanFiles, readTextFile, type TexFile } from './fileSystem';
 

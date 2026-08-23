@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 import type { EditorView } from 'prosemirror-view';
 import type { EditorView as CodeMirrorView } from '@codemirror/view';
-import type { BibLaTeXReference } from '$lib/biblatex';
+import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
 import type { EditorConfiguration } from '$lib/types/editorcfg';
 
 export const editorViewStore = writable<EditorView | null>(null);

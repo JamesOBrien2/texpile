@@ -3,7 +3,7 @@
 // the key, so typing an author surname or a title word surfaces the entry.
 import { get } from 'svelte/store';
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
-import type { BibLaTeXReference } from '$lib/biblatex';
+import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
 import { referenceStore } from '$lib/stores/editorStore';
 import { lastListToken } from './shared';
 

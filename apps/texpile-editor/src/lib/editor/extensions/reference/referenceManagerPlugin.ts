@@ -1,6 +1,6 @@
 import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
-import type { BibLaTeXReference } from '$lib/biblatex';
+import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
 import { referenceStore, templateFeaturesStore } from '$lib/stores/editorStore';
 import { get } from 'svelte/store';
 import { mount, unmount } from 'svelte';

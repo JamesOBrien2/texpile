@@ -6,7 +6,7 @@
 	import { foldGutter, indentOnInput, bracketMatching, foldKeymap } from '@codemirror/language';
 	import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
 	import { latexAutocomplete } from '$lib/languages/latex/intellisense/intellisense';
-	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
+	import { bibtex } from '$lib/languages/bib/bibtexLanguage';
 	import { languages } from '@codemirror/language-data';
 	import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 	import { searchKeymap } from '@codemirror/search';

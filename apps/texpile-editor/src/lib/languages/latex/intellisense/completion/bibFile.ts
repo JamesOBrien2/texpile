@@ -3,7 +3,7 @@
 // biblatex/fieldConfig.ts entries (shared with BibManager's add-entry form) come first; the full
 // vendored biblatex type/field lists (data/bibEntries.ts) fill in everything the form doesn't offer.
 import { snippetCompletion, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
-import { getEntryTypeOptions, getFieldsForType, getRequiredFields } from '$lib/biblatex';
+import { getEntryTypeOptions, getFieldsForType, getRequiredFields } from '$lib/languages/bib/biblatex';
 import { BIB_ENTRY_TYPES } from '../data/bibEntries';
 
 const ENTRY_TYPE_TRIGGER = /^@[a-zA-Z]*$/;

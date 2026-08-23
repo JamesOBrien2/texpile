@@ -8,7 +8,7 @@
 	import { languages as cmlangdata } from '@codemirror/language-data';
 	import { unifiedMergeView, MergeView } from '@codemirror/merge';
 	import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
-	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
+	import { bibtex } from '$lib/languages/bib/bibtexLanguage';
 	import { latex } from '$lib/languages/latex/latexLanguage';
 
 	let {

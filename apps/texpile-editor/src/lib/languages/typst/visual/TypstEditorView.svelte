@@ -37,7 +37,7 @@
 	import { TYP_BLOCK_INSERT_ITEMS } from './blockInsertItems';
 	import { isMac } from '$lib/platform';
 	import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
-	import type { BibLaTeXReference } from '$lib/biblatex';
+	import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
 	import { preferences } from '$lib/stores/preferencesStore.svelte';
 	import { toggleHeading } from '$lib/editor/helperCommands';
 	import { createMathField } from '$lib/editor/extensions/mathlivebridge/mlcommands';

@@ -35,7 +35,7 @@
 	import { starterGhost } from '$lib/editor/extensions/starter-ghost/starterGhost';
 	import { synctexFlash, flashLineEffect } from '$lib/languages/latex/extensions/synctex-flash/synctexFlash';
 	import { bindModalKeymap, modalKeymapCompartment } from '$lib/editor/extensions/keybindings/modalKeymap';
-	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
+	import { bibtex } from '$lib/languages/bib/bibtexLanguage';
 	import { latex } from '$lib/languages/latex/latexLanguage';
 	import { releaseTypstLsp, typstLspExtension, typstServerGen } from '$lib/languages/typst/intellisense/lspClient';
 	import { typstGuestLspExtension, releaseGuestTypstLsp } from '$lib/languages/typst/intellisense/guestLspExtension';

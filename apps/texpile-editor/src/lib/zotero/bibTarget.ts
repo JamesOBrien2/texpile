@@ -4,7 +4,7 @@
 // `\bibliography` for LaTeX, `#bibliography(...)` for Typst - because that is the file the
 // compile actually reads. Everything here is text-in/text-out so it can be unit tested without
 // Zotero, disk, or an editor.
-import { parseBibTeX, referencesToBib } from '$lib/biblatex';
+import { parseBibTeX, referencesToBib } from '$lib/languages/bib/biblatex';
 
 /**
  * The bib path the main file declares, relative as written (resolution against the main file's

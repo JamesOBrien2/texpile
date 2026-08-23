@@ -6,7 +6,7 @@ import {
 	fitsVisualEditor,
 	type BibToken,
 	type BibLaTeXReference
-} from '../../../../src/lib/biblatex/index';
+} from '../../../../src/lib/languages/bib/biblatex';
 
 describe('parseBibTeXWithWarnings — read path', () => {
 	it('emits every syntactically-valid entry regardless of schema fit', () => {

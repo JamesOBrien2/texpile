@@ -74,7 +74,7 @@
 	import { syncPmComments } from '$lib/editor/extensions/pmCommentsSync.svelte';
 	import type { CommentAnchor } from '$lib/comments/anchor';
 	import type { CommentThread } from '$lib/comments/log';
-	import type { BibLaTeXReference } from '$lib/biblatex';
+	import type { BibLaTeXReference } from '$lib/languages/bib/biblatex';
 
 	type Props = {
 		// the document as a ProseMirror Node
