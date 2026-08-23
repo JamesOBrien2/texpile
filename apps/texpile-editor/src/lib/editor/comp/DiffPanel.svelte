@@ -24,7 +24,9 @@
 
 	// normalize CRLF -> LF on both sides: git show returns LF bytes while the working buffer may be
 	// CRLF (core.autocrlf on Windows); without this every line reads as changed
-	const lf = (s: string) => s.replace(/\r\n/g, '\n');
+	function lf(s: string) {
+		return s.replace(/\r\n/g, '\n');
+	}
 	const COLLAPSE = { margin: 3, minSize: 4 };
 
 	// resolve the syntax mode for filename into a plain extension so the build below can

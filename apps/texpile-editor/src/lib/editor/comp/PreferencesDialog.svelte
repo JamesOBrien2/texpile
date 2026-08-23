@@ -30,7 +30,9 @@
 	};
 	let mcp = $state<McpStatus | null>(null);
 
-	const nativeMcp = () => (window as unknown as { texpileNative?: { mcpStatus?: () => Promise<McpStatus> } }).texpileNative;
+	function nativeMcp() {
+		return (window as unknown as { texpileNative?: { mcpStatus?: () => Promise<McpStatus> } }).texpileNative;
+	}
 
 	async function refreshMcp() {
 		mcp = (await nativeMcp()?.mcpStatus?.()) ?? null;
@@ -103,7 +105,9 @@
 			probing = false;
 		}
 	}
-	const probeFor = (id: string) => probes.find((p) => p.id === id);
+	function probeFor(id: string) {
+		return probes.find((p) => p.id === id);
+	}
 
 	$effect(() => {
 		if (open && category === 'toolchain' && tinymist === 'unchecked' && !probing) void probeToolchain();

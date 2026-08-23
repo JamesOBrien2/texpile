@@ -5,7 +5,7 @@ import type { ImagePluginSettings } from './types';
 // breaks the parser worker); the narrowed type makes a forgotten field a compile error, not a silent schema change.
 export type SchemaImageSettings = Pick<ImagePluginSettings, 'hasTitle' | 'extraAttributes' | 'isBlock'>;
 
-export const updateImageNode = (nodes: Schema['spec']['nodes'], pluginSettings: SchemaImageSettings): typeof nodes => {
+export function updateImageNode(nodes: Schema['spec']['nodes'], pluginSettings: SchemaImageSettings): typeof nodes {
 	const { extraAttributes } = pluginSettings;
 	const attributesUpdate = Object.keys(extraAttributes)
 		.map((attrKey) => ({
@@ -74,4 +74,4 @@ export const updateImageNode = (nodes: Schema['spec']['nodes'], pluginSettings: 
 			}
 		]
 	});
-};
+}

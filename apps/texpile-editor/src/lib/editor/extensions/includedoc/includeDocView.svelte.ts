@@ -57,7 +57,9 @@ export class IncludeDocView implements NodeView {
 		const resolved = resolveIncludePath(this.baseDir, rawPath, this.node.attrs.command === 'typst' ? '.typ' : '.tex');
 		// prefer the workspace's canonical path (keeps the file-tree highlight in sync);
 		// fall back to the resolved path so a not-yet-scanned file still opens
-		const norm = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+		function norm(p: string) {
+			return p.replace(/\\/g, '/').toLowerCase();
+		}
 		const match = get(texFiles).find((f) => norm(f.path) === norm(resolved));
 		activeFilePath.set(match ? match.path : resolved);
 	}

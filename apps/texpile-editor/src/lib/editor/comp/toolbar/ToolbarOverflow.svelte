@@ -97,7 +97,7 @@
 	// whatever stacking context it lands in - the PDF canvas painted over it and ate the click.
 	$effect(() => {
 		if (!menuOpen) return;
-		const onDown = (e: PointerEvent) => {
+		function onDown(e: PointerEvent) {
 			const t = e.target as Node | null;
 			if (t && (menuEl?.contains(t) || menuButton?.contains(t))) return;
 			// A control in the menu may open a popover that PORTALS to document.body - the math symbol
@@ -105,10 +105,10 @@
 			// tore the menu down mid-click: the symbol never inserted and the mathfield lost focus.
 			if (t instanceof Element && t.closest('[data-scope]')) return;
 			menuOpen = false;
-		};
-		const onKey = (e: KeyboardEvent) => {
+		}
+		function onKey(e: KeyboardEvent) {
 			if (e.key === 'Escape') menuOpen = false;
-		};
+		}
 		window.addEventListener('pointerdown', onDown, true);
 		window.addEventListener('keydown', onKey, true);
 		return () => {

@@ -45,16 +45,18 @@
 	// one in-flight load per view; cleared on failure so a later navigation can retry
 	let workspaceLoad: Promise<void> | null = null;
 	let sessionLoad: Promise<void> | null = null;
-	const loadWorkspace = () =>
-		(workspaceLoad ??= retryImport(() => import('./views/WorkspaceView.svelte')).then((mod) => {
+	function loadWorkspace() {
+		return (workspaceLoad ??= retryImport(() => import('./views/WorkspaceView.svelte')).then((mod) => {
 			if (mod) WorkspaceView = mod.default;
 			else workspaceLoad = null;
 		}));
-	const loadSession = () =>
-		(sessionLoad ??= retryImport(() => import('./views/SessionRoute.svelte')).then((mod) => {
+	}
+	function loadSession() {
+		return (sessionLoad ??= retryImport(() => import('./views/SessionRoute.svelte')).then((mod) => {
 			if (mod) SessionRoute = mod.default;
 			else sessionLoad = null;
 		}));
+	}
 
 	// covers reloads landing straight on a hash and any navigate() we didn't preload for
 	$effect(() => {

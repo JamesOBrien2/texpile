@@ -17,21 +17,23 @@ export function createPersistentSelectionPlugin() {
 			}
 		},
 		view(view) {
-			const evaluate = () => {
+			function evaluate() {
 				const active = document.activeElement as HTMLElement | null;
 				const inEditor = !!active && view.dom.contains(active);
 				const inOverlay = !!active && !!active.closest('[data-scope], [data-keep-caret]');
 				const show = !inEditor && inOverlay; // only the "menu/dialog is open" case
 				if (key.getState(view.state) !== show) view.dispatch(view.state.tr.setMeta(key, show));
-			};
-			const onFocusIn = () => evaluate();
-			const onWindowBlur = () => {
+			}
+			function onFocusIn() {
+				return evaluate();
+			}
+			function onWindowBlur() {
 				if (key.getState(view.state)) view.dispatch(view.state.tr.setMeta(key, false));
-			};
+			}
 			// failsafe: if the user types a printable char while the fake caret shows and focus is on
 			// something non-editable, redirect the keystroke into PM. non-text keys stay with the menu
 			// so keyboard nav still works.
-			const onKeyDown = (e: KeyboardEvent) => {
+			function onKeyDown(e: KeyboardEvent) {
 				if (!key.getState(view.state)) return;
 				if (e.ctrlKey || e.metaKey || e.altKey) return; // accelerators / shortcuts
 				if (e.key.length !== 1 || e.key === ' ') return; // only single printable chars, skip space
@@ -45,7 +47,7 @@ export function createPersistentSelectionPlugin() {
 				e.preventDefault();
 				view.focus();
 				view.dispatch(view.state.tr.insertText(e.key));
-			};
+			}
 			document.addEventListener('focusin', onFocusIn, true);
 			document.addEventListener('keydown', onKeyDown, true);
 			window.addEventListener('blur', onWindowBlur);

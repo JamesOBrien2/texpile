@@ -35,7 +35,9 @@ export type GitOpResult = {
 
 const NO_BRIDGE = 'Git requires the Texpile desktop app.';
 
-const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+function errMsg(e: unknown) {
+	return e instanceof Error ? e.message : String(e);
+}
 
 export async function gitStatus(root: string): Promise<GitStatusResult> {
 	const n = native();

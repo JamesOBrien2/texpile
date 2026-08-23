@@ -62,9 +62,9 @@ export const MAX_FILE_RESULTS = 40;
 /** the action commands, in the order they appear when nothing has been typed */
 export function buildCommands(a: PaletteActions): PaletteItem[] {
 	const items: PaletteItem[] = [];
-	const push = (item: PaletteItem | null) => {
+	function push(item: PaletteItem | null) {
 		if (item) items.push(item);
-	};
+	}
 	const g = {
 		file: m.palette_group_file(),
 		compile: m.palette_group_compile(),

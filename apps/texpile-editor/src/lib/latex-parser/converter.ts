@@ -820,14 +820,16 @@ function createList(env: Environment, kind: 'bullet' | 'ordered', options: Conve
 	const firstItemIndex = env.content.findIndex((n) => n.type === 'macro' && (n as Macro).content === 'item');
 	const preItemContent = firstItemIndex > 0 ? env.content.slice(0, firstItemIndex) : [];
 	const preBody = preItemContent.some((n) => !isBlankCellNode(n)) ? printRaw(preItemContent).trim() : null;
-	const listAttrs = (extra: Record<string, unknown> = {}) => ({
-		kind,
-		order: kind === 'ordered' ? 1 : null,
-		checked: null,
-		collapsed: false,
-		preBody: result.length === 0 ? preBody : null,
-		...extra
-	});
+	function listAttrs(extra: Record<string, unknown> = {}) {
+		return {
+			kind,
+			order: kind === 'ordered' ? 1 : null,
+			checked: null,
+			collapsed: false,
+			preBody: result.length === 0 ? preBody : null,
+			...extra
+		};
+	}
 
 	for (const node of env.content) {
 		if (node.type === 'macro' && (node as Macro).content === 'item') {
@@ -1001,18 +1003,18 @@ function createTable(env: Environment): PMNode[] {
 	let rowStarted = false;
 
 	// A row "starts" at its first meaningful content / `&`; rules before that are its topRules.
-	const startRow = () => {
+	function startRow() {
 		if (!rowStarted) {
 			rowStarted = true;
 			rowTop = pendingRules;
 			pendingRules = '';
 		}
-	};
-	const flushRow = (cells: PMNode[]) => {
+	}
+	function flushRow(cells: PMNode[]) {
 		rows.push(el('table_row', { topRules: rowTop }, cells.length > 0 ? cells : [createTableCell([])]));
 		rowTop = '';
 		rowStarted = false;
-	};
+	}
 
 	for (const node of env.content) {
 		if (node.type === 'string' && node.content === '&') {
@@ -1074,7 +1076,9 @@ function isBlankCellNode(n: Node): boolean {
 		(n.type === 'string' && ((n as { content?: string }).content || '').trim() === '')
 	);
 }
-const isMacroNamed = (n: Node, name: string): boolean => n.type === 'macro' && (n as Macro).content === name;
+function isMacroNamed(n: Node, name: string): boolean {
+	return n.type === 'macro' && (n as Macro).content === name;
+}
 
 // detect a leading \multicolumn / \multirow (possibly \multicolumn wrapping \multirow, the shape
 // the serializer emits for both-ways spans) and pull out the span counts + actual content.
@@ -1082,15 +1086,15 @@ function unwrapSpans(content: Node[]): { colspan: number; rowspan: number; inner
 	let colspan = 1;
 	let rowspan = 1;
 	let inner = content;
-	const spanOf = (m: Macro): number => {
+	function spanOf(m: Macro): number {
 		const a = (m.args ?? []).filter((x) => x.openMark === '{')[0];
 		const v = a ? parseInt(printRaw(a.content).trim(), 10) : NaN;
 		return Number.isFinite(v) && v > 0 ? v : 1;
-	};
-	const textOf = (m: Macro): Node[] => {
+	}
+	function textOf(m: Macro): Node[] {
 		const args = (m.args ?? []).filter((x) => x.openMark === '{');
 		return args.length >= 3 ? (args[2].content as Node[]) : inner;
-	};
+	}
 	const meaningful = content.filter((n) => !isBlankCellNode(n));
 	if (meaningful.length === 1 && isMacroNamed(meaningful[0], 'multicolumn')) {
 		const mc = meaningful[0] as Macro;
@@ -1130,10 +1134,10 @@ function createTableCell(content: Node[]): PMNode {
 // omitted below. no-rowspan tables come back unchanged.
 function resolveSpans(rows: PMNode[]): PMNode[] {
 	const covered: boolean[][] = [];
-	const mark = (r: number, c: number) => {
+	function mark(r: number, c: number) {
 		while (covered.length <= r) covered.push([]);
 		covered[r][c] = true;
-	};
+	}
 	return rows.map((row, r) => {
 		const kept: PMNode[] = [];
 		let col = 0;
@@ -1292,8 +1296,12 @@ function convertNodeToInline(node: Node, ctx: ConversionContext): PMNode[] | nul
 
 // only unmarked inline_latex is merged/promoted (marks can't live on raw_latex, and the serializer
 // emits inline_latex verbatim with nothing between siblings, so concatenation is byte-neutral).
-const isInlineLatexNode = (n?: PMNode): boolean => !!n && n.type.name === 'inline_latex' && n.marks.length === 0;
-const isWhitespaceTextNode = (n?: PMNode): boolean => !!n && n.isText && (n.text ?? '').trim() === '';
+function isInlineLatexNode(n?: PMNode): boolean {
+	return !!n && n.type.name === 'inline_latex' && n.marks.length === 0;
+}
+function isWhitespaceTextNode(n?: PMNode): boolean {
+	return !!n && n.isText && (n.text ?? '').trim() === '';
+}
 
 // merge a maximal run of adjacent inline_latex nodes (separated only by whitespace text) into
 // ONE, baking the separators in. anything else breaks the run. byte-neutral and convergent: the
@@ -1365,7 +1373,7 @@ function convertNodesToBlocks(nodes: Node[], options: ConversionOptions): PMNode
 	let currentParagraphContent: PMNode[] = [];
 	// source extent of the paragraph currently accumulating (top-level capture only)
 	let paraExt: { min: number; max: number } | null = null;
-	const extendPara = (node: Node) => {
+	function extendPara(node: Node) {
 		if (!cap) return;
 		if (!paraExt) paraExt = { min: Infinity, max: -Infinity };
 		extendExtent(node, paraExt, cap.prevEnd);
@@ -1375,7 +1383,7 @@ function convertNodesToBlocks(nodes: Node[], options: ConversionOptions): PMNode
 			const own = repairExtentTail(node, nodeExtent(node, cap.prevEnd));
 			if (own && Number.isFinite(own.max) && own.max > paraExt.max) paraExt.max = own.max;
 		}
-	};
+	}
 
 	// stamp-and-push for top-level blocks. ext null = no trustworthy span: the block still gets a
 	// seq (pristine adjacency stays detectable, `pre` can never bridge a deletion) but no slice.
@@ -1386,11 +1394,7 @@ function convertNodesToBlocks(nodes: Node[], options: ConversionOptions): PMNode
 	// them equal today, but the invariant is subtle: if a block ever gets ext=null while
 	// consuming source, prevEnd MUST still advance past it, or the NEXT block's `pre` silently
 	// swallows the skipped bytes as gap while its regenerated form is ALSO emitted.
-	const pushBlocks = (
-		blocks: PMNode[],
-		ext: { min: number; max: number } | null,
-		advanceExt: { min: number; max: number } | null = ext
-	) => {
+	function pushBlocks(blocks: PMNode[], ext: { min: number; max: number } | null, advanceExt: { min: number; max: number } | null = ext) {
 		if (!cap || blocks.length === 0) {
 			result.push(...blocks);
 			return;
@@ -1416,7 +1420,7 @@ function convertNodesToBlocks(nodes: Node[], options: ConversionOptions): PMNode
 			result.push(withOrig(blocks[i], orig));
 		}
 		if (advanceExt && Number.isFinite(advanceExt.max)) cap.prevEnd = Math.max(cap.prevEnd, advanceExt.max);
-	};
+	}
 	// deferred inter-word whitespace: held and only emitted (as one space) once real content
 	// follows, so boundary whitespace (leading/trailing, e.g. the newline after \section{...})
 	// is dropped at the AST level and never becomes an insignificant space.
@@ -1837,8 +1841,11 @@ export function latexToProseMirror(latex: string, options: ConversionOptions = {
 	// indent/noindent are zero-arg but handled by a direct content check, never via
 	// macroHandlers, so inference attached the next brace group as an "argument" that its own
 	// handling never reads, and the group silently vanished.
-	const heuristicKnows = (name: string) =>
-		!!parseOptions.macros?.[name] || name in macroHandlers || TABLE_RULE_MACROS.has(name) || name === 'indent' || name === 'noindent';
+	function heuristicKnows(name: string) {
+		return (
+			!!parseOptions.macros?.[name] || name in macroHandlers || TABLE_RULE_MACROS.has(name) || name === 'indent' || name === 'noindent'
+		);
+	}
 	heuristicMarkCommentedMacroCalls(ast.content as Node[], latex, heuristicKnows);
 
 	// keep-as-raw fallback for \def/\let-family primitives. the walk also harvests delimited-

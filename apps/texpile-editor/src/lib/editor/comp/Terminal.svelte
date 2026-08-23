@@ -20,7 +20,9 @@
 	let errorMsg = $state('');
 	let pending: { command: string; onDone?: (output: string) => void } | null = null; // asked for before the shell finished spawning
 
-	const bridge = () => (typeof window !== 'undefined' ? window.texpileTerminal : undefined);
+	function bridge() {
+		return typeof window !== 'undefined' ? window.texpileTerminal : undefined;
+	}
 
 	// completion detection for tracked runs (the compile): the shell never exits, so the tracked
 	// command gets a unique token echoed after it. the token in the typed line is split by a shell
@@ -73,7 +75,9 @@
 
 	// ConPTY interleaves escape sequences into output; strip CSI/OSC runs so the token matches as plain text
 	// eslint-disable-next-line no-control-regex
-	const stripEscapes = (s: string) => s.replace(/\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?)/g, '');
+	function stripEscapes(s: string) {
+		return s.replace(/\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?)/g, '');
+	}
 
 	/** runs a command in the shell, queued if not ready; onDone fires once the command line
 	 * finishes, receiving the command's captured output (escape-stripped, capped) so callers can

@@ -480,7 +480,9 @@ export class CommentsController {
  * all say nothing is wrong. So only the interesting answer is written: `true` when the text has
  * gone, and `false` only to CORRECT a recorded `true` that is no longer so.
  */
-const asFlag = (v: boolean | undefined): boolean => v === true;
+function asFlag(v: boolean | undefined): boolean {
+	return v === true;
+}
 
 /** 1-based line containing `offset` */
 function lineOf(text: string, offset: number): number {

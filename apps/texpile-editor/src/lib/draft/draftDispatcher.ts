@@ -37,10 +37,10 @@ export type DraftDispatchDeps = {
 };
 
 /** dev-only breadcrumb trail, read by the live edit-class matrix */
-const dev = (kind: string, detail?: unknown) => {
+function dev(kind: string, detail?: unknown) {
 	const w = window as unknown as { __draftEvents?: unknown[] };
 	(w.__draftEvents ||= []).push({ kind, detail, t: performance.now() });
-};
+}
 
 export class DraftDispatcher {
 	private timer: ReturnType<typeof setTimeout> | null = null;

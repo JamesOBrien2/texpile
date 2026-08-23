@@ -31,7 +31,9 @@ type WorkspacesBlob = {
 const KEY = 'texpile:workspaces';
 
 /** one normalized key per folder, or two casings of a Windows drive letter make two entries */
-export const folderKey = (root: string) => root.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+export function folderKey(root: string) {
+	return root.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
 
 function read(): WorkspacesBlob {
 	if (typeof localStorage === 'undefined') return { v: 1, folders: {} };

@@ -94,7 +94,9 @@ export const MATH_MACRO_LABELS: Set<string> = new Set(
 // (\matrix, \cases ride the amsmath environments, not the TeX primitives)
 export const STATIC_MACRO_OPTIONS: Completion[] = (() => {
 	const seen = new Set<string>();
-	const uniq = (options: Completion[]) => options.filter((o) => !seen.has(o.label) && (seen.add(o.label), true));
+	function uniq(options: Completion[]) {
+		return options.filter((o) => !seen.has(o.label) && (seen.add(o.label), true));
+	}
 	return [
 		...uniq([...STATIC_SIGNATURES].map(([name, sig]) => macroCompletion(name, sig))),
 		...uniq(LW_OPTIONS),

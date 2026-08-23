@@ -81,7 +81,7 @@ export function planOverflowSplit(
 	const colTx = samePage ? nextCol! : gB.length ? (columnCandidates(gB, cal.W, 8)[0] ?? myTx) : myTx;
 	const colLB = colTx - 8;
 	const colRB = colTx + cal.W + 8;
-	const rowsIn = (lo: number, hi: number) => {
+	function rowsIn(lo: number, hi: number) {
 		let rows = gB.length
 			? glyphRows(
 					gB.filter((x: any) => x.x >= lo && x.x <= hi),
@@ -90,7 +90,7 @@ export function planOverflowSplit(
 			: [];
 		while (rows.length >= 2 && rows[1].y - rows[0].y > cal.medGap * 2.2) rows = rows.slice(1);
 		return rows;
-	};
+	}
 	const rowsB = rowsIn(colLB, colRB);
 	// an empty next column still starts at the page's text top: mirror this column's
 	const topB = rowsB.length ? rowsB[0].y : samePage ? (rowsIn(cal.colL, cal.colR)[0]?.y ?? h1 + cal.medGap) : h1 + cal.medGap;

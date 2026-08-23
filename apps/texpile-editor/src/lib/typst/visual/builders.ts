@@ -63,11 +63,11 @@ export function collapseTextNodes(nodes: PMNode[]): PMNode[] {
 	const result: PMNode[] = [];
 	let buf = '';
 	let bufMarks: readonly PMMarkT[] = PMMarkT.none;
-	const flush = () => {
+	function flush() {
 		if (buf.length > 0) result.push(typSchema.text(buf, bufMarks));
 		buf = '';
 		bufMarks = PMMarkT.none;
-	};
+	}
 
 	for (const node of nodes) {
 		if (node.isText) {

@@ -14,7 +14,9 @@ import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
 import type { EditSession } from '$lib/collab/editSession';
 
 /** every file path in the tree, flattened, for pruning tabs whose file vanished */
-export const flatFiles = (es: TreeEntry[]): string[] => es.flatMap((e) => (e.type === 'dir' ? flatFiles(e.children ?? []) : [e.path]));
+export function flatFiles(es: TreeEntry[]): string[] {
+	return es.flatMap((e) => (e.type === 'dir' ? flatFiles(e.children ?? []) : [e.path]));
+}
 
 export type TreeRefreshDeps = {
 	provider: WorkspaceProvider;

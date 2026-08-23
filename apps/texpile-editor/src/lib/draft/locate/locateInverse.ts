@@ -14,14 +14,15 @@ import type { Cal, CalBail, LocateContext } from './locate.types';
 // the 1-glyph footer that also carry the \par line's tag. One synctex edit per candidate
 // baseline, windowed to the forward hint and run only on the (cached, rare) fallback.
 export async function locateInverse(ctx: LocateContext, file: string, line: number, endLine: number, orig: string): Promise<Cal | CalBail> {
-	const bail = (why: string, detail?: unknown): CalBail => {
+	function bail(why: string, detail?: unknown): CalBail {
 		ctx.emit('locate-inverse-bail', { why, ...(typeof detail === 'object' ? detail : { detail }) });
 		return { bail: why };
-	};
+	}
 	const paper = ctx.paper();
 	const pdf = ctx.pdfPath();
-	const fwd = async (ln: number): Promise<any[]> =>
-		(((await ctx.synctex({ action: 'view', pdf, tex: file, line: ln, column: 0 })) as any)?.boxes as any[]) || [];
+	async function fwd(ln: number): Promise<any[]> {
+		return (((await ctx.synctex({ action: 'view', pdf, tex: file, line: ln, column: 0 })) as any)?.boxes as any[]) || [];
+	}
 	let boxes = await fwd(line);
 	if (!boxes.length) boxes = await fwd(endLine + 1);
 	if (!boxes.length) return bail('no-synctex-page');
@@ -111,7 +112,9 @@ export async function locateInverse(ctx: LocateContext, file: string, line: numb
 			})
 		);
 		for (let i = 0; i < base.length;) {
-			const inRange = (k: number) => src[k] != null && (src[k] as number) >= line && (src[k] as number) <= endLine + 1;
+			function inRange(k: number) {
+				return src[k] != null && (src[k] as number) >= line && (src[k] as number) <= endLine + 1;
+			}
 			if (!inRange(i)) {
 				i++;
 				continue;
@@ -176,7 +179,9 @@ export async function locateInverse(ctx: LocateContext, file: string, line: numb
 	const calSpread = (calLines[calLines.length - 1] as any).y - (calLines[0] as any).y;
 	if (Math.abs(calSpread - (bk - b1)) > 0.7) return bail('spread', { calSpread: +calSpread.toFixed(1), pageSpread: +(bk - b1).toFixed(1) });
 	if (calGap) {
-		const inColB = (x: number) => x >= best.col - G && x <= best.col + W + G;
+		function inColB(x: number) {
+			return x >= best.col - G && x <= best.col + W + G;
+		}
 		const bys = [
 			...new Set(allG.filter((x: any) => inColB(x.x) && x.y >= b1 - 0.5 && x.y <= bk + 0.5).map((x: any) => +(x.y as number).toFixed(1)))
 		].sort((a, b) => a - b);

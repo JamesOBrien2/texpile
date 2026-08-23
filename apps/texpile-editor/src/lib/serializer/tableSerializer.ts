@@ -188,13 +188,13 @@ function assembleFaithful(
 		let colIndex = 0;
 		// emit the placeholder cells LaTeX requires under a \multirow so columns stay aligned
 		// (covered grid positions are omitted from the doc)
-		const emitCovered = () => {
+		function emitCovered() {
 			while (coveredHere?.has(colIndex)) {
 				const info = coveredHere.get(colIndex)!;
 				cells.push(placeholderCell(info, colIndex === 0));
 				colIndex += info.colspan;
 			}
-		};
+		}
 		row.forEach((cell) => {
 			emitCovered();
 			cells.push(renderCell(cell, colIndex === 0, serializeNode));

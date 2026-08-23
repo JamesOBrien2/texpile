@@ -36,8 +36,9 @@
 	const isLatex = $derived(lang === 'latex');
 
 	// the segmented-control classes the compile dialog and Preferences use for an exclusive choice
-	const seg = (active: boolean) =>
-		`rounded-base px-3 py-1 text-sm ${active ? 'bg-surface-50-950 font-medium shadow-sm' : 'text-surface-600-400 hover:text-surface-950-50'}`;
+	function seg(active: boolean) {
+		return `rounded-base px-3 py-1 text-sm ${active ? 'bg-surface-50-950 font-medium shadow-sm' : 'text-surface-600-400 hover:text-surface-950-50'}`;
+	}
 
 	let importInput = $state<HTMLInputElement>();
 	async function onFilesPicked(e: Event) {

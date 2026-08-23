@@ -197,7 +197,7 @@ export function renderInline(parent: Node, startOfLine = true): string {
 	let out = '';
 	let active: Mark[] = [];
 
-	const emitCloses = (closing: Mark[]) => {
+	function emitCloses(closing: Mark[]) {
 		let stolen = '';
 		if (closing.some((m) => MARK_DELIMS[m.type.name]?.(m.attrs).expel)) {
 			const ws = out.match(/(\s+)$/);
@@ -211,7 +211,7 @@ export function renderInline(parent: Node, startOfLine = true): string {
 			if (d) out += d(m.attrs).close;
 		}
 		out += stolen;
-	};
+	}
 
 	for (const run of runs) {
 		const keep = commonPrefixLen(active, run.marks);
@@ -285,17 +285,19 @@ function tableBody(node: Node, indent: string): string {
 			for (let d = 1; d < rowspan; d++) covered.set(i + d, (covered.get(i + d) ?? 0) + colspan);
 		});
 	});
-	const cellText = (cell: Node) =>
-		// single-paragraph cells render inline; anything richer keeps its block layout in the [..]
-		cell.childCount === 1 && cell.child(0).type.name === 'paragraph' ? renderInline(cell.child(0), false) : renderBlocks(cell);
+	function cellText(cell: Node) {
+		return cell.childCount === 1 && cell.child(0).type.name === 'paragraph' ? renderInline(cell.child(0), false) : renderBlocks(cell);
+	}
 	/** a merged cell has to go back through table.cell(); a plain one stays a bare [..] */
-	const cellCall = (cell: Node) => {
+	function cellCall(cell: Node) {
 		const colspan = Number(cell.attrs.colspan ?? 1);
 		const rowspan = Number(cell.attrs.rowspan ?? 1);
 		const spans = [...(colspan > 1 ? [`colspan: ${colspan}`] : []), ...(rowspan > 1 ? [`rowspan: ${rowspan}`] : [])];
 		return spans.length ? `table.cell(${spans.join(', ')})[${cellText(cell)}]` : `[${cellText(cell)}]`;
-	};
-	const rowLine = (r: { cells: Node[] }) => `  ${r.cells.map(cellCall).join(', ')},`;
+	}
+	function rowLine(r: { cells: Node[] }) {
+		return `  ${r.cells.map(cellCall).join(', ')},`;
+	}
 	// A drag is detected as "the cells no longer agree with the colspec". Parsing sets colwidth from
 	// the source's own tracks, so the presence of a width proves nothing on its own - without this
 	// comparison a table that merely HAD `(auto, 1fr)` would get its tracks rewritten the moment

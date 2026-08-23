@@ -17,7 +17,9 @@ type ParseRequest = {
 self.onmessage = (event: MessageEvent<ParseRequest>) => {
 	const { id, source, projectMacros, maxNodes, format } = event.data;
 	// keep it a call ON self: an unbound postMessage reference throws "Illegal invocation"
-	const post = (m: unknown) => (self as unknown as { postMessage: (m: unknown) => void }).postMessage(m);
+	function post(m: unknown) {
+		return (self as unknown as { postMessage: (m: unknown) => void }).postMessage(m);
+	}
 	try {
 		const parse = format === 'md' ? parseMarkdownFile : parseLatexFile;
 		const parsed = parse(source, projectMacros, (phase) => post({ type: 'progress', id, phase }));

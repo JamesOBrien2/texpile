@@ -162,7 +162,9 @@ export function computeTableSkeleton(
 	const line = state.doc.lineAt(state.selection.main.head);
 	const lead = line.length > 0 ? '\n\n' : '';
 	const ind = figure ? '  ' : '';
-	const cellRun = (cell: string) => Array.from({ length: Math.max(1, cols) }, () => cell).join(', ');
+	function cellRun(cell: string) {
+		return Array.from({ length: Math.max(1, cols) }, () => cell).join(', ');
+	}
 	const lines = [`${ind}  columns: ${Math.max(1, cols)},`];
 	if (header) lines.push(`${ind}  table.header(${cellRun('[Column]')}),`);
 	const bodyRows = Math.max(1, header ? rows - 1 : rows);

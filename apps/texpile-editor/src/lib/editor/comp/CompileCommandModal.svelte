@@ -52,10 +52,11 @@
 	const SEGMENT = 'bg-surface-200-800 rounded-base flex shrink-0 gap-1 p-0.5';
 	// `compact` keeps the engine row inside max-w-lg: three engine names are far longer than the
 	// theme picker's System/Light/Dark, and at full size they push the latexmk checkbox off the row
-	const seg = (active: boolean, compact = false) =>
-		`rounded-base ${compact ? 'px-2.5 py-1 text-xs' : 'px-3 py-1 text-sm'} ${
+	function seg(active: boolean, compact = false) {
+		return `rounded-base ${compact ? 'px-2.5 py-1 text-xs' : 'px-3 py-1 text-sm'} ${
 			active ? 'bg-surface-50-950 font-medium shadow-sm' : 'text-surface-600-400 hover:text-surface-950-50'
 		}`;
+	}
 </script>
 
 {#if open}

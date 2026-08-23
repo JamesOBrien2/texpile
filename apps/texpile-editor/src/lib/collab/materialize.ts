@@ -33,9 +33,15 @@ const EXCLUDE = /(^|\/)(\.git|\.svn|node_modules|__pycache__)(\/|$)/i;
 // co-edit warning, and the tree scan's "text needs no stat" fast path. Never used to DENY co-edit.
 const LIKELY_TEXT = /\.(tex|bib|cls|sty|txt|md|csv|dat|def|tikz|pgf|json|yml|yaml|toml|lco|ldf|clo|bst|typ)$/i;
 
-export const isShared = (rel: string) => !EXCLUDE.test(rel);
-export const isGeneratedArtifact = (rel: string) => GENERATED_EXT.test(rel);
-export const isLikelyTextName = (rel: string) => LIKELY_TEXT.test(rel);
+export function isShared(rel: string) {
+	return !EXCLUDE.test(rel);
+}
+export function isGeneratedArtifact(rel: string) {
+	return GENERATED_EXT.test(rel);
+}
+export function isLikelyTextName(rel: string) {
+	return LIKELY_TEXT.test(rel);
+}
 
 /**
  * The decoded text of `bytes`, or null when they are not losslessly text: a NUL in the first 8 KB
@@ -63,9 +69,15 @@ const WRITE_DEBOUNCE_MS = 400;
 export const SEED_ORIGIN = 'collab-seed';
 export const EDIT_ORIGIN = 'collab-edit'; // a local editor's fold-in splice (host or guest)
 
-const toLf = (s: string) => s.replace(/\r\n?/g, '\n');
-const detectEol = (s: string): '\r\n' | '\n' => (s.includes('\r\n') ? '\r\n' : '\n');
-const fromLf = (s: string, eol: '\r\n' | '\n') => (eol === '\r\n' ? s.replace(/\n/g, '\r\n') : s);
+function toLf(s: string) {
+	return s.replace(/\r\n?/g, '\n');
+}
+function detectEol(s: string): '\r\n' | '\n' {
+	return s.includes('\r\n') ? '\r\n' : '\n';
+}
+function fromLf(s: string, eol: '\r\n' | '\n') {
+	return eol === '\r\n' ? s.replace(/\n/g, '\r\n') : s;
+}
 
 // the shared set as a stable string: which paths exist and their kind, ignoring a binary's rev
 // (an image reswap doesn't change any source binding) and lock state (that's a live read-only flip)

@@ -19,11 +19,12 @@ import { openToolchainPrefs } from '$lib/stores/dialogStore';
 import { m } from '$lib/paraglide/messages';
 
 // a root-relative, forward-slashed path (the form file references take in LaTeX)
-export const relFromRoot = (p: string, root: string) =>
-	p
+export function relFromRoot(p: string, root: string) {
+	return p
 		.slice(root.length)
 		.replace(/^[\\/]+/, '')
 		.replace(/\\/g, '/');
+}
 
 /**
  * The command this folder compiles with. The main file's extension decides the lane (latex or
@@ -32,15 +33,15 @@ export const relFromRoot = (p: string, root: string) =>
  * that lane's stock default. Both lanes are kept, so a project holding a .tex and a .typ keeps
  * both commands and changing the main file changes which one runs.
  */
-export const resolveFormatCommand = (format: 'latex' | 'typst', main?: string | null) => {
+export function resolveFormatCommand(format: 'latex' | 'typst', main?: string | null) {
 	const adopted = get(compileConfig)[format].command;
 	if (adopted) return adopted;
 	return format === 'typst' ? buildTypstCommand(main ?? null) : DEFAULT_COMPILE_COMMAND;
-};
+}
 
-export const resolveCompileCommand = (main?: string | null) => {
+export function resolveCompileCommand(main?: string | null) {
 	return resolveFormatCommand(effectiveCompileFormat(main ?? null), main);
-};
+}
 
 // a TeX engine at its default errorstop interaction parks at the interactive ? prompt on the
 // first error. for known engine commands, inject -interaction=nonstopmode (plus -file-line-error

@@ -40,7 +40,9 @@ function balancedArg(text: string, openBrace: number): { content: string; end: n
 export function scanGlossary(text: string): GlossEntry[] {
 	if (text.length > MAX_SCAN_LENGTH) return [];
 	const entries: GlossEntry[] = [];
-	const lineOf = (i: number) => text.slice(0, i).split('\n').length;
+	function lineOf(i: number) {
+		return text.slice(0, i).split('\n').length;
+	}
 
 	const glossRe = /\\(?:long)?(?:new|provide)glossaryentry\{([^{}]+)\}\s*\{/g;
 	let m: RegExpExecArray | null;

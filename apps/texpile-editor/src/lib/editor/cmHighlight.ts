@@ -98,7 +98,9 @@ const lightHighlightStyle = HighlightStyle.define(specsFor('light'));
 const darkHighlightStyle = HighlightStyle.define(specsFor('dark'));
 
 const compartment = new Compartment();
-const styleFor = (mode: 'light' | 'dark'): Extension => syntaxHighlighting(mode === 'dark' ? darkHighlightStyle : lightHighlightStyle);
+function styleFor(mode: 'light' | 'dark'): Extension {
+	return syntaxHighlighting(mode === 'dark' ? darkHighlightStyle : lightHighlightStyle);
+}
 
 // editors that opt in register here; a mode change reconfigures all of them
 const views = new Set<EditorView>();

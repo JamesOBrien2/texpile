@@ -10,7 +10,9 @@ import { writable } from 'svelte/store';
 /** bumped once per follow scroll actually sent (after every guard has passed) */
 export const followScrollTick = writable(0);
 
-export const noteFollowScroll = (): void => followScrollTick.update((n) => n + 1);
+export function noteFollowScroll(): void {
+	return followScrollTick.update((n) => n + 1);
+}
 
 /**
  * Bumped when a GUEST's typst-scroll request is about to be resolved on the host. tinymist
@@ -21,4 +23,6 @@ export const noteFollowScroll = (): void => followScrollTick.update((n) => n + 1
  */
 export const guestJumpFreezeTick = writable(0);
 
-export const noteGuestJumpFreeze = (): void => guestJumpFreezeTick.update((n) => n + 1);
+export function noteGuestJumpFreeze(): void {
+	return guestJumpFreezeTick.update((n) => n + 1);
+}

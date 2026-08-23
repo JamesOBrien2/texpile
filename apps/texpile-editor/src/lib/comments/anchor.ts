@@ -125,25 +125,31 @@ export function normalizeForMatch(s: string, dialect: AnchorDialect = 'tex'): { 
 	// consecutive spaces collapse IN THE CANONICAL TEXT, not just in the raw scan: a dropped
 	// token between two whitespace runs ("a | b", "{ }") would otherwise leave a double space on
 	// one side of the match and a single on the other
-	const emit = (ch: string, at: number) => {
+	function emit(ch: string, at: number) {
 		if (ch === ' ' && text.endsWith(' ')) return;
 		text += ch;
 		map.push(at);
-	};
+	}
 	const tex = dialect === 'tex';
 	const md = dialect === 'md';
 	const typ = dialect === 'typ';
 	// nothing but indentation between `i` and the previous newline: line-start markers only
-	const atLineStart = (i: number) => {
+	function atLineStart(i: number) {
 		let k = i - 1;
 		while (k >= 0 && (s[k] === ' ' || s[k] === '\t')) k--;
 		return k < 0 || s[k] === '\n';
-	};
-	const isLetter = (c: string | undefined) => c !== undefined && /[a-zA-Z]/.test(c);
+	}
+	function isLetter(c: string | undefined) {
+		return c !== undefined && /[a-zA-Z]/.test(c);
+	}
 	// md/typ escape any ASCII punctuation; the rendered side holds the bare character
-	const isPunct = (c: string | undefined) => c !== undefined && /[!-/:-@[-`{-~]/.test(c);
+	function isPunct(c: string | undefined) {
+		return c !== undefined && /[!-/:-@[-`{-~]/.test(c);
+	}
 	// the last comparison is U+00A0 (nbsp), not a second plain space: the rendered side of ~
-	const ws = (c: string) => c === ' ' || c === '\t' || c === '\r' || c === '\n' || c === ' ';
+	function ws(c: string) {
+		return c === ' ' || c === '\t' || c === '\r' || c === '\n' || c === ' ';
+	}
 	for (let i = 0; i < s.length;) {
 		const c = s[i];
 		// line-start structure markers vanish: the rendered side has heading/list NODES, no marker
@@ -538,14 +544,15 @@ export function resolveFragment(h: LooseHaystack, quote: string): ResolvedAnchor
 	}
 	if (last < quote.length) frags.push({ text: quote.slice(last), at: last });
 	if (frags.length === 1 && frags[0].at === 0 && frags[0].text === quote) return null; // nothing to split: the whole quote already missed
-	const resolve = (f: { text: string; at: number }) =>
-		resolveAnchorLooseIn(h, {
+	function resolve(f: { text: string; at: number }) {
+		return resolveAnchorLooseIn(h, {
 			quote: f.text,
 			prefix: quote.slice(Math.max(0, f.at - CONTEXT), f.at),
 			suffix: quote.slice(f.at + f.text.length, f.at + f.text.length + CONTEXT),
 			start: 0,
 			end: 0
 		});
+	}
 	const hits: ResolvedAnchor[] = [];
 	let longest: { hit: ResolvedAnchor; len: number } | null = null;
 	for (const f of frags) {

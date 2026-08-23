@@ -40,7 +40,9 @@ export type ProjectConfig = {
 	typst?: ProjectFormatConfig;
 };
 
-const configPath = (root: string) => `${root.replace(/[\\/]+$/, '')}/${CONFIG_PATH}`;
+function configPath(root: string) {
+	return `${root.replace(/[\\/]+$/, '')}/${CONFIG_PATH}`;
+}
 
 /**
  * Does the file exist at all?

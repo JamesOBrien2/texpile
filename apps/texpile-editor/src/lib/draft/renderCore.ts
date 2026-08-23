@@ -36,12 +36,12 @@ export function buildDrawList(
 	const glyphFill = opts.glyphFill || '#000';
 	const ruleFill = opts.ruleFill || '#000';
 	const bbox = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-	const grow = (x: number, y: number) => {
+	function grow(x: number, y: number) {
 		if (x < bbox.minX) bbox.minX = x;
 		if (y < bbox.minY) bbox.minY = y;
 		if (x > bbox.maxX) bbox.maxX = x;
 		if (y > bbox.maxY) bbox.maxY = y;
-	};
+	}
 	const ops: DrawOp[] = [];
 	let notdef = 0;
 	let glyphsDrawn = 0;

@@ -97,17 +97,19 @@
 	);
 	const openCount = $derived(threads.filter((t) => !t.resolved).length);
 
-	const last = (t: CommentThread) => t.messages.at(-1)?.at;
+	function last(t: CommentThread) {
+		return t.messages.at(-1)?.at;
+	}
 
 	/**
 	 * A quote is a raw slice of source, so it arrives with its newlines and indentation intact and
 	 * renders as a ragged multi-line block. Collapsed to one line it reads as a label, which is all
 	 * it is here - the document is where you go to see it in context.
 	 */
-	const oneLine = (s: string, max = 90) => {
+	function oneLine(s: string, max = 90) {
 		const flat = s.replace(/\s+/g, ' ').trim();
 		return flat.length > max ? flat.slice(0, max - 1) + '…' : flat;
-	};
+	}
 
 	function saveEdit(msg: CommentMessage) {
 		const body = editDraft.trim();

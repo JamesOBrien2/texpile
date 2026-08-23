@@ -8,13 +8,13 @@ import { getImageDimensions } from './resize/getImageDimensions';
 import { getMaxWidth } from './resize/getMaxWidth';
 import { calculateImageDimensions } from './resize/calculateImageDimensions';
 
-const getSrc = (
+function getSrc(
 	image: HTMLImageElement,
 	pluginSettings: ImagePluginSettings,
 	node: Node,
 	root: Element,
 	view: EditorView
-): { newSrc: Promise<string>; appliedClass?: string } => {
+): { newSrc: Promise<string>; appliedClass?: string } {
 	if (pluginSettings.downloadImage) {
 		let appliedClass;
 		if (pluginSettings.downloadPlaceholder) {
@@ -54,11 +54,10 @@ const getSrc = (
 		};
 	}
 	return { newSrc: node.attrs.src };
-};
+}
 
-export const imageNodeView =
-	(pluginSettings: ImagePluginSettings) =>
-	(node: Node, view: EditorView, getPos: () => number | undefined): NodeView => {
+export function imageNodeView(pluginSettings: ImagePluginSettings) {
+	return (node: Node, view: EditorView, getPos: () => number | undefined): NodeView => {
 		let finalSrc: string | undefined;
 		let currentNodeSrc: string = node.attrs.src;
 		const root = document.createElement('div');
@@ -67,23 +66,23 @@ export const imageNodeView =
 		image.className = imagePluginClassNames.imagePluginImg;
 		image.contentEditable = 'false';
 		let resizeActive = false;
-		const setResizeActive = (value: boolean) => {
+		function setResizeActive(value: boolean) {
 			resizeActive = value;
-		};
+		}
 		root.appendChild(image);
 
 		// failed loads show the bundled placeholder, re-checked on folder changes so a stale
 		// cached image doesn't linger. HEAD avoids re-downloading bytes.
 		let notFound = false;
-		const showNotFound = () => {
+		function showNotFound() {
 			if (image.src === imageNotFoundPng) return; // already showing the placeholder
 			notFound = true;
 			image.src = imageNotFoundPng;
 			image.classList.add('image-not-found');
 			image.title = `File not found: ${node.attrs.src}`;
-		};
+		}
 		image.addEventListener('error', showNotFound);
-		const revalidate = async () => {
+		async function revalidate() {
 			if (!finalSrc || /^(data:|blob:)/.test(finalSrc)) return; // placeholders / inline data never go missing
 			try {
 				const res = await fetch(finalSrc, { method: 'HEAD', cache: 'no-store' });
@@ -98,8 +97,10 @@ export const imageNodeView =
 			} catch {
 				showNotFound();
 			}
-		};
-		const onFolderChanged = () => void revalidate();
+		}
+		function onFolderChanged() {
+			return void revalidate();
+		}
 		window.addEventListener('texpile:fs-changed', onFolderChanged);
 		window.addEventListener('focus', onFolderChanged);
 
@@ -129,7 +130,7 @@ export const imageNodeView =
 
 		image.alt = node.attrs.alt;
 		let resizeControls: HTMLDivElement | undefined;
-		const updateDOM = () => {
+		function updateDOM() {
 			if (resizeActive) {
 				return;
 			}
@@ -177,7 +178,7 @@ export const imageNodeView =
 				);
 				root.appendChild(resizeControls);
 			}
-		};
+		}
 		let unsubscribeResizeObserver: (() => void) | undefined;
 		(async () => {
 			const { newSrc, appliedClass } = getSrc(image, pluginSettings, node, root, view);
@@ -236,3 +237,4 @@ export const imageNodeView =
 			}
 		};
 	};
+}

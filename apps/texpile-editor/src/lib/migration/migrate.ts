@@ -42,7 +42,9 @@ export type MigrationStash = {
 
 const STASH_KEY = 'texpile:migration';
 
-const norm = (root: string) => root.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+function norm(root: string) {
+	return root.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
 
 function readJson<T>(key: string): T | null {
 	try {
@@ -52,7 +54,9 @@ function readJson<T>(key: string): T | null {
 	}
 }
 
-const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+function isObj(v: unknown): v is Record<string, unknown> {
+	return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 
 /** true when `key` holds a v:1 blob already - the phase ran before */
 function versioned(key: string): boolean {
@@ -95,7 +99,9 @@ export function migrateLocalStorage(): void {
 	if (!versioned('texpile:workspaces')) {
 		const folders: Record<string, FolderAcc> = {};
 		const stashFolders: NonNullable<MigrationStash['folders']> = {};
-		const at = (root: string): FolderAcc => (folders[norm(root)] ??= {});
+		function at(root: string): FolderAcc {
+			return (folders[norm(root)] ??= {});
+		}
 
 		// unreleased dev shape: already one entry per folder, but unversioned and carrying the
 		// latex/typst lanes that now live in .texpile/config.json (dev machines' config files

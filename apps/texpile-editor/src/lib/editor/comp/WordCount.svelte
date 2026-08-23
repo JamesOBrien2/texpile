@@ -2,7 +2,9 @@
 	import { documentCountStore as c } from '$lib/stores/countStore.svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	const fmt = (n: number) => n.toLocaleString();
+	function fmt(n: number) {
+		return n.toLocaleString();
+	}
 </script>
 
 <span class="text-surface-500 text-xs whitespace-nowrap tabular-nums select-none">

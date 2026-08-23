@@ -150,18 +150,18 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 	const contentDOM = document.createElement('div');
 	contentDOM.className = 'table-wrapper-content';
 
-	const updateClasses = () => {
+	function updateClasses() {
 		if (currentNode.attrs.showNotes) {
 			contentDOM.classList.remove('hide-notes');
 		} else {
 			contentDOM.classList.add('hide-notes');
 		}
-	};
+	}
 	updateClasses();
 
 	dom.appendChild(contentDOM);
 
-	const updateAttrs = (attrs: Partial<typeof node.attrs>) => {
+	function updateAttrs(attrs: Partial<typeof node.attrs>) {
 		const pos = getPos();
 		if (pos !== undefined) {
 			const tr = view.state.tr.setNodeMarkup(pos, undefined, {
@@ -180,10 +180,10 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 			}
 			view.dispatch(tr);
 		}
-	};
+	}
 
 	// absolute position of the inner `table` node, for editing its rows' rule attrs
-	const getTableAbsPos = (): number | null => {
+	function getTableAbsPos(): number | null {
 		const pos = getPos();
 		if (pos === undefined) return null;
 		let tableAbs: number | null = null;
@@ -191,10 +191,10 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 			if (child.type.name === 'table') tableAbs = pos + 1 + childOffset;
 		});
 		return tableAbs;
-	};
+	}
 
 	// push the latest row-rule strings into the component after an edit (immediate feedback)
-	const refreshRowRules = () => {
+	function refreshRowRules() {
 		const pos = getPos();
 		if (pos === undefined) return;
 		const updated = view.state.doc.nodeAt(pos);
@@ -203,9 +203,9 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 			componentProps.rowRules = r.rowRules;
 			componentProps.bottomRule = r.bottomRule;
 		}
-	};
+	}
 
-	const setRowRule = (rowIndex: number, rule: string) => {
+	function setRowRule(rowIndex: number, rule: string) {
 		const tableAbs = getTableAbsPos();
 		const tableNode = tableAbs === null ? null : view.state.doc.nodeAt(tableAbs);
 		if (tableAbs === null || !tableNode) return;
@@ -220,19 +220,23 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 		if (!row) return;
 		view.dispatch(view.state.tr.setNodeMarkup(rowAbs, undefined, { ...row.attrs, topRules: rule }));
 		refreshRowRules();
-	};
+	}
 
-	const setBottomRule = (rule: string) => {
+	function setBottomRule(rule: string) {
 		const tableAbs = getTableAbsPos();
 		const tableNode = tableAbs === null ? null : view.state.doc.nodeAt(tableAbs);
 		if (tableAbs === null || !tableNode) return;
 		view.dispatch(view.state.tr.setNodeMarkup(tableAbs, undefined, { ...tableNode.attrs, bottomRules: rule }));
 		refreshRowRules();
-	};
+	}
 
-	const colspecOf = (wrapper: Node): string => String(getTableNode(wrapper)?.attrs.colspec ?? '');
-	const envOf = (wrapper: Node): string => String(getTableNode(wrapper)?.attrs.env ?? 'tabular');
-	const setColspec = (spec: string) => {
+	function colspecOf(wrapper: Node): string {
+		return String(getTableNode(wrapper)?.attrs.colspec ?? '');
+	}
+	function envOf(wrapper: Node): string {
+		return String(getTableNode(wrapper)?.attrs.env ?? 'tabular');
+	}
+	function setColspec(spec: string) {
 		const tableAbs = getTableAbsPos();
 		const tableNode = tableAbs === null ? null : view.state.doc.nodeAt(tableAbs);
 		if (tableAbs === null || !tableNode) return;
@@ -251,9 +255,9 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 		const pos = getPos();
 		const updated = pos !== undefined ? view.state.doc.nodeAt(pos) : null;
 		if (updated) componentProps.colspec = colspecOf(updated);
-	};
+	}
 
-	const calculateTableData = () => {
+	function calculateTableData() {
 		const pos = getPos();
 		if (pos === undefined) return { tableNumber: 1, sectionNumber: null };
 
@@ -263,13 +267,13 @@ function buildTableWrapperView(dialect: TableDialect, node: Node, view: EditorVi
 			// FUTURE: Restore for hierarchical numbering
 			// sectionNumber: getSectionNumber(view, pos)
 		};
-	};
+	}
 
-	const checkDuplicate = (label: string) => {
+	function checkDuplicate(label: string) {
 		const pos = getPos();
 		if (pos === undefined) return false;
 		return isLabelDuplicate(view, label, pos);
-	};
+	}
 
 	const initialData = calculateTableData();
 

@@ -26,8 +26,9 @@ function parseBibtex(lines: string[]): BibLogParseResult {
 	const databases: string[] = [];
 	let i = 0;
 
-	const isContext = (l: string) =>
-		l.startsWith(' : ') || l === '(Error may have been on previous line)' || /^I'm skipping whatever remains/.test(l);
+	function isContext(l: string) {
+		return l.startsWith(' : ') || l === '(Error may have been on previous line)' || /^I'm skipping whatever remains/.test(l);
+	}
 
 	while (i < lines.length) {
 		const line = lines[i];

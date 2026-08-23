@@ -50,10 +50,14 @@ export function fileUri(p: string): string {
 	);
 }
 
-const bridge = () => (typeof window !== 'undefined' ? window.texpileTypst : undefined);
+function bridge() {
+	return typeof window !== 'undefined' ? window.texpileTypst : undefined;
+}
 
 /** True when the tinymist bridge exists at all (it does not in the browser dev server). */
-export const typstBridgeAvailable = () => !!bridge();
+export function typstBridgeAvailable() {
+	return !!bridge();
+}
 
 /** does a tinymist binary actually resolve on this machine? A failed preview start branches on
  *  this: "install tinymist" is actionable, "no preview address" is not. */

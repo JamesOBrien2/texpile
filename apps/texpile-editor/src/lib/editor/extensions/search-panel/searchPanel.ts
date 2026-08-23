@@ -16,8 +16,9 @@ import {
 import { trailingDebounce } from '$lib/trailingDebounce';
 
 // lucide glyphs inlined: this panel is plain DOM, not svelte, so the icon components can't be used
-const svg = (paths: string) =>
-	`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+function svg(paths: string) {
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+}
 const ICON_PREV = svg('<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>');
 const ICON_NEXT = svg('<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>');
 const ICON_CLOSE = svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
@@ -67,7 +68,7 @@ class TexpileSearchPanel implements Panel {
 		this.countBadge.className = 'badge preset-filled-surface-200-800 min-w-[3.5rem] text-center';
 		this.countBadge.textContent = '0/0';
 
-		const btn = (icon: string, label: string, onClick: () => void) => {
+		function btn(icon: string, label: string, onClick: () => void) {
 			const b = document.createElement('button');
 			b.type = 'button';
 			b.className = 'btn-icon btn-icon-xs hover:preset-tonal';
@@ -78,7 +79,7 @@ class TexpileSearchPanel implements Panel {
 			b.addEventListener('mousedown', (e) => e.preventDefault());
 			b.addEventListener('click', onClick);
 			return b;
-		};
+		}
 
 		const replaceToggle = btn(ICON_REPLACE, 'Toggle replace', () => {
 			this.replaceRow.classList.toggle('hidden');
@@ -118,7 +119,7 @@ class TexpileSearchPanel implements Panel {
 			}
 		});
 
-		const textBtn = (label: string, title: string, onClick: () => void) => {
+		function textBtn(label: string, title: string, onClick: () => void) {
 			const b = document.createElement('button');
 			b.type = 'button';
 			b.className = 'btn btn-xs hover:preset-tonal';
@@ -127,7 +128,7 @@ class TexpileSearchPanel implements Panel {
 			b.addEventListener('mousedown', (e) => e.preventDefault());
 			b.addEventListener('click', onClick);
 			return b;
-		};
+		}
 		this.replaceRow.append(
 			this.replaceField,
 			textBtn('Replace', 'Replace this match', () => replaceNext(this.view)),

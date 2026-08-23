@@ -395,4 +395,3 @@ export class CodeBlockView {
 		this.cm.destroy();
 	}
 }
-

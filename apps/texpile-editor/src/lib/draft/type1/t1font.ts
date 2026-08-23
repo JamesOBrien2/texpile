@@ -73,7 +73,7 @@ function pfbToProgram(bytes: Uint8Array): { header: Uint8Array; eexec: Uint8Arra
 		off += 6 + len;
 	}
 	if (!ascii.length || !binary.length) return null;
-	const cat = (parts: Uint8Array[]) => {
+	function cat(parts: Uint8Array[]) {
 		const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
 		let o = 0;
 		for (const p of parts) {
@@ -81,7 +81,7 @@ function pfbToProgram(bytes: Uint8Array): { header: Uint8Array; eexec: Uint8Arra
 			o += p.length;
 		}
 		return out;
-	};
+	}
 	return { header: cat([ascii[0]]), eexec: cat(binary) };
 }
 
@@ -104,14 +104,17 @@ function interpret(code: number[] | Uint8Array, glyphs: Map<string, any>, depth:
 	let x = 0,
 		y = 0,
 		open = false;
-	const moveTo = (nx: number, ny: number) => {
+	function moveTo(nx: number, ny: number) {
 		if (open) cmds.push({ type: 'Z' });
 		cmds.push({ type: 'M', x: nx, y: ny });
 		open = true;
-	};
-	const lineTo = (nx: number, ny: number) => cmds.push({ type: 'L', x: nx, y: ny });
-	const curveTo = (xa: number, ya: number, xb: number, yb: number, nx: number, ny: number) =>
-		cmds.push({ type: 'C', x1: xa, y1: ya, x2: xb, y2: yb, x: nx, y: ny });
+	}
+	function lineTo(nx: number, ny: number) {
+		return cmds.push({ type: 'L', x: nx, y: ny });
+	}
+	function curveTo(xa: number, ya: number, xb: number, yb: number, nx: number, ny: number) {
+		return cmds.push({ type: 'C', x1: xa, y1: ya, x2: xb, y2: yb, x: nx, y: ny });
+	}
 	let i = 0;
 	const n = code.length;
 	while (i < n) {
@@ -295,7 +298,7 @@ export function parseT1(pfb: Uint8Array, encText: string | null): T1Font | null 
 	});
 
 	const compiled = new Map<string, Cmd[] | null>();
-	const compile = (nm: string): Cmd[] | null => {
+	function compile(nm: string): Cmd[] | null {
 		if (compiled.has(nm)) return compiled.get(nm)!;
 		const g = glyphs.get(nm);
 		let out: Cmd[] | null = null;
@@ -325,7 +328,7 @@ export function parseT1(pfb: Uint8Array, encText: string | null): T1Font | null 
 		}
 		compiled.set(nm, out);
 		return out;
-	};
+	}
 
 	return {
 		textMap,
@@ -334,8 +337,12 @@ export function parseT1(pfb: Uint8Array, encText: string | null): T1Font | null 
 			if (!nm) return null;
 			const src = compile(nm);
 			if (!src || !src.length) return null;
-			const tx = (gx: number, gy: number) => X + (ma * gx + mc * gy + me) * sizePx;
-			const ty = (gx: number, gy: number) => Y - (mb * gx + md * gy + mf) * sizePx;
+			function tx(gx: number, gy: number) {
+				return X + (ma * gx + mc * gy + me) * sizePx;
+			}
+			function ty(gx: number, gy: number) {
+				return Y - (mb * gx + md * gy + mf) * sizePx;
+			}
 			const out: Cmd[] = new Array(src.length);
 			for (let i = 0; i < src.length; i++) {
 				const c = src[i];

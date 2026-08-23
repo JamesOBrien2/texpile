@@ -64,18 +64,21 @@ type SharedEntry = {
 	command?: string;
 };
 
-const severityOf = (level: LogLevel): SourceDiagnostic['severity'] =>
-	level === 'error' ? 'error' : level === 'badbox' ? 'info' : 'warning';
+function severityOf(level: LogLevel): SourceDiagnostic['severity'] {
+	return level === 'error' ? 'error' : level === 'badbox' ? 'info' : 'warning';
+}
 
-const toDiagnostic = (e: SharedEntry): SourceDiagnostic => ({
-	line: e.line!,
-	lineEnd: e.lineEnd,
-	severity: severityOf(e.level),
-	message: e.hint ? `${e.message}\n\n${e.hint}` : e.message,
-	column: e.column,
-	anchorText: e.anchorText,
-	token: e.command
-});
+function toDiagnostic(e: SharedEntry): SourceDiagnostic {
+	return {
+		line: e.line!,
+		lineEnd: e.lineEnd,
+		severity: severityOf(e.level),
+		message: e.hint ? `${e.message}\n\n${e.hint}` : e.message,
+		column: e.column,
+		anchorText: e.anchorText,
+		token: e.command
+	};
+}
 
 /** guests -> the Problems panel. The raw log never crosses the wire, so rebuild the parsed shape
  * the host's UI uses from the shared intel. Null intel clears the panel. */

@@ -73,7 +73,9 @@ export function distribute(tracks: Track[], total: number): (number | null)[] {
  *  px -> fr -> px lands back on the same grid instead of accumulating float noise. */
 export const FR_STEP = 0.25;
 
-export const snapFr = (value: number) => Math.max(FR_STEP, Math.round(value / FR_STEP) * FR_STEP);
+export function snapFr(value: number) {
+	return Math.max(FR_STEP, Math.round(value / FR_STEP) * FR_STEP);
+}
 
 /** measured px widths -> snapped fr shares, normalised so an even grid reads 1fr each. */
 export function toFrShares(widths: (number | null)[]): (number | null)[] | null {

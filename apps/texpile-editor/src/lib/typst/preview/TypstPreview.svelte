@@ -137,7 +137,7 @@
 		// rather than this module's global whenever the pane is in the popped-out preview window
 		const win = frameBox?.ownerDocument.defaultView;
 		if (!win) return;
-		const onMessage = (e: MessageEvent) => {
+		function onMessage(e: MessageEvent) {
 			const d = e.data;
 			if (!d || typeof d !== 'object' || d.channel !== CHANNEL) return;
 			if (d.type === 'zoom' && typeof d.value === 'number') zoom = d.value;
@@ -145,7 +145,7 @@
 				status = d.value as FrameStatus;
 				if (typeof status.zoom === 'number') zoom = status.zoom;
 			} else if (d.type === 'error' && typeof d.value === 'string') error = d.value;
-		};
+		}
 		win.addEventListener('message', onMessage);
 		return () => win.removeEventListener('message', onMessage);
 	});

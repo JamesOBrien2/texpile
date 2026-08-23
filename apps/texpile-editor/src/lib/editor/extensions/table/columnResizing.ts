@@ -245,7 +245,9 @@ function handleMouseDown(
 	// TEXPILE: measured once at mousedown rather than per move - the table's own width does not
 	// change during a drag, and re-measuring mid-drag would read the width the drag is producing
 	const ctx = snap ? snapContext(view, pluginState.activeHandle) : null;
-	const quantise = (raw: number) => (snap && ctx ? snap(raw, ctx) : raw);
+	function quantise(raw: number) {
+		return snap && ctx ? snap(raw, ctx) : raw;
+	}
 	const minWidth = ctx && snap ? snap(0, ctx) : cellMinWidth;
 
 	/**

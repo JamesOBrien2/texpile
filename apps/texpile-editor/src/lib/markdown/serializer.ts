@@ -148,7 +148,7 @@ export function renderInline(parent: Node, startOfLine = true, inTableCell = fal
 	let out = '';
 	let active: Mark[] = [];
 
-	const emitCloses = (closing: Mark[]) => {
+	function emitCloses(closing: Mark[]) {
 		let stolen = '';
 		if (closing.some((m) => MARK_DELIMS[m.type.name]?.(m.attrs).expel)) {
 			const ws = out.match(/(\s+)$/);
@@ -162,7 +162,7 @@ export function renderInline(parent: Node, startOfLine = true, inTableCell = fal
 			if (d) out += d(m.attrs).close;
 		}
 		out += stolen;
-	};
+	}
 
 	for (const run of runs) {
 		const keep = commonPrefixLen(active, run.marks);
@@ -247,11 +247,11 @@ function tableRows(node: Node): { header: string[] | null; body: string[][]; col
 
 function pipeTable(node: Node): string {
 	const { header, body, cols } = tableRows(node);
-	const pad = (cells: string[]) => {
+	function pad(cells: string[]) {
 		const c = [...cells];
 		while (c.length < cols) c.push('');
 		return `| ${c.join(' | ')} |`;
-	};
+	}
 	// alignment survives in colspec (parse-time delimiter row); default plain dashes
 	const spec = typeof node.attrs.colspec === 'string' && node.attrs.colspec ? node.attrs.colspec.split('|') : [];
 	const delims: string[] = [];

@@ -29,10 +29,10 @@ const FILE_COMMANDS = new Set(Object.keys(FILEREF_PARSE_OPTS.macros));
 export function collectLatexFileRefs(latex: string): FileRef[] {
 	const ast = parseLatex(latex, FILEREF_PARSE_OPTS);
 	const out: FileRef[] = [];
-	const offset = (n: unknown, end = false) => {
+	function offset(n: unknown, end = false) {
 		const p = (n as { position?: { start?: { offset?: number }; end?: { offset?: number } } }).position;
 		return (end ? p?.end?.offset : p?.start?.offset) ?? null;
-	};
+	}
 	for (const node of findAll(ast, (n) => (n as Macro).type === 'macro' && FILE_COMMANDS.has((n as Macro).content ?? ''))) {
 		const arg = ((node as Macro).args ?? []).filter((a) => a.openMark === '{').pop(); // the mandatory {path}
 		const content = arg?.content;

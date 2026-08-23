@@ -87,14 +87,14 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 	const fileStack: LogFileNode[] = [root];
 	let plainParens = 0; // unmatched non-file "(" seen inside the current file scope
 
-	const currentFile = (): string | undefined => {
+	function currentFile(): string | undefined {
 		const top = fileStack[fileStack.length - 1];
 		return top === root ? undefined : top.path;
-	};
+	}
 
-	const push = (entry: LogEntry) => {
+	function push(entry: LogEntry) {
 		if (entries.length < opts.maxEntries) entries.push(entry);
-	};
+	}
 
 	/** consume an engine error block: help/context lines up to the l.NN pair or a blank line. */
 	function collectErrorBlock(entry: LogEntry): void {

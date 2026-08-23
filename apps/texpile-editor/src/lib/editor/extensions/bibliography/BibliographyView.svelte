@@ -14,10 +14,18 @@
 		return list;
 	});
 
-	const sortKey = (r: Ref) => (r.author || r.editor || r.title || r.key || '').toLowerCase();
-	const yearOf = (r: Ref) => r.year || r.date?.slice(0, 4) || 'n.d.';
-	const container = (r: Ref) => r.journaltitle || r.booktitle || '';
-	const meta = (r: Ref) => [r.publisher, r.location].filter(Boolean).join(', ');
+	function sortKey(r: Ref) {
+		return (r.author || r.editor || r.title || r.key || '').toLowerCase();
+	}
+	function yearOf(r: Ref) {
+		return r.year || r.date?.slice(0, 4) || 'n.d.';
+	}
+	function container(r: Ref) {
+		return r.journaltitle || r.booktitle || '';
+	}
+	function meta(r: Ref) {
+		return [r.publisher, r.location].filter(Boolean).join(', ');
+	}
 
 	function authors(r: Ref): string {
 		const list = (r.author || r.editor || '')

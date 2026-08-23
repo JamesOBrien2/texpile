@@ -6,20 +6,19 @@ import { clamp } from '../../imagepluginutils';
 import { get } from 'svelte/store';
 import { settings } from '$lib/settings';
 
-const createMouseDownHandler =
-	(
-		direction: resizeDirection,
-		wrapper: HTMLDivElement,
-		resizeControl: HTMLSpanElement,
-		getPos: () => number | undefined,
-		node: Node,
-		view: EditorView,
-		image: HTMLImageElement,
-		setResizeActive: (value: boolean) => void,
-		maxWidth: number,
-		pluginSettings: ImagePluginSettings
-	) =>
-	(event: MouseEvent) => {
+function createMouseDownHandler(
+	direction: resizeDirection,
+	wrapper: HTMLDivElement,
+	resizeControl: HTMLSpanElement,
+	getPos: () => number | undefined,
+	node: Node,
+	view: EditorView,
+	image: HTMLImageElement,
+	setResizeActive: (value: boolean) => void,
+	maxWidth: number,
+	pluginSettings: ImagePluginSettings
+) {
+	return (event: MouseEvent) => {
 		event.preventDefault();
 		event.stopPropagation();
 		setResizeActive(true);
@@ -32,10 +31,10 @@ const createMouseDownHandler =
 		const initialWidth = wrapper.clientWidth || pluginSettings.minSize;
 		const initialHeight = wrapper.clientHeight || pluginSettings.minSize;
 		const aspectRatio = initialWidth / initialHeight || 1;
-		const mouseMoveListener = (ev: MouseEvent) => {
+		function mouseMoveListener(ev: MouseEvent) {
 			ev.preventDefault();
 			ev.stopPropagation();
-			const updateImageSize = () => {
+			function updateImageSize() {
 				// images are always centered, so corner/side drags double the delta to keep
 				// both edges tracking the cursor
 				const doubleScale = direction !== resizeDirection.top && direction !== resizeDirection.bottom;
@@ -60,9 +59,9 @@ const createMouseDownHandler =
 				resizeFunction(image, widthUpdate, heightUpdate);
 				resizeFunction(parent, widthUpdate, heightUpdate);
 				resizeFunction(wrapper, widthUpdate, heightUpdate);
-			};
+			}
 			requestAnimationFrame(updateImageSize);
-		};
+		}
 		document.addEventListener('mousemove', mouseMoveListener);
 		document.addEventListener(
 			'mouseup',
@@ -99,8 +98,9 @@ const createMouseDownHandler =
 			{ once: true }
 		);
 	};
+}
 
-const createResizeControl = (
+function createResizeControl(
 	wrapper: HTMLDivElement,
 	direction: resizeDirection,
 	getPos: () => number | undefined,
@@ -110,7 +110,7 @@ const createResizeControl = (
 	setResizeActive: (value: boolean) => void,
 	maxWidth: number,
 	pluginSettings: ImagePluginSettings
-) => {
+) {
 	const resizeControl = document.createElement('span');
 	resizeControl.className = `${imagePluginClassNames.imageResizeBoxControl} ${direction}`;
 	resizeControl.addEventListener(
@@ -118,7 +118,7 @@ const createResizeControl = (
 		createMouseDownHandler(direction, wrapper, resizeControl, getPos, node, view, image, setResizeActive, maxWidth, pluginSettings)
 	);
 	wrapper.appendChild(resizeControl);
-};
+}
 
 export function createResizeControls(
 	height: number,

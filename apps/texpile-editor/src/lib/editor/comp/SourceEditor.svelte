@@ -142,8 +142,9 @@
 	let host = $state<HTMLDivElement>();
 	let view: EditorView | null = null;
 	// flat markers; CM's stock ones are gradient blobs. colours baked in, data: URIs can't reach CSS vars
-	const lintMarker = (svg: string) =>
-		`url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${svg}</svg>`)}')`;
+	function lintMarker(svg: string) {
+		return `url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${svg}</svg>`)}')`;
+	}
 	const gutterTheme = EditorView.theme({
 		// gutters aren't content: without this, double-clicking a line number or a fold arrow selects it
 		'.cm-gutters': { userSelect: 'none', WebkitUserSelect: 'none' },
@@ -383,7 +384,9 @@
 		// visual editor's caret and flash its line
 		if (initialScrollPos != null) {
 			const len = view.state.doc.length;
-			const clamp = (p: number) => Math.min(Math.max(0, p), len);
+			function clamp(p: number) {
+				return Math.min(Math.max(0, p), len);
+			}
 			const scrollPos = initialScrollPos.scroll != null ? clamp(initialScrollPos.scroll) : null;
 			const cursorPos = initialScrollPos.cursor != null ? clamp(initialScrollPos.cursor) : scrollPos;
 			if (cursorPos != null) {

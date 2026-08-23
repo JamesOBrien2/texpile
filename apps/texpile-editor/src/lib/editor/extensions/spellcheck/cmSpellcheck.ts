@@ -27,7 +27,9 @@ const DEBOUNCE_MS = 500;
 // of a huge doc runs in slices and a fresh edit can supersede between them
 const CHUNK_CHARS = 20_000;
 
-const cssType = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'miscellaneous';
+function cssType(t: string) {
+	return t.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'miscellaneous';
+}
 
 type LintMatch = Awaited<ReturnType<typeof lintText>>['matches'][number];
 

@@ -131,10 +131,10 @@ export function syncWindowOverlay(el: HTMLElement): () => void {
 	// whole body sounds expensive next to CodeMirror's per-keystroke churn, and would be if this
 	// queried on every record - so it only tests whether an added or removed node itself carries
 	// the class, which for a text node or a highlight span is one instanceof and no work at all.
-	const hasScrim = (nodes: NodeList): boolean => {
+	function hasScrim(nodes: NodeList): boolean {
 		for (const n of nodes) if (n instanceof Element && n.classList.contains(SCRIM)) return true;
 		return false;
-	};
+	}
 	const scrimMo = new MutationObserver((records) => {
 		for (const r of records) {
 			if (hasScrim(r.addedNodes) || hasScrim(r.removedNodes)) return push();

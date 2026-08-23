@@ -334,13 +334,13 @@ export class FindController {
 		let prevEnd: { divIdx: number; offset: number } | null = null;
 		const infinity = { divIdx: -1, offset: undefined as number | undefined };
 
-		const beginText = (begin: { divIdx: number; offset: number }, className?: string): void => {
+		function beginText(begin: { divIdx: number; offset: number }, className?: string): void {
 			const divIdx = begin.divIdx;
 			textDivs[divIdx].textContent = '';
 			appendTextToDiv(divIdx, 0, begin.offset, className);
-		};
+		}
 
-		const appendTextToDiv = (divIdx: number, fromOffset: number, toOffset: number | undefined, className?: string): void => {
+		function appendTextToDiv(divIdx: number, fromOffset: number, toOffset: number | undefined, className?: string): void {
 			const div = textDivs[divIdx];
 			if (!div) return;
 
@@ -358,7 +358,7 @@ export class FindController {
 			} else {
 				div.appendChild(node);
 			}
-		};
+		}
 
 		let i0 = selectedMatchIdx;
 		let i1 = i0 + 1;

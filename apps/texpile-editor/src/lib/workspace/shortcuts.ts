@@ -18,9 +18,15 @@ export function setUiZoom(factor: number): void {
 	native()?.setZoomFactor?.(f);
 	updateSettings({ uiZoom: f });
 }
-export const uiZoomIn = () => setUiZoom((get(settings).uiZoom ?? 1) + UI_ZOOM_STEP);
-export const uiZoomOut = () => setUiZoom((get(settings).uiZoom ?? 1) - UI_ZOOM_STEP);
-export const uiZoomReset = () => setUiZoom(1);
+export function uiZoomIn() {
+	return setUiZoom((get(settings).uiZoom ?? 1) + UI_ZOOM_STEP);
+}
+export function uiZoomOut() {
+	return setUiZoom((get(settings).uiZoom ?? 1) - UI_ZOOM_STEP);
+}
+export function uiZoomReset() {
+	return setUiZoom(1);
+}
 
 export type ShortcutDeps = {
 	getLoadedPath(): string | null;

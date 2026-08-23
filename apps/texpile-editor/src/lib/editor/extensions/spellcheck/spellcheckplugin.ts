@@ -68,7 +68,9 @@ export const spellClickBoundaryPlugin = new Plugin({
 	}
 });
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+function sleep(ms: number) {
+	return new Promise((r) => setTimeout(r, ms));
+}
 
 /**
  * lintText, held back while an IME composition is active.

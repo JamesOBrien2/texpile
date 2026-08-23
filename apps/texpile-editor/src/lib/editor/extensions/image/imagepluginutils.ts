@@ -4,7 +4,7 @@ import type { Schema } from 'prosemirror-model';
 import { generateLabel } from '$lib/editor/utils/label';
 import type { ImagePluginSettings, ImagePluginState, InsertImagePlaceholder, RemoveImagePlaceholder } from './types';
 
-export const dataURIToFile = (dataURI: string, name: string) => {
+export function dataURIToFile(dataURI: string, name: string) {
 	const arr = dataURI.split(',');
 	const mime = arr[0]?.match(/:(.*?);/)?.[1];
 	const bstr = atob(arr[1]);
@@ -15,17 +15,17 @@ export const dataURIToFile = (dataURI: string, name: string) => {
 		u8arr[n] = bstr.charCodeAt(n);
 	}
 	return new File([u8arr], name, { type: mime });
-};
+}
 
 export const imagePluginKey = new PluginKey<ImagePluginState>('imagePlugin');
 
 export type ImageUploadReturn = { url: string; alt?: string };
 
-export const startImageUploadFn = (
+export function startImageUploadFn(
 	view: EditorView,
 	uploadFile: () => Promise<ImageUploadReturn>,
 	pos?: number
-): Promise<ImageUploadReturn> => {
+): Promise<ImageUploadReturn> {
 	// fresh object identity is the upload id
 	const id = {};
 
@@ -70,16 +70,16 @@ export const startImageUploadFn = (
 			view.dispatch(tr.setMeta(imagePluginKey, removeMeta));
 			throw reason;
 		});
-};
+}
 
-export const startImageUpload = (
+export function startImageUpload(
 	view: EditorView,
 	file: File,
 	alt: string,
 	pluginSettings: ImagePluginSettings,
 	schema: Schema,
 	pos?: number
-) => {
+) {
 	// fresh object identity is the upload id
 	const id = {};
 
@@ -119,11 +119,13 @@ export const startImageUpload = (
 			view.dispatch(tr.setMeta(imagePluginKey, removeMeta));
 		}
 	);
-};
+}
 
-export const clamp = (min: number, value: number, max: number) => Math.max(Math.min(max, value), min);
+export function clamp(min: number, value: number, max: number) {
+	return Math.max(Math.min(max, value), min);
+}
 
-export const fetchImageAsBase64 = async (url: string) => {
+export async function fetchImageAsBase64(url: string) {
 	if (url.startsWith('data:image')) {
 		return url;
 	}
@@ -138,31 +140,29 @@ export const fetchImageAsBase64 = async (url: string) => {
 					reader.readAsDataURL(blob);
 				})
 		);
-};
+}
 
 export type Store = {
 	get: (key: string) => string | undefined;
 	set: (key: string, value: string) => void;
 };
 
-export const localStorageCache = (keyPrefix: string): Store => {
-	const get = (key: string) => {
+export function localStorageCache(keyPrefix: string): Store {
+	function get(key: string) {
 		const value = localStorage.getItem(`${keyPrefix}${key}`);
 		if (value) {
 			return value;
 		}
 		return undefined;
-	};
-	const set = (key: string, value: string) => {
+	}
+	function set(key: string, value: string) {
 		localStorage.setItem(`${keyPrefix}${key}`, value);
-	};
+	}
 	return { get, set };
-};
+}
 
-export const imageCache =
-	(cache: Store, shortStore: Map<string, Promise<string>> = new Map()) =>
-	(downloadImage: (url: string) => Promise<string>) =>
-	async (url: string) => {
+export function imageCache(cache: Store, shortStore: Map<string, Promise<string>> = new Map()) {
+	return (downloadImage: (url: string) => Promise<string>) => async (url: string) => {
 		if (!url) {
 			return url;
 		}
@@ -184,3 +184,4 @@ export const imageCache =
 		shortStore.delete(url);
 		return result;
 	};
+}

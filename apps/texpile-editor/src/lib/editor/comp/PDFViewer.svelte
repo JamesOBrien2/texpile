@@ -29,7 +29,9 @@
 	// logical document id (path without the &t= cache-bust): unchanged across recompiles so the
 	// viewer keeps its scroll, changed when a different PDF opens so it resets to the top
 	let docKey = $state<string | undefined>(undefined);
-	const docKeyOf = (url: string) => url.replace(/[?&]t=\d+/, '');
+	function docKeyOf(url: string) {
+		return url.replace(/[?&]t=\d+/, '');
+	}
 	let fetchGen = 0;
 
 	async function fetchPdf(url: string) {

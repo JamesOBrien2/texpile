@@ -406,9 +406,9 @@ export class PDFViewerCore {
 				this.eventBus.off('pagerendered', check);
 				resolve();
 			};
-			const check = () => {
+			function check() {
 				if (!pending()) finish();
-			};
+			}
 			this.eventBus.on('pagerendered', check);
 			setTimeout(finish, ceilingMs);
 		});

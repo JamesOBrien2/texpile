@@ -59,8 +59,8 @@ function createUpdateImageSrcTransaction(state: EditorState, oldSrc: string, new
 	return tr;
 }
 
-export const imagePlugin = (pluginSettings: ImagePluginSettings): Plugin<ImagePluginState> =>
-	new Plugin({
+export function imagePlugin(pluginSettings: ImagePluginSettings): Plugin<ImagePluginState> {
+	return new Plugin({
 		key: imagePluginKey,
 		state: pluginSettings.createState(pluginSettings),
 		props: {
@@ -121,14 +121,14 @@ export const imagePlugin = (pluginSettings: ImagePluginSettings): Plugin<ImagePl
 		},
 
 		view(editorView) {
-			const handleForeignImageCopied = (e: Event) => {
+			function handleForeignImageCopied(e: Event) {
 				const { oldSrc, newSrc } = (e as CustomEvent).detail;
 				const tr = createUpdateImageSrcTransaction(editorView.state, oldSrc, newSrc);
 				if (tr) {
 					console.log(`[ImagePlugin] Updating image src: ${oldSrc} → ${newSrc}`);
 					editorView.dispatch(tr);
 				}
-			};
+			}
 
 			window.addEventListener('foreignImageCopied', handleForeignImageCopied);
 
@@ -139,3 +139,4 @@ export const imagePlugin = (pluginSettings: ImagePluginSettings): Plugin<ImagePl
 			};
 		}
 	});
+}

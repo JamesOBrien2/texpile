@@ -175,7 +175,9 @@ function markCallParts(call: SyntaxNode, src: string): { mark: PMMark; markup: S
 	const args = ident.nextSibling;
 	if (!args || args.name !== 'Args') return null;
 	const real = children(args).filter((k) => !CALL_PUNCT.includes(k.name));
-	const contentMarkup = (n: SyntaxNode | undefined) => (n && n.name === 'ContentBlock' ? childOf(n, 'Markup') : null);
+	function contentMarkup(n: SyntaxNode | undefined) {
+		return n && n.name === 'ContentBlock' ? childOf(n, 'Markup') : null;
+	}
 
 	const plain = MARK_FUNCS[name];
 	if (plain) {
@@ -418,7 +420,7 @@ function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 	const segs: Seg[] = [];
 	let buf: SyntaxNode[] = [];
 
-	const flushPara = () => {
+	function flushPara() {
 		while (buf.length > 0 && buf[buf.length - 1].name === 'Space') buf.pop();
 		if (buf.length === 0) return;
 		const content = convertInline(buf, src, []);
@@ -430,7 +432,7 @@ function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 			});
 		}
 		buf = [];
-	};
+	}
 
 	for (let i = 0; i < kids.length; i++) {
 		const k = kids[i];
@@ -846,7 +848,9 @@ function tableParts(call: SyntaxNode, src: string): TableParts | null {
 	// exactly that), and the body walk has to know those columns are already taken. Body row 0 is
 	// grid row 1, so a header rowspan of R covers body rows 0..R-2.
 	const covered = new Set<string>();
-	const at = (rr: number, cc: number) => `${rr},${cc}`;
+	function at(rr: number, cc: number) {
+		return `${rr},${cc}`;
+	}
 
 	let header: PMNode[] | null = null;
 	const h = real[idx];

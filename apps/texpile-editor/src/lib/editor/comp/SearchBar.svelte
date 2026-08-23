@@ -33,14 +33,14 @@
 		}
 	}
 
-	const incrementCurrent = () => {
+	function incrementCurrent() {
 		if (match === 0) return;
 		current = (current % match) + 1;
-	};
-	const decrementCurrent = () => {
+	}
+	function decrementCurrent() {
 		if (match === 0) return;
 		current = current - 1 || match;
-	};
+	}
 
 	function gotoPrev() {
 		if (!$editorViewStore?.state) return;

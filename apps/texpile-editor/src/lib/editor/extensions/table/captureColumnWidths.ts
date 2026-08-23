@@ -78,12 +78,12 @@ function overflowBy(widths: number[], total: number): number {
 	return Math.abs(widths.reduce((a, b) => a + b, 0) - total);
 }
 
-const widthOf = (cell: Node): number | null => {
+function widthOf(cell: Node): number | null {
 	const cw = cell.attrs.colwidth;
 	if (!Array.isArray(cw)) return null;
 	const v = Number(cw[0]);
 	return Number.isFinite(v) && v > 0 ? v : null;
-};
+}
 
 function sizedCounts(table: Node): { sized: number; bare: number } {
 	let sized = 0;
@@ -175,7 +175,7 @@ export const captureColumnWidths = new Plugin({
 		let frame = 0;
 		let attempts = 0;
 
-		const run = () => {
+		function run() {
 			frame = 0;
 			if (sync(view) || ++attempts >= MAX_RETRY_FRAMES) {
 				lastDoc = view.state.doc;
@@ -183,7 +183,7 @@ export const captureColumnWidths = new Plugin({
 				return;
 			}
 			schedule(); // measured nothing useful yet - the table is not laid out
-		};
+		}
 
 		// next frame, not now: on a fresh mount the table has no box to measure yet
 		function schedule() {

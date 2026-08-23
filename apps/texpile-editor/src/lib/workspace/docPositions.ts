@@ -29,7 +29,9 @@ export type DocPosition = {
 	at: number;
 };
 
-const sepOf = (p: string) => (p.includes('\\') ? '\\' : '/');
+function sepOf(p: string) {
+	return p.includes('\\') ? '\\' : '/';
+}
 
 class DocPositionsStore {
 	private root: string | null = null;

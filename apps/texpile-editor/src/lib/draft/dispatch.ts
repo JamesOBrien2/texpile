@@ -10,12 +10,16 @@ export type Para = { text: string; startLine: number; wrap?: string; idx?: numbe
 // line above a body paragraph isn't glued onto it.
 const BLOCK_CMD =
 	/^\s*\\(section|subsection|subsubsection|paragraph|subparagraph|chapter|begin|end|item|maketitle|caption|label|title|author|date|bibliography|printbibliography|tableofcontents|input|include)\b/;
-const isBoundary = (ln: string) => ln.trim() === '' || BLOCK_CMD.test(ln);
+function isBoundary(ln: string) {
+	return ln.trim() === '' || BLOCK_CMD.test(ln);
+}
 // a comment-only line does NOT end a TeX paragraph: writers comment out sentences
 // mid-paragraph, and the surrounding text is ONE paragraph on the page. Mid-paragraph it
 // rides along verbatim (the engine's catcodes make it invisible); between paragraphs it
 // stays an inert boundary line.
-const isCommentLine = (ln: string) => /^\s*%/.test(ln);
+function isCommentLine(ln: string) {
+	return /^\s*%/.test(ln);
+}
 const BEGIN_LIST = /^\s*\\begin\{(itemize|enumerate|description)\}/;
 const END_LIST = /^\s*\\end\{(itemize|enumerate|description)\}/;
 const ITEM = /^\s*\\item\b[ \t]*(.*)$/;
@@ -50,11 +54,11 @@ function splitParaLines(lines: string[]): Para[] {
 	let idx = 0;
 	let curHead = '';
 	const listStack: { env: string; n: number }[] = [];
-	const flush = () => {
+	function flush() {
 		if (cur.length) out.push({ text: cur.join('\n'), startLine: start + 1, wrap: wrap || undefined, idx, head: curHead || undefined });
 		cur = [];
 		curHead = '';
-	};
+	}
 	for (let i = 0; i < lines.length; i++) {
 		const ln = lines[i];
 		const be = ln.match(BEGIN_ENV);
@@ -146,14 +150,16 @@ function splitParaLines(lines: string[]): Para[] {
 // digit fails exact verification and demotes to provisional; the reconcile paints the
 // real number. (A JS re-count of \item lines used to guess the true value: deleted --
 // reconstructing TeX counter state in JS is exactly the approximation we don't do.)
-export const wrapItem = (t: string, w?: string) => {
+export function wrapItem(t: string, w?: string) {
 	if (!w) return t;
 	const setc = w === 'enumerate' ? '\\setcounter{enumi}{0}' : '';
 	return `\\begin{${w}}${setc}\\item ${t}\\end{${w}}`;
-};
+}
 // comment stripping is ONLY for JS-side lexing guards (brace balance); dispatched text
 // ships verbatim -- the engine's own catcodes decide what a % means
-export const stripTexComments = (s: string) => s.replace(/([^\\]|^)%.*$/gm, '$1');
+export function stripTexComments(s: string) {
+	return s.replace(/([^\\]|^)%.*$/gm, '$1');
+}
 // Heading dispatch prefix: the daemon's section counters accumulate across requests
 // (\section{hi} renders "1 hi", then "2 hi", ...) and \@startsection's beforeskip
 // depends on the leftover @nobreak state -- both nondeterministic. Pin the counters and
@@ -170,22 +176,25 @@ const HEAD_RESET: Record<string, string> = {
 };
 // blank lines inside a head para (run-in head, blank, prose) are stripped for the daemon:
 // TeX attaches the head across them, and a shipped \par would detach it
-export const wrapHead = (t: string, head?: string) =>
-	head
+export function wrapHead(t: string, head?: string) {
+	return head
 		? `\\makeatletter\\@nobreaktrue\\makeatother${HEAD_RESET[head] ?? ''}${t
 				.split('\n')
 				.filter((l) => l.trim() !== '')
 				.join('\n')}`
 		: t;
+}
 // a Para as the daemon should typeset it (list items re-wrapped, headings pinned)
-export const paraTex = (p: Para) => wrapHead(wrapItem(p.text, p.wrap), p.head);
+export function paraTex(p: Para) {
+	return wrapHead(wrapItem(p.text, p.wrap), p.head);
+}
 
 // While typing you pass through unbalanced states (\textbf{ before the }, $ before its
 // close). An unclosed brace group has no paragraph terminator, so the daemon's typeset
 // never finishes -- it blocks the full 6s timeout, then SIGKILLs and cold-respawns the
 // engine. So only fire the instant patch once groups and inline math are balanced.
 // (Lexes over comment-stripped text; braces inside comments aren't grouping.)
-export const daemonReady = (raw: string): boolean => {
+export function daemonReady(raw: string): boolean {
 	const t = stripTexComments(raw);
 	let depth = 0;
 	let dollars = 0;
@@ -209,7 +218,7 @@ export const daemonReady = (raw: string): boolean => {
 		} else if (c === '$') dollars++;
 	}
 	return depth === 0 && dollars % 2 === 0 && paren === 0 && brack === 0;
-};
+}
 // Mid-typing repair: close still-open math/braces IN NESTING ORDER so the daemon can render
 // the partial result instantly ($x + y -> $x + y$; \textbf{par -> \textbf{par}). The closers
 // exist only in this transient render, never in the buffer. Null = not repairable (stray
@@ -247,7 +256,7 @@ export function repairForPreview(raw: string): string | null {
 // blank line is render-inert is the ENGINE's call, so anything else recompiles. Compared
 // line-by-line over the shared split arrays (split('\n') lines never contain '\n', so this
 // IS join equality) instead of materializing two full-doc cut strings per keystroke.
-const cutEq = (a: string[], pa: Para, b: string[], pb: Para): boolean => {
+function cutEq(a: string[], pa: Para, b: string[], pb: Para): boolean {
 	const a0 = pa.startLine - 1;
 	const an = pa.text.split('\n').length;
 	const b0 = pb.startLine - 1;
@@ -256,19 +265,19 @@ const cutEq = (a: string[], pa: Para, b: string[], pb: Para): boolean => {
 	if (n !== b.length - bn) return false;
 	for (let i = 0; i < n; i++) if (a[i < a0 ? i : i + an] !== b[i < b0 ? i : i + bn]) return false;
 	return true;
-};
+}
 
 // only one baseline is live at a time (it advances when a compile lands), so a single-slot
 // memo keyed on the string makes the per-keystroke baseline split + splitParas free -- the
 // caller hands back the same string reference until then, so the compare is O(1).
 let baseMemo: { src: string; lines: string[]; paras: Para[] } | null = null;
-const baselineOf = (src: string) => {
+function baselineOf(src: string) {
 	if (!baseMemo || baseMemo.src !== src) {
 		const lines = src.split('\n');
 		baseMemo = { src, lines, paras: splitParaLines(lines) };
 	}
 	return baseMemo;
-};
+}
 
 export type ParaRef = { line: number; endLine: number; text: string; listItem: boolean };
 export type PatchAction = {
@@ -306,12 +315,14 @@ export type EditDecision =
 	// exactly one block changed: dispatch to the instant path
 	| ({ kind: 'patch' } & PatchAction);
 
-const refOf = (p: Para): ParaRef => ({
-	line: p.startLine,
-	endLine: p.startLine + p.text.split('\n').length - 1,
-	text: paraTex(p),
-	listItem: !!p.wrap || !!p.env || !!p.head
-});
+function refOf(p: Para): ParaRef {
+	return {
+		line: p.startLine,
+		endLine: p.startLine + p.text.split('\n').length - 1,
+		text: paraTex(p),
+		listItem: !!p.wrap || !!p.env || !!p.head
+	};
+}
 
 /** ONE decision point per edit: diff the buffer against the last-compiled baseline. */
 export function decideEdit(baseline: string, src: string): EditDecision {
@@ -443,11 +454,12 @@ function buildPatch(baseLines: string[], oP: Para, nP: Para): EditDecision {
 		dispatchText = '\\setcounter{footnote}{0}' + dispatchText;
 		dispatchOrig = '\\setcounter{footnote}{0}' + dispatchOrig;
 	}
-	const cmdsOf = (s: string) =>
-		(s.match(/\\[a-zA-Z@]+/g) || [])
+	function cmdsOf(s: string) {
+		return (s.match(/\\[a-zA-Z@]+/g) || [])
 			.filter((c) => c !== '\\par')
 			.sort()
 			.join(' ');
+	}
 	return {
 		kind: 'patch',
 		line: oP.startLine,
@@ -477,7 +489,7 @@ function structuralOf(
 	const t = newP[Math.min(fi, newP.length - 1)];
 	const out: EditDecision = { kind: 'structural', reason, focus: t ? refOf(t) : null };
 	// shared-prefix + shared-suffix length: which unmatched paragraph is the EDIT of which
-	const sim = (a: Para, b: Para) => {
+	function sim(a: Para, b: Para) {
 		const x = a.text;
 		const y = b.text;
 		const n = Math.min(x.length, y.length);
@@ -486,23 +498,30 @@ function structuralOf(
 		let s = 0;
 		while (s < n - p && x[x.length - 1 - s] === y[y.length - 1 - s]) s++;
 		return p + s;
-	};
-	const plainProse = (p: Para) => !p.head && !p.wrap && !p.env;
+	}
+	function plainProse(p: Para) {
+		return !p.head && !p.wrap && !p.env;
+	}
 	// a merge anchor must live in the BODY: a preamble "paragraph" (\documentclass,
 	// \newcommand runs) parses as prose but typesets nothing a band could match
 	const bodyAt = baseLines.findIndex((l) => /^\s*\\begin\{document\}/.test(l)) + 1;
-	const inBody = (p: Para) => bodyAt <= 0 || p.startLine > bodyAt;
+	function inBody(p: Para) {
+		return bodyAt <= 0 || p.startLine > bodyAt;
+	}
 	// a block the merged-patch path can carry: plain prose, a display heading, or a whole
 	// non-float environment (the daemon typesets complete envs; floats it discards, and a
 	// list item re-wrapped with an appended \par would render INSIDE the list). Nothing
 	// here decides layout -- it only gates WHAT rides one engine typeset.
-	const mergeable = (p: Para) => inBody(p) && (plainProse(p) || !!p.head || (!!p.env && !/^(table|figure)\*?$/.test(p.env) && !p.wrap));
+	function mergeable(p: Para) {
+		return inBody(p) && (plainProse(p) || !!p.head || (!!p.env && !/^(table|figure)\*?$/.test(p.env) && !p.wrap));
+	}
 	// an unclosed \begin{env} swallows the buffer tail into one block; typesetting that
 	// (with \end{document} inside) can never render -- hold it back from the merged run.
 	// Repairable mid-typing states ($x + y, \section{Op) DO ride: buildPatch repairs the
 	// merged text and marks it transient, so partial math renders live while being typed.
-	const insertable = (p: Para) =>
-		mergeable(p) && (daemonReady(p.text) || repairForPreview(p.text) !== null) && !/\\end\{document\}/.test(p.text);
+	function insertable(p: Para) {
+		return mergeable(p) && (daemonReady(p.text) || repairForPreview(p.text) !== null) && !/\\end\{document\}/.test(p.text);
+	}
 	// Alignment scan: try every insert (or delete) position j inside the unmatched window and
 	// accept it when the rest of the window agrees except AT MOST ONE modified pair -- the
 	// pending-patch paragraph that never advanced the baseline (the normal state
@@ -511,7 +530,7 @@ function structuralOf(
 	// `short` = the side without the extra paragraphs, `long` = with them; j indexes the
 	// start of the inserted/deleted RUN of length k in LONG, mod the modified one in SHORT.
 	type Align = { j: number; mod: number | null; score: number };
-	const scan = (ins: boolean, k: number): Align | null => {
+	function scan(ins: boolean, k: number): Align | null {
 		const short = ins ? oldP : newP;
 		const long = ins ? newP : oldP;
 		let best: Align | null = null;
@@ -530,14 +549,17 @@ function structuralOf(
 			if (!best || score > best.score) best = { j, mod, score };
 		}
 		return best;
-	};
+	}
 	// a run of list items rides its neighbouring item as ONE re-wrapped list typeset; the
 	// pinned counter makes labels deterministic-but-wrong, so the patch is provisional and
 	// the reconcile paints the truth (nested lists included: a wrong label just fails
 	// verification, same as any other uncertified render)
-	const itemRun = (run: Para[], anchor: Para | null) =>
-		!!anchor?.wrap && run.every((p) => p.wrap === anchor.wrap && (daemonReady(p.text) || repairForPreview(p.text) !== null));
-	const joinItems = (a: Para, run: Para[]) => `${a.text}\n\\item ${run.map((p) => p.text).join('\n\\item ')}`;
+	function itemRun(run: Para[], anchor: Para | null) {
+		return !!anchor?.wrap && run.every((p) => p.wrap === anchor.wrap && (daemonReady(p.text) || repairForPreview(p.text) !== null));
+	}
+	function joinItems(a: Para, run: Para[]) {
+		return `${a.text}\n\\item ${run.map((p) => p.text).join('\n\\item ')}`;
+	}
 	const k = newP.length - oldP.length;
 	if (k >= 1 && k <= 6) {
 		// typing routinely runs SEVERAL paragraphs ahead of the last landed reconcile (each

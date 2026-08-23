@@ -21,10 +21,10 @@ export async function locateByGlyphs(
 	orig: string,
 	listItem: boolean
 ): Promise<Cal | CalBail> {
-	const bail = (why: string, detail?: unknown): CalBail => {
+	function bail(why: string, detail?: unknown): CalBail {
 		ctx.emit('locate-glyph-bail', { why, ...(typeof detail === 'object' ? detail : { detail }) });
 		return { bail: why };
-	};
+	}
 	const paper = ctx.paper();
 	const pdf = ctx.pdfPath();
 	if (!(paper.colW > 0)) return bail('no-colwidth');
@@ -54,7 +54,9 @@ export async function locateByGlyphs(
 	for (let i = 1; i < variants[0].lines.length; i++) calGaps.push((variants[0].lines[i] as any).y - (variants[0].lines[i - 1] as any).y);
 	const calGap = median(calGaps);
 	const gap = calGap || 12;
-	const rowsOf = (glyphs: any[]) => glyphRows(glyphs, gap);
+	function rowsOf(glyphs: any[]) {
+		return glyphRows(glyphs, gap);
+	}
 	const varRows = variants.map((v) => ({ rows: rowsOf(v.glyphs), indent: v.indent, W: v.W })).filter((v) => v.rows.length);
 	if (!varRows.length) return bail('no-daemon-glyphs');
 	const N = varRows[0].rows.length;

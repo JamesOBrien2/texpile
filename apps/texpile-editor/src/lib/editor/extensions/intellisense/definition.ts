@@ -10,13 +10,15 @@ import { tokenAt, findLabelOffset } from './hover';
 
 const INCLUDE_TRIGGER = /\\(?:input|include|subfile|subfileinclude)\{([^{}]+)\}/g;
 
-const DEF_PATTERNS = (escaped: string) => [
-	`\\\\(?:new|renew|provide)command\\*?\\s*\\{?\\\\${escaped}\\}?`,
-	`\\\\(?:New|Renew|Provide|Declare)(?:Expandable)?DocumentCommand\\s*\\{?\\\\${escaped}\\}?`,
-	`\\\\DeclareMathOperator\\*?\\{\\\\${escaped}\\}`,
-	`\\\\DeclarePairedDelimiter(?:XPP|X)?\\{?\\\\${escaped}\\}?`,
-	`\\\\(?:(?:re)?newrobustcmd|DeclareRobustCommand)\\*?\\s*\\{\\\\${escaped}\\}`
-];
+function DEF_PATTERNS(escaped: string) {
+	return [
+		`\\\\(?:new|renew|provide)command\\*?\\s*\\{?\\\\${escaped}\\}?`,
+		`\\\\(?:New|Renew|Provide|Declare)(?:Expandable)?DocumentCommand\\s*\\{?\\\\${escaped}\\}?`,
+		`\\\\DeclareMathOperator\\*?\\{\\\\${escaped}\\}`,
+		`\\\\DeclarePairedDelimiter(?:XPP|X)?\\{?\\\\${escaped}\\}?`,
+		`\\\\(?:(?:re)?newrobustcmd|DeclareRobustCommand)\\*?\\s*\\{\\\\${escaped}\\}`
+	];
+}
 
 export function findMacroDefinition(text: string, name: string): number | null {
 	const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -58,10 +60,10 @@ function definitionAt(view: EditorView, pos: number, hooks: DefinitionHooks): bo
 	const token = tokenAt(line.text, line.from, pos);
 	if (!token) return false;
 	const intel = get(projectIntelStore);
-	const openAt = (file: string, targetLine: number): boolean => {
+	function openAt(file: string, targetLine: number): boolean {
 		hooks.onOpenFileAt?.(file, targetLine);
 		return !!hooks.onOpenFileAt;
-	};
+	}
 
 	if (token.kind === 'label') {
 		const offset = findLabelOffset(text, token.value);

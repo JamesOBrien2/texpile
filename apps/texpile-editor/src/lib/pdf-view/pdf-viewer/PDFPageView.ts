@@ -337,7 +337,9 @@ export class PDFPageView {
 		const doc = textLayerDiv.ownerDocument;
 
 		textLayerDiv.addEventListener('mousedown', () => textLayerDiv.classList.add('selecting'), { signal });
-		const reset = () => textLayerDiv.classList.remove('selecting');
+		function reset() {
+			return textLayerDiv.classList.remove('selecting');
+		}
 		doc.addEventListener('pointerup', reset, { signal });
 		doc.defaultView?.addEventListener('blur', reset, { signal });
 	}

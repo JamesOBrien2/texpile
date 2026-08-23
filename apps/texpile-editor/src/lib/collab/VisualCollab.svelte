@@ -45,14 +45,20 @@
 
 	// all visual dialects share this machinery: the orig stamps, the block map and the block patch
 	// are format-neutral, so only the markup stripper below is chosen per dialect
-	const active = () => session.active && (kind === 'tex' || kind === 'md' || kind === 'typ') && viewMode === 'visual';
-	const bodyOffset = () => (api.docMeta ? bodyOffsetOf(api.docMeta) : 0);
-	const strip = () => stripFor(kind);
+	function active() {
+		return session.active && (kind === 'tex' || kind === 'md' || kind === 'typ') && viewMode === 'visual';
+	}
+	function bodyOffset() {
+		return api.docMeta ? bodyOffsetOf(api.docMeta) : 0;
+	}
+	function strip() {
+		return stripFor(kind);
+	}
 
 	// trace the presence pipeline: set window.texpileCursorDebug = true in DevTools
-	const cdbg = (...args: unknown[]) => {
+	function cdbg(...args: unknown[]) {
 		if ((globalThis as { texpileCursorDebug?: boolean }).texpileCursorDebug) console.log('[collab-cursor]', ...args);
-	};
+	}
 
 	// ---- remote edits -> block patch ----
 	let remotePatchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -224,11 +230,11 @@
 		const binding = active() ? session.collabFor(path) : null;
 		if (!binding) return;
 		const t = binding.ytext;
-		const onRemote = (ev: Y.YTextEvent) => {
+		function onRemote(ev: Y.YTextEvent) {
 			const origin = ev.transaction.origin;
 			if (origin === EDIT_ORIGIN || origin === SEED_ORIGIN) return;
 			scheduleRemotePatch();
-		};
+		}
 		t.observe(onRemote);
 		untrack(() => {
 			// edits that landed before this bind (e.g. while this file sat closed or in another mode)
@@ -347,8 +353,9 @@
 		const map = buildBlockMap(doc, bodyOffset());
 		const lastParsed = api.lastParsedSource;
 		const d = lastParsed != null && api.texSource !== lastParsed ? spliceDiff(lastParsed, api.texSource) : null;
-		const carryBack = (off: number): number =>
-			!d ? off : off >= d.index + d.insert.length ? off - d.insert.length + d.remove : off > d.index ? d.index : off;
+		function carryBack(off: number): number {
+			return !d ? off : off >= d.index + d.insert.length ? off - d.insert.length + d.remove : off > d.index ? d.index : off;
+		}
 		const peers: RemotePeerSel[] = [];
 		const drops: string[] = [];
 		binding.awareness.getStates().forEach((state, clientId) => {
@@ -399,7 +406,9 @@
 		const v = $editorViewStore; // re-fires when the view mounts, so carets render on entry
 		const binding = active() ? session.collabFor(path) : null;
 		if (!binding || !v) return;
-		const onAwareness = () => scheduleRemoteCursorRender();
+		function onAwareness() {
+			return scheduleRemoteCursorRender();
+		}
 		binding.awareness.on('change', onAwareness);
 		untrack(() => {
 			cdbg('presence bind', path, 'states', binding.awareness.getStates().size);

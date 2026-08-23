@@ -329,8 +329,9 @@ export function pmComments({ onSelect, onAdd, addLabel = 'Comment' }: PmComments
 /** the pill fades in rather than flashing under the pointer for every drag it passes through */
 const SHOW_DELAY = 120;
 
-const SVG = (body: string) =>
-	`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+function SVG(body: string) {
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+}
 const COMMENT_ICON = SVG('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>');
 const X_ICON = SVG('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
 
@@ -369,7 +370,7 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 			});
 			// geometry inline: the shared class only carries colours (the CM side gets these same
 			// properties from its baseTheme, which this editor does not load)
-			const button = (title: string, svg: string, width: string, onDown: () => void) => {
+			function button(title: string, svg: string, width: string, onDown: () => void) {
 				const b = dom.appendChild(document.createElement('button'));
 				b.className = 'cm-comment-add';
 				b.title = title;
@@ -390,7 +391,7 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 					e.preventDefault();
 					onDown();
 				};
-			};
+			}
 			button(label, COMMENT_ICON, '26px', () => {
 				const sel = view.state.selection;
 				if (!(sel instanceof TextSelection) || sel.empty) return;
@@ -414,7 +415,7 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 
 			let timer: ReturnType<typeof setTimeout> | null = null;
 			let shown = false;
-			const hide = () => {
+			function hide() {
 				if (timer) {
 					clearTimeout(timer);
 					timer = null;
@@ -422,8 +423,8 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 				shown = false;
 				dom.style.opacity = '0';
 				dom.style.display = 'none';
-			};
-			const place = () => {
+			}
+			function place() {
 				const sel = view.state.selection;
 				// turned off in Preferences: the pill never appears, and the plugin costs a boolean
 				if (get(settings).commentPill === false || !(sel instanceof TextSelection) || sel.empty) {
@@ -463,7 +464,7 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 						dom.style.opacity = '1';
 					}, SHOW_DELAY);
 				}
-			};
+			}
 			window.addEventListener('scroll', place, true);
 			const ro = new ResizeObserver(place);
 			ro.observe(view.dom);

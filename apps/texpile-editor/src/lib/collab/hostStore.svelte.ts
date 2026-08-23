@@ -26,16 +26,18 @@ import {
 import { settings } from '$lib/settings';
 import { users } from '$lib/storage/users';
 
-const toLf = (s: string) => s.replace(/\r\n?/g, '\n');
+function toLf(s: string) {
+	return s.replace(/\r\n?/g, '\n');
+}
 
 async function flattenTree(children: TreeEntry[], root: string): Promise<{ rel: string; size: number; mtimeMs?: number }[]> {
 	const out: { rel: string; size: number }[] = [];
-	const walk = (entries: TreeEntry[]) => {
+	function walk(entries: TreeEntry[]) {
 		for (const e of entries) {
 			if (e.type === 'dir') walk(e.children ?? []);
 			else out.push({ rel: relativeTo(root, e.path).replace(/\\/g, '/'), size: 0 });
 		}
-	};
+	}
 	walk(children);
 	// stat only the files served as blobs. Text bodies live in the CRDT and carry their own edits,
 	// so they need no rev, and statting every file would make each tree refresh O(n) IPC round-trips.

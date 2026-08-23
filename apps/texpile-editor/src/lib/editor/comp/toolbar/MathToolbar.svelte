@@ -27,9 +27,9 @@
 	// which every insert targeted a detached field and did nothing at all, silently. Repro was two
 	// symbols in a row: the first worked, the second vanished.
 	$effect(() => {
-		const onFocusIn = (e: FocusEvent) => {
+		function onFocusIn(e: FocusEvent) {
 			if (e.target instanceof window.MathfieldElement) activeMathfieldRef = e.target;
-		};
+		}
 		document.addEventListener('focusin', onFocusIn, true);
 		if (document.activeElement instanceof window.MathfieldElement) activeMathfieldRef = document.activeElement;
 		return () => document.removeEventListener('focusin', onFocusIn, true);

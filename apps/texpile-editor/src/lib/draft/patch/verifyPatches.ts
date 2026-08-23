@@ -83,7 +83,7 @@ export function verifyPatches(ctx: VerifyContext, activePatches: Map<number, Pat
 				// break appears merged with its new neighbour column's baseline, so it is a
 				// contiguous SUBSEQUENCE of a merged row, never an exact row match
 				const freshAll = glyphRows(freshG, 12);
-				const containsSeq = (hay: number[], needle: number[]) => {
+				function containsSeq(hay: number[], needle: number[]) {
 					for (let s = 0; s + needle.length <= hay.length; s++) {
 						let okS = true;
 						for (let i = 0; i < needle.length && okS; i++)
@@ -92,7 +92,7 @@ export function verifyPatches(ctx: VerifyContext, activePatches: Map<number, Pat
 						if (okS) return true;
 					}
 					return false;
-				};
+				}
 				for (const row of p.flowPred) {
 					let bestDy: number | null = null;
 					for (const fr of fresh)

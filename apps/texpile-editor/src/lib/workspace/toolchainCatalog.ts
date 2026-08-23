@@ -106,4 +106,6 @@ export function installHint(tool: ToolInfo): string {
 	return win ? tool.install.win : tool.install.linux;
 }
 
-export const toolsInGroup = (group: ToolGroup): ToolInfo[] => TOOLS.filter((t) => t.group === group);
+export function toolsInGroup(group: ToolGroup): ToolInfo[] {
+	return TOOLS.filter((t) => t.group === group);
+}

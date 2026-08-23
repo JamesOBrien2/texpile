@@ -173,11 +173,11 @@
 		// interval is the belt for the paths that skip it (the main process force-closing the
 		// window with its opener).
 		let gone = false;
-		const settle = () => {
+		function settle() {
 			if (gone) return;
 			gone = true;
 			onClosed();
-		};
+		}
 		w.addEventListener('pagehide', settle);
 		const watch = setInterval(() => {
 			if (w.closed) settle();

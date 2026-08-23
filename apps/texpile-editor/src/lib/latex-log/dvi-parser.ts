@@ -18,19 +18,19 @@ export function parseDviLog(text: string): LogEntry[] {
 	const entries: LogEntry[] = [];
 	let current: LogEntry | null = null;
 
-	const flush = () => {
+	function flush() {
 		if (current) entries.push(current);
 		current = null;
-	};
-	const start = (level: LogEntry['level'], message: string, raw: string) => {
+	}
+	function start(level: LogEntry['level'], message: string, raw: string) {
 		flush();
 		current = { level, message, source: 'dvi', raw };
-	};
-	const append = (text2: string, raw: string) => {
+	}
+	function append(text2: string, raw: string) {
 		if (!current) return;
 		current.message += '\n' + text2;
 		current.raw += '\n' + raw;
-	};
+	}
 
 	for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
 		const cont = line.match(CONTINUED_WARN);

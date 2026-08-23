@@ -11,7 +11,9 @@ import { parseOutlineRaw } from '$lib/editor/extensions/tableofcontents/latexHea
 const MAX_FILES = 300;
 const MAX_FILE_LENGTH = 2_000_000;
 
-const samePath = (a: string, b: string) => a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase();
+function samePath(a: string, b: string) {
+	return a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase();
+}
 
 const LABEL_RE = /\\(?:line)?label\s*\{([^{}]+)\}/g;
 // \newcommand family + the forms LW parses beyond it; group 1 = name, group 2 = optional [argcount]
@@ -40,7 +42,7 @@ function scanTexIntel(text: string, file: string, into: ProjectIntel) {
 	if (text.length > MAX_FILE_LENGTH) return;
 	const lineStarts = [0];
 	for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) lineStarts.push(i + 1);
-	const lineOf = (pos: number) => {
+	function lineOf(pos: number) {
 		let lo = 0;
 		let hi = lineStarts.length - 1;
 		while (lo < hi) {
@@ -49,13 +51,13 @@ function scanTexIntel(text: string, file: string, into: ProjectIntel) {
 			else hi = mid - 1;
 		}
 		return lo + 1;
-	};
-	const contextAt = (pos: number): string => {
+	}
+	function contextAt(pos: number): string {
 		const line = lineOf(pos);
 		const from = lineStarts[Math.max(0, line - 2)];
 		const to = (lineStarts[Math.min(lineStarts.length - 1, line + 1)] ?? text.length) - 1;
 		return text.slice(from, Math.min(to < from ? text.length : to, from + 500));
-	};
+	}
 
 	LABEL_RE.lastIndex = 0;
 	for (let m = LABEL_RE.exec(text); m; m = LABEL_RE.exec(text)) {

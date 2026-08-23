@@ -24,7 +24,9 @@ export type ProjectFile = {
 export const PROJECT_FILE_RE = /\.(typ|bib)$/i;
 
 /** tinymist's own language ids; the id decides how it parses what we send. */
-export const languageIdFor = (rel: string) => (/\.bib$/i.test(rel) ? 'bibtex' : 'typst');
+export function languageIdFor(rel: string) {
+	return /\.bib$/i.test(rel) ? 'bibtex' : 'typst';
+}
 
 /**
  * A file the server has open on our behalf. `version` is LSP's own monotonic counter; `text` is

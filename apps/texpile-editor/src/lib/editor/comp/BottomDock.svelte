@@ -72,7 +72,9 @@
 	let menuOpen = $state(false);
 	let seq = 0;
 	const refs: Record<number, TermRef> = {};
-	const activeRef = (): TermRef => (activeTermId != null ? refs[activeTermId] : undefined);
+	function activeRef(): TermRef {
+		return activeTermId != null ? refs[activeTermId] : undefined;
+	}
 
 	// Compile gets a shell of its own. It used to run on whichever tab happened to be selected,
 	// which is only safe if that tab is sitting at a prompt: with Claude Code, vim, less, an ssh
@@ -86,7 +88,9 @@
 	// first terminal came out called "Terminal 2". This counter only ever advances for shells the
 	// user can see as numbered tabs.
 	let termNo = 0;
-	const userTerm = (id: number) => ({ id, title: m.wsview_terminal_numbered({ id: ++termNo }) });
+	function userTerm(id: number) {
+		return { id, title: m.wsview_terminal_numbered({ id: ++termNo }) };
+	}
 
 	function ensure() {
 		if (terminals.length === 0) {

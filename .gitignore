@@ -16,11 +16,6 @@ out/
 .env.*
 service-account.json
 
-# local dev context, not part of the public tree
-CLAUDE.md
-AGENTS.md
-.claude/
-
 # electron packaging output
 /release
 electron/dist/

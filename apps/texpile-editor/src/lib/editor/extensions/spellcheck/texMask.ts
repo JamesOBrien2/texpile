@@ -46,7 +46,9 @@ const CONTENT_COMMANDS = new Set([
 	'thanks'
 ]);
 
-const isLetter = (c: string) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+function isLetter(c: string) {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
 
 export type TexMask = {
 	/** source with every masked char replaced by a space; same length as the input */
@@ -58,10 +60,12 @@ export type TexMask = {
 export function maskTex(src: string): TexMask {
 	const n = src.length;
 	const m = new Uint8Array(n);
-	const mask = (from: number, to: number) => m.fill(1, Math.max(0, from), Math.min(n, to));
+	function mask(from: number, to: number) {
+		return m.fill(1, Math.max(0, from), Math.min(n, to));
+	}
 
 	// balanced {...} starting at an opening brace; -1 when unterminated
-	const matchBrace = (open: number): number => {
+	function matchBrace(open: number): number {
 		let depth = 0;
 		for (let k = open; k < n; k++) {
 			const c = src[k];
@@ -70,10 +74,10 @@ export function maskTex(src: string): TexMask {
 			else if (c === '}' && --depth === 0) return k;
 		}
 		return -1;
-	};
+	}
 
 	// \name*[opt] anatomy at a backslash; curlyAt = position of a directly following '{'
-	const readCommand = (at: number): { name: string; afterOpt: number; curlyAt: number } | null => {
+	function readCommand(at: number): { name: string; afterOpt: number; curlyAt: number } | null {
 		if (at + 1 >= n) return null;
 		let k = at + 1;
 		let name = src[k++];
@@ -88,7 +92,7 @@ export function maskTex(src: string): TexMask {
 			if (close >= 0) afterOpt = close + 1;
 		}
 		return { name, afterOpt, curlyAt: src[afterOpt] === '{' ? afterOpt : -1 };
-	};
+	}
 
 	let i = 0;
 	while (i < n) {

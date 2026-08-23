@@ -138,19 +138,43 @@
 	let { provider = diskProvider, session = collabHost }: { provider?: WorkspaceProvider; session?: EditSession } = $props();
 	// all file access flows through the provider; these thin delegates keep the existing call sites
 	// (and scan's wrapped {root,...} shape) intact
-	const readTextFile = (p: string) => provider.readText(p);
-	const writeTextFile = (p: string, content: string) => provider.writeText(p, content);
-	const writeBinaryFile = (p: string, data: Blob) => provider.writeBinary(p, data);
-	const statFile = (p: string) => provider.stat(p);
-	const fileUrl = (p: string) => provider.fileUrl(p);
-	const createEntry = (p: string, type: 'file' | 'dir', content = '') => provider.create(p, type, content);
-	const deleteEntry = (p: string) => provider.remove(p);
-	const renameEntry = (from: string, to: string) => provider.rename(from, to);
-	const copyEntry = (from: string, to: string) => provider.copy(from, to);
-	const formatLatexDocument = (p: string, text: string) => provider.format!(p, text);
-	const scanTexFiles = async (root: string) => ({ root, files: await provider.scanTexFiles(root) });
+	function readTextFile(p: string) {
+		return provider.readText(p);
+	}
+	function writeTextFile(p: string, content: string) {
+		return provider.writeText(p, content);
+	}
+	function writeBinaryFile(p: string, data: Blob) {
+		return provider.writeBinary(p, data);
+	}
+	function statFile(p: string) {
+		return provider.stat(p);
+	}
+	function fileUrl(p: string) {
+		return provider.fileUrl(p);
+	}
+	function createEntry(p: string, type: 'file' | 'dir', content = '') {
+		return provider.create(p, type, content);
+	}
+	function deleteEntry(p: string) {
+		return provider.remove(p);
+	}
+	function renameEntry(from: string, to: string) {
+		return provider.rename(from, to);
+	}
+	function copyEntry(from: string, to: string) {
+		return provider.copy(from, to);
+	}
+	function formatLatexDocument(p: string, text: string) {
+		return provider.format!(p, text);
+	}
+	async function scanTexFiles(root: string) {
+		return { root, files: await provider.scanTexFiles(root) };
+	}
 	// citations read through the provider too, so guest sessions resolve \cite keys from the shared doc
-	const loadRefs = (root: string) => loadReferences(root, { scan: (r, e) => provider.scanFiles(r, e), read: readTextFile });
+	function loadRefs(root: string) {
+		return loadReferences(root, { scan: (r, e) => provider.scanFiles(r, e), read: readTextFile });
+	}
 	// true for the disk-backed host; false for a read-only guest session. Gates the host-only
 	// lifecycle (folder claim, terminal, main-file/macro scan, on-disk change checks) so this same
 	// view can run over a shared session.
@@ -207,7 +231,9 @@
 	// on entry / file switch / manual refresh so it never re-diffs per keystroke
 	// worker parse + sequencing live in lib/workspace/visualParse.svelte.ts
 	const parser = new VisualParser(() => projectMacros);
-	const tryParseVisual = (text: string) => parser.parse(text, formatOf(kind));
+	function tryParseVisual(text: string) {
+		return parser.parse(text, formatOf(kind));
+	}
 
 	// the open file's buffers and edit handlers live in lib/workspace/documentBuffer.svelte.ts
 	const doc: DocumentBuffer = new DocumentBuffer({
@@ -233,9 +259,15 @@
 		scheduleSave: (path, text) => saver.schedule(path, text)
 	});
 	const sourceHistory = modes.history;
-	const setViewMode = (mode: 'visual' | 'source' | 'diff') => modes.set(mode);
-	const exitDiff = () => modes.exitDiff();
-	const workspaceHistoryStep = (dir: 'undo' | 'redo') => modes.historyStep(dir);
+	function setViewMode(mode: 'visual' | 'source' | 'diff') {
+		return modes.set(mode);
+	}
+	function exitDiff() {
+		return modes.exitDiff();
+	}
+	function workspaceHistoryStep(dir: 'undo' | 'redo') {
+		return modes.historyStep(dir);
+	}
 	// the doc.visualDoc dep re-fires this when an async re-parse lands (the doc swap itself is untracked)
 	$effect(() => {
 		void $editorViewStore;
@@ -250,7 +282,9 @@
 		getLoadedPath: () => doc.path,
 		getWorkingText: () => (hasVisualMode(kind) ? doc.texSource : doc.rawContent)
 	});
-	const captureDiffSnapshot = () => diff.snapshot();
+	function captureDiffSnapshot() {
+		return diff.snapshot();
+	}
 
 	/**
 	 * The refresh buttons confirm they ran.
@@ -260,10 +294,10 @@
 	 * from a dead one. Only the BUTTON paths toast: the same refreshes also run on the watcher, on
 	 * focus and on session events, and a toast for those would be a notification every few seconds.
 	 */
-	const toastAfter = async (title: string, work: () => unknown): Promise<void> => {
+	async function toastAfter(title: string, work: () => unknown): Promise<void> {
 		await work();
 		toaster.success({ title, duration: 1500 });
-	};
+	}
 
 	// Review comments. The log lives in .texpile/comments.jsonl; anchors are re-resolved whenever a
 	// file opens or its text is replaced from outside, never per keystroke - see the controller.
@@ -324,7 +358,9 @@
 	});
 	// a function, not a $derived: `kind` is declared further down and a derived would read it at
 	// init. The same reason DiffMode takes getWorkingText as a callback.
-	const commentText = () => (hasVisualMode(kind) ? doc.texSource : doc.rawContent);
+	function commentText() {
+		return hasVisualMode(kind) ? doc.texSource : doc.rawContent;
+	}
 	$effect(() => {
 		// null for a guest: their workspaceRoot is the sentinel 'session', not a path, and the log
 		// lives on the host's disk. Comments in a shared session need the session protocol to carry
@@ -410,9 +446,15 @@
 		refreshTree: () => refreshTree(),
 		createEntry: (root, name, type) => treeOps.create(root, name, type)
 	});
-	const pickStarter = (s: Starter) => starters.pick(s);
-	const importStarterFiles = (files: ImportedFile[]) => starters.importFiles(files);
-	const newTexFile = () => starters.newTexFile();
+	function pickStarter(s: Starter) {
+		return starters.pick(s);
+	}
+	function importStarterFiles(files: ImportedFile[]) {
+		return starters.importFiles(files);
+	}
+	function newTexFile() {
+		return starters.newTexFile();
+	}
 	// File menu "New": inline create in the tree, pre-named for the chosen type
 	function newFileOfType(ext?: string) {
 		layout.sidebarOpen = true;
@@ -456,10 +498,10 @@
 		modes.restore();
 		diff.restoreLayout();
 
-		const reloadReferences = () => {
+		function reloadReferences() {
 			const r = get(workspaceRoot);
 			if (r) void loadRefs(r);
-		};
+		}
 		const detachListeners = attachWindowListeners({
 			refreshTree: () => void refreshTree(),
 			reloadReferences,
@@ -537,14 +579,14 @@
 	// treeRoot is the root the tree on screen currently reflects; plain, not $state, so recording it
 	// cannot retrigger the effect below.
 	let treeRoot: string | null = null;
-	const refreshTree = async () => {
+	async function refreshTree() {
 		treeRoot = get(workspaceRoot);
 		await refreshTreeState({
 			provider,
 			session,
 			isEditingTree: () => !!fileTreeRef?.isEditing?.()
 		});
-	};
+	}
 
 	// The tree FOLLOWS the root. It used to be rescanned only where a folder was opened through
 	// FolderLifecycle, but the root is also set straight from main's IPC handlers in App.svelte --
@@ -624,14 +666,24 @@
 		setProjectMacros: (macros) => (projectMacros = macros),
 		resetTerminals: () => resetTerminalsForWorkspace()
 	});
-	const openFolderFromMenu = (path?: string) => folder.open(path);
-	const closeWorkspace = () => folder.close();
-	const openTutorial = (root: string) => folder.openTutorial(root);
-	const initProject = (root: string) => folder.initProject(root);
+	function openFolderFromMenu(path?: string) {
+		return folder.open(path);
+	}
+	function closeWorkspace() {
+		return folder.close();
+	}
+	function openTutorial(root: string) {
+		return folder.openTutorial(root);
+	}
+	function initProject(root: string) {
+		return folder.initProject(root);
+	}
 	let tutorialModalOpen = $state(false);
 
 	/** the file tree's star: clicking the current main again clears it */
-	const toggleMainFile = (path: string) => applyMainFile($mainFile && samePath($mainFile, path) ? null : path);
+	function toggleMainFile(path: string) {
+		return applyMainFile($mainFile && samePath($mainFile, path) ? null : path);
+	}
 
 	// persist the new main file, re-gather macros, and re-derive the open visual doc from
 	// doc.texSource so the newly resolved command signatures take effect immediately.
@@ -714,11 +766,21 @@
 	});
 	// dock visibility/height/shrink live in lib/workspace/terminalDockState.svelte.ts
 	let termDock = $state(new TerminalDockState(() => guest));
-	const showTerminal = () => termDock.show();
-	const toggleTerminal = () => termDock.toggle();
-	const toggleTerminalShrink = () => termDock.toggleShrink();
-	const resetTerminalsForWorkspace = () => termDock.resetForWorkspace();
-	const newTerminalFromMenu = () => termDock.newTerminal();
+	function showTerminal() {
+		return termDock.show();
+	}
+	function toggleTerminal() {
+		return termDock.toggle();
+	}
+	function toggleTerminalShrink() {
+		return termDock.toggleShrink();
+	}
+	function resetTerminalsForWorkspace() {
+		return termDock.resetForWorkspace();
+	}
+	function newTerminalFromMenu() {
+		return termDock.newTerminal();
+	}
 
 	let compileCommand = $state(''); // the compile command; {main} expands to the main file's path
 	/**
@@ -756,7 +818,9 @@
 		flushSaves: () => saver.flushAndWait()
 	});
 	// the Compile button doubles as the draft status (live / paused)
-	const runDraftCompile = () => draftCtl.compile();
+	function runDraftCompile() {
+		return draftCtl.compile();
+	}
 	// like the file tree's "Set as main file" (star badge included).
 	// Tri-state: null = unresolved for the current folder; the modal never auto-opens on
 	// null, so it can't flash while initProject is still scanning. Storage is consulted
@@ -769,8 +833,12 @@
 			releaseHeldDraftCompile: () => draftCtl.trigger++
 		})
 	);
-	const resolveMainConfirm = (root: string | null) => mainPrompt.resolve(root);
-	const openMainConfirm = (then?: () => void) => mainPrompt.prompt(then);
+	function resolveMainConfirm(root: string | null) {
+		return mainPrompt.resolve(root);
+	}
+	function openMainConfirm(then?: () => void) {
+		return mainPrompt.prompt(then);
+	}
 	// A main file that IS set answers the question this prompt exists to ask, whoever set it - the
 	// tree, .texpile/config.json, MCP, a starter. Tracking "confirmed" separately let the two drift:
 	// config.json is adopted in its own effect, so on a project whose config names a main it could
@@ -1020,29 +1088,29 @@
 	 */
 	/** Where a typst follow/sync can go: the local task, or - as a guest - the host's streamed
 	 *  preview (the host resolves the position and the relay routes the jump back to only us). */
-	const typstScrollTarget = (): 'local' | 'remote' | null => {
+	function typstScrollTarget(): 'local' | 'remote' | null {
 		if (typstPreviewHost !== null && typstPreviewTask) return 'local';
 		if (guest && collabGuest.typstPreviewOffered) return 'remote';
 		return null;
-	};
+	}
 	/** The manifest-relative path of `file`, for a guest's scroll request. A guest's doc paths are
 	 *  ALREADY manifest-relative (its workspaceRoot is the 'session' sentinel, not a prefix of
 	 *  them - relFromRoot would slice real characters off); only a 'session/'-prefixed jump target
 	 *  needs stripping, and an absolute path is not the session's to ask about. */
-	const guestScrollRel = (file: string): string | null => {
+	function guestScrollRel(file: string): string | null {
 		const norm = file.replace(/\\/g, '/');
 		const root = get(workspaceRoot);
 		if (root && norm.startsWith(root.replace(/\\/g, '/') + '/')) return norm.slice(root.length + 1);
 		return /^([A-Za-z]:|\/)/.test(norm) ? null : norm;
-	};
-	const sendTypstScroll = (file: string, line: number, character: number): void => {
+	}
+	function sendTypstScroll(file: string, line: number, character: number): void {
 		if (typstScrollTarget() === 'remote') {
 			const rel = guestScrollRel(file);
 			if (rel) collabGuest.requestTypstScroll(rel, line, character);
 			return;
 		}
 		if (typstPreviewTask) void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, line, character);
-	};
+	}
 	const sendCaretScroll = trailingDebounce(150, ({ line, character }: { line: number; character: number }) => {
 		if (typstScrollTarget() === null) return;
 		if ($settings.typstPreviewFollow !== true) return;
@@ -1069,7 +1137,9 @@
 	 * accuracy collab presence already lives with.
 	 */
 	/** the tex preamble's length in visual mode; 0 for typst, whose whole file is body. */
-	const visBodyOffset = () => (doc.docMeta ? bodyOffsetOf(doc.docMeta) : 0);
+	function visBodyOffset() {
+		return doc.docMeta ? bodyOffsetOf(doc.docMeta) : 0;
+	}
 	/** the visual caret as a zero-based source line/character, through the orig block map -
 	 *  dialect-agnostic (the stamps carry absolute file offsets once bodyOffset is applied).
 	 *  Never returns column 0: it resolves to the line's first word end instead, or null. */
@@ -1354,7 +1424,9 @@
 		// inverse clicks land in whichever mode the user is in; see syncJumpToFileLine
 		openFileAtLine: syncJumpToFileLine
 	});
-	const syncForwardLine = (line: number) => syncTex.forwardToLine(line);
+	function syncForwardLine(line: number) {
+		return syncTex.forwardToLine(line);
+	}
 
 	/**
 	 * One-shot src -> preview jump for Typst: the counterpart of SyncTeX's forward search, and
@@ -1396,7 +1468,7 @@
 		if (!pos) return;
 		sendTypstScroll(file, pos.line, pos.character);
 	}
-	const syncForward = () => {
+	function syncForward() {
 		if (kind === 'typ') {
 			void syncTypstForward();
 			return;
@@ -1409,7 +1481,7 @@
 			return;
 		}
 		syncTex.forwardFromCursor();
-	};
+	}
 
 	/**
 	 * Line-based variant for the context menu's "Show in preview" and MCP's syncToLine. A line
@@ -1427,24 +1499,31 @@
 		if (typstPreviewTask) void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, l.number - 1, character);
 	}
 	/** per-language routing for every "jump the output to line N" entry point */
-	const syncToLine = (line: number) => (kind === 'typ' ? syncTypstForwardLine(line) : syncForwardLine(line));
-	const onPdfDoubleClick = (page: number, x: number, y: number, selectText?: string) => syncTex.inverseFromClick(page, x, y, selectText);
+	function syncToLine(line: number) {
+		return kind === 'typ' ? syncTypstForwardLine(line) : syncForwardLine(line);
+	}
+	function onPdfDoubleClick(page: number, x: number, y: number, selectText?: string) {
+		return syncTex.inverseFromClick(page, x, y, selectText);
+	}
 
 	// ---- Zotero citations (host-only; see lib/zotero) ----
 	// The open file's dialect must match the main's engine: the imported entries land in the
 	// bibliography the MAIN file declares, so a .typ scratch file open in a LaTeX project has
 	// nowhere sensible to point its citation.
 	// zoteroEnabled gates every entry point (editor context menu, command palette) through this one predicate
-	const canZoteroCite = () =>
-		$settings.zoteroEnabled !== false && !guest && zoteroAvailable() && !!$mainFile && (mainIsTypst ? kind === 'typ' : kind === 'tex');
-	const insertZoteroCitation = () => {
+	function canZoteroCite() {
+		return (
+			$settings.zoteroEnabled !== false && !guest && zoteroAvailable() && !!$mainFile && (mainIsTypst ? kind === 'typ' : kind === 'tex')
+		);
+	}
+	function insertZoteroCitation() {
 		if (!canZoteroCite()) return;
 		void insertCitationFromZotero({
 			kind: kind as 'tex' | 'typ',
 			root: get(workspaceRoot) ?? '',
 			openDoc: () => ({ path: doc.path, text: doc.buffer })
 		});
-	};
+	}
 
 	// compile-command dialog state lives in lib/workspace/compileSettings.svelte.ts
 	let compileSettings = $state(
@@ -1462,15 +1541,19 @@
 	 * shows a real lane. An empty folder skips straight in - there is nothing to pick - and a
 	 * guest has no main file to set (compiling is the host's).
 	 */
-	const openCompileModal = () => {
+	function openCompileModal() {
 		if (hostMode && !get(mainFile) && get(texFiles).length > 0 && !mainPrompt.open) {
 			void openMainConfirm(() => compileSettings.open());
 			return;
 		}
 		compileSettings.open();
-	};
-	const saveCompileCommand = (thenRun: boolean) => compileSettings.save(thenRun);
-	const useDefaultCommand = () => compileSettings.useDefault();
+	}
+	function saveCompileCommand(thenRun: boolean) {
+		return compileSettings.save(thenRun);
+	}
+	function useDefaultCommand() {
+		return compileSettings.useDefault();
+	}
 
 	/**
 	 * Whether Format can serve the open file. LaTeX goes through latexindent (an external tool the
@@ -1486,7 +1569,7 @@
 		if (!doc.path || !canFormatDoc()) return;
 		formatModalOpen = true;
 	}
-	const doRunFormat = () => {
+	function doRunFormat() {
 		formatModalOpen = false;
 		return runFormat({
 			getLoadedPath: () => doc.path,
@@ -1497,11 +1580,12 @@
 			applyFormatted: (text) => doc.replaceSource(text, { dirty: true }),
 			setBusy: (b) => (formatting = b)
 		});
-	};
-	const doInsertInclude = (newFilePath: string) =>
-		typstProject
+	}
+	function doInsertInclude(newFilePath: string) {
+		return typstProject
 			? insertTypstIncludeAtCursor(newFilePath, doc.path)
 			: insertIncludeAtCursor(newFilePath, doc.path, modes.mode === 'visual');
+	}
 
 	// label and bibitem registries live in lib/workspace/docRegistries.svelte.ts
 	const registries = new DocRegistries({
@@ -1578,7 +1662,9 @@
 		});
 	});
 
-	const shareCompileState = () => shareHostCompileState(session, guest);
+	function shareCompileState() {
+		return shareHostCompileState(session, guest);
+	}
 
 	// \includegraphics hover preview: candidate texfile:// URLs (current dir, root, and any
 	// \graphicspath dirs, adding raster extensions when the path has none); the tooltip's img
@@ -1628,7 +1714,9 @@
 	);
 
 	// F12 on an \input{...} target: resolve like LaTeX would (current dir, then root, .tex added)
-	const jumpToInclude = (name: string) => jumpToIncludeTarget(name, doc.path, statFile, guest);
+	function jumpToInclude(name: string) {
+		return jumpToIncludeTarget(name, doc.path, statFile, guest);
+	}
 	// keep the label registry, the embedded bibitem refs, and the cross-mode undo history fresh
 	$effect(() => {
 		void doc.texSource; // dependency: re-arm the debounce on every source change
@@ -1648,7 +1736,9 @@
 		},
 		clearPendingTabClose: () => (pendingTabClose = null)
 	});
-	const confirmLeaveUnsaved = () => unsaved.confirmLeave();
+	function confirmLeaveUnsaved() {
+		return unsaved.confirmLeave();
+	}
 
 	// load the active file whenever it changes. Everything but the store read is untracked, so
 	// this runs exactly once per path change (doc.path updating mid-load must not re-fire it).
@@ -1725,7 +1815,9 @@
 		captureDiffSnapshot: () => void captureDiffSnapshot(),
 		closeOpenFile: () => closeOpenFile()
 	});
-	const loadFile = (path: string) => opener.open(path);
+	function loadFile(path: string) {
+		return opener.open(path);
+	}
 
 	// on-disk change detection + conflict resolution live in lib/workspace/externalChange.svelte.ts
 	const external = new ExternalChangeWatcher({
@@ -1745,8 +1837,12 @@
 		sessionEdit: (path, content) => session.edit(path, content),
 		saveNow: () => doc.save(true) // force: the user chose "keep mine" knowing disk differs
 	});
-	const checkExternalChange = () => external.check();
-	const resolveConflict = (choice: 'reload' | 'keep') => external.resolve(choice);
+	function checkExternalChange() {
+		return external.check();
+	}
+	function resolveConflict(choice: 'reload' | 'keep') {
+		return external.resolve(choice);
+	}
 
 	// debounced autosave + serial write chain live in lib/workspace/savePipeline.svelte.ts
 	const saver = new SavePipeline({
@@ -1766,10 +1862,18 @@
 		raiseConflict: () => void checkExternalChange()
 	});
 
-	const onChange = (node: PMNode) => doc.onVisualChange(node);
-	const editPreambleFrontmatter = (kind: string, inner: string) => doc.editFrontmatter(kind, inner);
-	const onTexInput = (v: string) => doc.onTexInput(v);
-	const onRawInput = (v: string) => doc.onRawInput(v);
+	function onChange(node: PMNode) {
+		return doc.onVisualChange(node);
+	}
+	function editPreambleFrontmatter(kind: string, inner: string) {
+		return doc.editFrontmatter(kind, inner);
+	}
+	function onTexInput(v: string) {
+		return doc.onTexInput(v);
+	}
+	function onRawInput(v: string) {
+		return doc.onRawInput(v);
+	}
 
 	// source control ops live in lib/workspace/scmActions.svelte.ts; the panel is presentational.
 	const scm = new ScmActions({
@@ -1818,7 +1922,9 @@
 	}
 
 	// manual save (Ctrl/Cmd+S or the Save button); autosave handles the rest
-	const save = () => doc.save();
+	function save() {
+		return doc.save();
+	}
 
 	let globalSearchRef = $state<GlobalSearch | null>(null);
 	// Find in Files panel plumbing lives in lib/workspace/editorCommands.ts
@@ -1828,8 +1934,12 @@
 		isSourceMode: () => modes.mode === 'source',
 		focusInput: (seed?: string) => globalSearchRef?.focusInput(seed)
 	};
-	const openGlobalSearch = () => openSearchPanel(searchDeps);
-	const closeGlobalSearch = () => closeSearchPanel(searchDeps);
+	function openGlobalSearch() {
+		return openSearchPanel(searchDeps);
+	}
+	function closeGlobalSearch() {
+		return closeSearchPanel(searchDeps);
+	}
 
 	// the callback surface WorkspaceMain hands down to the topbar / editor / preview / dock
 	const actions = {

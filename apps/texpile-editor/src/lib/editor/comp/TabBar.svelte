@@ -21,7 +21,9 @@
 	};
 	let { tabs, activePath, dirty, previewPath = null, onActivate, onClose, onKeep }: Props = $props();
 
-	const isActive = (t: string) => !!activePath && samePath(t, activePath);
+	function isActive(t: string) {
+		return !!activePath && samePath(t, activePath);
+	}
 
 	/** a tab narrower than this is unreadable, so it goes in the dropdown instead */
 	const MIN_TAB_PX = 116;

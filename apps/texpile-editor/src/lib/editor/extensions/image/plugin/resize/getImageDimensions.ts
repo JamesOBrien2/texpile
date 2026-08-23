@@ -1,4 +1,4 @@
-export const getImageDimensions = async (src: string) => {
+export async function getImageDimensions(src: string) {
 	const image = new Image();
 	const completed: boolean = await new Promise((res) => {
 		image.onload = () => res(true);
@@ -6,4 +6,4 @@ export const getImageDimensions = async (src: string) => {
 		image.src = src;
 	});
 	return { width: image.naturalWidth, height: image.naturalHeight, completed };
-};
+}

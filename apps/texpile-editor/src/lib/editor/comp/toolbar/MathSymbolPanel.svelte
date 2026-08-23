@@ -56,15 +56,15 @@
 	// context it lands in) and no Zag popover (its setFinalFocus returns focus to the trigger, which
 	// blurred the mathfield after every insert - the bug this whole panel came from).
 	$effect(() => {
-		const onDown = (e: PointerEvent) => {
+		function onDown(e: PointerEvent) {
 			const t = e.target as Node | null;
 			if (t && panelEl?.contains(t)) return;
 			if (t instanceof Element && t.closest('[data-math-toolbar]')) return; // the trigger toggles itself
 			onClose();
-		};
-		const onKey = (e: KeyboardEvent) => {
+		}
+		function onKey(e: KeyboardEvent) {
 			if (e.key === 'Escape') onClose();
-		};
+		}
 		window.addEventListener('pointerdown', onDown, true);
 		window.addEventListener('keydown', onKey, true);
 		return () => {

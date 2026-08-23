@@ -177,49 +177,65 @@ export function foldLog(events: CommentEvent[]): CommentThread[] {
 	return [...byId.values()].filter((t) => !deleted.has(t.id));
 }
 
-export const openEvent = (o: { id: string; file: string; by: string; body: string; anchor: CommentAnchor; at: string }): CommentEvent => ({
-	v: LOG_VERSION,
-	t: 'open',
-	...o
-});
+export function openEvent(o: { id: string; file: string; by: string; body: string; anchor: CommentAnchor; at: string }): CommentEvent {
+	return {
+		v: LOG_VERSION,
+		t: 'open',
+		...o
+	};
+}
 
-export const replyEvent = (o: { id: string; thread: string; by: string; body: string; at: string }): CommentEvent => ({
-	v: LOG_VERSION,
-	t: 'reply',
-	...o
-});
+export function replyEvent(o: { id: string; thread: string; by: string; body: string; at: string }): CommentEvent {
+	return {
+		v: LOG_VERSION,
+		t: 'reply',
+		...o
+	};
+}
 
-export const resolveEvent = (o: { thread: string; by: string; resolved: boolean; at: string }): CommentEvent => ({
-	v: LOG_VERSION,
-	t: 'resolve',
-	...o
-});
+export function resolveEvent(o: { thread: string; by: string; resolved: boolean; at: string }): CommentEvent {
+	return {
+		v: LOG_VERSION,
+		t: 'resolve',
+		...o
+	};
+}
 
-export const deleteEvent = (o: { thread: string; by: string; at: string }): CommentEvent => ({ v: LOG_VERSION, t: 'delete', ...o });
+export function deleteEvent(o: { thread: string; by: string; at: string }): CommentEvent {
+	return { v: LOG_VERSION, t: 'delete', ...o };
+}
 
-export const placeEvent = (o: { thread: string; by: string; at: string; detached?: boolean; hidden?: boolean }): CommentEvent => ({
-	v: LOG_VERSION,
-	t: 'place',
-	...o
-});
+export function placeEvent(o: { thread: string; by: string; at: string; detached?: boolean; hidden?: boolean }): CommentEvent {
+	return {
+		v: LOG_VERSION,
+		t: 'place',
+		...o
+	};
+}
 
-export const editEvent = (o: { message: string; body: string; by: string; at: string }): CommentEvent => ({
-	v: LOG_VERSION,
-	t: 'edit',
-	...o
-});
+export function editEvent(o: { message: string; body: string; by: string; at: string }): CommentEvent {
+	return {
+		v: LOG_VERSION,
+		t: 'edit',
+		...o
+	};
+}
 
-export const deleteMessageEvent = (o: { message: string; by: string; at: string }): CommentEvent => ({
-	v: LOG_VERSION,
-	t: 'delete-message',
-	...o
-});
+export function deleteMessageEvent(o: { message: string; by: string; at: string }): CommentEvent {
+	return {
+		v: LOG_VERSION,
+		t: 'delete-message',
+		...o
+	};
+}
 
-export const moveEvent = (o: { from: string; to: string; by: string; at: string }): CommentEvent => ({
-	v: LOG_VERSION,
-	t: 'move',
-	...o
-});
+export function moveEvent(o: { from: string; to: string; by: string; at: string }): CommentEvent {
+	return {
+		v: LOG_VERSION,
+		t: 'move',
+		...o
+	};
+}
 
 function isEvent(x: unknown): x is CommentEvent {
 	if (typeof x !== 'object' || x === null) return false;

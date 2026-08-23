@@ -63,4 +63,3 @@ export class IEEEAuthorView extends RawLatexView {
 		return ok;
 	}
 }
-

@@ -53,13 +53,15 @@ export function referenceCompletionSource(ctx: CompletionContext): CompletionRes
 	const braceArg = /\\([a-zA-Z]+)\*?(?:\[[^\]]*\])?\{[^{}]*$/.exec(ref.text);
 	if (braceArg && NOT_REFS.has(braceArg[1])) return null;
 	const intel = get(projectIntelStore);
-	const basename = (p: string) => p.replace(/\\/g, '/').split('/').pop() ?? p;
-	const detailOf = (name: string, from?: string): string | undefined => {
+	function basename(p: string) {
+		return p.replace(/\\/g, '/').split('/').pop() ?? p;
+	}
+	function detailOf(name: string, from?: string): string | undefined {
 		const num = intel.auxNumbers[name];
 		const page = intel.auxPages[name];
 		const resolved = num ? `${num}${page ? `, p.${page}` : ''}` : '';
 		return [resolved, from].filter(Boolean).join(' · ') || undefined;
-	};
+	}
 	const seen = new Set<string>();
 	const options: Completion[] = [];
 	for (const l of allLabels(ctx.state.doc.toString())) {

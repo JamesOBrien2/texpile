@@ -71,8 +71,12 @@
 	const regularFields = $derived(currentFields.filter((f) => f.name !== 'key'));
 	const keyField = $derived(currentFields.find((f) => f.name === 'key'));
 
-	const generateCitationKey = () => generateLabel('citation');
-	const isKeyUnique = (k: string) => checkKeyUnique(k, refs, originalKey ?? undefined);
+	function generateCitationKey() {
+		return generateLabel('citation');
+	}
+	function isKeyUnique(k: string) {
+		return checkKeyUnique(k, refs, originalKey ?? undefined);
+	}
 
 	$effect(() => {
 		if (!isEditing && !currentReference.key && currentReference.entrytype) currentReference.key = generateCitationKey();

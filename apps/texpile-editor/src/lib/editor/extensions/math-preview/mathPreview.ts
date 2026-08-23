@@ -168,7 +168,7 @@ function createPreview(view: EditorView): TooltipView {
 
 	const controls = dom.appendChild(document.createElement('div'));
 	controls.className = 'cm-math-preview-controls';
-	const button = (icon: string, title: string, onClick: () => void) => {
+	function button(icon: string, title: string, onClick: () => void) {
 		const b = controls.appendChild(document.createElement('button'));
 		b.type = 'button';
 		b.innerHTML = iconSvg(icon);
@@ -179,7 +179,7 @@ function createPreview(view: EditorView): TooltipView {
 			e.preventDefault();
 			onClick();
 		};
-	};
+	}
 	button(ICON_X, 'Hide (Esc). Shows again next time the cursor enters math', () => view.dispatch({ effects: previewDismissed.of(null) }));
 	button(ICON_EYE_OFF, 'Turn off. Re-enable in Preferences', () => {
 		updateSettings({ mathPreview: false });

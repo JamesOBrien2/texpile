@@ -14,7 +14,9 @@ export function setEditorFileAccess(
 }
 
 /** bytes URL for a workspace path; '' outside a workspace (img just stays broken). */
-export const editorFileUrl = (path: string): string => resolveUrl?.(path) ?? '';
+export function editorFileUrl(path: string): string {
+	return resolveUrl?.(path) ?? '';
+}
 
 export async function editorWriteBinary(path: string, data: Blob): Promise<void> {
 	if (!writeBinary) throw new Error('No workspace to write to');

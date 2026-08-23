@@ -31,7 +31,9 @@ const COLLECT: Record<RefDialect, (src: string) => FileRef[]> = {
 	md: collectMarkdownFileRefs
 };
 
-const stripExt = (p: string) => p.replace(/\.[^./\\]+$/, '');
+function stripExt(p: string) {
+	return p.replace(/\.[^./\\]+$/, '');
+}
 
 /** A written reference carries a prefix that is addressing, not path: `./` everywhere, and in
  *  typst a leading `/` meaning "from the project root". Both survive a rewrite untouched. */

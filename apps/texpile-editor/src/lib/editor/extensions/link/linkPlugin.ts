@@ -222,7 +222,7 @@ export function createLinkPlugin(opts: LinkPluginOptions = {}) {
 				tooltipVisible: false
 			};
 
-			const updateTooltip = () => {
+			function updateTooltip() {
 				const pluginState = LINK_PLUGIN_KEY.getState(editorView.state);
 				if (!pluginState) return;
 
@@ -279,7 +279,7 @@ export function createLinkPlugin(opts: LinkPluginOptions = {}) {
 					},
 					opts.onOpen
 				);
-			};
+			}
 
 			return {
 				update(_view) {

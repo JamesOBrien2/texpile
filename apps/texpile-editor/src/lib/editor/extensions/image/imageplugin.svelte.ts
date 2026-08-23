@@ -16,7 +16,9 @@ import { joinPath, isRemoteSrc } from '$lib/workspace/fileSystem';
 import { editorFileUrl, editorWriteBinary } from '$lib/editor/fileAccess';
 import imageNotFoundPng from '$lib/assets/compile/image_not_found_placeholder.png';
 
-export const defaultDeleteSrc = () => Promise.resolve();
+export function defaultDeleteSrc() {
+	return Promise.resolve();
+}
 
 export const defaultExtraAttributes = {
 	width: null,
@@ -24,12 +26,12 @@ export const defaultExtraAttributes = {
 	maxWidth: null
 };
 
-export const defaultCreateOverlay = () => {
+export function defaultCreateOverlay() {
 	const container = document.createElement('div');
 	container.className = 'image-overlay-container absolute inset-0 pointer-events-none';
 	container.setAttribute('contenteditable', 'false');
 	return container;
-};
+}
 
 // stashed on the overlay element so update calls can find the mounted component's props
 // without a separate WeakMap registry
@@ -37,7 +39,7 @@ type OverlayHost = {
 	__svelteComponentProps?: { node: PMNode; view: EditorView; getPos: () => number | undefined };
 } & HTMLElement;
 
-export const defaultUpdateOverlay = (overlay: Node, getPos: () => number | undefined, view: EditorView, node: PMNode) => {
+export function defaultUpdateOverlay(overlay: Node, getPos: () => number | undefined, view: EditorView, node: PMNode) {
 	if (overlay instanceof HTMLElement) {
 		const overlayHost = overlay as OverlayHost;
 		const existingProps = overlayHost.__svelteComponentProps;
@@ -61,67 +63,71 @@ export const defaultUpdateOverlay = (overlay: Node, getPos: () => number | undef
 			overlayHost.__svelteComponentProps = componentProps;
 		}
 	}
-};
+}
 
-export const defaultResizeCallback = (el: Element, updateCallback: () => void) => {
+export function defaultResizeCallback(el: Element, updateCallback: () => void) {
 	const observer = new ResizeObserver(() => updateCallback());
 	observer.observe(el);
 	return () => {
 		observer.unobserve(el);
 	};
-};
+}
 
-export const defaultCreateDecorations = (state: EditorState) => imagePluginKey.getState(state) || DecorationSet.empty;
+export function defaultCreateDecorations(state: EditorState) {
+	return imagePluginKey.getState(state) || DecorationSet.empty;
+}
 
-const defaultFindPlaceholder = (state: EditorState, id: object) => {
+function defaultFindPlaceholder(state: EditorState, id: object) {
 	const decos = imagePluginKey.getState(state);
 	const found = decos?.find(undefined, undefined, (spec) => spec.id === id);
 	return found?.length ? found[0].from : undefined;
-};
+}
 
-const defaultCreateState = () => ({
-	init() {
-		return DecorationSet.empty;
-	},
-	apply(tr: Transaction, value: DecorationSet, oldState: EditorState): DecorationSet {
-		const diffStart = tr.doc.content.findDiffStart(oldState.doc.content);
-		const diffEnd = oldState.doc.content.findDiffEnd(tr.doc.content);
-		const map = diffEnd && diffStart ? new StepMap([diffStart, diffEnd.a - diffStart, diffEnd.b - diffStart]) : new StepMap([0, 0, 0]);
+function defaultCreateState() {
+	return {
+		init() {
+			return DecorationSet.empty;
+		},
+		apply(tr: Transaction, value: DecorationSet, oldState: EditorState): DecorationSet {
+			const diffStart = tr.doc.content.findDiffStart(oldState.doc.content);
+			const diffEnd = oldState.doc.content.findDiffEnd(tr.doc.content);
+			const map = diffEnd && diffStart ? new StepMap([diffStart, diffEnd.a - diffStart, diffEnd.b - diffStart]) : new StepMap([0, 0, 0]);
 
-		const pmMapping = new Mapping([map]);
-		let set = value.map(pmMapping, tr.doc);
+			const pmMapping = new Mapping([map]);
+			let set = value.map(pmMapping, tr.doc);
 
-		const action: ImagePluginAction = tr.getMeta(imagePluginKey);
-		if (action?.type === 'add') {
-			const widget = document.createElement('placeholder');
-			const deco = Decoration.widget(action.pos, widget, {
-				id: action.id
-			});
-			set = set.add(tr.doc, [deco]);
-		} else if (action?.type === 'remove') {
-			set = set.remove(set.find(undefined, undefined, (spec) => spec.id === action.id));
+			const action: ImagePluginAction = tr.getMeta(imagePluginKey);
+			if (action?.type === 'add') {
+				const widget = document.createElement('placeholder');
+				const deco = Decoration.widget(action.pos, widget, {
+					id: action.id
+				});
+				set = set.add(tr.doc, [deco]);
+			} else if (action?.type === 'remove') {
+				set = set.remove(set.find(undefined, undefined, (spec) => spec.id === action.id));
+			}
+			return set;
 		}
-		return set;
-	}
-});
+	};
+}
 
 // templates only get example content, never user images
 const TEMPLATE_PLACEHOLDER_IMAGE = 'public/texpile/example_images/example_gradient_blue.png';
 
 /** image settings for template editor mode: static placeholder, no uploads. */
-export const createTemplateEditorSettings = (): ImagePluginSettings => {
-	const uploadFile = async (_file: File): Promise<string> => {
+export function createTemplateEditorSettings(): ImagePluginSettings {
+	async function uploadFile(_file: File): Promise<string> {
 		return TEMPLATE_PLACEHOLDER_IMAGE;
-	};
+	}
 
-	const deleteSrc = async (_filePath: string) => {
+	async function deleteSrc(_filePath: string) {
 		return;
-	};
+	}
 
 	// offline build: no remote storage, use the bundled placeholder
-	const downloadImage = async (_src: string): Promise<string> => {
+	async function downloadImage(_src: string): Promise<string> {
 		return imageNotFoundPng;
-	};
+	}
 
 	return {
 		uploadFile,
@@ -144,11 +150,11 @@ export const createTemplateEditorSettings = (): ImagePluginSettings => {
 		findPlaceholder: defaultFindPlaceholder,
 		downloadImage
 	} as ImagePluginSettings;
-};
+}
 
-export const createDefaultSettings = (firebaseUid: string): ImagePluginSettings => {
-	const defaultUploadFile = (file: File): Promise<string> =>
-		new Promise((resolve, reject) => {
+export function createDefaultSettings(firebaseUid: string): ImagePluginSettings {
+	function defaultUploadFile(file: File): Promise<string> {
+		return new Promise((resolve, reject) => {
 			console.log('Uploading image:', file.name, 'size:', file.size, 'type:', file.type);
 			if (file.type !== 'image/png' && file.type !== 'image/jpeg') {
 				const t: ToastSettings = {
@@ -185,12 +191,13 @@ export const createDefaultSettings = (firebaseUid: string): ImagePluginSettings 
 					reject(error);
 				});
 		});
+	}
 
-	const deleteSrc = async (_filePath: string) => {
+	async function deleteSrc(_filePath: string) {
 		return;
-	};
+	}
 
-	const downloadImage = async (src: string): Promise<string> => {
+	async function downloadImage(src: string): Promise<string> {
 		console.log('Downloading image from src:', src);
 		// offline build: images resolve to local paths/URLs via getStorageUrl below
 
@@ -199,7 +206,7 @@ export const createDefaultSettings = (firebaseUid: string): ImagePluginSettings 
 
 		const filePath = src;
 
-		const attemptDownload = (attempt: number): Promise<string> => {
+		function attemptDownload(attempt: number): Promise<string> {
 			return getStorageUrl(filePath)
 				.then((url) => url)
 				.catch(async (error) => {
@@ -218,10 +225,10 @@ export const createDefaultSettings = (firebaseUid: string): ImagePluginSettings 
 						return imageNotFoundPng;
 					}
 				});
-		};
+		}
 
 		return attemptDownload(0);
-	};
+	}
 
 	return {
 		uploadFile: defaultUploadFile,
@@ -244,7 +251,7 @@ export const createDefaultSettings = (firebaseUid: string): ImagePluginSettings 
 		findPlaceholder: defaultFindPlaceholder,
 		downloadImage
 	} as ImagePluginSettings;
-};
+}
 
 const LOCAL_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
@@ -290,7 +297,7 @@ const REMOTE_IMAGE_BLOCKED =
 	);
 
 /** image settings for the local folder editor: images land in images/ next to the document. */
-export const createLocalImageSettings = (imageDir: string): ImagePluginSettings => {
+export function createLocalImageSettings(imageDir: string): ImagePluginSettings {
 	const base = createDefaultSettings('local');
 	return {
 		...base,
@@ -303,4 +310,4 @@ export const createLocalImageSettings = (imageDir: string): ImagePluginSettings 
 		},
 		deleteSrc: async () => {}
 	};
-};
+}

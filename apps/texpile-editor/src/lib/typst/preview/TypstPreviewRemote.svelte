@@ -145,7 +145,7 @@
 	$effect(() => {
 		const win = frameBox?.ownerDocument.defaultView;
 		if (!win) return;
-		const onMessage = (e: MessageEvent) => {
+		function onMessage(e: MessageEvent) {
 			const d = e.data;
 			if (!d || typeof d !== 'object') return;
 			if (d.channel === CHANNEL) {
@@ -162,12 +162,12 @@
 				stream = new PreviewStream();
 				if (attachTimer) clearTimeout(attachTimer);
 				const myConn = conn;
-				const go = () => {
+				function go() {
 					attachTimer = null;
 					if (conn !== myConn) return; // superseded while waiting
 					connOpenedAt = Date.now();
 					sendUp('open');
-				};
+				}
 				const delay = attachDelay();
 				if (delay > 0) attachTimer = setTimeout(go, delay);
 				else go();
@@ -184,7 +184,7 @@
 				sendUp('close');
 				stream = null;
 			}
-		};
+		}
 		win.addEventListener('message', onMessage);
 		return () => {
 			win.removeEventListener('message', onMessage);

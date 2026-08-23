@@ -143,7 +143,9 @@
 	const visible = $derived(titleBarLayout.visibleMenus);
 	const overflowing = $derived(visible < menuCount);
 	/** does menu `i` belong to the pass currently rendering? */
-	const showAt = (i: number, overflow: boolean) => (overflow ? i >= visible : i < visible);
+	function showAt(i: number, overflow: boolean) {
+		return overflow ? i >= visible : i < visible;
+	}
 
 	function viewSelect(value: string) {
 		if (value === 'zoom-in') onZoomIn?.();

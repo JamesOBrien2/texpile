@@ -17,10 +17,10 @@ export async function locateForward(
 	orig: string,
 	listItem = false
 ): Promise<Cal | CalBail> {
-	const bail = (why: string, detail?: unknown): CalBail => {
+	function bail(why: string, detail?: unknown): CalBail {
 		ctx.emit('locate-bail', { why, ...(typeof detail === 'object' ? detail : { detail }) });
 		return { bail: why };
-	};
+	}
 	const paper = ctx.paper();
 	const sx: any = await ctx.synctex({ action: 'view', pdf: ctx.pdfPath(), tex: file, line, column: 0 });
 	const boxes: any[] = (sx && sx.boxes) || [];
@@ -64,7 +64,9 @@ export async function locateForward(
 	}
 	const colL = colStart - G,
 		colR = colStart + W + G;
-	const inCol = (x: number) => x >= colL && x <= colR;
+	function inCol(x: number) {
+		return x >= colL && x <= colR;
+	}
 	// raw column baselines with glyph counts. A visual TEXT LINE is a cluster of these:
 	// math sub/superscripts and fraction bars sit on nearby baselines with few glyphs.
 	const yCount = new Map<number, number>();
@@ -127,7 +129,7 @@ export async function locateForward(
 	// use N (the daemon's exact line count) to DEFINE the band: snap the synctex
 	// baselines to the column grid, then take exactly N contiguous baselines covering
 	// them. Exact, instead of heuristic snapping that grabbed neighbouring paragraphs.
-	const idxOf = (y: number) => {
+	function idxOf(y: number) {
 		let bi = -1,
 			bd = 1e9;
 		for (let i = 0; i < colBase.length; i++) {
@@ -138,7 +140,7 @@ export async function locateForward(
 			}
 		}
 		return bd <= gap * 0.5 ? bi : -1;
-	};
+	}
 	const idxs = bys.map(idxOf).filter((i) => i >= 0);
 	if (!idxs.length) return bail('anchor-off-grid');
 	let lo = Math.min(...idxs),

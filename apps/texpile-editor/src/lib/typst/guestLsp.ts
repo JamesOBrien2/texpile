@@ -125,11 +125,11 @@ export function diagnosticsNotificationForGuest(absPath: string, diagnostics: un
  * because a guest whose completion promise never resolves has an editor that appears to hang.
  */
 export async function serveGuestLspRequest(payload: LspRequest, ctx: GuestLspContext): Promise<LspResult> {
-	const fail = (error: string): LspResult => {
+	function fail(error: string): LspResult {
 		// the guest sees only an absent popup, so the reason has to land somewhere
 		console.warn('[guest-lsp] cannot answer', { method: payload.method, error });
 		return { kind: 'lsp-result', reqId: payload.reqId, ok: false, error };
-	};
+	}
 
 	if (!ALLOWED.has(payload.method)) return fail(`unsupported method: ${payload.method}`);
 

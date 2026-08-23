@@ -28,7 +28,9 @@ import { typstFold, typstFoldSections } from './typstFold';
  * editor at creation time (see SourceEditor), and what arrives with the parser is only what needs
  * the parser - the ranges.
  */
-const typstFolding = (): Extension => [typstFoldSections, keymap.of(foldKeymap)];
+function typstFolding(): Extension {
+	return [typstFoldSections, keymap.of(foldKeymap)];
+}
 
 // Typst's comment delimiters. `line` is what Mod-/ (toggleComment) actually uses: without it the
 // command falls back to wrapping every line in /* */, which reads as "comment is broken" - .tex

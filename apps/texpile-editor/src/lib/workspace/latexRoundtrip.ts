@@ -116,7 +116,9 @@ export function parseLatexFile(latex: string, projectMacros = '', onPhase?: (pha
 
 /** file offset where the body (what orig.start counts from) begins: after the preamble for a
  *  real document, 0 for a fragment whose "preamble" is synthesized and not in the file. */
-export const bodyOffsetOf = (p: Pick<ParsedLatexFile, 'preamble' | 'hadDocumentEnv'>): number => (p.hadDocumentEnv ? p.preamble.length : 0);
+export function bodyOffsetOf(p: Pick<ParsedLatexFile, 'preamble' | 'hadDocumentEnv'>): number {
+	return p.hadDocumentEnv ? p.preamble.length : 0;
+}
 
 /**
  * Serializes back to .tex, preserving the preamble and regenerating only the body.

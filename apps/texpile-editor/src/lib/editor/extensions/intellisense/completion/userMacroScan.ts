@@ -25,11 +25,11 @@ export function extractUserMacros(text: string): UserMacroDef[] {
 	if (text.length > MAX_SCAN_LENGTH) return [];
 	const seen = new Set<string>();
 	const out: UserMacroDef[] = [];
-	const add = (name: string, signature: string) => {
+	function add(name: string, signature: string) {
 		if (seen.has(name)) return;
 		seen.add(name);
 		out.push({ name, signature });
-	};
+	}
 	try {
 		const ast = parseLatex(text, { macros: MACRO_SIGNATURES, environments: ENV_SIGNATURES });
 		for (const m of listNewcommands(ast)) add(m.name, m.signature);

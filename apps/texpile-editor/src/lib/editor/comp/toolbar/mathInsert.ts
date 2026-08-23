@@ -46,9 +46,9 @@ export function insertSymbol(latex: string): void {
 	// where any listener can veto it - and insert() reports true either way, so watching the event
 	// is the only way to tell a refusal from a success.
 	let vetoed = false;
-	const watch = (e: Event) => {
+	function watch(e: Event) {
 		if (e.defaultPrevented) vetoed = true;
-	};
+	}
 
 	try {
 		mf.addEventListener('beforeinput', watch);

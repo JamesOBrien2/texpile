@@ -43,12 +43,12 @@ export function createSessionTransport(port: SessionLspPort, timeoutMs = 8000): 
 	// nobody which feature just went quiet
 	const pending = new Map<number | string, { timer: ReturnType<typeof setTimeout>; method: string }>();
 
-	const emit = (msg: unknown) => {
+	function emit(msg: unknown) {
 		const json = JSON.stringify(msg);
 		for (const h of handlers) h(json);
-	};
+	}
 
-	const settle = (id: number | string, body: Record<string, unknown>) => {
+	function settle(id: number | string, body: Record<string, unknown>) {
 		// a reply for a request we are no longer waiting on is a late duplicate (it already timed
 		// out); dropping it avoids answering an id the client has since reused
 		const entry = pending.get(id);
@@ -64,7 +64,7 @@ export function createSessionTransport(port: SessionLspPort, timeoutMs = 8000): 
 			console.info('[guest-lsp] <-', entry.method, id, `${count} item(s)`);
 		}
 		emit({ jsonrpc: '2.0', id, ...body });
-	};
+	}
 
 	const unsubscribe = port.subscribe((payload) => {
 		if (payload.kind === 'lsp-notify') {

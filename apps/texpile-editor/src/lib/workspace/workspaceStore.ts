@@ -27,7 +27,9 @@ export const isDirty = writable<boolean>(false);
 export const recentFolders = derived(users, (u) => u.recentFolders);
 export { addRecentFolder } from '$lib/storage/users';
 
-const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '');
+function norm(p: string) {
+	return p.replace(/\\/g, '/').replace(/\/+$/, '');
+}
 /** path of abs relative to root (forward slashes), or abs unchanged if not under root. */
 function relInRoot(root: string, abs: string): string {
 	const r = norm(root) + '/';

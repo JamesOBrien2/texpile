@@ -8,24 +8,30 @@ import type { BlockInsertItem } from '$lib/editor/extensions/blockInsertItems';
 import { generateLabel } from '$lib/editor/utils/label';
 import { m } from '$lib/paraglide/messages';
 
-const listItem = (schema: Schema, kind: 'bullet' | 'ordered') =>
-	schema.nodes.list.create(
+function listItem(schema: Schema, kind: 'bullet' | 'ordered') {
+	return schema.nodes.list.create(
 		{ kind, order: kind === 'ordered' ? 1 : null, checked: null, collapsed: false },
 		schema.nodes.paragraph.create()
 	);
+}
 
 /** rows x cols table; with `header`, the first row serializes as table.header (needs a body row
  * under it). numbered wraps it in a table_wrapper (#figure), which is what typst numbers; the
  * caption starts EMPTY on purpose - typst captions are optional, so no placeholder text that
  * would publish as written (the caption slot shows a click-to-edit hint instead). */
 export function typTableNode(schema: Schema, rows = 3, cols = 2, numbered = false, header = true): PMNode {
-	const p = () => schema.nodes.paragraph.createAndFill()!;
-	const cell = (type: 'table_header' | 'table_cell') => schema.nodes[type].createAndFill(null, p())!;
-	const row = (type: 'table_header' | 'table_cell') =>
-		schema.nodes.table_row.create(
+	function p() {
+		return schema.nodes.paragraph.createAndFill()!;
+	}
+	function cell(type: 'table_header' | 'table_cell') {
+		return schema.nodes[type].createAndFill(null, p())!;
+	}
+	function row(type: 'table_header' | 'table_cell') {
+		return schema.nodes.table_row.create(
 			null,
 			Array.from({ length: Math.max(1, cols) }, () => cell(type))
 		);
+	}
 	const withHeader = header && rows >= 2;
 	const rowNodes = Array.from({ length: Math.max(1, rows) }, (_, r) => row(withHeader && r === 0 ? 'table_header' : 'table_cell'));
 	const table = schema.nodes.table.create(null, rowNodes);

@@ -26,5 +26,9 @@ async function run(bytes: Uint8Array, stream: CompressionStream | DecompressionS
 	return out;
 }
 
-export const gzip = (bytes: Uint8Array): Promise<Uint8Array> => run(bytes, new CompressionStream('gzip'));
-export const gunzip = (bytes: Uint8Array): Promise<Uint8Array> => run(bytes, new DecompressionStream('gzip'));
+export function gzip(bytes: Uint8Array): Promise<Uint8Array> {
+	return run(bytes, new CompressionStream('gzip'));
+}
+export function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
+	return run(bytes, new DecompressionStream('gzip'));
+}

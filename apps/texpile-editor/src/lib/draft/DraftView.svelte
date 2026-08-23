@@ -61,9 +61,13 @@
 	// compile), so cache parsed fonts by FILE PATH and map ids per record-set
 	const fontByFile = new Map<string, { ot?: any; t1?: T1Font } | null>();
 	// Type1 fonts are cached per (pfb, enc) pair: the same pfb can be reencoded differently
-	const t1Key = (r: any) => r.t1.pfb + '|' + (r.t1.enc || '');
+	function t1Key(r: any) {
+		return r.t1.pfb + '|' + (r.t1.enc || '');
+	}
 	// a .ttc collection holds several faces under one path: cache per (file, face)
-	const otKey = (r: any) => (r.sub ? `${r.file}#${r.sub}` : r.file);
+	function otKey(r: any) {
+		return r.sub ? `${r.file}#${r.sub}` : r.file;
+	}
 	const prevRecords = new Map<number, string>();
 	const parsedPages = new Map<number, any[]>();
 	const patchedPages = new Set<number>();
@@ -305,17 +309,21 @@
 	}
 	// a right-to-left page's records are in logical order while the PDF is in visual order, so
 	// nothing on it may be painted or spliced from records -- it waits for the exact-PDF raster
-	const rtlPage = (n: number) => pageIsRtl(pages[n - 1]?.unc);
+	function rtlPage(n: number) {
+		return pageIsRtl(pages[n - 1]?.unc);
+	}
 
 	// The body's bottom in record space: the shipout box baseline (ht) IS the footer line's
 	// baseline, \footskip above it is the last body line. Capacity checks measure against
 	// this; everything below it (the footer) is bottom-anchored and no patch may shift,
 	// clip, or move it.
-	const colBottomOf = (p: number) => {
+	function colBottomOf(p: number) {
 		const m = pages[p - 1] as any;
 		return m?.ht ? m.ht - paper.fs : m?.h || 1e9;
-	};
-	const contentFloor = (p: number) => colBottomOf(p) + 2;
+	}
+	function contentFloor(p: number) {
+		return colBottomOf(p) + 2;
+	}
 
 	// (patch-time image records draw as placeholders: which FILE a daemon image box shows
 	// was a JS dimension-match guess that could swap same-sized figures -- deleted. The
@@ -371,7 +379,9 @@
 	const WINDOW_PAD = 2;
 	let winLo = 1;
 	let winHi = 3;
-	const inWindow = (n: number) => n >= winLo && n <= winHi;
+	function inWindow(n: number) {
+		return n >= winLo && n <= winHi;
+	}
 	let windowTimer: ReturnType<typeof setTimeout> | null = null;
 	function updateWindow() {
 		if (!scroller || !pages.length) return;
@@ -685,7 +695,7 @@
 		const t0 = performance.now();
 		// abandon -> save (so the recompile sees the buffer) + advance the editor's baseline,
 		// then full-recompile
-		const recompile = async (stage: string, detail?: unknown) => {
+		async function recompile(stage: string, detail?: unknown) {
 			// a TRANSIENT (auto-repaired mid-typing) edit may only patch or hold, never compile:
 			// its source is a half-typed state not worth a full pass; the balanced keystroke
 			// that follows re-evaluates normally
@@ -699,7 +709,7 @@
 			// never an engine reload (that only happens on a preamble change)
 			status = m.draft_status_recompiling({ reason: whyPhrase(stage) });
 			compile('abandon:' + stage);
-		};
+		}
 		try {
 			ev('patch-start', {
 				file: req.file,
@@ -1213,7 +1223,9 @@
 	});
 
 	// ---- zoom / fit ----
-	const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+	function clampZoom(z: number) {
+		return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+	}
 	function fitToWidth() {
 		if (!containerW || !paper.w) return;
 		zoom = clampZoom((containerW - PAGE_PAD * 2) / (paper.w * PT2PX));
@@ -1222,9 +1234,15 @@
 		fitMode = false;
 		zoom = clampZoom(z);
 	}
-	const zoomIn = () => setZoom(zoom * 1.2);
-	const zoomOut = () => setZoom(zoom / 1.2);
-	const actualSize = () => setZoom(1);
+	function zoomIn() {
+		return setZoom(zoom * 1.2);
+	}
+	function zoomOut() {
+		return setZoom(zoom / 1.2);
+	}
+	function actualSize() {
+		return setZoom(1);
+	}
 	function fitWidthBtn() {
 		fitMode = true;
 		fitToWidth();
@@ -1272,11 +1290,11 @@
 	$effect(() => {
 		const el = scroller;
 		if (!el) return;
-		const onWheel = (e: WheelEvent) => {
+		function onWheel(e: WheelEvent) {
 			if (!(e.ctrlKey || e.metaKey)) return;
 			e.preventDefault();
 			untrack(() => setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
-		};
+		}
 		el.addEventListener('wheel', onWheel, { passive: false });
 		return () => el.removeEventListener('wheel', onWheel);
 	});
@@ -1334,7 +1352,7 @@
 				zoomed = true;
 			}
 		}
-		const center = () => {
+		function center() {
 			const cv = canvasEls[pageNo - 1];
 			if (!cv || !scroller) return;
 			const S = dispScale;
@@ -1350,7 +1368,7 @@
 			// paragraph doesn't re-issue a smooth scroll every keystroke
 			if (Math.abs(toTop - scroller.scrollTop) > 4 || Math.abs(toLeft - scroller.scrollLeft) > 4)
 				scroller.scrollTo({ top: toTop, left: toLeft, behavior: 'smooth' });
-		};
+		}
 		if (zoomed)
 			tick().then(center); // wait for the zoom's css resize + reflow so offsets are current
 		else center();
@@ -1373,8 +1391,12 @@
 		const row = band.filter((g: any) => Math.abs(g.y - base) < 2).sort((a: any, b: any) => a.x - b.x);
 		let i = row.findIndex((g: any) => xPt >= g.x && xPt <= g.x + (g.w || 0));
 		if (i < 0) i = row.reduce((bi: number, g: any, gi: number) => (Math.abs(g.x - xPt) < Math.abs(row[bi].x - xPt) ? gi : bi), 0);
-		const gapAfter = (k: number) => row[k + 1].x - (row[k].x + (row[k].w || 0));
-		const isGap = (k: number) => gapAfter(k) > Math.max(0.9, 0.13 * (uniOf[row[k].f]?.size || 10));
+		function gapAfter(k: number) {
+			return row[k + 1].x - (row[k].x + (row[k].w || 0));
+		}
+		function isGap(k: number) {
+			return gapAfter(k) > Math.max(0.9, 0.13 * (uniOf[row[k].f]?.size || 10));
+		}
 		let lo = i,
 			hi = i;
 		while (lo > 0 && !isGap(lo - 1)) lo--;

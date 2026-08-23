@@ -22,16 +22,16 @@ type DragOptions = {
 export function startDrag(e: MouseEvent, { compute, apply, commit, onState }: DragOptions): void {
 	e.preventDefault();
 	onState?.(true);
-	const onMove = (ev: MouseEvent) => {
+	function onMove(ev: MouseEvent) {
 		const next = compute(ev);
 		if (next !== null) apply(next);
-	};
-	const onUp = () => {
+	}
+	function onUp() {
 		window.removeEventListener('mousemove', onMove);
 		window.removeEventListener('mouseup', onUp);
 		onState?.(false);
 		commit();
-	};
+	}
 	window.addEventListener('mousemove', onMove);
 	window.addEventListener('mouseup', onUp);
 }
@@ -54,7 +54,9 @@ export function nudgeOnKey(e: KeyboardEvent, { keys, step, current, apply, commi
 	commit();
 }
 
-export const clampTo = (min: number, max: number) => (v: number) => Math.min(max, Math.max(min, v));
+export function clampTo(min: number, max: number) {
+	return (v: number) => Math.min(max, Math.max(min, v));
+}
 
 /**
  * How far past its minimum a pane must be dragged before it snaps shut - and, from shut, how far

@@ -13,7 +13,9 @@ export type SessionKeys = {
 };
 
 const te = new TextEncoder();
-const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+function hex(buf: ArrayBuffer) {
+	return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 async function hkdf(code: string, info: string, bits: number): Promise<ArrayBuffer> {
 	const ikm = await crypto.subtle.importKey('raw', te.encode(normalizeShareCode(code)), 'HKDF', false, ['deriveBits']);

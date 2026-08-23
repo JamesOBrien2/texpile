@@ -39,8 +39,12 @@
 
 	// staged = index column set (and not untracked); unstaged = working-dir column dirty
 	// (covers modified/deleted and untracked, whose y is '?')
-	const isStaged = (c: GitStatusEntry) => c.x !== ' ' && c.x !== '?';
-	const isUnstaged = (c: GitStatusEntry) => c.y !== ' ';
+	function isStaged(c: GitStatusEntry) {
+		return c.x !== ' ' && c.x !== '?';
+	}
+	function isUnstaged(c: GitStatusEntry) {
+		return c.y !== ' ';
+	}
 	const staged = $derived(changes.filter(isStaged));
 	const unstaged = $derived(changes.filter(isUnstaged));
 
@@ -65,7 +69,9 @@
 		const a = p.replace(/\\/g, '/');
 		return a.startsWith(rootN + '/') ? a.slice(rootN.length + 1) : a;
 	}
-	const baseName = (p: string) => p.split(/[\\/]/).pop() ?? p;
+	function baseName(p: string) {
+		return p.split(/[\\/]/).pop() ?? p;
+	}
 	function dirName(p: string): string {
 		const r = relPath(p);
 		const i = r.lastIndexOf('/');

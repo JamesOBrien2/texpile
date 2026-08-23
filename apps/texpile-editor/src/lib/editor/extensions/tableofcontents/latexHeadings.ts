@@ -136,7 +136,9 @@ export function parseOutlineRaw(src: string): RawOutlineItem[] {
 	return items;
 }
 
-const isMarker = (i: RawOutlineItem): i is Exclude<RawOutlineItem, TocItem> => i.kind === 'input' || i.kind === 'appendix';
+function isMarker(i: RawOutlineItem): i is Exclude<RawOutlineItem, TocItem> {
+	return i.kind === 'input' || i.kind === 'appendix';
+}
 
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -178,7 +180,9 @@ export function latexHeadings(src: string): TocItem[] {
 	return numberOutline(parseOutlineRaw(src));
 }
 
-const normPath = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+function normPath(p: string) {
+	return p.replace(/\\/g, '/').toLowerCase();
+}
 
 /**
  * project outline: the active buffer's atoms with \input markers spliced from pre-scanned
@@ -195,7 +199,7 @@ export function assembleProjectOutline(
 	const byNorm = new Map<string, { file: string; items: RawOutlineItem[] }>();
 	for (const [file, items] of Object.entries(outlines)) byNorm.set(normPath(file), { file, items });
 
-	const resolve = (baseDir: string | null, target: string): { file: string; items: RawOutlineItem[] } | null => {
+	function resolve(baseDir: string | null, target: string): { file: string; items: RawOutlineItem[] } | null {
 		const cand = target.replace(/\\/g, '/');
 		const names = /\.[a-z]+$/i.test(cand) ? [cand] : [cand + '.tex', cand];
 		for (const base of [baseDir, root]) {
@@ -206,10 +210,10 @@ export function assembleProjectOutline(
 			}
 		}
 		return null;
-	};
+	}
 
 	const seen = new Set<string>(activeFile ? [normPath(activeFile)] : []);
-	const splice = (items: RawOutlineItem[], baseDir: string | null, file: string | null, depth: number): RawOutlineItem[] => {
+	function splice(items: RawOutlineItem[], baseDir: string | null, file: string | null, depth: number): RawOutlineItem[] {
 		const out: RawOutlineItem[] = [];
 		for (const item of items) {
 			if (item.kind === 'input' && depth < 6) {
@@ -224,7 +228,7 @@ export function assembleProjectOutline(
 			out.push(isMarker(item) || file == null ? item : { ...item, file });
 		}
 		return out;
-	};
+	}
 
 	return numberOutline(splice(activeRaw, activeDir, null, 0));
 }

@@ -64,14 +64,14 @@ export function findMathRegions(text: string): MathRegion[] {
 	let i = 0;
 	let open: OpenRegion | null = null;
 
-	const close = (innerTo: number, to: number, unclosed = false) => {
+	function close(innerTo: number, to: number, unclosed = false) {
 		if (!open) return;
 		const region: MathRegion = { from: open.from, to, innerFrom: open.innerFrom, innerTo, kind: open.kind };
 		if (open.env) region.env = open.env;
 		if (unclosed) region.unclosed = true;
 		regions.push(region);
 		open = null;
-	};
+	}
 
 	while (i < n) {
 		const ch = text.charCodeAt(i);

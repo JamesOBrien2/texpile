@@ -94,10 +94,18 @@ export type SessionEvents = {
 };
 
 /** shared-doc layout: the manifest (file tree), per-file bodies, and host locks. */
-export const manifestOf = (doc: Y.Doc) => doc.getMap<ManifestEntry>('manifest');
-export const locksOf = (doc: Y.Doc) => doc.getMap<number>('locks');
-export const metaOf = (doc: Y.Doc) => doc.getMap<number | string>('meta');
-export const textOf = (doc: Y.Doc, relPath: string) => doc.getText('f:' + relPath);
+export function manifestOf(doc: Y.Doc) {
+	return doc.getMap<ManifestEntry>('manifest');
+}
+export function locksOf(doc: Y.Doc) {
+	return doc.getMap<number>('locks');
+}
+export function metaOf(doc: Y.Doc) {
+	return doc.getMap<number | string>('meta');
+}
+export function textOf(doc: Y.Doc, relPath: string) {
+	return doc.getText('f:' + relPath);
+}
 
 export type ManifestEntry = {
 	kind: 'text' | 'binary';

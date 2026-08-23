@@ -21,11 +21,11 @@ export function environmentView(node: Node, view: EditorView, getPos: () => numb
 	contentDOM.className = 'tex-environment-body';
 	dom.appendChild(contentDOM);
 
-	const updateAttrs = (attrs: Record<string, unknown>) => {
+	function updateAttrs(attrs: Record<string, unknown>) {
 		const pos = getPos();
 		if (pos === undefined) return;
 		view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...currentNode.attrs, ...attrs }));
-	};
+	}
 
 	const props = $state({ node: currentNode, updateAttrs });
 	const component = mount(EnvironmentComponent, { target: header, props });

@@ -113,7 +113,9 @@ export function withOutputDir(cmd: string, dir: string): string {
 }
 
 // a Windows drive (C:\), or a POSIX/UNC leading separator
-const isAbsolutePath = (p: string) => /^([a-zA-Z]:[\\/]|[\\/])/.test(p);
+function isAbsolutePath(p: string) {
+	return /^([a-zA-Z]:[\\/]|[\\/])/.test(p);
+}
 
 /** a user-entered override: absolute stays as-is, else it's relative to the folder root. */
 export function resolveOutputPath(root: string, p: string): string {

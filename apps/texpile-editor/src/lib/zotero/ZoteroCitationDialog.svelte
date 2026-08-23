@@ -61,7 +61,9 @@
 	// already has). The library listing follows, from the empty search fired at open.
 	// braces are BibTeX case-protection ({{Communication}}); they mean something to the compiler
 	// and nothing to a reader
-	const display = (s: string) => s.replace(/[{}]/g, '');
+	function display(s: string) {
+		return s.replace(/[{}]/g, '');
+	}
 	const projectHits = $derived(
 		$references.slice(0, 200).map((r): Hit => ({
 			citekey: r.key,

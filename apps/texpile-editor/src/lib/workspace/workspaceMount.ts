@@ -20,20 +20,24 @@ export type WindowWiringDeps = {
 
 /** attach the workspace's window listeners; returns the detach function */
 export function attachWindowListeners(deps: WindowWiringDeps): () => void {
-	const onFocus = () => {
+	function onFocus() {
 		deps.refreshTree();
 		if (deps.isHost()) deps.checkExternalChange();
 		deps.reloadReferences();
 		// also here, not only on the watch: a workspace on a filesystem that cannot be watched
 		// degrades to focus, and that is exactly where a pull happens - in the terminal, elsewhere
 		deps.reloadProjectState();
-	};
-	const onFsChanged = () => {
+	}
+	function onFsChanged() {
 		deps.refreshTree();
 		deps.reloadReferences();
-	};
-	const onCompile = () => deps.runCompile();
-	const onResize = () => deps.onWindowResize();
+	}
+	function onCompile() {
+		return deps.runCompile();
+	}
+	function onResize() {
+		return deps.onWindowResize();
+	}
 
 	// Disk changed under the claimed root (main's chokidar watcher, debounced there). Unlike the
 	// `texpile:fs-changed` window event - which announces OUR OWN writes and so deliberately skips

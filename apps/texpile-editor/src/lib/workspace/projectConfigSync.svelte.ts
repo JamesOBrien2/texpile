@@ -41,11 +41,13 @@ export type CompileConfigState = {
 	completionMarker: boolean;
 };
 
-const defaults = (): CompileConfigState => ({
-	latex: { command: null, outputs: {}, liveMode: false },
-	typst: { command: null, outputs: {}, preview: true },
-	completionMarker: true
-});
+function defaults(): CompileConfigState {
+	return {
+		latex: { command: null, outputs: {}, liveMode: false },
+		typst: { command: null, outputs: {}, preview: true },
+		completionMarker: true
+	};
+}
 
 /** the adopted state, reactive; defaults between folders and for guests (who never compile). */
 export const compileConfig = writable<CompileConfigState>(defaults());

@@ -70,13 +70,21 @@
 	};
 
 	// samePath, not ===: a restored activePath can arrive mixed-separator on Windows and match no row
-	const isActive = (e: TreeEntry) => !!activePath && samePath(activePath, e.path);
+	function isActive(e: TreeEntry) {
+		return !!activePath && samePath(activePath, e.path);
+	}
 
 	// .typ can be a main file too: the typst preview and PDF export both target mainFile ?? open file
-	const isMainable = (e: TreeEntry) => e.type === 'file' && /\.(tex|typ)$/i.test(e.name);
-	const isMain = (e: TreeEntry) => !!mainPath && e.path.replace(/\\/g, '/').toLowerCase() === mainPath.replace(/\\/g, '/').toLowerCase();
+	function isMainable(e: TreeEntry) {
+		return e.type === 'file' && /\.(tex|typ)$/i.test(e.name);
+	}
+	function isMain(e: TreeEntry) {
+		return !!mainPath && e.path.replace(/\\/g, '/').toLowerCase() === mainPath.replace(/\\/g, '/').toLowerCase();
+	}
 
-	const gitBadge = (e: TreeEntry): GitBadge | undefined => (e.type === 'file' ? gitStatus[gitKey(e.path)] : undefined);
+	function gitBadge(e: TreeEntry): GitBadge | undefined {
+		return e.type === 'file' ? gitStatus[gitKey(e.path)] : undefined;
+	}
 	const BADGE_COLOR: Record<GitBadge, string> = {
 		M: 'text-amber-500',
 		A: 'text-green-500',
@@ -163,21 +171,33 @@
 	let dropTarget = $state<string | null>(null);
 	const ROOT = '__root__';
 
-	const sepOf = (p: string) => (p.includes('\\') ? '\\' : '/');
-	const parentOf = (p: string) => {
+	function sepOf(p: string) {
+		return p.includes('\\') ? '\\' : '/';
+	}
+	function parentOf(p: string) {
 		const i = p.lastIndexOf(sepOf(p));
 		return i >= 0 ? p.slice(0, i) : p;
-	};
-	const dropDir = (entry: TreeEntry) => (entry.type === 'dir' ? entry.path : parentOf(entry.path));
-	const isInside = (path: string, ancestor: string) => path.startsWith(ancestor + sepOf(ancestor));
-	const canDropAll = (target: string) => dragPaths.length > 0 && dragPaths.every((p) => target !== p && !isInside(target, p));
-	const isExternalDrag = (e: DragEvent) => !dragging && !!e.dataTransfer?.types?.includes('Files');
+	}
+	function dropDir(entry: TreeEntry) {
+		return entry.type === 'dir' ? entry.path : parentOf(entry.path);
+	}
+	function isInside(path: string, ancestor: string) {
+		return path.startsWith(ancestor + sepOf(ancestor));
+	}
+	function canDropAll(target: string) {
+		return dragPaths.length > 0 && dragPaths.every((p) => target !== p && !isInside(target, p));
+	}
+	function isExternalDrag(e: DragEvent) {
+		return !dragging && !!e.dataTransfer?.types?.includes('Files');
+	}
 	// a tag, not the data: drag payloads are sealed until drop, so only the TYPE is readable on dragover
 	const PATHS_MIME = 'application/x-texpile-paths';
-	const isCrossWindowDrag = (e: DragEvent) => !dragging && !!e.dataTransfer?.types?.includes(PATHS_MIME);
-	const markTarget = (dir: string) => {
+	function isCrossWindowDrag(e: DragEvent) {
+		return !dragging && !!e.dataTransfer?.types?.includes(PATHS_MIME);
+	}
+	function markTarget(dir: string) {
 		dropTarget = dir === rootPath ? ROOT : dir;
-	};
+	}
 
 	function onRowDragStart(e: DragEvent, entry: TreeEntry) {
 		if (!selected.includes(entry.path)) {
@@ -276,12 +296,12 @@
 			for (const f of e.dataTransfer?.files ?? []) out.push({ relPath: f.name, file: f });
 			return out;
 		}
-		const readAll = (dir: FileSystemDirectoryEntry): Promise<FileSystemEntry[]> =>
-			new Promise((resolve) => {
+		function readAll(dir: FileSystemDirectoryEntry): Promise<FileSystemEntry[]> {
+			return new Promise((resolve) => {
 				const reader = dir.createReader();
 				const acc: FileSystemEntry[] = [];
-				const step = () =>
-					reader.readEntries(
+				function step() {
+					return reader.readEntries(
 						(batch) => {
 							if (!batch.length) return resolve(acc);
 							acc.push(...batch);
@@ -289,9 +309,11 @@
 						},
 						() => resolve(acc)
 					);
+				}
 				step();
 			});
-		const walk = async (entry: FileSystemEntry, prefix: string): Promise<void> => {
+		}
+		async function walk(entry: FileSystemEntry, prefix: string): Promise<void> {
 			if (entry.isFile) {
 				const f = await new Promise<globalThis.File>((resolve, reject) => (entry as FileSystemFileEntry).file(resolve, reject)).catch(
 					() => null
@@ -300,7 +322,7 @@
 			} else if (entry.isDirectory) {
 				for (const child of await readAll(entry as FileSystemDirectoryEntry)) await walk(child, prefix + entry.name + '/');
 			}
-		};
+		}
 		for (const entry of entries) await walk(entry, '');
 		return out;
 	}
@@ -354,7 +376,9 @@
 
 	// dialogs hand focus back to their own trigger, which would leave the Ctrl+Z after a delete
 	// landing on nothing
-	const refocusTree = () => queueMicrotask(() => treeEl?.focus({ preventScroll: true }));
+	function refocusTree() {
+		return queueMicrotask(() => treeEl?.focus({ preventScroll: true }));
+	}
 
 	function onTreeKeydown(e: KeyboardEvent) {
 		if (!focused || !(e.ctrlKey || e.metaKey) || e.altKey) return;
@@ -397,12 +421,12 @@
 
 	// focus on mount and select the base name (keep the extension, like VSCode).
 	function focusSelect(node: HTMLInputElement) {
-		const grab = () => {
+		function grab() {
 			node.focus();
 			const dot = node.value.lastIndexOf('.');
 			if (dot > 0) node.setSelectionRange(0, dot);
 			else node.select();
-		};
+		}
 		grab();
 		// a closing Skeleton menu (Zag) refocuses its trigger a microtask later and steals the field.
 		// grab it back ONCE; a re-assert loop was tried and made the field impossible to leave
@@ -488,7 +512,9 @@
 		if (await confirmAsk(message, { confirmLabel: m.filetree_delete(), danger: true })) onDelete([e]);
 		refocusTree();
 	}
-	const deleteCount = (e: TreeEntry) => (selected.includes(e.path) ? selectedEntries().length : 1);
+	function deleteCount(e: TreeEntry) {
+		return selected.includes(e.path) ? selectedEntries().length : 1;
+	}
 </script>
 
 <svelte:window

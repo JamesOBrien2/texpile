@@ -20,10 +20,10 @@ export async function locateCrossPage(
 	orig: string,
 	listItem: boolean
 ): Promise<Cal | CalBail> {
-	const bail = (why: string, detail?: unknown): CalBail => {
+	function bail(why: string, detail?: unknown): CalBail {
 		ctx.emit('locate-xpage-bail', { why, ...(typeof detail === 'object' ? detail : { detail }) });
 		return { bail: why };
-	};
+	}
 	const paper = ctx.paper();
 	if (ctx.rtlPage(pA) || ctx.rtlPage(pB)) return bail('page-rtl', { pA, pB });
 	const samePage = pA === pB;
@@ -61,7 +61,7 @@ export async function locateCrossPage(
 	// x offsets both. No positional anchoring: a real column tail carries footnotes
 	// below the fragment and a real column top carries [t]-floats above it, so the
 	// fragments can sit ANYWHERE -- uniqueness of the match is the safety, not position
-	const runsMatching = (rows: { cs: number[]; xs: number[]; y: number }[], dRows: any[], off: number, len: number): number[] => {
+	function runsMatching(rows: { cs: number[]; xs: number[]; y: number }[], dRows: any[], off: number, len: number): number[] {
 		const out: number[] = [];
 		for (let s = 0; s + len <= rows.length; s++) {
 			let ok = true;
@@ -72,7 +72,7 @@ export async function locateCrossPage(
 			if (ok) out.push(s);
 		}
 		return out;
-	};
+	}
 	for (const v of variants) {
 		const dRows = glyphRows(v.glyphs, gap);
 		const N = dRows.length;

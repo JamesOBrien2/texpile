@@ -21,22 +21,28 @@ import { m } from '$lib/paraglide/messages';
 
 /** GFM tables need a header row; the defaults give 1 header + 2 body rows, 2 columns. */
 export function mdTableNode(schema: Schema, rows = 3, cols = 2): PMNode {
-	const p = () => schema.nodes.paragraph.createAndFill()!;
-	const cell = (type: 'table_header' | 'table_cell') => schema.nodes[type].createAndFill(null, p())!;
-	const row = (type: 'table_header' | 'table_cell') =>
-		schema.nodes.table_row.create(
+	function p() {
+		return schema.nodes.paragraph.createAndFill()!;
+	}
+	function cell(type: 'table_header' | 'table_cell') {
+		return schema.nodes[type].createAndFill(null, p())!;
+	}
+	function row(type: 'table_header' | 'table_cell') {
+		return schema.nodes.table_row.create(
 			null,
 			Array.from({ length: Math.max(1, cols) }, () => cell(type))
 		);
+	}
 	// `rows` counts the header row: a GFM pipe table always has one, the rest are body rows
 	return schema.nodes.table.create(null, [row('table_header'), ...Array.from({ length: Math.max(1, rows - 1) }, () => row('table_cell'))]);
 }
 
-const listItem = (schema: Schema, kind: 'bullet' | 'ordered' | 'task') =>
-	schema.nodes.list.create(
+function listItem(schema: Schema, kind: 'bullet' | 'ordered' | 'task') {
+	return schema.nodes.list.create(
 		{ kind, order: kind === 'ordered' ? 1 : null, checked: kind === 'task' ? false : null, collapsed: false },
 		schema.nodes.paragraph.create()
 	);
+}
 
 export const MD_BLOCK_INSERT_ITEMS: BlockInsertItem[] = [
 	{ label: () => m.blockmenu_text(), icon: Type, make: (s) => s.nodes.paragraph.create(), select: 'in' },

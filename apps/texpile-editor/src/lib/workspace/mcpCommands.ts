@@ -160,8 +160,9 @@ async function viewModePayload(deps: McpCommandDeps, mode: unknown) {
 
 /** whether the open tree contains this exact file; the .typ leg of main_file's containment. */
 function inOpenTree(abs: string): boolean {
-	const walk = (nodes: TreeEntry[]): boolean =>
-		nodes.some((n) => (n.type === 'file' && samePath(n.path, abs)) || (n.children ? walk(n.children) : false));
+	function walk(nodes: TreeEntry[]): boolean {
+		return nodes.some((n) => (n.type === 'file' && samePath(n.path, abs)) || (n.children ? walk(n.children) : false));
+	}
 	return walk(get(fileTree));
 }
 
@@ -221,7 +222,9 @@ function compileConfigPayload(deps: McpCommandDeps) {
 	const main = get(mainFile);
 	const format = effectiveCompileFormat(main);
 	const ov = get(compileConfig)[format].outputs;
-	const rel = (p: string | null) => (p && root ? relativeTo(root, p) : p);
+	function rel(p: string | null) {
+		return p && root ? relativeTo(root, p) : p;
+	}
 	const s = get(settings);
 	return {
 		command: cmd,
@@ -255,7 +258,9 @@ function compileConfigPayload(deps: McpCommandDeps) {
 function setOutputPathsPayload(deps: McpCommandDeps, a: Record<string, unknown>) {
 	const root = get(workspaceRoot);
 	if (!root) return { ok: false, reason: 'no folder is open' };
-	const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+	function str(v: unknown) {
+		return typeof v === 'string' ? v : undefined;
+	}
 	const outputDir = str(a.outputDir);
 	const pdf = str(a.pdf);
 	const log = str(a.log);

@@ -79,7 +79,9 @@
 	const verticalLines = $derived(!!colModel && colModel.rules.length > 1 && colModel.rules.every(Boolean));
 
 	// p/m/b all read as the paragraph icon; C reads as the X icon
-	const activeAlign = (a: ColAlign): ColAlign => (a === 'm' || a === 'b' ? 'p' : a === 'C' ? 'X' : a);
+	function activeAlign(a: ColAlign): ColAlign {
+		return a === 'm' || a === 'b' ? 'p' : a === 'C' ? 'X' : a;
+	}
 
 	function setAlign(i: number, align: ColAlign) {
 		if (!colModel) return;

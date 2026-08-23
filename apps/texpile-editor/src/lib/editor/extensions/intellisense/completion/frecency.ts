@@ -29,7 +29,9 @@ function save(store: Record<string, UsageEntry>) {
 	updateUsers({ completionUsage: { ...store } });
 }
 
-const decayed = (e: UsageEntry, now: number) => e.s * Math.pow(0.5, (now - e.t) / HALF_LIFE_MS);
+function decayed(e: UsageEntry, now: number) {
+	return e.s * Math.pow(0.5, (now - e.t) / HALF_LIFE_MS);
+}
 
 export function recordAccept(label: string, now = Date.now()) {
 	const store = load();

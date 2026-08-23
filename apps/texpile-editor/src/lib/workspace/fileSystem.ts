@@ -197,11 +197,19 @@ async function opVoid(payload: Record<string, unknown>): Promise<void> {
 	await op(payload);
 }
 
-export const createEntry = (path: string, type: 'file' | 'dir', content = '') => opVoid({ action: 'create', path, type, content });
-export const deleteEntry = (path: string) => opVoid({ action: 'delete', path });
-export const renameEntry = (from: string, to: string) => opVoid({ action: 'rename', from, to });
+export function createEntry(path: string, type: 'file' | 'dir', content = '') {
+	return opVoid({ action: 'create', path, type, content });
+}
+export function deleteEntry(path: string) {
+	return opVoid({ action: 'delete', path });
+}
+export function renameEntry(from: string, to: string) {
+	return opVoid({ action: 'rename', from, to });
+}
 /** recursive copy; fails instead of overwriting an existing destination. */
-export const copyEntry = (from: string, to: string) => opVoid({ action: 'copy', from, to });
+export function copyEntry(from: string, to: string) {
+	return opVoid({ action: 'copy', from, to });
+}
 
 /**
  * The undoable delete: back the entry up outside the workspace, then send it to the OS recycle bin.
@@ -217,7 +225,9 @@ export async function trashEntry(path: string, root: string): Promise<{ backup: 
 }
 
 /** copy a backed-up entry back into place; refuses rather than overwrite whatever stands at `to`. */
-export const restoreEntry = (from: string, to: string) => opVoid({ action: 'restore', from, to });
+export function restoreEntry(from: string, to: string) {
+	return opVoid({ action: 'restore', from, to });
+}
 
 /** discard this folder's undo backups; called when the workspace is opened. */
 export async function purgeUndoBackups(root: string): Promise<void> {
@@ -320,7 +330,9 @@ export function dirname(path: string): string {
 }
 
 /** Path equality that ignores separator style and case (Windows paths reach us both ways). */
-export const samePath = (a: string, b: string) => a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase();
+export function samePath(a: string, b: string) {
+	return a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase();
+}
 
 // joins dir + rel using the dir's own separator so results match the native paths the scan/tree
 // return; a mixed "C:\ws/sub" path would miss the exact-match file-tree highlight
@@ -339,7 +351,9 @@ export function joinPath(dir: string, rel: string): string {
  */
 export function normalizePath(p: string): string {
 	const sep = p.includes('\\') ? '\\' : '/';
-	const isRootSeg = (s: string) => s === '' || /^[A-Za-z]:$/.test(s);
+	function isRootSeg(s: string) {
+		return s === '' || /^[A-Za-z]:$/.test(s);
+	}
 	const out: string[] = [];
 	for (const part of p.split(/[\\/]/)) {
 		if (part === '.' || (part === '' && out.length > 0)) continue;

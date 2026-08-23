@@ -23,7 +23,9 @@ export const remoteCursorsKey = new PluginKey<DecorationSet>('remote-cursors');
 // a peer's color rides untrusted awareness; only hex passes before it reaches an inline style string,
 // so a crafted value (e.g. "red;background:url(https://evil/x)") can't inject extra CSS
 const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
-const safeColor = (c: string): string => (HEX_COLOR.test(c) ? c : '#888888');
+function safeColor(c: string): string {
+	return HEX_COLOR.test(c) ? c : '#888888';
+}
 
 function caretDom(name: string, color: string): HTMLElement {
 	const span = document.createElement('span');
@@ -40,7 +42,9 @@ function caretDom(name: string, color: string): HTMLElement {
 function build(doc: PMNode, peers: RemotePeerSel[]): DecorationSet {
 	const decos: Decoration[] = [];
 	const max = doc.content.size;
-	const clamp = (n: number) => Math.min(Math.max(0, n), max);
+	function clamp(n: number) {
+		return Math.min(Math.max(0, n), max);
+	}
 	for (const p of peers) {
 		const color = safeColor(p.color);
 		const anchor = clamp(p.anchor);

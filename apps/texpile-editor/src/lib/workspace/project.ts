@@ -19,7 +19,9 @@ function preambleOf(text: string): string {
 	return m ? text.slice(0, m.index) : text;
 }
 
-const normPath = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+function normPath(p: string) {
+	return p.replace(/\\/g, '/').toLowerCase();
+}
 
 /** picks the main entry .tex: conventional names first, else the shallowest file with a real \begin{document}. */
 export async function detectMainFile(files: TexFile[], read: ReadFn = readTextFile): Promise<string | null> {

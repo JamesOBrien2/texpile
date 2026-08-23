@@ -73,7 +73,7 @@ export function parseTypstLog(text: string, options: ParseTypstLogOptions = {}):
 	let haveLocation = false;
 	const context: string[] = [];
 
-	const flush = () => {
+	function flush() {
 		if (!current) return;
 		const ctx = context.join('\n').trim();
 		if (ctx) current.context = ctx;
@@ -82,7 +82,7 @@ export function parseTypstLog(text: string, options: ParseTypstLogOptions = {}):
 		current = null;
 		context.length = 0;
 		haveLocation = false;
-	};
+	}
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];

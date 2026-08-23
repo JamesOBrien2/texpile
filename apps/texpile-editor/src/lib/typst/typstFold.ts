@@ -46,7 +46,9 @@ export const typstFold = foldNodeProp.add({
 });
 
 /** a heading's depth, read from the width of its `=` marker */
-const headingLevel = (node: SyntaxNode) => (node.firstChild?.to ?? node.from) - node.from;
+function headingLevel(node: SyntaxNode) {
+	return (node.firstChild?.to ?? node.from) - node.from;
+}
 
 /**
  * Fold a heading's whole section: from the end of its own line to the end of everything it

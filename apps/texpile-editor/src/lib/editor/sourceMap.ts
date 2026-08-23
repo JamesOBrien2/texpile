@@ -100,7 +100,9 @@ function blockTextIndex(doc: Node, b: BlockSpan): { text: string; positions: num
 	return { text, positions };
 }
 
-const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+function clamp01(n: number) {
+	return Math.min(1, Math.max(0, n));
+}
 
 function allIndexes(haystack: string, needle: string): number[] {
 	const out: number[] = [];
@@ -116,14 +118,14 @@ function stripLatex(s: string): string {
 		.replace(/[\\{}[\]$&~^_]/g, ' ');
 }
 
-const nthIndexOf = (text: string, needle: string, n: number): number => {
+function nthIndexOf(text: string, needle: string, n: number): number {
 	let i = -1;
 	for (let k = 0; k < n; k++) {
 		i = text.indexOf(needle, i + 1);
 		if (i < 0) return -1;
 	}
 	return i;
-};
+}
 
 /** absolute source offset for a doc position; block-accurate at worst, char-accurate where the
  *  nearby text can be anchored in the block's original source. */

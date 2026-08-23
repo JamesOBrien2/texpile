@@ -197,8 +197,9 @@ export function comments({ onSelect, onAdd, addLabel = 'Comment' }: CommentsConf
 /** the pill fades in rather than flashing under the pointer for every drag it passes through */
 const SHOW_DELAY = 120;
 
-const SVG = (body: string) =>
-	`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+function SVG(body: string) {
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+}
 const COMMENT_ICON = SVG('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>');
 const X_ICON = SVG('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
 

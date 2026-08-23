@@ -125,7 +125,9 @@ export function heuristicMarkTeXPrimitiveDefs(nodes: Node[] | undefined, source:
 						const nameNode = consumed[0];
 						const delimNode = consumed[consumed.length - 2];
 						// lexical control-word test on AST-isolated names
-						const isCs = (n: LooseNode | undefined) => n?.type === 'macro' && /^[a-zA-Z@]+$/.test(String(n.content ?? ''));
+						function isCs(n: LooseNode | undefined) {
+							return n?.type === 'macro' && /^[a-zA-Z@]+$/.test(String(n.content ?? ''));
+						}
 						// everything between NAME and DELIM must be pure #N parameter text; any
 						// other token is a shape we don't understand, so record nothing. non-string
 						// nodes map to a NUL sentinel so they fail the check instead of slipping by.
@@ -230,13 +232,16 @@ export function heuristicInferUnknownMacroSignatures(
 
 	// never infer inside math: math serializes verbatim, and many math macros (\over, \hat) are
 	// followed by a {...} that is NOT their argument; attaching it restructures math and compounds.
-	const isMath = (node: LooseNode): boolean =>
-		node.type === 'mathenv' ||
-		node.type === 'displaymath' ||
-		node.type === 'inlinemath' ||
-		(node.type === 'environment' && isMathEnvironment(node.env ?? ''));
+	function isMath(node: LooseNode): boolean {
+		return (
+			node.type === 'mathenv' ||
+			node.type === 'displaymath' ||
+			node.type === 'inlinemath' ||
+			(node.type === 'environment' && isMathEnvironment(node.env ?? ''))
+		);
+	}
 
-	const walk = (nodes: Node[] | undefined): void => {
+	function walk(nodes: Node[] | undefined): void {
 		if (!Array.isArray(nodes)) return;
 		for (let i = 0; i < nodes.length; i++) {
 			const node = nodes[i] as LooseNode;
@@ -268,7 +273,7 @@ export function heuristicInferUnknownMacroSignatures(
 			const skipArgs = node.type === 'macro' && RAW_WHOLESALE_ARG_MACROS.has(node.content as string);
 			if (!skipArgs && node.args) for (const a of node.args) walk(a.content);
 		}
-	};
+	}
 	walk(ast.content as Node[]);
 
 	for (const [name, n] of Object.entries(counts)) {

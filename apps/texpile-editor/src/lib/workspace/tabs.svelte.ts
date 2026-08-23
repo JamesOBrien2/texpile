@@ -6,7 +6,9 @@ import { getFolder, updateFolder } from '$lib/storage/workspaces';
 
 const MAX_TABS = 50;
 
-const sepOf = (p: string) => (p.includes('\\') ? '\\' : '/');
+function sepOf(p: string) {
+	return p.includes('\\') ? '\\' : '/';
+}
 
 class TabsStore {
 	list = $state<string[]>([]);
@@ -93,7 +95,9 @@ class TabsStore {
 	/** a rename/move retargets the tab, or every tab under it when a folder moved. */
 	rename(from: string, to: string): void {
 		const prefix = from + sepOf(from);
-		const retarget = (t: string) => (samePath(t, from) ? to : t.startsWith(prefix) ? to + t.slice(from.length) : t);
+		function retarget(t: string) {
+			return samePath(t, from) ? to : t.startsWith(prefix) ? to + t.slice(from.length) : t;
+		}
 		this.list = this.list.map(retarget);
 		if (this.preview) this.preview = retarget(this.preview);
 		this.persist();
