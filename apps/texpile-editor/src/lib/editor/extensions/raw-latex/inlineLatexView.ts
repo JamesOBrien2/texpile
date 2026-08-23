@@ -102,7 +102,7 @@ export class InlineLatexView {
 		if (String(this.node.attrs.lang ?? 'latex') === 'typst') {
 			// typst isn't in @codemirror/language-data; the app ships its own wasm-backed language
 			// (island flavour: no fold gutter on a chip)
-			void import('$lib/typst/typstLanguage').then(({ typstIslandLanguage }) =>
+			void import('$lib/languages/typst/typstLanguage').then(({ typstIslandLanguage }) =>
 				cm.dispatch({ effects: this.languageConf.reconfigure(typstIslandLanguage()) })
 			);
 		} else if (String(this.node.attrs.lang ?? 'latex') === 'latex') {

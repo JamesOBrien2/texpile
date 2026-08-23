@@ -8,7 +8,7 @@ import { EditorState } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 import { fixTables } from 'prosemirror-tables';
 import { buildTrailingParagraphTr } from '$lib/editor/extensions/trailing-paragraph-plugin';
-import { parseTypstFile, serializeTypstFile } from '$lib/typst/visual/roundtrip';
+import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
 import { parseMarkdownFile, serializeMarkdownFile } from '$lib/markdown/roundtrip';
 import { parseLatexFile, serializeLatexFile } from '$lib/workspace/latexRoundtrip';
 import { computeBlockPatch, protectCaretBlock } from '$lib/editor/blockPatch';

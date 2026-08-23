@@ -14,7 +14,7 @@ import { toggleHeading, toggleBlockQuote } from '$lib/editor/helperCommands';
 import { editorViewStore, displaySearchBarStore, viewMode, sourceCmView } from '$lib/stores/editorStore';
 import { computeToggleWrap, computeWrapBlock } from '$lib/editor/extensions/intellisense/shortcuts';
 import { computeToggleDelim as mdDelim, computeHeadingLine as mdHeading, computeQuoteLines as mdQuote } from '$lib/markdown/sourceInsert';
-import { computeToggleDelim as typDelim, computeWrap as typWrap, computeHeadingLine as typHeading } from '$lib/typst/visual/sourceInsert';
+import { computeToggleDelim as typDelim, computeWrap as typWrap, computeHeadingLine as typHeading } from '$lib/languages/typst/visual/sourceInsert';
 import type { TransactionSpec } from '@codemirror/state';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';

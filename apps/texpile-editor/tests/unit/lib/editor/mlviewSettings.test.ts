@@ -117,7 +117,7 @@ describe('block_math settings popover', () => {
 	});
 
 	it('mounts in the typst editor too, where the popover offers only the <label> field', async () => {
-		const { typSchema } = await import('$lib/typst/visual/schema');
+		const { typSchema } = await import('$lib/languages/typst/visual/schema');
 		const node = typSchema.nodes.block_math.create({ numbered: false, lineLabels: [] }, typSchema.text('x^2'));
 		const pmView = {
 			editable: true,

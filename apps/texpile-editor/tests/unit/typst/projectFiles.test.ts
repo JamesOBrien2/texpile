@@ -6,7 +6,7 @@
 // in the loop. The failure modes here are all quiet ones - a stale answer, a duplicate open
 // fighting the host's editor, a didClose yanking the host's own document - so each is pinned.
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ProjectFileSet, PROJECT_FILE_RE, languageIdFor } from '$lib/typst/projectFiles';
+import { ProjectFileSet, PROJECT_FILE_RE, languageIdFor } from '$lib/languages/typst/projectFiles';
 import type { LSPClient } from '@codemirror/lsp-client';
 
 type Call = { kind: 'open' | 'change' | 'close'; uri: string; text?: string; version?: number; languageId?: string };

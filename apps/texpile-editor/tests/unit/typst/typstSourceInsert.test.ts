@@ -2,7 +2,7 @@
 // visual-roundtrip and toolbar paths
 import { describe, it, expect } from 'vitest';
 import { EditorState, EditorSelection, type TransactionSpec } from '@codemirror/state';
-import { computeWrap, computeHr } from '$lib/typst/visual/sourceInsert';
+import { computeWrap, computeHr } from '$lib/languages/typst/visual/sourceInsert';
 
 function state(doc: string, anchor: number, head = anchor) {
 	return EditorState.create({ doc, selection: EditorSelection.range(anchor, head) });

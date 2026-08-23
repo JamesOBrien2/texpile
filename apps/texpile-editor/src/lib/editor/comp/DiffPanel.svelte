@@ -45,7 +45,7 @@
 		let cancelled = false;
 		if (/\.typ$/i.test(f)) {
 			// island flavour: highlighting only, no fold gutter in a read-only diff
-			void import('$lib/typst/typstLanguage').then(({ typstIslandLanguage }) => {
+			void import('$lib/languages/typst/typstLanguage').then(({ typstIslandLanguage }) => {
 				if (!cancelled) langExt = typstIslandLanguage();
 			});
 			return () => {

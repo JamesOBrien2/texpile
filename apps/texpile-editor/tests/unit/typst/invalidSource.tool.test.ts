@@ -8,9 +8,9 @@
 //   3. does regeneration (what an EDITED block goes through) reach a fixed point, or does a
 //      damaged construct drift a little more on every save?
 import { describe, it, expect } from 'vitest';
-import { parseTypstFile, serializeTypstFile } from '$lib/typst/visual/roundtrip';
-import { serializeToTypst } from '$lib/typst/visual/serializer';
-import { typstToProseMirror } from '$lib/typst/visual/converter';
+import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
+import { serializeToTypst } from '$lib/languages/typst/visual/serializer';
+import { typstToProseMirror } from '$lib/languages/typst/visual/converter';
 
 const roundtrip = (src: string): string => {
 	const parsed = parseTypstFile(src);

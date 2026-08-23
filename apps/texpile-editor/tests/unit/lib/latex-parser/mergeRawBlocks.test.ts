@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Node } from 'prosemirror-model';
 import { parseLatexFile, serializeLatexFile } from '$lib/workspace/latexRoundtrip';
-import { parseTypstFile, serializeTypstFile } from '$lib/typst/visual/roundtrip';
+import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
 
 const wrap = (body: string) => `\\documentclass{article}\n\\begin{document}\n${body}\n\\end{document}\n`;
 

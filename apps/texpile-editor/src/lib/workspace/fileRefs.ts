@@ -3,7 +3,7 @@
 // and their exact spans); matching, prefix preservation and the splice are shared from here, so
 // "does this point at the moved file" is answered the same way everywhere.
 import { collectLatexFileRefs } from '$lib/latex-parser/filerefs';
-import { collectTypstFileRefs } from '$lib/typst/filerefs';
+import { collectTypstFileRefs } from '$lib/languages/typst/filerefs';
 import { collectMarkdownFileRefs } from '$lib/markdown/filerefs';
 
 /** a path literal in some source file: the span holding the path, and the path as written */

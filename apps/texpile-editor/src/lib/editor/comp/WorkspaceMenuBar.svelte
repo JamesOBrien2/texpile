@@ -14,7 +14,7 @@
 	import { computeMathAttrs } from '$lib/editor/extensions/mathlivebridge/mlview.svelte';
 	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
 	import { createTableNode } from '$lib/editor/utils/tableUtils';
-	import { typTableNode } from '$lib/typst/visual/blockInsertItems';
+	import { typTableNode } from '$lib/languages/typst/visual/blockInsertItems';
 	import { mdTableNode } from '$lib/markdown/blockInsertItems';
 	import { toggleLinkCommand } from './toolbar/markState';
 	import { computeLink as texLink, computeWrapBlock } from '$lib/editor/extensions/intellisense/shortcuts';
@@ -33,7 +33,7 @@
 		computeFigureSkeleton as typFigure,
 		computeHr as typHr,
 		computeLink as typLink
-	} from '$lib/typst/visual/sourceInsert';
+	} from '$lib/languages/typst/visual/sourceInsert';
 	import { startImageUpload } from '$lib/editor/extensions/image';
 	import { createLocalImageSettings } from '$lib/editor/extensions/image/imageplugin.svelte';
 	import { hasVisualMode, isRawTextKind, formatOf, type FileKind } from '$lib/workspace/documentBuffer.svelte';

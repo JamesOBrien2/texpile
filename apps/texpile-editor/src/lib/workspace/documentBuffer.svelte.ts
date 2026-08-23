@@ -8,7 +8,7 @@ import { get } from 'svelte/store';
 import { isDirty } from '$lib/workspace/workspaceStore';
 import { serializeLatexFile, type ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
 import { serializeMarkdownFile } from '$lib/markdown/roundtrip';
-import { serializeTypstFile } from '$lib/typst/visual/roundtrip';
+import { serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
 import { replacePreambleFrontmatter } from '$lib/editor/extensions/raw-latex/frontmatterView';
 import { basename, relativeTo, type Eol } from '$lib/workspace/fileSystem';
 import type { Node as PMNode } from 'prosemirror-model';

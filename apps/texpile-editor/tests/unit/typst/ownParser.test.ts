@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import { highlightTree, tagHighlighter, tags } from '@lezer/highlight';
-import { typstLanguage } from '$lib/typst/typstLanguage';
+import { typstLanguage } from '$lib/languages/typst/typstLanguage';
 
 const named = tagHighlighter([
 	{ tag: tags.comment, class: 'comment' },

@@ -4,13 +4,13 @@
 // point instead of drifting on every save.
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
-import { parseTypstFile, serializeTypstFile } from '$lib/typst/visual/roundtrip';
-import { serializeToTypst, escTypst } from '$lib/typst/visual/serializer';
-import { typstToProseMirror } from '$lib/typst/visual/converter';
-import { typSchema } from '$lib/typst/visual/schema';
-import { computeTableSkeleton } from '$lib/typst/visual/sourceInsert';
-import { typTableNode } from '$lib/typst/visual/blockInsertItems';
-import { sliceToTypst } from '$lib/typst/visual/clipboard';
+import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
+import { serializeToTypst, escTypst } from '$lib/languages/typst/visual/serializer';
+import { typstToProseMirror } from '$lib/languages/typst/visual/converter';
+import { typSchema } from '$lib/languages/typst/visual/schema';
+import { computeTableSkeleton } from '$lib/languages/typst/visual/sourceInsert';
+import { typTableNode } from '$lib/languages/typst/visual/blockInsertItems';
+import { sliceToTypst } from '$lib/languages/typst/visual/clipboard';
 import { Slice, type Node } from 'prosemirror-model';
 import { EditorState as EditorState_pm } from 'prosemirror-state';
 import { CellSelection, mergeCells } from 'prosemirror-tables';

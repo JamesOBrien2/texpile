@@ -77,7 +77,7 @@ export class VisualParser {
 	private async parseTypst(text: string): Promise<ParseOutcome> {
 		try {
 			this.progress = 'parsing';
-			const { parseTypstFile } = await import('$lib/typst/visual/roundtrip');
+			const { parseTypstFile } = await import('$lib/languages/typst/visual/roundtrip');
 			const parsed = parseTypstFile(text, this.getMacros());
 			let nodeCount = 0;
 			parsed.doc.descendants(() => {

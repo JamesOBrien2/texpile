@@ -19,9 +19,9 @@
 	import MarkdownEditorView from '$lib/markdown/MarkdownEditorView.svelte';
 	import MarkdownToolbar from '$lib/markdown/MarkdownToolbar.svelte';
 	import MarkdownSourceToolbar from '$lib/markdown/MarkdownSourceToolbar.svelte';
-	import TypstEditorView from '$lib/typst/visual/TypstEditorView.svelte';
-	import TypstToolbar from '$lib/typst/visual/TypstToolbar.svelte';
-	import TypstSourceToolbar from '$lib/typst/visual/TypstSourceToolbar.svelte';
+	import TypstEditorView from '$lib/languages/typst/visual/TypstEditorView.svelte';
+	import TypstToolbar from '$lib/languages/typst/visual/TypstToolbar.svelte';
+	import TypstSourceToolbar from '$lib/languages/typst/visual/TypstSourceToolbar.svelte';
 	import type { EditSession } from '$lib/collab/editSession';
 	import type { ParsedLatexFile, ParsePhase } from '$lib/workspace/latexRoundtrip';
 	import VisualLoading from './VisualLoading.svelte';
@@ -389,7 +389,7 @@
 									addCommentLabel={m.comments_add()}
 								/>
 							{:else if kind === 'typ'}
-								<!-- an entirely separate ProseMirror over typSchema; see lib/typst/visual -->
+								<!-- an entirely separate ProseMirror over typSchema; see lib/languages/typst/visual -->
 								<TypstEditorView
 									localValue={visualDoc}
 									localReferences={allReferences}

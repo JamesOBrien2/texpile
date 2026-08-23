@@ -11,9 +11,9 @@
 // island - because swallowing a label into a node with nowhere to put it deletes it on the next
 // save. What is never correct is a block turning into inline chips.
 import { describe, it, expect } from 'vitest';
-import { typstToProseMirror } from '$lib/typst/visual/converter';
-import { typSchema } from '$lib/typst/visual/schema';
-import { parseTypstFile, serializeTypstFile } from '$lib/typst/visual/roundtrip';
+import { typstToProseMirror } from '$lib/languages/typst/visual/converter';
+import { typSchema } from '$lib/languages/typst/visual/schema';
+import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
 
 /** the rich table from the bug report. It now graduates to a real editable table_wrapper, so what
  *  it guards here is the label path on a MODELLED node; the vline table below guards the raw one. */

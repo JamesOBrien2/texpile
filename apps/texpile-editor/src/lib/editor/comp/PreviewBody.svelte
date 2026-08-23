@@ -8,8 +8,8 @@
 	import PDFViewer from './PDFViewer.svelte';
 	import type DraftView from '$lib/draft/DraftView.svelte';
 	import type { DraftController } from '$lib/draft/draftController.svelte';
-	import type TypstPreview from '$lib/typst/preview/TypstPreview.svelte';
-	import type TypstPreviewRemote from '$lib/typst/preview/TypstPreviewRemote.svelte';
+	import type TypstPreview from '$lib/languages/typst/preview/TypstPreview.svelte';
+	import type TypstPreviewRemote from '$lib/languages/typst/preview/TypstPreviewRemote.svelte';
 	import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 	import { m } from '$lib/paraglide/messages';
 
@@ -29,7 +29,7 @@
 	let TypstPreviewComp = $state<typeof TypstPreview | null>(null);
 	$effect(() => {
 		if (typstPreviewWanted && !TypstPreviewComp) {
-			import('$lib/typst/preview/TypstPreview.svelte').then(
+			import('$lib/languages/typst/preview/TypstPreview.svelte').then(
 				(mod) => (TypstPreviewComp = mod.default),
 				(e) => console.error('Failed to load Typst preview chunk:', e)
 			);
@@ -40,7 +40,7 @@
 	let TypstPreviewRemoteComp = $state<typeof TypstPreviewRemote | null>(null);
 	$effect(() => {
 		if (guest && guestTypstOffered && !TypstPreviewRemoteComp) {
-			import('$lib/typst/preview/TypstPreviewRemote.svelte').then(
+			import('$lib/languages/typst/preview/TypstPreviewRemote.svelte').then(
 				(mod) => (TypstPreviewRemoteComp = mod.default),
 				(e) => console.error('Failed to load remote Typst preview chunk:', e)
 			);

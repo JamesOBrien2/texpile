@@ -74,8 +74,8 @@
 	}
 
 	// ConPTY interleaves escape sequences into output; strip CSI/OSC runs so the token matches as plain text
-	// eslint-disable-next-line no-control-regex
 	function stripEscapes(s: string) {
+		// eslint-disable-next-line no-control-regex
 		return s.replace(/\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?)/g, '');
 	}
 

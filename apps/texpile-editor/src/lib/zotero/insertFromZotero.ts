@@ -7,7 +7,7 @@
 import { get } from 'svelte/store';
 import type { Node as PMNode } from 'prosemirror-model';
 import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
-import { typSchema } from '$lib/typst/visual/schema';
+import { typSchema } from '$lib/languages/typst/visual/schema';
 import { mainFile } from '$lib/workspace/workspaceStore';
 import { readTextFile, writeTextFile, statFile, scanFiles, joinPath, dirname, basename, samePath } from '$lib/workspace/fileSystem';
 import { toaster } from '$lib/modals/toaster-svelte';

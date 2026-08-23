@@ -3,7 +3,7 @@
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
 import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
-import { typSchema } from '$lib/typst/visual/schema';
+import { typSchema } from '$lib/languages/typst/visual/schema';
 import { activeFilePath, workspaceRoot } from '$lib/workspace/workspaceStore';
 import { basename, dirname, joinPath, normalizePath, relativeTo, toLf, fromLf, underRoot, type Eol } from '$lib/workspace/fileSystem';
 import { toaster } from '$lib/modals/toaster-svelte';

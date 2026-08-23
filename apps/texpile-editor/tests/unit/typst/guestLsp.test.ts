@@ -5,9 +5,9 @@
 // chose. And a request that never settles leaves a guest's editor looking hung rather than
 // looking like it has no intellisense.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { sessionUri, relFromSessionUri, mapUris } from '$lib/typst/sessionUri';
-import { createSessionTransport, type SessionLspPort } from '$lib/typst/sessionTransport';
-import { serveGuestLspRequest, diagnosticsNotificationForGuest, type GuestLspContext } from '$lib/typst/guestLsp';
+import { sessionUri, relFromSessionUri, mapUris } from '$lib/languages/typst/sessionUri';
+import { createSessionTransport, type SessionLspPort } from '$lib/languages/typst/sessionTransport';
+import { serveGuestLspRequest, diagnosticsNotificationForGuest, type GuestLspContext } from '$lib/languages/typst/guestLsp';
 import { guestRelPath } from '$lib/collab/sessionProvider';
 import type { ControlPayload } from '$lib/collab/protocol';
 import type { LSPClient } from '@codemirror/lsp-client';

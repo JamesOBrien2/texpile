@@ -17,7 +17,7 @@
 	} from 'prosemirror-tables';
 	import { toaster } from '$lib/modals/toaster-svelte';
 	import { sliceToLatex, pasteLatexText } from '$lib/editor/extensions/latexClipboard';
-	import { sliceToTypst } from '$lib/typst/visual/clipboard';
+	import { sliceToTypst } from '$lib/languages/typst/visual/clipboard';
 	import { sliceToMarkdown } from '$lib/markdown/clipboard';
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { BookMarked, Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal, MessageSquarePlus } from '@lucide/svelte';

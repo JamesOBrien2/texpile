@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Node as PMNode } from 'prosemirror-model';
 import { parseMarkdownFile } from '$lib/markdown/roundtrip';
 import { parseLatexFile } from '$lib/workspace/latexRoundtrip';
-import { parseTypstFile } from '$lib/typst/visual/roundtrip';
+import { parseTypstFile } from '$lib/languages/typst/visual/roundtrip';
 import { buildPmAnchor } from '$lib/editor/extensions/pmComments';
 import { toSourceAnchor, type AnchorDialect } from '$lib/comments/anchor';
 

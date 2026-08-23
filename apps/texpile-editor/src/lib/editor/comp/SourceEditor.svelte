@@ -20,7 +20,7 @@
 	import { latexAutocomplete, latexIntellisense } from '$lib/editor/extensions/intellisense/intellisense';
 	import { foldMarkerDOM, foldMarkerTheme } from '$lib/editor/extensions/intellisense/fold';
 	import { mdSourceShortcuts } from '$lib/markdown/sourceExtensions';
-	import { typSourceShortcuts } from '$lib/typst/visual/sourceExtensions';
+	import { typSourceShortcuts } from '$lib/languages/typst/visual/sourceExtensions';
 	import { mdPathCompletion } from '$lib/markdown/pathCompletion';
 	import { cmSpellcheck } from '$lib/editor/extensions/spellcheck/cmSpellcheck';
 	import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
@@ -37,8 +37,8 @@
 	import { bindModalKeymap, modalKeymapCompartment } from '$lib/editor/extensions/keybindings/modalKeymap';
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
 	import { latex } from '$lib/editor/extensions/latex/latex';
-	import { releaseTypstLsp, typstLspExtension, typstServerGen } from '$lib/typst/lspClient';
-	import { typstGuestLspExtension, releaseGuestTypstLsp } from '$lib/typst/guestLspExtension';
+	import { releaseTypstLsp, typstLspExtension, typstServerGen } from '$lib/languages/typst/lspClient';
+	import { typstGuestLspExtension, releaseGuestTypstLsp } from '$lib/languages/typst/guestLspExtension';
 	import { collabGuest, guestSession } from '$lib/collab/guestStore.svelte';
 	import { guestRelPath } from '$lib/collab/sessionProvider';
 	import { workspaceRoot } from '$lib/workspace/workspaceStore';
@@ -405,7 +405,7 @@
 			view?.dispatch({ effects: langConf.reconfigure(bibtex()) });
 		} else if (fileFor && /\.typ$/i.test(fileFor)) {
 			// the typst-syntax crate as wasm, dynamically imported: ~310KB nothing else needs
-			void import('$lib/typst/typstLanguage').then(({ typstLanguage }) =>
+			void import('$lib/languages/typst/typstLanguage').then(({ typstLanguage }) =>
 				view?.dispatch({ effects: langConf.reconfigure(typstLanguage()) })
 			);
 		} else if (!fileFor || /\.(tex|cls|sty)$/i.test(fileFor)) {

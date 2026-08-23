@@ -61,8 +61,8 @@
 		exportTypstPdf,
 		typstServerGen,
 		type TypstDiagnostic
-	} from '$lib/typst/lspClient';
-	import { noteFollowScroll } from '$lib/typst/preview/followSignal';
+	} from '$lib/languages/typst/lspClient';
+	import { noteFollowScroll } from '$lib/languages/typst/preview/followSignal';
 	import type { LogEntry } from '$lib/latex-log';
 	import {
 		openGlobalSearch as openSearchPanel,
@@ -80,7 +80,7 @@
 	import { attachWindowListeners, attachCloseGuard } from '$lib/workspace/workspaceMount';
 	import { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
 	import { saveVisualPosition, restoreVisualPosition } from '$lib/workspace/visualPositions';
-	import { stripTypst } from '$lib/typst/visual/sourceMap';
+	import { stripTypst } from '$lib/languages/typst/visual/sourceMap';
 	import { bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
 	import { publishWindowState } from '$lib/workspace/mcpPublish';
 	import { attachMcpCommands } from '$lib/workspace/mcpCommands';

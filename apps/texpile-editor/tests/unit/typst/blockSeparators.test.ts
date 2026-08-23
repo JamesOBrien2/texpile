@@ -10,7 +10,7 @@
 // Both dialects are covered because both schemas had the same line, and the machinery underneath
 // (blockAssembly) is shared with LaTeX.
 import { describe, it, expect } from 'vitest';
-import { parseTypstFile, serializeTypstFile } from '$lib/typst/visual/roundtrip';
+import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
 import { parseMarkdownFile, serializeMarkdownFile } from '$lib/markdown/roundtrip';
 
 const FENCE = '```';
@@ -76,7 +76,7 @@ describe('no dialect schema drops the orig attr', () => {
 	it.each([
 		['latex', () => import('$lib/schema/latexPMSchema/latexPMSchema').then((m) => m.schema)],
 		['markdown', () => import('$lib/markdown/schema').then((m) => m.mdSchema)],
-		['typst', () => import('$lib/typst/visual/schema').then((m) => m.typSchema)]
+		['typst', () => import('$lib/languages/typst/visual/schema').then((m) => m.typSchema)]
 	])('%s', async (_name, get) => {
 		const schema = await get();
 		// only nodes the dialect actually has: markdown has no \abstract, typst no environments

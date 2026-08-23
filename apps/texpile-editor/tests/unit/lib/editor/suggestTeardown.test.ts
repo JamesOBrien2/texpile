@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { createTexpileSuggest, type TexpileSuggester } from '$lib/editor/extensions/suggest/texpile-suggest';
-import { typSchema } from '$lib/typst/visual/schema';
+import { typSchema } from '$lib/languages/typst/visual/schema';
 
 function openSuggestion(suggester: TexpileSuggester): EditorView {
 	const doc = typSchema.nodes.doc.create(null, [typSchema.nodes.paragraph.create(null, typSchema.text('see '))]);
