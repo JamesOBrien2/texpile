@@ -242,8 +242,7 @@ class BibtexParser {
 
 		if (this.tryMatch('=')) {
 			this.match('=');
-			const val = this.value();
-			return [key.trim(), val];
+			return [key.trim(), this.value()];
 		} else {
 			throw new TypeError(`Value expected for key "${key}", equals sign missing`);
 		}

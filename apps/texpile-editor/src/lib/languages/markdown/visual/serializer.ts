@@ -287,11 +287,11 @@ const NODES: Record<string, NodeHandler> = {
 	horizontal_rule: () => '---\n\n',
 
 	code_block(node) {
-		const info = String(node.attrs.args ?? '').trim();
+		const infoString = String(node.attrs.args ?? '').trim();
 		const content = node.textContent;
 		const runs = content.match(/`{3,}/g);
 		const fence = '`'.repeat(runs ? Math.max(3, ...runs.map((r) => r.length)) + 1 : 3);
-		return `${fence}${info}\n${content}\n${fence}\n\n`;
+		return `${fence}${infoString}\n${content}\n${fence}\n\n`;
 	},
 
 	// raw source blocks (html in a markdown doc, latex via cross-dialect paste): verbatim

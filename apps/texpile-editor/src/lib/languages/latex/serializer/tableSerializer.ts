@@ -113,7 +113,7 @@ function countColumns(table: Node, coverage: RowspanCoverage): number {
 	table.forEach((row, _o, rowIndex) => {
 		let width = 0;
 		row.forEach((cell) => (width += Number(cell.attrs.colspan ?? 1)));
-		coverage.get(rowIndex)?.forEach((info) => (width += info.colspan));
+		coverage.get(rowIndex)?.forEach((span) => (width += span.colspan));
 		n = Math.max(n, width);
 	});
 	return n;
@@ -190,9 +190,9 @@ function assembleFaithful(
 		// (covered grid positions are omitted from the doc)
 		function emitCovered() {
 			while (coveredHere?.has(colIndex)) {
-				const info = coveredHere.get(colIndex)!;
-				cells.push(placeholderCell(info, colIndex === 0));
-				colIndex += info.colspan;
+				const span = coveredHere.get(colIndex)!;
+				cells.push(placeholderCell(span, colIndex === 0));
+				colIndex += span.colspan;
 			}
 		}
 		row.forEach((cell) => {
@@ -208,10 +208,10 @@ function assembleFaithful(
 	return `\\begin{${env}}${widthArg}{${colspec}}\n${lines.join('\n')}\n\\end{${env}}`;
 }
 
-function placeholderCell(info: { colspan: number }, first: boolean): string {
-	if (info.colspan > 1) {
+function placeholderCell(span: { colspan: number }, first: boolean): string {
+	if (span.colspan > 1) {
 		const align = (first ? '|' : '') + 'c|';
-		return `\\multicolumn{${info.colspan}}{${align}}{}`;
+		return `\\multicolumn{${span.colspan}}{${align}}{}`;
 	}
 	return '';
 }
@@ -223,18 +223,18 @@ function renderRow(row: Node, rowIndex: number, coverage: RowspanCoverage, seria
 
 	row.forEach((cell) => {
 		while (coveredHere?.has(colIndex)) {
-			const info = coveredHere.get(colIndex)!;
-			parts.push(placeholderCell(info, colIndex === 0));
-			colIndex += info.colspan;
+			const span = coveredHere.get(colIndex)!;
+			parts.push(placeholderCell(span, colIndex === 0));
+			colIndex += span.colspan;
 		}
 		parts.push(renderCell(cell, colIndex === 0, serializeNode));
 		colIndex += Number(cell.attrs.colspan ?? 1);
 	});
 	// trailing covered positions
 	while (coveredHere?.has(colIndex)) {
-		const info = coveredHere.get(colIndex)!;
-		parts.push(placeholderCell(info, colIndex === 0));
-		colIndex += info.colspan;
+		const span = coveredHere.get(colIndex)!;
+		parts.push(placeholderCell(span, colIndex === 0));
+		colIndex += span.colspan;
 	}
 
 	const joined = parts.map((p, i) => (i < parts.length - 1 ? p + ' &' : p)).join('');

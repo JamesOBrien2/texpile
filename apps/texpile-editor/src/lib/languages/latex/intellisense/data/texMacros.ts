@@ -1,3 +1,4 @@
+/* eslint id-denylist: "off" -- "info" here is @codemirror/autocomplete's Completion field, also the vendored LaTeX Workshop data shape */
 // vendored from LaTeX Workshop's data/packages/tex.json (MIT, github.com/James-Yu/LaTeX-Workshop):
 // TeX primitives + plain-TeX math its completion loads unconditionally next to macros.json (LW's
 // `mathMacros` in completer/macro.ts). `math` marks entries that belong to math input (member of

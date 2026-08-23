@@ -337,6 +337,7 @@ export function getEntryTypeConfigs(): Record<string, EntryTypeConfig> {
 			]
 		},
 
+		// eslint-disable-next-line id-denylist -- @misc is a BibTeX entry type
 		misc: {
 			name: 'misc',
 			label: m.bibfield_type_miscellaneous(),

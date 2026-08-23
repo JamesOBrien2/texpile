@@ -78,18 +78,18 @@ export async function keysForMacro(name: string, argIndex: number, open: '[' | '
 	const pkgs = PKG_OF_MACRO[name];
 	if (!pkgs) return null;
 	for (const pkg of orderByDetected(pkgs, detected)) {
-		const data = await loadPackage(pkg);
-		if (!data) continue;
-		for (const m of data.macros) {
+		const pkgData = await loadPackage(pkg);
+		if (!pkgData) continue;
+		for (const m of pkgData.macros) {
 			if (m.name !== name || !m.arg?.keys?.length) continue;
 			if ((m.arg.keyPos ?? 0) !== argIndex || !formatMatches(m.arg.format, argIndex, open)) continue;
-			const keys = m.arg.keys.flatMap((g) => data.keys[g] ?? []);
+			const keys = m.arg.keys.flatMap((g) => pkgData.keys[g] ?? []);
 			if (keys.length) return dedupe(keys);
 		}
 		// a key group named after the macro binds its leading [options] even without a macro entry
 		// (graphicx ships includegraphics* key-less but has the "\includegraphics" group)
 		if (argIndex === 0 && open === '[') {
-			const group = data.keys['\\' + name] ?? data.keys['\\' + name + '*'];
+			const group = pkgData.keys['\\' + name] ?? pkgData.keys['\\' + name + '*'];
 			if (group?.length) return dedupe(group);
 		}
 	}
@@ -101,12 +101,12 @@ export async function keysForEnv(env: string, argIndex: number, open: '[' | '{',
 	const pkgs = PKG_OF_ENV[env];
 	if (!pkgs) return null;
 	for (const pkg of orderByDetected(pkgs, detected)) {
-		const data = await loadPackage(pkg);
-		if (!data) continue;
-		for (const e of data.envs) {
+		const pkgData = await loadPackage(pkg);
+		if (!pkgData) continue;
+		for (const e of pkgData.envs) {
 			if (e.name !== env || !e.arg?.keys?.length) continue;
 			if ((e.arg.keyPos ?? 0) + 1 !== argIndex || !formatMatches(e.arg.format, argIndex - 1, open)) continue;
-			const keys = e.arg.keys.flatMap((g) => data.keys[g] ?? []);
+			const keys = e.arg.keys.flatMap((g) => pkgData.keys[g] ?? []);
 			if (keys.length) return dedupe(keys);
 		}
 	}
@@ -117,9 +117,9 @@ export async function keysForEnv(env: string, argIndex: number, open: '[' | '{',
 export async function packageOptions(names: string[]): Promise<Completion[] | null> {
 	const keys: string[] = [];
 	for (const name of names) {
-		const data = await loadPackage(name);
-		if (!data?.args?.length) continue;
-		for (const g of data.args) keys.push(...(data.keys[g] ?? []));
+		const pkgData = await loadPackage(name);
+		if (!pkgData?.args?.length) continue;
+		for (const g of pkgData.args) keys.push(...(pkgData.keys[g] ?? []));
 	}
 	return keys.length ? dedupe(keys) : null;
 }

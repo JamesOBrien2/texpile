@@ -471,10 +471,10 @@ function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 					const innerFrom = (lang ?? delim).to;
 					const innerTo = last && last.name === 'RawDelim' && last !== delim ? last.from : k.to;
 					const content = src.slice(innerFrom, innerTo).replace(/^\n/, '').replace(/\n$/, '');
-					const info = lang ? src.slice(lang.from, lang.to) : '';
+					const infoString = lang ? src.slice(lang.from, lang.to) : '';
 					segs.push({
-						// no info string means NO language recorded: plain text, no settings chip
-						blocks: [el('code_block', { lang: info, env: 'fence', args: info }, txtNodes(content))],
+						// no infoString string means NO language recorded: plain text, no settings chip
+						blocks: [el('code_block', { lang: infoString, env: 'fence', args: infoString }, txtNodes(content))],
 						from: k.from,
 						to: k.to
 					});

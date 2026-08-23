@@ -10,9 +10,9 @@ import { withFrecency } from './frecency';
 
 type InfoMap = Record<string, Record<string, { signature?: string }>>;
 
-function collectSignatures(info: InfoMap, extra: Record<string, string> = {}): Map<string, string> {
+function collectSignatures(infoMap: InfoMap, extra: Record<string, string> = {}): Map<string, string> {
 	const out = new Map<string, string>();
-	for (const pkg of Object.values(info))
+	for (const pkg of Object.values(infoMap))
 		for (const [name, def] of Object.entries(pkg)) if (!out.has(name)) out.set(name, def.signature ?? '');
 	for (const [name, sig] of Object.entries(extra)) if (!out.has(name)) out.set(name, sig);
 	return out;

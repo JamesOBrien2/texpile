@@ -1,3 +1,4 @@
+/* eslint id-denylist: "off" -- "info" here is @codemirror/autocomplete's Completion field, also the vendored LaTeX Workshop data shape */
 // vendored from LaTeX Workshop's data/macros.json (MIT, github.com/James-Yu/LaTeX-Workshop): the
 // default macro set its completion ships on top of package data. only names the bundled CTAN DB
 // misses (regenerate by re-running the diff against @unified-latex/unified-latex-ctan macroInfo).

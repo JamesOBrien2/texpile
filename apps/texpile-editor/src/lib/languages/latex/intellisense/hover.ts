@@ -159,12 +159,12 @@ export function latexHover(): Extension {
 			return { ...at, create: () => ({ dom: dom(`<code>\\${escapeHtml(token.value)}${escapeHtml(shape)}</code>${doc}`) }) };
 		}
 		if (token.kind === 'package' || token.kind === 'class') {
-			const info = (token.kind === 'package' ? PACKAGE_INFO : CLASS_INFO).get(token.value);
-			if (!info?.detail && !info?.url) return null;
+			const pkgInfo = (token.kind === 'package' ? PACKAGE_INFO : CLASS_INFO).get(token.value);
+			if (!pkgInfo?.detail && !pkgInfo?.url) return null;
 			const parts = [
 				`<b>${escapeHtml(token.value)}</b>`,
-				info.detail ? escapeHtml(info.detail) : '',
-				info.url ? `<span class="text-xs opacity-70">${escapeHtml(info.url)}</span>` : ''
+				pkgInfo.detail ? escapeHtml(pkgInfo.detail) : '',
+				pkgInfo.url ? `<span class="text-xs opacity-70">${escapeHtml(pkgInfo.url)}</span>` : ''
 			].filter(Boolean);
 			return { ...at, create: () => ({ dom: dom(parts.join('<br>')) }) };
 		}

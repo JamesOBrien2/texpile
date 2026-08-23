@@ -478,6 +478,7 @@ export const BIB_ENTRY_TYPES: Record<string, BibEntrySpec> = {
 		required: ['author', 'school', 'title', 'year'],
 		optional: ['address', 'month', 'note', 'type']
 	},
+	// eslint-disable-next-line id-denylist -- @misc is a BibTeX entry type
 	misc: {
 		required: ['author', 'date', 'editor', 'title', 'year'],
 		optional: [

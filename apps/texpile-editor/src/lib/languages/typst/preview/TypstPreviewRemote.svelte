@@ -209,6 +209,7 @@
 					// a frame was lost in transit; everything after it is undecodable, so reattach
 					drop(true);
 				} else if (r) {
+					// eslint-disable-next-line id-denylist -- the shim protocol mirrors the socket 'data' event shape
 					toShim({ ev: 'data', data: r.text ? new TextDecoder().decode(r.bytes) : (r.bytes.slice() as Uint8Array<ArrayBuffer>).buffer });
 				}
 			}

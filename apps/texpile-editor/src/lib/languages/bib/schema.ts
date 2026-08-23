@@ -300,6 +300,7 @@ export const perTypeSchemas = {
 	thesis: Thesis,
 	report: Report,
 	online: Online,
+	// eslint-disable-next-line id-denylist -- @misc is a BibTeX entry type
 	misc: Misc,
 	dataset: Dataset
 } as const;

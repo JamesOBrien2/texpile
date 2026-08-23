@@ -1,3 +1,4 @@
+/* eslint id-denylist: "off" -- "info" here is @codemirror/autocomplete's Completion field, also the vendored LaTeX Workshop data shape */
 // \command completion: the bundled CTAN signature DB (same one the parser uses), LaTeX Workshop's
 // vendored default set (data/lwMacros.ts), and the user's OWN \newcommand/\NewDocumentCommand
 // definitions scanned from the buffer in userMacros.worker.ts (LaTeX Workshop calls this

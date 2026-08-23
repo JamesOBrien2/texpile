@@ -259,11 +259,11 @@ function tableNode(tokens: Token[], i: number, j: number): PmNode {
 }
 
 function fenceNode(tok: Token): PmNode {
-	const info = (tok.info ?? '').trim();
+	const infoString = (tok.info ?? '').trim();
 	const content = tok.content.replace(/\n$/, '');
-	// no info string means NO language: highlighting a bare fence as Markdown painted noise over
+	// no infoString string means NO language: highlighting a bare fence as Markdown painted noise over
 	// plain text, and the settings chip claimed a language the source never recorded
-	return el('code_block', { lang: info, env: tok.type === 'fence' ? 'fence' : 'indented', args: info }, txtNodes(content));
+	return el('code_block', { lang: infoString, env: tok.type === 'fence' ? 'fence' : 'indented', args: infoString }, txtNodes(content));
 }
 
 /** one construct starting at tokens[i] (ending at j inclusive) -> block nodes. */

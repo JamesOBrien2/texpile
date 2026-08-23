@@ -136,11 +136,11 @@ function parseBiber(lines: string[]): BibLogParseResult {
 			source: 'bib',
 			raw: line
 		};
-		// biber names a temp .utf8 copy of the .bib; the line number maps to the
+		// biber names a tempFile .utf8 copy of the .bib; the line number maps to the
 		// original data source, so restore its name in both fields
-		const temp = msg.match(/(?:[A-Za-z]:)?[^\s,'"]*biber_tmp[^\s,]*\.utf8/);
-		if (temp && lastSource) {
-			entry.message = msg.replace(temp[0], lastSource);
+		const tempFile = msg.match(/(?:[A-Za-z]:)?[^\s,'"]*biber_tmp[^\s,]*\.utf8/);
+		if (tempFile && lastSource) {
+			entry.message = msg.replace(tempFile[0], lastSource);
 			entry.file = lastSource;
 		} else if (/BibTeX subsystem|Datasource/.test(msg) && lastSource) {
 			entry.file = lastSource;

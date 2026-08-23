@@ -894,11 +894,11 @@ function createList(env: Environment, kind: 'bullet' | 'ordered', options: Conve
 }
 
 function createListItem(content: Node[], options: ConversionOptions): PmNode[] {
-	const filteredContent = content.filter((n, i, arr) => {
+	const filteredContent = content.filter((n, i, siblings) => {
 		if (n.type !== 'whitespace' && n.type !== 'parbreak') return true;
 		// keep whitespace only if between meaningful nodes
-		const hasBefore = arr.slice(0, i).some((x) => x.type !== 'whitespace' && x.type !== 'parbreak');
-		const hasAfter = arr.slice(i + 1).some((x) => x.type !== 'whitespace' && x.type !== 'parbreak');
+		const hasBefore = siblings.slice(0, i).some((x) => x.type !== 'whitespace' && x.type !== 'parbreak');
+		const hasAfter = siblings.slice(i + 1).some((x) => x.type !== 'whitespace' && x.type !== 'parbreak');
 		return hasBefore && hasAfter;
 	});
 

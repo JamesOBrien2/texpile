@@ -1,3 +1,4 @@
+/* eslint id-denylist: "off" -- "info" here is @codemirror/autocomplete's Completion field, also the vendored LaTeX Workshop data shape */
 // \cite-family completion, sourced from the parsed .bib entries already loaded into referenceStore.
 // options match on key+author+title+year (LW's filterText idea) while showing and inserting just
 // the key, so typing an author surname or a title word surfaces the entry.

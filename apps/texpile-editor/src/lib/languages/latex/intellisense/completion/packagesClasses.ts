@@ -1,3 +1,4 @@
+/* eslint id-denylist: "off" -- "info" here is @codemirror/autocomplete's Completion field, also the vendored LaTeX Workshop data shape */
 // \usepackage{...} and \documentclass{...} name completion, from the curated lists in data/.
 // only reachable in Source mode (that's where the preamble is actually edited, see
 // SourceEditor.svelte's texSource binding — the visual/WYSIWYG editor never touches the preamble).
