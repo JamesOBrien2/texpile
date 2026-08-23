@@ -6,7 +6,7 @@
 	import type { EditorView } from 'prosemirror-view';
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { generateLabel, isLabelInUse, isTexpileLabel, sanitizeLabel } from '$lib/editor/visual/label';
-	import { toggleEnvironmentStar } from './mlview.svelte';
+	import { toggleEnvironmentStar } from './mathEnvironments';
 	import { m } from '$lib/paraglide/messages';
 
 	type Props = {

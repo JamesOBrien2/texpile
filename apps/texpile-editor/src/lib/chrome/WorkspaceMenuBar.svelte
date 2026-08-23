@@ -12,7 +12,7 @@
 	import { setSpellcheckEnabled } from '$lib/editor/spellcheck/spellcheckConfig';
 	const appVersion = __APP_VERSION__; // injected by Vite from package.json
 	import { createMathField } from '$lib/editor/visual/extensions/mathlivebridge/mlcommands';
-	import { computeMathAttrs } from '$lib/editor/visual/extensions/mathlivebridge/mlview.svelte';
+	import { computeMathAttrs } from '$lib/editor/visual/extensions/mathlivebridge/mathEnvironments';
 	import { createCodeBlock } from '$lib/editor/visual/extensions/codemirrorbridge/cmcommands';
 	import { createTableNode } from '$lib/editor/visual/tableUtils';
 	import { typTableNode } from '$lib/languages/typst/visual/blockInsertItems';

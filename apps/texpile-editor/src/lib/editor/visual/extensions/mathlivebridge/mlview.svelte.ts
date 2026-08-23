@@ -1,15 +1,17 @@
-import { Selection, TextSelection, type PluginKey } from 'prosemirror-state';
+import { TextSelection, type PluginKey } from 'prosemirror-state';
 import type { MathLivePluginState } from './mlplugin';
 import { MathfieldElement } from 'mathlive';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import type { Node } from 'prosemirror-model';
 import 'mathlive/fonts.css';
-import { setTextSelection } from 'prosemirror-utils';
 import { browser } from '$lib/runtime';
 import { mount, unmount } from 'svelte';
 import MathSettings from './MathSettings.svelte';
 import { configureMathVirtualKeyboard } from './virtualKeyboardConfig';
-import { generateLabel } from '$lib/editor/visual/label';
+import { syncBlockMathAttrs, isMathLatexEmpty } from './mathEnvironments';
+import { renderEquationNumbers } from './equationNumbers';
+import { MathFieldExit, applyMathOutline } from './mathFieldExit';
+import { buildMathField, releaseMathField, type FieldListeners } from './mathFieldFactory';
 import { renderStaticMath, setStaticMath, cancelStaticMath } from './mathStatic';
 import { upgradeWhenNear, cancelUpgrade } from './mathViewport';
 
@@ -17,100 +19,6 @@ import { upgradeWhenNear, cancelUpgrade } from './mathViewport';
 type SettingsHost = {
 	__svelteComponentProps?: { node: Node; view: EditorView; getPos: () => number | undefined };
 } & HTMLElement;
-
-const PER_LINE_ENVIRONMENTS = ['align', 'gather', 'alignat', 'eqnarray'] as const;
-const SINGLE_LABEL_ENVIRONMENTS = ['multline'] as const;
-const MULTILINE_ENVIRONMENTS = [...PER_LINE_ENVIRONMENTS, ...SINGLE_LABEL_ENVIRONMENTS] as const;
-type MultilineEnvironment = (typeof MULTILINE_ENVIRONMENTS)[number];
-
-type EnvironmentDetection = {
-	environment: MultilineEnvironment;
-	isStarred: boolean; // starred (align*) = unnumbered
-	supportsPerLineLabels: boolean;
-};
-
-function detectMultilineEnvironment(latex: string): EnvironmentDetection | null {
-	for (const env of MULTILINE_ENVIRONMENTS) {
-		const starredPattern = new RegExp(`\\\\begin\\{${env}\\*\\}`);
-		if (starredPattern.test(latex)) {
-			return {
-				environment: env,
-				isStarred: true,
-				supportsPerLineLabels: (PER_LINE_ENVIRONMENTS as readonly string[]).includes(env)
-			};
-		}
-		const unstarredPattern = new RegExp(`\\\\begin\\{${env}\\}`);
-		if (unstarredPattern.test(latex)) {
-			return {
-				environment: env,
-				isStarred: false,
-				supportsPerLineLabels: (PER_LINE_ENVIRONMENTS as readonly string[]).includes(env)
-			};
-		}
-	}
-	return null;
-}
-
-function countEnvironmentLines(latex: string): number {
-	const matches = latex.match(/\\\\/g);
-	return matches ? matches.length + 1 : 1;
-}
-
-/** rewrites align <-> align* (and friends) in the latex source. */
-export function toggleEnvironmentStar(latex: string, addStar: boolean): string {
-	for (const env of MULTILINE_ENVIRONMENTS) {
-		if (addStar) {
-			const beginPattern = new RegExp(`\\\\begin\\{${env}\\}`);
-			if (beginPattern.test(latex)) {
-				return latex
-					.replace(new RegExp(`\\\\begin\\{${env}\\}`, 'g'), `\\begin{${env}*}`)
-					.replace(new RegExp(`\\\\end\\{${env}\\}`, 'g'), `\\end{${env}*}`);
-			}
-		} else {
-			const starredBeginPattern = new RegExp(`\\\\begin\\{${env}\\*\\}`);
-			if (starredBeginPattern.test(latex)) {
-				return latex
-					.replace(new RegExp(`\\\\begin\\{${env}\\*\\}`, 'g'), `\\begin{${env}}`)
-					.replace(new RegExp(`\\\\end\\{${env}\\*\\}`, 'g'), `\\end{${env}}`);
-			}
-		}
-	}
-	return latex;
-}
-
-/** initial block_math attrs for a latex string: detects multiline envs, sets numbered/lineLabels, auto-labels numbered equations. */
-export function computeMathAttrs(latex: string): { environment: string | null; numbered: boolean; lineLabels: string[]; label?: string } {
-	const detection = detectMultilineEnvironment(latex);
-
-	if (!detection) {
-		return { environment: null, numbered: false, lineLabels: [] };
-	}
-
-	const isNumbered = !detection.isStarred;
-
-	if (!detection.supportsPerLineLabels) {
-		const attrs: { environment: string | null; numbered: boolean; lineLabels: string[]; label?: string } = {
-			environment: detection.environment,
-			numbered: isNumbered,
-			lineLabels: [] // single-label envs use node.attrs.label instead
-		};
-		if (isNumbered) {
-			attrs.label = generateLabel('equation');
-		}
-		return attrs;
-	}
-
-	const lineCount = countEnvironmentLines(latex);
-	const lineLabels = Array(lineCount)
-		.fill('')
-		.map(() => (isNumbered ? generateLabel('equation') : ''));
-
-	return {
-		environment: detection.environment,
-		numbered: isNumbered,
-		lineLabels
-	};
-}
 
 if (browser) {
 	MathfieldElement.soundsDirectory = null;
@@ -131,8 +39,7 @@ export class MathLiveView implements NodeView {
 	private isblock: boolean;
 	// no user input yet: skip auto-delete on first blur (focus race when created via shortcut)
 	private isNewlyCreated: boolean = true;
-	// empty + one backspace = pending, second backspace or blur deletes
-	private pendingDelete: boolean = false;
+	private exit: MathFieldExit;
 	private equationNumbersContainer?: HTMLElement;
 
 	constructor(
@@ -147,6 +54,14 @@ export class MathLiveView implements NodeView {
 		this.node = node;
 		this.view = view;
 		this.getPos = getPos;
+		this.exit = new MathFieldExit({
+			view,
+			getPos: () => this.getPos(),
+			node: () => this.node,
+			host: () => this.host,
+			isEmpty: () => this.isMathfieldEmpty(),
+			deselect: () => this.deselectNode()
+		});
 		if (isblock) {
 			this.dom = document.createElement('div');
 			this.dom.className = 'block-math-container';
@@ -155,17 +70,7 @@ export class MathLiveView implements NodeView {
 			this.dom.style.position = 'relative';
 			this.dom.style.alignItems = 'center';
 
-			// data attrs drive CSS counters and multi-line styling
-			this.dom.setAttribute('data-label', node.attrs.label || '');
-			this.dom.setAttribute('data-numbered', node.attrs.numbered ? 'true' : 'false');
-			this.dom.setAttribute('data-environment', node.attrs.environment || '');
-			const lineCount = (node.attrs.lineLabels as string[])?.length || 1;
-			this.dom.setAttribute('data-line-count', String(lineCount));
-			// typst has no live "(1)" (numbering is the template's #set rule), so a labeled
-			// equation shows its <label> where LaTeX shows the number - visible proof that it
-			// exists and is what @ offers (CSS in TypstEditorView). Optional chain: test fakes
-			// construct this view without a full state.
-			if (view.state?.schema?.nodes.typ_ref) this.dom.setAttribute('data-typst-label', node.attrs.label || '');
+			this.syncBlockDomAttrs(node);
 
 			this.equationNumbersContainer = document.createElement('div');
 			this.equationNumbersContainer.className = 'equation-numbers';
@@ -218,23 +123,35 @@ export class MathLiveView implements NodeView {
 		return this.mathField ?? (this.placeholder as HTMLElement);
 	}
 
+	// data attrs drive CSS counters and multi-line styling
+	private syncBlockDomAttrs(node: Node): void {
+		this.dom.setAttribute('data-label', node.attrs.label || '');
+		this.dom.setAttribute('data-numbered', node.attrs.numbered ? 'true' : 'false');
+		this.dom.setAttribute('data-environment', node.attrs.environment || '');
+		const lineCount = (node.attrs.lineLabels as string[])?.length || 1;
+		this.dom.setAttribute('data-line-count', String(lineCount));
+		// typst has no live "(1)" (numbering is the template's #set rule), so a labeled
+		// equation shows its <label> where LaTeX shows the number - visible proof that it
+		// exists and is what @ offers (CSS in TypstEditorView). Optional chain: test fakes
+		// construct this view without a full state.
+		if (this.view.state?.schema?.nodes.typ_ref) this.dom.setAttribute('data-typst-label', node.attrs.label || '');
+	}
+
+	/** the listener set handed to buildMathField, and to releaseMathField in destroy() */
+	private fieldListeners(): FieldListeners {
+		return { input: this.forwardupdate, moveOut: this.mlkeymap, focus: this.handleFocus, blur: this.handleBlur, keydown: this.keydown };
+	}
+
 	/** Replaces the static placeholder with a real MathfieldElement. Runs when the node nears the
 	 * viewport, or immediately when the caret arrives first. One-way and idempotent: a field is never
 	 * torn back down, so nothing can lose selection or a half-typed formula. */
 	private materialize = (): void => {
 		if (this.mathField) return;
 
-		const field = new MathfieldElement();
-		this.mathField = field;
-		field.mathVirtualKeyboardPolicy = 'manual';
-		field.style.border = 'none';
-		field.style.outline = 'none';
-		field.style.backgroundColor = 'transparent';
-		// highlight when the cursor is inside the field
-		field.style.setProperty('--contains-highlight-background-color', 'hsla(210, 100%, 85%, 0.4)');
-
 		// this.node, not the constructor's node: edits can land while the placeholder is still up
-		field.setValue(this.node.textContent || '', { format: 'latex-expanded' });
+		const { field, origFocus } = buildMathField(this.node.textContent || '', this.view.editable, this.fieldListeners());
+		this.mathField = field;
+		this.origFocus = origFocus;
 
 		if (this.placeholder) {
 			cancelStaticMath(this.placeholder); // no point typesetting something about to be replaced
@@ -244,34 +161,7 @@ export class MathLiveView implements NodeView {
 			this.dom.appendChild(field);
 		}
 
-		field.addEventListener('input', this.forwardupdate);
-		field.addEventListener('move-out', this.mlkeymap);
-		field.addEventListener('focus', this.handleFocus);
-		field.addEventListener('blur', this.handleBlur);
-		field.addEventListener('keydown', this.keydown);
-
-		// mathlive doesn't fire focus events on programmatic .focus(), so wrap it
-		this.origFocus = field.focus.bind(field);
-		field.focus = ((options?: FocusOptions) => {
-			this.origFocus?.(options);
-			this.handleFocus();
-			// bubbling event for global listeners like the toolbar
-			field.dispatchEvent(new CustomEvent('ml:focusin', { bubbles: true, cancelable: true }));
-		}) as typeof field.focus;
-
-		// Desktop Electron app: there is always a physical keyboard, so the on-screen one is dead
-		// weight. Left at 'manual' so MathLive never raises it on its own.
-		// field.mathVirtualKeyboardPolicy = 'auto';
-
-		// undo/redo handled by prosemirror
-		field.canUndo = () => false;
-		field.canRedo = () => false;
 		this.removeSelection();
-
-		if (!this.view.editable) {
-			field.readOnly = true;
-		}
-
 		this.updateOutline(false);
 	};
 
@@ -298,65 +188,10 @@ export class MathLiveView implements NodeView {
 		this.dom.removeEventListener('focusin', this.mountSettings);
 	};
 
-	/** equation numbers are sequential across the whole doc, count everything numbered before this node. */
-	private getEquationStartNumber(): number {
-		const myPos = this.getPos();
-		let count = 1;
-
-		this.view.state.doc.descendants((n, pos) => {
-			if (pos >= myPos) return false;
-
-			if (n.type.name === 'block_math' && n.attrs.numbered) {
-				const nodeLineLabels = (n.attrs.lineLabels as string[]) || [];
-				const nodeEnv = n.attrs.environment || '';
-				const isSingleLabel = (SINGLE_LABEL_ENVIRONMENTS as readonly string[]).includes(nodeEnv);
-
-				if (isSingleLabel) {
-					count++;
-				} else if (nodeLineLabels.length > 0) {
-					count += nodeLineLabels.filter((l) => l && l.trim()).length;
-				} else if (n.attrs.label) {
-					count++;
-				}
-			}
-		});
-
-		return count;
-	}
-
 	/** per-line envs (align, gather) get JS-rendered line numbers, single-label ones use CSS ::after. */
 	private updateEquationNumbers() {
 		if (!this.equationNumbersContainer) return;
-
-		const isNumbered = this.node.attrs.numbered;
-		const environment = this.node.attrs.environment;
-		const lineLabels = (this.node.attrs.lineLabels as string[]) || [];
-
-		this.equationNumbersContainer.innerHTML = '';
-
-		const startingNumber = this.getEquationStartNumber();
-
-		// CSS ::after reads this for single-line equations
-		this.dom.setAttribute('data-equation-number', String(startingNumber));
-
-		const isSingleLabelEnv = (SINGLE_LABEL_ENVIRONMENTS as readonly string[]).includes(environment || '');
-
-		if (!isNumbered || !environment || isSingleLabelEnv) {
-			this.equationNumbersContainer.style.display = 'none';
-			return;
-		}
-
-		const effectiveLineCount = Math.max(lineLabels.length, 1);
-
-		this.equationNumbersContainer.style.display = 'flex';
-
-		for (let i = 0; i < effectiveLineCount; i++) {
-			const numEl = document.createElement('span');
-			numEl.className = 'equation-number-line';
-			numEl.textContent = `(${startingNumber + i})`;
-			numEl.setAttribute('data-line-label', lineLabels[i] || '');
-			this.equationNumbersContainer!.appendChild(numEl);
-		}
+		renderEquationNumbers(this.view, this.node, this.dom, this.equationNumbersContainer, this.getPos());
 	}
 
 	handleFocus() {
@@ -365,7 +200,7 @@ export class MathLiveView implements NodeView {
 	handleBlur() {
 		const isEmpty = this.isMathfieldEmpty();
 
-		if (isEmpty && (this.pendingDelete || !this.isNewlyCreated)) {
+		if (isEmpty && (this.exit.pendingDelete || !this.isNewlyCreated)) {
 			try {
 				const pos = this.getPos();
 				const tr = this.view.state.tr.delete(pos, pos + this.node.nodeSize);
@@ -377,35 +212,16 @@ export class MathLiveView implements NodeView {
 			return;
 		}
 
-		this.pendingDelete = false;
+		this.exit.pendingDelete = false;
 
 		this.updateOutline(false);
 		this.removeSelection();
 	}
 
-	/** empty fields get a red border even when blurred. */
 	private updateOutline(focus: boolean) {
-		const target = this.host;
 		const isEmpty = this.isMathfieldEmpty();
-		if (isEmpty) {
-			// keep pending-delete styling if active
-			if (!this.pendingDelete) {
-				target.style.border = '1px solid var(--color-error-500, #ef4444)';
-				target.style.backgroundColor = 'transparent';
-			}
-			target.style.outline = 'none';
-			return;
-		}
-		this.pendingDelete = false;
-		target.style.backgroundColor = 'transparent';
-		if (focus) {
-			// var, not #000: a black ring is invisible against the dark-mode editor background
-			target.style.border = '1px solid var(--mathfield-focus-border, #000)';
-			target.style.outline = 'none';
-		} else {
-			target.style.border = 'none';
-			target.style.outline = 'none';
-		}
+		if (!isEmpty) this.exit.pendingDelete = false;
+		applyMathOutline(this.host, isEmpty, this.exit.pendingDelete, focus);
 	}
 
 	forwardupdate() {
@@ -421,8 +237,8 @@ export class MathLiveView implements NodeView {
 
 		this.isNewlyCreated = false;
 
-		if (!this.isMathfieldEmpty() && this.pendingDelete) {
-			this.pendingDelete = false;
+		if (!this.isMathfieldEmpty() && this.exit.pendingDelete) {
+			this.exit.pendingDelete = false;
 			field.style.backgroundColor = 'transparent';
 		}
 
@@ -436,49 +252,9 @@ export class MathLiveView implements NodeView {
 			if (newValue.length) {
 				const tr = this.view.state.tr;
 				const nodeType = this.node.type;
-				const newAttrs = { ...this.node.attrs };
 
 				// block math: re-detect the multiline env from the new content and sync attrs
-				if (this.isblock) {
-					const detection = detectMultilineEnvironment(newValue);
-					const currentEnv = this.node.attrs.environment;
-					const detectedEnv = detection?.environment || null;
-
-					if (detectedEnv !== currentEnv) {
-						newAttrs.environment = detectedEnv;
-						if (detection) {
-							if (!detection.supportsPerLineLabels) {
-								newAttrs.lineLabels = [];
-								newAttrs.numbered = !detection.isStarred;
-							} else {
-								const lineCount = countEnvironmentLines(newValue);
-								const existingLabels = (this.node.attrs.lineLabels as string[]) || [];
-								// keep existing labels, auto-generate for new lines when numbered
-								newAttrs.lineLabels = Array(lineCount)
-									.fill('')
-									.map((_, i) => existingLabels[i] || (!detection.isStarred ? generateLabel('equation') : ''));
-								newAttrs.numbered = !detection.isStarred;
-							}
-						} else {
-							newAttrs.lineLabels = [];
-						}
-					} else if (detection) {
-						const wasNumbered = this.node.attrs.numbered;
-						const shouldBeNumbered = !detection.isStarred;
-						if (wasNumbered !== shouldBeNumbered) {
-							newAttrs.numbered = shouldBeNumbered;
-						}
-						if (detection.supportsPerLineLabels) {
-							const lineCount = countEnvironmentLines(newValue);
-							const existingLabels = (this.node.attrs.lineLabels as string[]) || [];
-							if (lineCount !== existingLabels.length) {
-								newAttrs.lineLabels = Array(lineCount)
-									.fill('')
-									.map((_, i) => existingLabels[i] || (shouldBeNumbered ? generateLabel('equation') : ''));
-							}
-						}
-					}
-				}
+				const newAttrs = this.isblock ? syncBlockMathAttrs(this.node, newValue) : { ...this.node.attrs };
 
 				tr.replaceWith(startPos, endPos, nodeType.create(newAttrs, this.view.state.schema.text(newValue)));
 				tr.setSelection(TextSelection.create(tr.doc, startPos + 1));
@@ -538,12 +314,7 @@ export class MathLiveView implements NodeView {
 		}
 
 		if (this.isblock) {
-			this.dom.setAttribute('data-label', node.attrs.label || '');
-			this.dom.setAttribute('data-numbered', node.attrs.numbered ? 'true' : 'false');
-			this.dom.setAttribute('data-environment', node.attrs.environment || '');
-			const lineCount = (node.attrs.lineLabels as string[])?.length || 1;
-			this.dom.setAttribute('data-line-count', String(lineCount));
-			if (this.view.state?.schema?.nodes.typ_ref) this.dom.setAttribute('data-typst-label', node.attrs.label || '');
+			this.syncBlockDomAttrs(node);
 			this.updateEquationNumbers();
 		}
 
@@ -560,92 +331,20 @@ export class MathLiveView implements NodeView {
 
 	mlkeymap(event: CustomEvent<{ direction: string }>) {
 		event.preventDefault();
-		this.maybeEscape(event.detail.direction);
-	}
-
-	maybedelete(dir = 1) {
-		if (this.isMathfieldEmpty()) {
-			if (!this.pendingDelete) {
-				this.pendingDelete = true;
-				this.host.style.border = '1px solid var(--color-error-500, #ef4444)';
-				this.host.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
-				return true; // keep the cursor inside
-			}
-
-			const pos = this.getPos();
-			let tr = this.view.state.tr;
-
-			tr.delete(pos, pos + this.node.nodeSize);
-			tr = setTextSelection(pos, dir)(tr);
-
-			this.view.dispatch(tr);
-			this.view.focus();
-			return true;
-		}
-		this.pendingDelete = false;
-		this.host.style.backgroundColor = 'transparent';
-		return false;
+		this.exit.maybeEscape(event.detail.direction);
 	}
 
 	/** empty including wrapper-only content like \begin{align} & \end{align}. */
 	private isMathfieldEmpty(): boolean {
 		// before materialize() the node's own text is the source of truth; the field has not been
 		// built to ask, and it would hold exactly this anyway
-		const rawValue = this.mathField ? this.mathField.getValue('latex-expanded') : this.node.textContent || '';
-
-		if (rawValue.length < 1 || rawValue.trim() === '' || rawValue === ' ') {
-			return true;
-		}
-
-		const strippedValue = rawValue
-			// drop envs whose body is only whitespace, &, or \\
-			.replace(/\\begin\{([^}]+)\}[\s&\\]*\\end\{\1\}/g, '')
-			.replace(/&/g, '')
-			.replace(/\\\\/g, '')
-			.trim();
-
-		return strippedValue.length === 0;
+		return isMathLatexEmpty(this.mathField ? this.mathField.getValue('latex-expanded') : this.node.textContent || '');
 	}
 
 	keydown(event: KeyboardEvent) {
 		const field = this.mathField;
 		if (!field) return; // a key event means the field exists; this is a type guard
-		if (event.key === 'Backspace') {
-			if (field.selection.ranges[0][0] !== field.selection.ranges[0][1] || field.selection.ranges[0][1] !== 0) {
-				return;
-			}
-			if (!this.maybedelete(-1) && field.selection.ranges) {
-				let tr = this.view.state.tr;
-				tr = setTextSelection(this.getPos(), -1)(tr);
-
-				this.view.dispatch(tr);
-				this.view.focus();
-			}
-		}
-	}
-
-	maybeEscape(dir: string) {
-		if (dir == 'backward') {
-			this.maybedelete(-1);
-			this.deselectNode();
-			this.view.focus();
-			const tr = this.view.state.tr;
-			const targetPos = this.getPos();
-			// Selection.near falls back to a GapCursor when there's no text position
-			const resolvedPos = tr.doc.resolve(targetPos);
-			tr.setSelection(Selection.near(resolvedPos, -1));
-			this.view.dispatch(tr);
-		} else if (dir == 'forward') {
-			this.maybedelete(1);
-
-			this.deselectNode();
-			this.view.focus();
-			const tr = this.view.state.tr;
-			const targetPos = this.getPos() + this.node.nodeSize;
-			const resolvedPos = tr.doc.resolve(targetPos);
-			tr.setSelection(Selection.near(resolvedPos, 1));
-			this.view.dispatch(tr);
-		}
+		this.exit.keydown(event, field);
 	}
 
 	stopEvent() {
@@ -690,17 +389,9 @@ export class MathLiveView implements NodeView {
 	destroy() {
 		cancelUpgrade(this.dom);
 		if (this.placeholder) cancelStaticMath(this.placeholder);
-		const field = this.mathField;
-		if (field) {
-			field.removeEventListener('input', this.forwardupdate);
-			field.removeEventListener('move-out', this.mlkeymap);
-			field.removeEventListener('focus', this.handleFocus);
-			field.removeEventListener('blur', this.handleBlur);
-			field.removeEventListener('keydown', this.keydown);
-			if (this.origFocus) {
-				field.focus = this.origFocus as typeof field.focus;
-				this.origFocus = undefined;
-			}
+		if (this.mathField) {
+			releaseMathField(this.mathField, this.origFocus, this.fieldListeners());
+			this.origFocus = undefined;
 		}
 		if (this.isblock) {
 			// harmless when mountSettings already removed them
