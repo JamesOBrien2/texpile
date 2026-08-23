@@ -4,6 +4,7 @@
 	"start_open_folder": "Open Folder…",
 	"start_tutorial_cta": "New here? Try the tutorial",
 	"start_recent_heading": "Recent",
+	"start_recent_show_all": "Show all ({count})",
 	"start_error_tutorial": "Failed to open the tutorial",
 	"start_error_open_folder": "Failed to open folder",
 	"prefs_title": "Preferences",

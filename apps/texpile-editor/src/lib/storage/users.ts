@@ -26,7 +26,7 @@ export type UsersState = {
 };
 
 const KEY = 'texpile:users';
-const MAX_RECENT = 8;
+const MAX_RECENT = 10;
 
 const DEFAULTS: UsersState = {
 	v: 1,

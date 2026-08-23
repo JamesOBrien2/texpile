@@ -4,6 +4,7 @@
 	import { modKey } from '$lib/platform';
 	import { whatsNewOpen, hasUnseenWhatsNew } from '$lib/whatsNew';
 	import AppFrame from '$lib/editor/comp/chrome/AppFrame.svelte';
+	import RecentFoldersModal from '$lib/editor/comp/RecentFoldersModal.svelte';
 	// dark wordmark for light backgrounds, white one for dark mode
 	import logoOnLight from '$lib/assets/logo/Logo-dark.svg';
 	import logoOnDark from '$lib/assets/logo/Logo-light.svg';
@@ -31,6 +32,11 @@
 
 	let busy = $state(false);
 	let error = $state<string | null>(null);
+	// the start screen must fit a default window without a scrollbar, so a long history
+	// lives in a popup instead of inline
+	const RECENT_COLLAPSED_COUNT = 5;
+	let recentModalOpen = $state(false);
+	const visibleRecents = $derived($recentFolders.slice(0, RECENT_COLLAPSED_COUNT));
 	let tutorialModalOpen = $state(false);
 	let prefsOpen = $state(false); // the menu bar isn't on this screen, so settings need a way in from here
 	const appVersion = __APP_VERSION__; // injected by Vite from package.json
@@ -179,7 +185,7 @@
 					<span class="text-surface-500 shrink-0 text-xs font-semibold tracking-wider uppercase">{m.start_recent_heading()}</span>
 					<span class="border-surface-200-800 h-px flex-1 border-t"></span>
 				</div>
-				{#each $recentFolders as folder (folder)}
+				{#each visibleRecents as folder (folder)}
 					<!-- min-w-0 on the row and the path: flex items default to min-width:auto, so
 					     without it `truncate` never engages and long paths overflow -->
 					<button class="{rowClass} group min-w-0" onclick={() => openFolder(folder)} disabled={busy} title={folder}>
@@ -192,6 +198,11 @@
 						</span>
 					</button>
 				{/each}
+				{#if $recentFolders.length > RECENT_COLLAPSED_COUNT}
+					<button class="text-surface-500 hover:text-surface-950-50 mt-1 px-2 text-xs" onclick={() => (recentModalOpen = true)}>
+						{m.start_recent_show_all({ count: $recentFolders.length })}
+					</button>
+				{/if}
 			{/if}
 
 			<!-- release notes belong next to the version, not competing with the actions above -->
@@ -205,6 +216,8 @@
 		</div>
 	</div>
 </AppFrame>
+
+<RecentFoldersModal bind:open={recentModalOpen} folders={$recentFolders} onPick={(folder) => openFolder(folder)} />
 
 {#if TutorialModal}
 	<TutorialModal bind:open={tutorialModalOpen} onConfirm={openTutorial} />

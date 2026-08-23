@@ -5,6 +5,7 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+- fix: the start screen no longer grows a scrollbar with a long recent-folder history; it shows the five newest, a "Show all" popup holds the rest, and the history now remembers ten folders
 - fix: live mode now renders typing-from-scratch instantly: new sections and paragraphs appear as you type instead of waiting for a pause and a full pass
 - fix: half-typed inline math renders live in new paragraphs, both $ ... $ and \( ... \) forms, closing the math for the preview while you type
 - fix: live mode places edits in numbered theorems, equations, and align blocks instantly, refining the number in the background instead of falling back to a full compile

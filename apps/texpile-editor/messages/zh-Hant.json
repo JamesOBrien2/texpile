@@ -4,6 +4,7 @@
 	"start_open_folder": "開啟資料夾…",
 	"start_tutorial_cta": "剛開始使用？試試教學",
 	"start_recent_heading": "最近",
+	"start_recent_show_all": "顯示全部（{count}）",
 	"start_error_tutorial": "開啟教學失敗",
 	"start_error_open_folder": "開啟資料夾失敗",
 	"prefs_title": "偏好設定",

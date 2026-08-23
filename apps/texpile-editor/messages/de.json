@@ -4,6 +4,7 @@
 	"start_open_folder": "Ordner öffnen…",
 	"start_tutorial_cta": "Neu hier? Testen Sie das Tutorial",
 	"start_recent_heading": "Zuletzt verwendet",
+	"start_recent_show_all": "Alle anzeigen ({count})",
 	"start_error_tutorial": "Öffnen des Tutorials fehlgeschlagen",
 	"start_error_open_folder": "Öffnen des Ordners fehlgeschlagen",
 	"prefs_title": "Einstellungen",
