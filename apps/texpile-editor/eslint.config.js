@@ -61,5 +61,72 @@ export default ts.config(
 				svelteConfig
 			}
 		}
+	},
+	// styles.md enforcement. Rules that the codebase already satisfies run as errors;
+	// rules with existing violations run as warnings until their cleanup pass lands
+	{
+		files: ['src/**'],
+		rules: {
+			'func-style': ['warn', 'declaration'],
+			'no-param-reassign': ['warn', { props: true }],
+			'max-lines': ['warn', { max: 300, skipBlankLines: true, skipComments: true }],
+			'id-length': ['warn', { min: 1, max: 50 }],
+			'id-denylist': ['warn', 'data', 'info', 'obj', 'tmp', 'temp', 'misc', 'thing', 'val', 'arr', 'foo', 'helper', 'helpers', 'util', 'utils'],
+			'@typescript-eslint/consistent-type-definitions': ['warn', 'type']
+		}
+	},
+	{
+		files: ['src/**/*.ts'],
+		rules: {
+			'no-restricted-exports': ['warn', { restrictDefaultExports: { direct: true, named: true } }]
+		}
+	},
+	// package-private folders: internals are importable only within their own folder
+	{
+		files: ['src/**'],
+		ignores: ['src/lib/schema/latexPMSchema/**'],
+		rules: {
+			'no-restricted-imports': [
+				'warn',
+				{
+					paths: [{ name: 'svelte/store', message: 'runes only; adapt a third-party store at the edge (styles.md)' }],
+					patterns: [
+						{
+							group: ['**/latexPMSchema/*', '!**/latexPMSchema/latexPMSchema'],
+							message: 'latexPMSchema internals are package-private; import through latexPMSchema.ts'
+						}
+					]
+				}
+			]
+		}
+	},
+	{
+		files: ['src/**/*.ts', 'src/**/*.svelte'],
+		languageOptions: {
+			parserOptions: {
+				projectService: true
+			}
+		},
+		rules: {
+			'@typescript-eslint/naming-convention': [
+				'warn',
+				// imported names are library-controlled; the deliberate CMView/PMView aliases live here too
+				{ selector: 'import', format: null },
+				// object keys often mirror external shapes (HTTP headers, CSS props, wire formats)
+				{ selector: 'objectLiteralProperty', format: null },
+				{ selector: 'typeProperty', format: null },
+				{ selector: 'variable', modifiers: ['destructured'], format: null },
+				{ selector: 'variable', types: ['boolean'], format: ['StrictPascalCase'], prefix: ['is', 'has', 'can', 'should'] },
+				{ selector: 'variable', format: ['strictCamelCase', 'UPPER_CASE'] },
+				{ selector: 'function', format: ['strictCamelCase'] },
+				{ selector: 'parameter', format: ['strictCamelCase'], leadingUnderscore: 'allow' },
+				{ selector: 'classProperty', format: ['strictCamelCase', 'UPPER_CASE'], leadingUnderscore: 'allow' },
+				{ selector: 'classMethod', format: ['strictCamelCase'] },
+				{ selector: 'enumMember', format: ['UPPER_CASE'] },
+				{ selector: 'interface', format: ['StrictPascalCase'], custom: { regex: '^I[A-Z]', match: false } },
+				{ selector: 'class', format: ['StrictPascalCase'], custom: { regex: '^Abstract', match: false } },
+				{ selector: 'typeLike', format: ['StrictPascalCase'] }
+			]
+		}
 	}
 );
