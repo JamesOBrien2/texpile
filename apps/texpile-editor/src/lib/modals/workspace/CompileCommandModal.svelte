@@ -7,9 +7,9 @@
 	// pipeline. Change the main file to change the lane; this dialog just shows which one it is.
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
 	import { X, Play } from '@lucide/svelte';
-	import LatexCompileSettings from '$lib/editor/comp/LatexCompileSettings.svelte';
-	import TypstCompileSettings from '$lib/editor/comp/TypstCompileSettings.svelte';
-	import CompileOutputPaths from '$lib/editor/comp/CompileOutputPaths.svelte';
+	import LatexCompileSettings from './LatexCompileSettings.svelte';
+	import TypstCompileSettings from './TypstCompileSettings.svelte';
+	import CompileOutputPaths from './CompileOutputPaths.svelte';
 	import { mainFile, workspaceRoot, effectiveCompileFormat } from '$lib/workspace/workspaceStore';
 	import { compileConfig, projectConfigSync } from '$lib/workspace/projectConfigSync.svelte';
 	import { DEFAULT_COMPILE_COMMAND } from '$lib/settings';

@@ -5,8 +5,8 @@
 	import { workspaceRoot, texFiles, activeFilePath, addRecentFolder, savedLastFile } from '$lib/workspace/workspaceStore';
 	import { settings, loadSettings } from '$lib/settings';
 	import { checkForUpdate, updateModalOpen } from '$lib/updates';
-	import UpdateAvailableModal from '$lib/components/UpdateAvailableModal.svelte';
-	import WhatsNewModal from '$lib/components/WhatsNewModal.svelte';
+	import UpdateAvailableModal from '$lib/modals/window/UpdateAvailableModal.svelte';
+	import WhatsNewModal from '$lib/modals/window/WhatsNewModal.svelte';
 	import { entriesToShow, whatsNewOpen } from '$lib/whatsNew';
 
 	// every released CHANGELOG.md entry, injected at build (vite.config)

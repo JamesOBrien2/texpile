@@ -1,13 +1,13 @@
 <script lang="ts">
 	// The keyboard shortcut sheet (Help > Keyboard shortcuts).
 	//
-	// Its own component, and mounted by WorkspaceDialogs rather than by the menu bar: a guest session
+	// Its own component, and mounted by WindowDialogs rather than by the menu bar: a guest session
 	// draws no menu bar, and the sheet is not a menu feature, it is a window feature that a menu item
 	// happens to open.
 	import { X } from '@lucide/svelte';
 	import { isMac } from '$lib/platform';
 	import { shortcutsOpen } from '$lib/stores/dialogStore';
-	import { combo } from './shortcutText';
+	import { combo } from '$lib/editor/comp/shortcutText';
 	import Kbd from '$lib/components/Kbd.svelte';
 	import { m } from '$lib/paraglide/messages';
 

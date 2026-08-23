@@ -7,7 +7,7 @@
 	import SessionPresence from '$lib/editor/comp/chrome/SessionPresence.svelte';
 	import WorkspaceSidebar from '$lib/editor/comp/WorkspaceSidebar.svelte';
 	import GuestPresence from '$lib/collab/GuestPresence.svelte';
-	import WorkspaceDialogs from '$lib/editor/comp/WorkspaceDialogs.svelte';
+	import WindowDialogs from '$lib/modals/window/WindowDialogs.svelte';
 	import PaneSplitter from '$lib/editor/comp/PaneSplitter.svelte';
 	import { ChevronLeft, ChevronRight, ShieldQuestion } from '@lucide/svelte';
 	import type GlobalSearch from '$lib/editor/comp/GlobalSearch.svelte';
@@ -115,7 +115,7 @@
 
 <!-- outside the branch on purpose: a guest reaches Preferences through the palette and has no menu
      bar to have mounted these -->
-<WorkspaceDialogs />
+<WindowDialogs />
 
 {#if pendingCommand}
 	<!-- The one setting in .texpile/config.json that Texpile EXECUTES, so it is the one that has to

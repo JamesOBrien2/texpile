@@ -848,7 +848,7 @@
 <!-- outside the nav so it survives on macOS, where the nav is not rendered at all -->
 <input bind:this={imageInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" onchange={onImagePicked} />
 
-<!-- Preferences, the dictionary and the shortcut sheet are mounted by WorkspaceDialogs, not here:
+<!-- Preferences, the dictionary and the shortcut sheet are mounted by WindowDialogs, not here:
      a guest session renders no menu bar, and they are window features rather than menu features.
      This file still OPENS them, through dialogStore. -->
 

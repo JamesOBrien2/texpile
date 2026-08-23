@@ -4,7 +4,7 @@
 	import { modKey } from '$lib/platform';
 	import { whatsNewOpen, hasUnseenWhatsNew } from '$lib/whatsNew';
 	import AppFrame from '$lib/editor/comp/chrome/AppFrame.svelte';
-	import RecentFoldersModal from '$lib/editor/comp/RecentFoldersModal.svelte';
+	import RecentFoldersModal from '$lib/modals/start/RecentFoldersModal.svelte';
 	// dark wordmark for light backgrounds, white one for dark mode
 	import logoOnLight from '$lib/assets/logo/Logo-dark.svg';
 	import logoOnDark from '$lib/assets/logo/Logo-light.svg';
@@ -43,16 +43,16 @@
 
 	// both modals chain into the editor bundle (prefs reaches harper via spellcheck), so they
 	// load on first open instead of riding in the boot chunk
-	let TutorialModal = $state<typeof import('$lib/editor/comp/TutorialConfirmModal.svelte').default | null>(null);
-	let PrefsDialog = $state<typeof import('$lib/editor/comp/PreferencesDialog.svelte').default | null>(null);
+	let TutorialModal = $state<typeof import('$lib/modals/start/TutorialConfirmModal.svelte').default | null>(null);
+	let PrefsDialog = $state<typeof import('$lib/modals/window/PreferencesDialog.svelte').default | null>(null);
 
 	async function showTutorialModal() {
-		TutorialModal ??= (await import('$lib/editor/comp/TutorialConfirmModal.svelte')).default;
+		TutorialModal ??= (await import('$lib/modals/start/TutorialConfirmModal.svelte')).default;
 		tutorialModalOpen = true;
 	}
 
 	async function showPrefs() {
-		PrefsDialog ??= (await import('$lib/editor/comp/PreferencesDialog.svelte')).default;
+		PrefsDialog ??= (await import('$lib/modals/window/PreferencesDialog.svelte')).default;
 		prefsOpen = true;
 	}
 

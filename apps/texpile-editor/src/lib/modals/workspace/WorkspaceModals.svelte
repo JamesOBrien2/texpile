@@ -1,12 +1,12 @@
 <script lang="ts">
 	// Every modal the workspace can raise, in one place. These are all independent of each other
 	// and of the layout; keeping them here stops WorkspaceView's markup from being half dialogs.
-	import MainFileModal from '$lib/editor/comp/MainFileModal.svelte';
-	import CompileCommandModal from '$lib/editor/comp/CompileCommandModal.svelte';
-	import FormatModal from '$lib/editor/comp/FormatModal.svelte';
-	import ConflictModal from '$lib/editor/comp/ConflictModal.svelte';
-	import SaveBeforeSwitchModal from '$lib/editor/comp/SaveBeforeSwitchModal.svelte';
-	import RefUpdateModal, { type RefUpdate } from '$lib/editor/comp/RefUpdateModal.svelte';
+	import MainFileModal from './MainFileModal.svelte';
+	import CompileCommandModal from './CompileCommandModal.svelte';
+	import FormatModal from './FormatModal.svelte';
+	import ConflictModal from './ConflictModal.svelte';
+	import SaveBeforeSwitchModal from './SaveBeforeSwitchModal.svelte';
+	import RefUpdateModal, { type RefUpdate } from './RefUpdateModal.svelte';
 	import CommandPalette from '$lib/editor/comp/palette/CommandPalette.svelte';
 	import type { MainFilePrompt } from '$lib/workspace/mainFilePrompt.svelte';
 	import type { UnsavedGuard } from '$lib/workspace/unsavedGuard.svelte';

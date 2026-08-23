@@ -6,7 +6,7 @@ import { get } from 'svelte/store';
 import { workspaceRoot, texFiles } from '$lib/workspace/workspaceStore';
 import { countFileRefs, replaceFileRefs, refDialectOf, REF_SCAN_EXTS, type RefDialect } from '$lib/workspace/fileRefs';
 import { relFromRoot } from '$lib/workspace/compilePipeline.svelte';
-import type { RefUpdate } from '$lib/editor/comp/RefUpdateModal.svelte';
+import type { RefUpdate } from '$lib/modals/workspace/RefUpdateModal.svelte';
 import type { TreeEntry } from '$lib/workspace/fileSystem';
 
 export type RefUpdateDeps = {
