@@ -27,14 +27,14 @@
 	import Kbd from '$lib/components/Kbd.svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		/** dialect-aware chrome (see lib/editor/dialect.ts): feature flags derive from this. */
 		dialect?: Dialect;
 		/** offered as a menu item when present; the anchor is rendered-dialect (see pmComments) */
 		onAddComment?: (anchor: CommentAnchor | null) => void;
 		/** pick citations from Zotero and insert at the caret; a menu item when present */
 		onInsertCitation?: () => void;
-	}
+	};
 	let { dialect = 'latex', onAddComment, onInsertCitation }: Props = $props();
 	// merged cells have no pipe-table syntax, so the markdown editor loses merge/split. Everywhere
 	// else has a spanning form the serializer emits: \multicolumn/\multirow in LaTeX,

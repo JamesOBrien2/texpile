@@ -33,9 +33,9 @@ export const defaultCreateOverlay = () => {
 
 // stashed on the overlay element so update calls can find the mounted component's props
 // without a separate WeakMap registry
-interface OverlayHost extends HTMLElement {
+type OverlayHost = {
 	__svelteComponentProps?: { node: PMNode; view: EditorView; getPos: () => number | undefined };
-}
+} & HTMLElement;
 
 export const defaultUpdateOverlay = (overlay: Node, getPos: () => number | undefined, view: EditorView, node: PMNode) => {
 	if (overlay instanceof HTMLElement) {

@@ -4,23 +4,23 @@ import type { EditorState, StateField } from 'prosemirror-state';
 
 export type ImagePluginState = DecorationSet;
 
-export interface InsertImagePlaceholder {
+export type InsertImagePlaceholder = {
 	type: 'add';
 	pos: number;
 	id: unknown;
-}
+};
 
-export interface RemoveImagePlaceholder {
+export type RemoveImagePlaceholder = {
 	type: 'remove';
 	id: unknown;
-}
+};
 
 export type ImagePluginAction = InsertImagePlaceholder | RemoveImagePlaceholder;
 
 export type ImagePlaceholderObject = { src?: string; className?: string };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface ImagePluginSettings<T = any> {
+export type ImagePluginSettings<T = any> = {
 	downloadImage?: (url: string) => Promise<string>;
 	downloadPlaceholder?: (url: string, view: EditorView) => string | ImagePlaceholderObject;
 	uploadFile: (file: File) => Promise<string>;
@@ -41,7 +41,7 @@ export interface ImagePluginSettings<T = any> {
 	createState: (pluginSettings: ImagePluginSettings) => StateField<T>;
 	createDecorations: (state: EditorState) => DecorationSet;
 	findPlaceholder: (state: EditorState, id: object) => number | undefined;
-}
+};
 
 export enum resizeDirection {
 	top = 'top',

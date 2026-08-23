@@ -11,7 +11,7 @@ const MAX_HEIGHT = 700;
 const clampHeight = clampTo(MIN_HEIGHT, MAX_HEIGHT);
 
 /** the imperative handle TerminalDock exposes */
-export interface DockHandle {
+export type DockHandle = {
 	runCommand(cmd: string, onDone?: (o: string) => void): void;
 	refit(): void;
 	focusActive(): void;
@@ -20,7 +20,7 @@ export interface DockHandle {
 	/** create the first shell if there is none; only for opens the USER asked for */
 	ensureTerminal(): void;
 	interrupt(): void;
-}
+};
 
 export class TerminalDockState {
 	/** client-only; set at mount so SSR and the first client render agree */

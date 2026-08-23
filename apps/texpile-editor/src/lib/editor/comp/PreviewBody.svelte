@@ -47,7 +47,7 @@
 		}
 	});
 
-	interface Props {
+	type Props = {
 		guest: boolean;
 		guestPdf: ArrayBuffer | null;
 		/** the host streams its live Typst preview; show that instead of the pushed PDF */
@@ -79,7 +79,7 @@
 		onSettled: () => void;
 		/** the finished compile's log path, for the Problems panel */
 		onDiagnostics: (logPath: string) => void;
-	}
+	};
 	let {
 		guest,
 		guestPdf,

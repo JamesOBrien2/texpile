@@ -5,15 +5,15 @@
 import { writable } from 'svelte/store';
 import type { RawOutlineItem } from '$lib/editor/extensions/tableofcontents/latexHeadings';
 
-export interface ProjectLabel {
+export type ProjectLabel = {
 	name: string;
 	file: string;
 	line: number;
 	/** the label's surrounding source, for hover and completion detail */
 	context: string;
-}
+};
 
-export interface ProjectDef {
+export type ProjectDef = {
 	name: string;
 	file: string;
 	line: number;
@@ -23,23 +23,23 @@ export interface ProjectDef {
 	definition?: string;
 	/** argument count for `definition` */
 	argCount?: number;
-}
+};
 
-export interface ProjectGloss {
+export type ProjectGloss = {
 	key: string;
 	description: string;
 	acronym: boolean;
 	file: string;
 	line: number;
-}
+};
 
-export interface ProjectBibEntry {
+export type ProjectBibEntry = {
 	key: string;
 	file: string;
 	line: number;
-}
+};
 
-export interface ProjectIntel {
+export type ProjectIntel = {
 	labels: ProjectLabel[];
 	macros: ProjectDef[];
 	envs: ProjectDef[];
@@ -52,7 +52,7 @@ export interface ProjectIntel {
 	auxPages: Record<string, string>;
 	/** per-file raw outline atoms (markers included), for the merged project outline */
 	outlines: Record<string, RawOutlineItem[]>;
-}
+};
 
 export const EMPTY_PROJECT_INTEL: ProjectIntel = {
 	labels: [],

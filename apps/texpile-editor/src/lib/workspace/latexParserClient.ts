@@ -5,28 +5,28 @@ import { mdSchema } from '$lib/markdown/schema';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { ParsedLatexFile, ParsePhase } from './latexRoundtrip';
 
-interface PendingRequest {
+type PendingRequest = {
 	resolve: (value: ParsedLatexFile) => void;
 	reject: (reason: Error) => void;
 	timeoutId: ReturnType<typeof setTimeout>;
 	onProgress?: (phase: ParsePhase) => void;
 	/** which schema rehydrates the result: each dialect's docs live in its own Schema object */
 	format: 'tex' | 'md';
-}
+};
 
-interface ProgressMessage {
+type ProgressMessage = {
 	type: 'progress';
 	id: number;
 	phase: ParsePhase;
-}
+};
 
-interface TooComplexMessage {
+type TooComplexMessage = {
 	type: 'too-complex';
 	id: number;
 	nodeCount: number;
-}
+};
 
-interface ResultMessage {
+type ResultMessage = {
 	type: 'result';
 	id: number;
 	preamble: string;
@@ -34,13 +34,13 @@ interface ResultMessage {
 	hadDocumentEnv: boolean;
 	warnings: string[];
 	docJSON: Record<string, unknown>;
-}
+};
 
-interface ErrorMessage {
+type ErrorMessage = {
 	type: 'error';
 	id: number;
 	message: string;
-}
+};
 
 type WorkerMessage = ResultMessage | ErrorMessage | ProgressMessage | TooComplexMessage;
 

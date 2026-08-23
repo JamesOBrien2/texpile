@@ -23,7 +23,7 @@ export type LspResult = Extract<ControlPayload, { kind: 'lsp-result' }>;
 export type LspNotify = Extract<ControlPayload, { kind: 'lsp-notify' }>;
 
 /** What the responder needs from the session, kept narrow so it can be tested without one. */
-export interface GuestLspContext {
+export type GuestLspContext = {
 	/** the host's real workspace root */
 	root: string;
 	/** the host's tinymist, or null when it is not running */
@@ -42,7 +42,7 @@ export interface GuestLspContext {
 	flush(): Promise<void>;
 	/** every text file in the session, straight from the Y.Doc - the truth the disk lags behind */
 	projectFiles(): ProjectFile[];
-}
+};
 
 /**
  * One open-document set per client, keyed weakly so a server restart simply grows a fresh set -

@@ -7,7 +7,7 @@
 	import { basename, samePath } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		tabs: string[];
 		activePath: string | null;
 		/** only the active file can be dirty (switching files flushes saves). */
@@ -18,7 +18,7 @@
 		onClose: (path: string) => void;
 		/** double-click keeps a preview tab (the only way to hold one you never edit, e.g. a PDF). */
 		onKeep?: (path: string) => void;
-	}
+	};
 	let { tabs, activePath, dirty, previewPath = null, onActivate, onClose, onKeep }: Props = $props();
 
 	const isActive = (t: string) => !!activePath && samePath(t, activePath);

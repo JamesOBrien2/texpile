@@ -5,26 +5,26 @@
 import { snippetCompletion, type Completion } from '@codemirror/autocomplete';
 import { PKG_OF_MACRO, PKG_OF_ENV } from '../data/packages/index';
 
-interface PkgArg {
+type PkgArg = {
 	format: string;
 	snippet: string;
 	keys?: string[];
 	keyPos?: number;
-}
-interface PkgEntry {
+};
+type PkgEntry = {
 	name: string;
 	arg?: PkgArg;
 	unusual?: boolean;
 	detail?: string;
 	doc?: string;
-}
-export interface PackageData {
+};
+export type PackageData = {
 	deps?: Array<{ name: string; if?: string }>;
 	macros: PkgEntry[];
 	envs: PkgEntry[];
 	keys: Record<string, string[]>;
 	args?: string[];
-}
+};
 
 const modules = import.meta.glob<{ default: PackageData }>('../data/packages/*.json');
 const cache = new Map<string, Promise<PackageData | null>>();

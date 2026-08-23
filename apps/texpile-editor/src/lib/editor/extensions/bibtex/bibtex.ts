@@ -2,13 +2,13 @@
 // token() returns standard highlight-tag names, which StreamLanguage resolves via tags[name], so no tokenTable needed.
 import { StreamLanguage, LanguageSupport } from '@codemirror/language';
 
-interface BibState {
+type BibState = {
 	inEntry: boolean;
 	/** what the next word means: the citekey, a field name, or a field value. */
 	field: 'key' | 'name' | 'value' | null;
 	braceDepth: number;
 	inQuote: boolean;
-}
+};
 
 export const bibtexLanguage = StreamLanguage.define<BibState>({
 	name: 'bibtex',

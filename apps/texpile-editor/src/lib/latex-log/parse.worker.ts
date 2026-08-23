@@ -2,12 +2,12 @@
 // so the whole result structured-clones back as-is.
 import { parseCompileDiagnostics } from './index';
 
-interface ParseRequest {
+type ParseRequest = {
 	id: number;
 	logText: string;
 	blgText: string | null;
 	stdoutText: string | null;
-}
+};
 
 self.onmessage = (e: MessageEvent<ParseRequest>) => {
 	const { id, logText, blgText, stdoutText } = e.data;

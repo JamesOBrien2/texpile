@@ -9,7 +9,7 @@
 	import { quintOut } from 'svelte/easing';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		href: string;
 		title: string | null;
 		linkText: string;
@@ -19,7 +19,7 @@
 		onClose: () => void;
 		/** open interception: true = handled in-app, else the browser fallback runs */
 		onOpen?: (href: string) => boolean;
-	}
+	};
 
 	let { href, title, position, onUpdate, onRemove, onClose, onOpen }: Props = $props();
 

@@ -32,12 +32,12 @@ export function searchSeed(): string | undefined {
 	return sel.includes('\n') ? undefined : sel;
 }
 
-export interface SearchPanelDeps {
+export type SearchPanelDeps = {
 	setSidebarView(view: 'explorer' | 'search' | 'scm'): void;
 	openSidebar(): void;
 	isSourceMode(): boolean;
 	focusInput(seed?: string): void;
-}
+};
 
 /** open Find in Files with its input focused */
 export async function openGlobalSearch(deps: SearchPanelDeps): Promise<void> {
@@ -56,7 +56,7 @@ export async function closeGlobalSearch(deps: SearchPanelDeps): Promise<void> {
 	focusEditor(deps.isSourceMode());
 }
 
-export interface FormatDeps {
+export type FormatDeps = {
 	getLoadedPath(): string | null;
 	getSource(): string;
 	getEol(): Eol;
@@ -66,7 +66,7 @@ export interface FormatDeps {
 	/** install the reindented text and re-derive both views */
 	applyFormatted(text: string): void;
 	setBusy(busy: boolean): void;
-}
+};
 
 /** Reindent via latexindent and swap the source for the result; both views re-derive from it.
  * No backup file: the confirm modal's warning is the only safety net, undo covers the rest. */

@@ -4,7 +4,7 @@
 
 import type { TexFile, TreeEntry, SearchFileResult } from './fileSystem';
 
-export interface WorkspaceCapabilities {
+export type WorkspaceCapabilities = {
 	/** create / rename / delete / move / import files (host only). */
 	manageTree: boolean;
 	/** terminal compile + live/draft preview (host only). */
@@ -15,9 +15,9 @@ export interface WorkspaceCapabilities {
 	format: boolean;
 	/** find-in-files across the folder (host only). */
 	search: boolean;
-}
+};
 
-export interface WorkspaceProvider {
+export type WorkspaceProvider = {
 	readonly caps: WorkspaceCapabilities;
 
 	// reads (both host and guest)
@@ -63,4 +63,4 @@ export interface WorkspaceProvider {
 
 	/** fires when files change underneath us (a guest's manifest observer); returns an unsubscribe. */
 	watch?(onChange: () => void): () => void;
-}
+};

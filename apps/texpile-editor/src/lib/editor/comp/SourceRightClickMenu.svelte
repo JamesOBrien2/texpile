@@ -7,23 +7,23 @@
 	import { copySelection, cutSelection, pasteAtCursor } from '$lib/editor/cmClipboardUtils';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		onSyncToPdf?: (line: number) => void;
 		onAddComment?: (from: number, to: number) => void;
 		// Zotero Citation
 		onInsertCitation?: () => void;
 		// preview = not pdfviewer
 		syncTarget?: 'pdf' | 'preview';
-	}
+	};
 	let { onSyncToPdf, onAddComment, onInsertCitation, syncTarget = 'pdf' }: Props = $props();
 
 	/** where the menu was opened, and what the editor could act on there */
-	interface SelectonTarget {
+	type SelectonTarget = {
 		x: number;
 		y: number;
 		line: number;
 		selection: { from: number; to: number } | null;
-	}
+	};
 	let target = $state<SelectonTarget | null>(null);
 
 	let view: CMView | null = null;

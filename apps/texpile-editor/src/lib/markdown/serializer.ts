@@ -39,12 +39,12 @@ function linkDest(href: string): string {
 	return /[\s()]/.test(href) ? `<${href}>` : href;
 }
 
-interface MarkDelims {
+type MarkDelims = {
 	open: string;
 	close: string;
 	/** emphasis family: delimiters can't touch whitespace, boundary ws moves outside. */
 	expel?: boolean;
-}
+};
 
 const MARK_DELIMS: Record<string, (attrs: Record<string, unknown>) => MarkDelims> = {
 	link: (a) => {
@@ -74,12 +74,12 @@ function orderedMarks(marks: readonly Mark[]): Mark[] {
 		});
 }
 
-interface InlineRun {
+type InlineRun = {
 	content: string;
 	marks: Mark[];
 	/** plain prose (whitespace expelling applies); false for chips and breaks */
 	isText: boolean;
-}
+};
 
 /** a bare autolink whose visible text IS the href renders as <href>. */
 function bareLinkRun(node: Node): string | null {

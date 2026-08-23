@@ -19,12 +19,12 @@
 <script lang="ts">
 	// The round initial that stands in for a person: session peers in the title bar, comment authors
 	// in the review panel. Shared so the two cannot drift into looking like different products.
-	interface Props {
+	type Props = {
 		name: string;
 		/** an assigned colour (a session peer has one); omitted, it is derived from the name */
 		color?: string | null;
 		class?: string;
-	}
+	};
 	let { name, color = null, class: extra = 'size-5 text-[10px]' }: Props = $props();
 </script>
 

@@ -6,10 +6,10 @@
 // LSP positions are line + character in UTF-16 code units, which is exactly what JS string
 // indexing speaks, so offsets fall out of line starts plus the character count directly.
 
-export interface LspTextEdit {
+export type LspTextEdit = {
 	range: { start: { line: number; character: number }; end: { line: number; character: number } };
 	newText: string;
-}
+};
 
 /** offset of every line start; the terminator lives with the line it ends */
 function lineStarts(text: string): number[] {

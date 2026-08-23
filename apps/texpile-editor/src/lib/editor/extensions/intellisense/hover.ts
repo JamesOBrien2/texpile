@@ -16,12 +16,12 @@ import { macroLookup } from './completion/macros';
 const CLASS_INFO = new Map(CLASS_NAMES.map((c) => [c.name, c]));
 const PACKAGE_INFO = new Map(PACKAGE_NAMES.map((p) => [p.name, p]));
 
-export interface Token {
+export type Token = {
 	kind: 'macro' | 'package' | 'class' | 'citekey' | 'label' | 'glosskey' | 'graphic';
 	value: string;
 	from: number;
 	to: number;
-}
+};
 
 /** finds what the given position is "over" by pattern-matching within its line. shared with definition.ts. */
 export function tokenAt(lineText: string, lineStart: number, pos: number): Token | null {

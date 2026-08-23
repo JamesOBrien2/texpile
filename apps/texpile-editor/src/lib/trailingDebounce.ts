@@ -1,8 +1,8 @@
-export interface Debounced<T> {
+export type Debounced<T> = {
 	(value: T): void;
 	/** drop any pending fire: a stale timer outliving its editor must not clobber shared stores. */
 	cancel(): void;
-}
+};
 
 /** Trailing-edge debounce keeping only the latest value; for display-only recomputes that may
  * lag typing by a beat (word count, TOC, table watcher). Cancel on teardown. */

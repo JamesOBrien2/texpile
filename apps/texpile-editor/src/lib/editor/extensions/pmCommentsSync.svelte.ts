@@ -9,7 +9,7 @@ import type { CommentThread } from '$lib/comments/log';
 import type { AnchorDialect } from '$lib/comments/anchor';
 import { setPmComments, focusPmComment, resolvePmComments, revealPmComment, setPmCommentPending } from './pmComments';
 
-export interface PmCommentsSyncArgs {
+export type PmCommentsSyncArgs = {
 	/** the mounted view, or null until it exists */
 	view: () => EditorView | null;
 	threads: () => CommentThread[];
@@ -30,7 +30,7 @@ export interface PmCommentsSyncArgs {
 	 * committed, cancelled, or abandoned by a file switch.
 	 */
 	pendingActive?: () => boolean;
-}
+};
 
 export function syncPmComments(args: PmCommentsSyncArgs): void {
 	// Re-place threads when the list changes or a swap lands. The fingerprint guard matters

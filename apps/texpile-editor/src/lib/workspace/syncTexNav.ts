@@ -14,7 +14,7 @@ import { sourceCmView } from '$lib/stores/editorStore';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 
-export interface SyncTexDeps {
+export type SyncTexDeps = {
 	isGuest(): boolean;
 	getLoadedPath(): string | null;
 	/** only .tex files carry SyncTeX positions */
@@ -28,7 +28,7 @@ export interface SyncTexDeps {
 	/** draft mode highlights inside DraftView instead of the standalone pane */
 	syncDraftTo(page: number, x: number, y: number, w: number, h: number): void;
 	openFileAtLine(file: string, line: number, selectText?: string): void;
-}
+};
 
 /** normalize a path out of synctex to the workspace separator so it matches the open file */
 export function normSyncPath(p: string): string {

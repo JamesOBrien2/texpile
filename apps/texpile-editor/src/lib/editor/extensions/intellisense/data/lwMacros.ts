@@ -1,7 +1,7 @@
 // vendored from LaTeX Workshop's data/macros.json (MIT, github.com/James-Yu/LaTeX-Workshop): the
 // default macro set its completion ships on top of package data. only names the bundled CTAN DB
 // misses (regenerate by re-running the diff against @unified-latex/unified-latex-ctan macroInfo).
-export interface LwMacro {
+export type LwMacro = {
 	/** completion label after the backslash, e.g. 'left(' */
 	label: string;
 	/** CodeMirror snippet inserted after the backslash; omitted = the label is the insert text */
@@ -13,7 +13,7 @@ export interface LwMacro {
 	math?: boolean;
 	/** reopen the completion dropdown after accepting (LW's triggerSuggest action) */
 	chain?: boolean;
-}
+};
 
 export const LW_MACROS: LwMacro[] = [
 	{ label: 'begin', snippet: 'begin{', detail: 'Begin a new environment', chain: true },

@@ -47,12 +47,12 @@ function absInRoot(root: string, rel: string): string {
 }
 
 /** manual overrides for where the compile writes its PDF/log, when auto-detection guesses wrong. */
-export interface CompileOutputs {
+export type CompileOutputs = {
 	/** path to the compiled PDF (relative to root, or absolute); blank = auto-detect from command. */
 	pdf?: string;
 	/** path to the .log (relative to root, or absolute); blank = auto-detect (next to the PDF). */
 	log?: string;
-}
+};
 
 /** the persisted main-file path for a folder (absolute), or null if none was saved. */
 export function savedMainFile(root: string): string | null {

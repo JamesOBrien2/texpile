@@ -13,11 +13,11 @@ import { lspHoverTheme } from './lspClient';
 import { sessionUri } from './sessionUri';
 import { createSessionTransport, type SessionLspPort } from './sessionTransport';
 
-interface GuestSession {
+type GuestSession = {
 	client: LSPClient;
 	transport: ReturnType<typeof createSessionTransport>;
 	holders: number;
-}
+};
 
 let guest: GuestSession | null = null;
 let idleTimer: ReturnType<typeof setTimeout> | null = null;

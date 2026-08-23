@@ -2,11 +2,11 @@
 // of index.ts so node-side consumers (tests, sweeps) never touch the Worker constructor.
 import type { LatexLogParseResult } from './types';
 
-interface ParseResponse {
+type ParseResponse = {
 	id: number;
 	result?: LatexLogParseResult;
 	error?: string;
-}
+};
 
 let worker: Worker | null = null;
 let seq = 0;

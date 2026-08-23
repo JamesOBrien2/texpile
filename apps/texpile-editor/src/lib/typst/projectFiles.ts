@@ -14,11 +14,11 @@
 import { Text } from '@codemirror/state';
 import type { LSPClient } from '@codemirror/lsp-client';
 
-export interface ProjectFile {
+export type ProjectFile = {
 	/** root-relative, forward-slashed - the session manifest's own key */
 	rel: string;
 	text: string;
-}
+};
 
 /** Which files are worth handing over: the sources typst reads through the language server. */
 export const PROJECT_FILE_RE = /\.(typ|bib)$/i;
@@ -30,11 +30,11 @@ export const languageIdFor = (rel: string) => (/\.bib$/i.test(rel) ? 'bibtex' : 
  * A file the server has open on our behalf. `version` is LSP's own monotonic counter; `text` is
  * kept so a reconcile can tell a real edit from a re-render of the same content.
  */
-interface OpenDoc {
+type OpenDoc = {
 	uri: string;
 	version: number;
 	text: string;
-}
+};
 
 /**
  * Tracks which project files this set has open with the client, and moves the server from one

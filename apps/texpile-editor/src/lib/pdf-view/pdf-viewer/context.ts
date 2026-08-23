@@ -11,7 +11,7 @@ export enum PresentationModeState {
 	FULLSCREEN = 3
 }
 
-export interface PdfViewerState {
+export type PdfViewerState = {
 	loading: boolean;
 	error: string | null;
 	totalPages: number;
@@ -28,9 +28,9 @@ export interface PdfViewerState {
 	presentationMode: PresentationModeState;
 	/** false when the host passed no save handler, so the toolbar omits the button entirely */
 	canSavePdf: boolean;
-}
+};
 
-export interface PdfViewerActions {
+export type PdfViewerActions = {
 	zoomIn: () => void;
 	zoomOut: () => void;
 	/** scale so the current page fills the available width. */
@@ -48,9 +48,9 @@ export interface PdfViewerActions {
 	exitPresentationMode: () => Promise<void>;
 	/** SyncTeX forward search: scroll to + briefly highlight a position on a page (PDF points, top-left origin). */
 	scrollToPosition?: (page: number, x: number, y: number, width?: number, height?: number) => void;
-}
+};
 
-export interface PdfViewerContext {
+export type PdfViewerContext = {
 	state: PdfViewerState;
 	actions: PdfViewerActions;
 	src: PdfSource;
@@ -61,7 +61,7 @@ export interface PdfViewerContext {
 	_onerror?: (error: string) => void;
 	// internal: stores a copy of binary data for download (PDF.js detaches ArrayBuffers)
 	_setSrcDataForDownload: (data: ArrayBuffer | null) => void;
-}
+};
 
 export function setPdfViewerContext(ctx: PdfViewerContext): void {
 	setContext(PDF_VIEWER_CONTEXT_KEY, ctx);

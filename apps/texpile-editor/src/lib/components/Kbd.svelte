@@ -9,7 +9,7 @@
 <script lang="ts">
 	import { isMac } from '$lib/platform';
 
-	interface Props {
+	type Props = {
 		/** shortcut string using "Mod" for Cmd/Ctrl, e.g. "Mod+Shift+M". */
 		keys?: string;
 		/** already-formatted text, for composites the parser cannot express ("F12 / ⌘ Click"). */
@@ -21,7 +21,7 @@
 		 */
 		cap?: boolean;
 		class?: string;
-	}
+	};
 
 	let { keys, raw, cap = false, class: className = '' }: Props = $props();
 

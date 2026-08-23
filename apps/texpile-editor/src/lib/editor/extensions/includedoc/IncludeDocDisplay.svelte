@@ -25,7 +25,7 @@
 	{:else}
 		<span class="includedoc-code"
 			><span class="includedoc-syntax">\{command}{'{'}</span><span class="includedoc-path">{path}</span><span class="includedoc-syntax"
-				>{'}'}</span
+				>}</span
 			></span
 		>
 	{/if}

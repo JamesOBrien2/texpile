@@ -19,16 +19,16 @@ import type { CompileOutputs } from '$lib/workspace/workspaceStore';
 
 const CONFIG_PATH = '.texpile/config.json';
 
-export interface ProjectFormatConfig {
+export type ProjectFormatConfig = {
 	command?: string;
 	outputs?: CompileOutputs;
 	/** latex only: live mode (the incremental per-page engine) instead of the shell command */
 	liveMode?: boolean;
 	/** typst only: tinymist's incremental preview instead of the shell command */
 	preview?: boolean;
-}
+};
 
-export interface ProjectConfig {
+export type ProjectConfig = {
 	/** bumped only for a change an older build could not read */
 	v: 1;
 	/** root-relative main file. Its extension is also what names the typesetter, so there is no
@@ -38,7 +38,7 @@ export interface ProjectConfig {
 	completionMarker?: boolean;
 	latex?: ProjectFormatConfig;
 	typst?: ProjectFormatConfig;
-}
+};
 
 const configPath = (root: string) => `${root.replace(/[\\/]+$/, '')}/${CONFIG_PATH}`;
 

@@ -3,7 +3,7 @@
 // arrow-key nudge; the only real differences are how a pointer position maps to a value and what
 // gets persisted, so both are parameters here.
 
-interface DragOptions {
+type DragOptions = {
 	/** pointer position -> the new value, or null to ignore this move (e.g. no measurable rect) */
 	compute: (ev: MouseEvent) => number | null;
 	apply: (value: number) => void;
@@ -16,7 +16,7 @@ interface DragOptions {
 	 * their old size for the duration of the drag and take the cost once, on release.
 	 */
 	onState?: (dragging: boolean) => void;
-}
+};
 
 /** begin a drag gesture; listeners live on window so the pointer can leave the handle */
 export function startDrag(e: MouseEvent, { compute, apply, commit, onState }: DragOptions): void {
@@ -36,14 +36,14 @@ export function startDrag(e: MouseEvent, { compute, apply, commit, onState }: Dr
 	window.addEventListener('mouseup', onUp);
 }
 
-interface NudgeOptions {
+type NudgeOptions = {
 	/** [key that decreases the value, key that increases it] */
 	keys: [decrease: string, increase: string];
 	step: number;
 	current: () => number;
 	apply: (value: number) => void;
 	commit: () => void;
-}
+};
 
 /** keyboard equivalent of a drag handle, so the panes stay resizable without a pointer */
 export function nudgeOnKey(e: KeyboardEvent, { keys, step, current, apply, commit }: NudgeOptions): void {

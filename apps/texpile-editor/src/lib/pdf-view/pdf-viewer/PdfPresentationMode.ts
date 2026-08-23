@@ -40,10 +40,10 @@ const PAGE_SWITCH_THRESHOLD = 0.1;
 const SWIPE_MIN_DISTANCE_THRESHOLD = 50;
 const SWIPE_ANGLE_THRESHOLD = Math.PI / 6;
 
-export interface PresentationModeCallbacks {
+export type PresentationModeCallbacks = {
 	onStateChange?: (state: PresentationModeState) => void;
 	onPageChange?: (pageNumber: number) => void;
-}
+};
 
 export class PdfPresentationMode {
 	private state: PresentationModeState = PresentationModeState.UNKNOWN;

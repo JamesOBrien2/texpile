@@ -1,8 +1,8 @@
-interface ParsedBibTeXEntry {
+type ParsedBibTeXEntry = {
 	citationKey: string;
 	entryType: string;
 	entryTags: Record<string, string>;
-}
+};
 
 /**
  * File-order token stream from parse(). Comment/preamble/string blocks are verbatim so the

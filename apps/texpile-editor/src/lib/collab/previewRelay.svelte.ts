@@ -16,7 +16,7 @@
 import { collabHost } from './hostStore.svelte';
 import { chunkPreview, type PreviewPayload } from './protocol';
 
-interface GuestLeg {
+type GuestLeg = {
 	/** the guest's Y clientID, which is also where its frames go */
 	guest: number;
 	/** the guest's connection epoch; frames for another epoch are stale */
@@ -31,7 +31,7 @@ interface GuestLeg {
 	dialedAt?: number;
 	/** the socket reached 'open': the task answered, so a later close is NOT a refused dial */
 	sawOpen?: boolean;
-}
+};
 
 const EMPTY = new Uint8Array(0);
 

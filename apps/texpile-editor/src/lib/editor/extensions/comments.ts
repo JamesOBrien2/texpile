@@ -15,12 +15,12 @@ import { get } from 'svelte/store';
 import { settings, updateSettings } from '$lib/settings';
 import { m } from '$lib/paraglide/messages';
 
-export interface CommentRange {
+export type CommentRange = {
 	id: string;
 	from: number;
 	to: number;
 	resolved: boolean;
-}
+};
 
 /** replace every range; the store folds its whole log, so partial updates would not buy anything */
 export const setCommentRanges = StateEffect.define<CommentRange[]>();
@@ -144,7 +144,7 @@ class CommentLine extends GutterMarker {
 
 const commentLine = new CommentLine();
 
-interface CommentsConfig {
+type CommentsConfig = {
 	/**
 	 * A thread was clicked, and where.
 	 *
@@ -158,7 +158,7 @@ interface CommentsConfig {
 	onAdd?: (from: number, to: number) => void;
 	/** label for the tooltip button, so the caller owns translation */
 	addLabel?: string;
-}
+};
 
 export function comments({ onSelect, onAdd, addLabel = 'Comment' }: CommentsConfig = {}): Extension {
 	return [

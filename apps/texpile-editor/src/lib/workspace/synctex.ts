@@ -3,7 +3,7 @@ import { native } from './fileSystem';
 
 // flat shapes (not discriminated unions) so callers can read fields without narrowing;
 // on failure ok is false and the position fields are absent
-export interface ForwardResult {
+export type ForwardResult = {
 	ok: boolean;
 	error?: string;
 	page: number;
@@ -13,15 +13,15 @@ export interface ForwardResult {
 	v: number;
 	width: number;
 	height: number;
-}
+};
 
-export interface InverseResult {
+export type InverseResult = {
 	ok: boolean;
 	error?: string;
 	input: string;
 	line: number;
 	column: number;
-}
+};
 
 async function call<T>(body: Record<string, unknown>): Promise<T> {
 	const n = native();

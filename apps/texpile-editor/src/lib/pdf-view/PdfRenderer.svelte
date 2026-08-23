@@ -6,7 +6,7 @@
 	import { PdfPresentationMode } from './pdf-viewer/PdfPresentationMode';
 	import { rendererStyles } from './pdf-viewer/renderer-styles';
 
-	interface Props {
+	type Props = {
 		/** PDF source; falls back to the src from PdfViewer context. */
 		src?: PdfSource;
 		backgroundColor?: string;
@@ -23,7 +23,7 @@
 		/** SyncTeX inverse search: fired on double-click with the page + position in PDF points, plus
 		 *  the double-clicked word so the editor can anchor the jump on the actual text. */
 		onPageClick?: (page: number, x: number, y: number, selectText?: string) => void;
-	}
+	};
 
 	let {
 		src: srcProp,

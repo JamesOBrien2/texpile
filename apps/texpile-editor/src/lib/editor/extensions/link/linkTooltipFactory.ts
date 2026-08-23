@@ -2,12 +2,12 @@
 import { mount, unmount } from 'svelte';
 import LinkTooltip from './LinkTooltip.svelte';
 
-interface Position {
+type Position = {
 	x: number;
 	y: number;
-}
+};
 
-export interface LinkTooltipOptions {
+export type LinkTooltipOptions = {
 	href: string;
 	title: string | null;
 	linkText: string;
@@ -17,7 +17,7 @@ export interface LinkTooltipOptions {
 	onClose: () => void;
 	/** open interception: true = handled in-app (md workspace link), else browser fallback */
 	onOpen?: (href: string) => boolean;
-}
+};
 
 let currentContainer: HTMLDivElement | null = null;
 let currentComponent: ReturnType<typeof mount> | null = null;

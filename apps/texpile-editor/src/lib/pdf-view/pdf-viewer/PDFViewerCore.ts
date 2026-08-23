@@ -19,7 +19,7 @@ import { EventBus } from './EventBus';
 import { PDFPageView, RenderingStates } from './PDFPageView';
 import { SimpleLinkService } from './SimpleLinkService';
 
-export interface PDFViewerOptions {
+export type PDFViewerOptions = {
 	container: HTMLElement;
 	eventBus?: EventBus;
 	initialScale?: number;
@@ -27,7 +27,7 @@ export interface PDFViewerOptions {
 	/** SyncTeX inverse search: fired on double-click with the page + position in PDF points (top-left
 	 *  origin), plus the double-clicked word so the editor can anchor the jump on the actual text. */
 	onPageClick?: (page: number, x: number, y: number, selectText?: string) => void;
-}
+};
 
 const DEFAULT_SCALE = 1.0;
 const MIN_SCALE = 0.1;

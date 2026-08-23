@@ -17,11 +17,11 @@ const NEW_FILE_NAMES: Record<string, string> = {
 	sty: 'mystyle.sty'
 };
 
-export interface StarterDeps {
+export type StarterDeps = {
 	loadRefs(root: string): Promise<unknown> | void;
 	refreshTree(): Promise<void>;
 	createEntry(root: string, name: string, type: 'file' | 'dir'): Promise<unknown>;
-}
+};
 
 export class StarterActions {
 	/** true while a starter/import is being written; blocks a second concurrent run */

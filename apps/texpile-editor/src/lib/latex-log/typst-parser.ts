@@ -53,10 +53,10 @@ function underlined(sourceRow: string, caretRow: string): string {
 	return sourceRow.slice(start, start + len);
 }
 
-export interface ParseTypstLogOptions {
+export type ParseTypstLogOptions = {
 	/** Hard cap on entries, guarding against a pathological log. Default 500. */
 	maxEntries?: number;
-}
+};
 
 /**
  * Parse Typst diagnostics into the same LogEntry shape the LaTeX log produces, so the Problems

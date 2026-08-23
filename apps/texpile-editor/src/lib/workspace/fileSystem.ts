@@ -3,26 +3,26 @@
 import { browser } from '$lib/runtime';
 import type { GitStatusResult, GitShowResult, GitOpResult } from './git';
 
-export interface TexFile {
+export type TexFile = {
 	name: string;
 	path: string;
 	relPath: string;
-}
+};
 
-export interface TreeEntry {
+export type TreeEntry = {
 	name: string;
 	path: string;
 	type: 'dir' | 'file';
 	children?: TreeEntry[];
-}
+};
 
-export interface SearchFileResult {
+export type SearchFileResult = {
 	file: string; // absolute path
 	rel: string; // root-relative, forward-slashed
 	matches: { line: number; text: string }[];
-}
+};
 
-export interface DraftPage {
+export type DraftPage = {
 	n: number;
 	w: number;
 	h: number;
@@ -33,7 +33,7 @@ export interface DraftPage {
 	// escape, dir); absent when every record on it is safe to paint
 	unc?: string;
 	records: string; // newline-delimited JSON records for this page
-}
+};
 export type DraftResult =
 	| {
 			ok: true;
@@ -57,7 +57,7 @@ export type ParagraphResult =
 	| { ok: true; records: Record<string, unknown>[]; stats: Record<string, unknown> | null; hsize: number; textheight: number }
 	| { ok: false; error: string };
 
-interface TexpileNative {
+type TexpileNative = {
 	openFolder: () => Promise<string | null>;
 	onOpenPath?: (cb: (filePath: string) => void) => () => void;
 	onOpenFolder?: (cb: (root: string) => void) => () => void;
@@ -107,7 +107,7 @@ interface TexpileNative {
 	gitDiscard: (root: string, paths: string[]) => Promise<GitOpResult>;
 	gitCommit: (root: string, message: string) => Promise<GitOpResult>;
 	gitUserName: (root: string) => Promise<{ ok: true; name: string | null }>;
-}
+};
 
 export function native(): TexpileNative | undefined {
 	if (!browser) return undefined;

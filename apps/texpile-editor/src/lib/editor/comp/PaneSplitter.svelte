@@ -14,7 +14,7 @@
 	// way back in, and it means the control never has to overhang into the editor.
 	import type { Component } from 'svelte';
 
-	interface Props {
+	type Props = {
 		/** false while the pane it borders is collapsed: there is nothing to size */
 		resizable: boolean;
 		resizeLabel: string;
@@ -41,7 +41,7 @@
 		/** grid or absolute placement, which only the caller knows */
 		class?: string;
 		style?: string;
-	}
+	};
 	let {
 		resizable,
 		resizeLabel,

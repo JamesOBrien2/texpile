@@ -21,7 +21,7 @@
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import type { EditSession } from '$lib/collab/editSession';
 
-	export interface VisualCollabApi {
+	export type VisualCollabApi = {
 		texSource: string;
 		/** null until the first parse completes */
 		lastParsedSource: string | null;
@@ -32,15 +32,15 @@
 		adopt(parsed: ParsedLatexFile, liveDoc: PMNode): void;
 		/** the merged content changed: mark dirty and run the save pipeline (no-op splice included). */
 		commit(path: string, content: string): void;
-	}
+	};
 
-	interface Props {
+	type Props = {
 		session: EditSession;
 		path: string | null;
 		kind: string | null;
 		viewMode: string;
 		api: VisualCollabApi;
-	}
+	};
 	let { session, path, kind, viewMode, api }: Props = $props();
 
 	// all visual dialects share this machinery: the orig stamps, the block map and the block patch

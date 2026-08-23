@@ -14,14 +14,14 @@ import { detectMainFile, findDocRoots, gatherProjectMacros } from '$lib/workspac
 import { samePath, type TexFile } from '$lib/workspace/fileSystem';
 import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 
-export interface MainFileDeps {
+export type MainFileDeps = {
 	/** the compile pipeline picks up the PDF that matches the newly chosen main file */
 	loadExistingPdf(): void;
 	/** macros gathered from the main file feed the parser and autocomplete */
 	setProjectMacros(macros: string): void;
 	/** live mode holds its first compile until a main file exists; release it */
 	releaseHeldDraftCompile(): void;
-}
+};
 
 export class MainFilePrompt {
 	confirmed = $state<boolean | null>(null);

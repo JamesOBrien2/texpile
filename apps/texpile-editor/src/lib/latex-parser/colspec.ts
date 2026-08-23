@@ -3,15 +3,15 @@
 // falls back to editing the verbatim string. nothing is ever silently dropped.
 export type ColAlign = 'l' | 'c' | 'r' | 'p' | 'm' | 'b' | 'X' | 'C';
 
-export interface ColspecColumn {
+export type ColspecColumn = {
 	align: ColAlign;
 	width?: string; // for p/m/b
-}
+};
 
-export interface ColspecModel {
+export type ColspecModel = {
 	columns: ColspecColumn[];
 	rules: boolean[]; // length === columns.length + 1; rules[i] = a `|` before column i; last = after
-}
+};
 
 const SIMPLE_ALIGN = new Set(['l', 'c', 'r', 'X', 'C']);
 const PARAGRAPH_ALIGN = new Set(['p', 'm', 'b']);

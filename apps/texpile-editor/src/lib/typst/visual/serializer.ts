@@ -67,12 +67,12 @@ function typStr(value: string): string {
 	return JSON.stringify(value);
 }
 
-interface MarkDelims {
+type MarkDelims = {
 	open: string;
 	close: string;
 	/** emphasis family: delimiters can't touch whitespace, boundary ws moves outside. */
 	expel?: boolean;
-}
+};
 
 // typst named colors (shared with the converter's accept list); cyan/magenta are CSS-only names
 // the dropdowns can produce, mapped to their rgb forms
@@ -141,12 +141,12 @@ function orderedMarks(marks: readonly Mark[]): Mark[] {
 		});
 }
 
-interface InlineRun {
+type InlineRun = {
 	content: string;
 	marks: Mark[];
 	/** plain prose (whitespace expelling applies); false for chips and breaks */
 	isText: boolean;
-}
+};
 
 function buildRuns(parent: Node, startOfLine: boolean): InlineRun[] {
 	const runs: InlineRun[] = [];

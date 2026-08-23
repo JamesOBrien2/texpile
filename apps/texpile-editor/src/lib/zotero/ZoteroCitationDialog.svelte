@@ -14,14 +14,14 @@
 	import { applyPickedCitations } from './insertFromZotero';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Hit {
+	type Hit = {
 		citekey: string;
 		title: string;
 		author: string;
 		year: string;
 		/** which shelf the row came from; drives the group headers of the untyped view */
 		source?: 'project' | 'library';
-	}
+	};
 
 	let query = $state('');
 	let results = $state<Hit[]>([]);

@@ -4,12 +4,12 @@ import type { EditorView } from 'prosemirror-view';
 import type { Mark } from 'prosemirror-model';
 import { createLinkTooltip, destroyLinkTooltip } from './linkTooltipFactory';
 
-export interface LinkPluginState {
+export type LinkPluginState = {
 	activeLinkMark: Mark | null;
 	linkFrom: number;
 	linkTo: number;
 	tooltipVisible: boolean;
-}
+};
 
 export const LINK_PLUGIN_KEY = new PluginKey<LinkPluginState>('link-tooltip');
 
@@ -116,11 +116,11 @@ function showLinkTooltip(
 	});
 }
 
-export interface LinkPluginOptions {
+export type LinkPluginOptions = {
 	/** intercept the tooltip's "open" action: return true when handled (a workspace-relative
 	 * markdown link opening in the editor), false to fall through to the browser. */
 	onOpen?: (href: string) => boolean;
-}
+};
 
 export function createLinkPlugin(opts: LinkPluginOptions = {}) {
 	return new Plugin<LinkPluginState>({

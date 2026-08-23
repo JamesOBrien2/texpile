@@ -2,11 +2,11 @@
 	import { Tooltip, Portal } from '@skeletonlabs/skeleton-svelte';
 	import type { Snippet } from 'svelte';
 
-	interface Props {
+	type Props = {
 		enabled: boolean;
 		tooltip?: string;
 		children: Snippet;
-	}
+	};
 
 	let { enabled, tooltip = 'This feature is not enabled for this template', children }: Props = $props();
 

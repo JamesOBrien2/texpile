@@ -17,17 +17,17 @@ import { isMac } from '$lib/platform';
 import { recentFolders } from './workspaceStore';
 import { m } from '$lib/paraglide/messages';
 
-interface NativeMenuApi {
+type NativeMenuApi = {
 	publishMenuState?: (state: unknown) => void;
 	onMenuAction?: (cb: (action: string) => void) => () => void;
-}
+};
 function api(): NativeMenuApi | undefined {
 	if (!browser) return undefined;
 	return (window as unknown as { texpileNative?: NativeMenuApi }).texpileNative;
 }
 
 /** one handler per menu, each taking the item's value - the same signature the in-app selects use */
-export interface NativeMenuHandlers {
+export type NativeMenuHandlers = {
 	file(value: string): void;
 	newFile(value: string): void;
 	openFolder(value: string): void;
@@ -39,10 +39,10 @@ export interface NativeMenuHandlers {
 	spelling(value: string): void;
 	terminal(value: string): void;
 	help(value: string): void;
-}
+};
 
 /** the flags main needs; the labels are added here */
-export interface MenuStateInput {
+export type MenuStateInput = {
 	disabled: boolean;
 	/** the open file has a text buffer for Edit/Spelling to act on (false for pdf/image/binary) */
 	editable: boolean;
@@ -65,7 +65,7 @@ export interface MenuStateInput {
 	canOpenFolder: boolean;
 	canTutorial: boolean;
 	recentFolders: string[];
-}
+};
 
 // main knows this as app.name, but the strings that embed it are ours to translate, so the
 // substitution happens here. menubar_version_footer already hardcodes it the same way.

@@ -13,10 +13,10 @@ import { settings } from '$lib/settings';
 import { native } from '$lib/workspace/fileSystem';
 import { isMac } from '$lib/platform';
 
-interface OverlayApi {
+type OverlayApi = {
 	windowSetOverlay?: (o: { height?: number; color?: string; symbolColor?: string; background?: string }) => void;
 	onWindowState?: (cb: (s: { maximized: boolean; fullScreen: boolean }) => void) => () => void;
-}
+};
 
 let probe: CanvasRenderingContext2D | null = null;
 

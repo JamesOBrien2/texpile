@@ -14,7 +14,7 @@ import { getFolder, updateFolder } from '$lib/storage/workspaces';
 /** past this many files per folder the oldest are evicted; entries are ~60 bytes each */
 const MAX_ENTRIES = 200;
 
-export interface DocPosition {
+export type DocPosition = {
 	/** 0-indexed, as CodeMirror's line numbers are 1-indexed and this survives round-trips better */
 	row: number;
 	column: number;
@@ -27,7 +27,7 @@ export interface DocPosition {
 	offset?: number;
 	/** last touched, for LRU eviction */
 	at: number;
-}
+};
 
 const sepOf = (p: string) => (p.includes('\\') ? '\\' : '/');
 

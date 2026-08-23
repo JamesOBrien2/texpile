@@ -8,7 +8,7 @@
 
 import { writable, get } from 'svelte/store';
 
-export interface UsersState {
+export type UsersState = {
 	v: 1;
 	/** name shown to peers in shared sessions */
 	collabName: string;
@@ -23,7 +23,7 @@ export interface UsersState {
 	onboardingCompleted: boolean;
 	tourCompleted: boolean;
 	advancedWarningDismissed: boolean;
-}
+};
 
 const KEY = 'texpile:users';
 const MAX_RECENT = 8;

@@ -39,9 +39,9 @@ async function loadLanguageByName(name: string | null | undefined): Promise<{ na
 }
 
 // reactive props stashed on the container so update() can reach the mounted component without a registry.
-interface SettingsHost extends HTMLElement {
+type SettingsHost = {
 	__svelteComponentProps?: { node: Node; view: ProseMirrorView; getPos: () => number | undefined };
-}
+} & HTMLElement;
 
 class CodeBlockView {
 	node: Node;
@@ -185,7 +185,6 @@ class CodeBlockView {
 		this.deselectNode();
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	forwardUpdate(update: ViewUpdate): void {
 		// only reached from CodeMirror's own update listener, so this is a type guard
 		if (!this.cm) return;

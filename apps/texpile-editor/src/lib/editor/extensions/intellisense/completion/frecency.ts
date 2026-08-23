@@ -6,12 +6,12 @@ import { EditorView } from '@codemirror/view';
 import { get } from 'svelte/store';
 import { users, updateUsers } from '$lib/storage/users';
 
-interface UsageEntry {
+type UsageEntry = {
 	/** decayed accept score as of t */
 	s: number;
 	/** last accept, ms epoch */
 	t: number;
-}
+};
 
 const HALF_LIFE_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_ENTRIES = 200;

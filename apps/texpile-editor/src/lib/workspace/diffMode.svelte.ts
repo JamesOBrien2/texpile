@@ -9,11 +9,11 @@ import { layout, updateLayout } from '$lib/storage/layout';
 import { gitShowHead } from '$lib/workspace/git';
 import { m } from '$lib/paraglide/messages';
 
-export interface DiffDeps {
+export type DiffDeps = {
 	getLoadedPath(): string | null;
 	/** the working buffer to compare against HEAD (.tex uses the source text, others the raw text) */
 	getWorkingText(): string;
-}
+};
 
 export class DiffMode {
 	/** HEAD content ('' when the file has no committed baseline) */

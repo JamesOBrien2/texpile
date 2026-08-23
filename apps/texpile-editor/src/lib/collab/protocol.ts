@@ -19,19 +19,19 @@ export enum FrameType {
 	Preview = 8 // one hop of the Typst preview relay (host <-> guest, see PreviewPayload)
 }
 
-export interface HelloPayload {
+export type HelloPayload = {
 	name: string;
 	color: string;
 	role: 'host' | 'guest';
-}
+};
 
-export interface BlobChunkPayload {
+export type BlobChunkPayload = {
 	name: string;
 	rev: number;
 	index: number;
 	total: number;
 	bytes: Uint8Array;
-}
+};
 
 export type ControlPayload =
 	| { kind: 'compile-request' }
@@ -94,7 +94,7 @@ export type ControlPayload =
  * bumped on every (re)attach, and both sides drop frames for another epoch as stale. Recovery is
  * drop-and-reattach: there is no retransmission, a guest that detects a gap closes and reopens.
  */
-export interface PreviewPayload {
+export type PreviewPayload = {
 	/** guest-chosen connection epoch; frames for another epoch are stale and dropped */
 	conn: number;
 	/** open: guest asks / host confirms; data: binary data-plane bytes; text: a data-plane text
@@ -106,7 +106,7 @@ export interface PreviewPayload {
 	part: number;
 	parts: number;
 	bytes: Uint8Array;
-}
+};
 
 const PREVIEW_EVS = ['open', 'data', 'text', 'close'] as const;
 
@@ -330,11 +330,11 @@ export class PreviewStream {
 
 // relay-level notices arrive as plaintext JSON text frames (the relay can't read sealed
 // binary frames, but it does know connection-level facts)
-export interface RelayNotice {
+export type RelayNotice = {
 	t: 'peers' | 'peer-left' | 'host-gone' | 'host-back' | 'session-end' | 'error';
 	count?: number;
 	message?: string;
-}
+};
 
 export function parseRelayNotice(text: string): RelayNotice | null {
 	try {

@@ -5,11 +5,11 @@
 	import { ChevronDown, Check } from '@lucide/svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		/** Current heading level of the selection (0 = paragraph). */
 		level: number;
 		onSelect: (level: number) => void;
-	}
+	};
 	let { level, onSelect }: Props = $props();
 
 	let open = $state(false);

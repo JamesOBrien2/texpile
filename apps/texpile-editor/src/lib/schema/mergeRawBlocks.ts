@@ -12,13 +12,13 @@
 import { Fragment } from 'prosemirror-model';
 import type { Node as PMNode } from 'prosemirror-model';
 
-interface Orig {
+type Orig = {
 	latex?: string | null;
 	pre?: string | null;
 	seq?: number | null;
 	group?: number | null;
 	start?: number | null;
-}
+};
 
 function origOf(node: PMNode): Orig | null {
 	const o = (node.attrs as { orig?: unknown }).orig;

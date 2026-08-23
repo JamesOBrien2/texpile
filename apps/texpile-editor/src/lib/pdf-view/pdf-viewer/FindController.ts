@@ -25,18 +25,18 @@ export const FindState = {
 	PENDING: 3
 } as const;
 
-export interface FindOptions {
+export type FindOptions = {
 	query: string;
 	highlightAll?: boolean;
 	caseSensitive?: boolean;
 	entireWord?: boolean;
 	findPrevious?: boolean;
-}
+};
 
-interface MatchPosition {
+type MatchPosition = {
 	begin: { divIdx: number; offset: number };
 	end: { divIdx: number; offset: number };
-}
+};
 
 export class FindController {
 	private viewer: PDFViewerCore;

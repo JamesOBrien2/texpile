@@ -1,11 +1,11 @@
 import { derived, writable } from 'svelte/store';
 import { settings } from '$lib/settings';
 
-export interface ChangelogEntry {
+export type ChangelogEntry = {
 	version: string;
 	date?: string;
 	notes: string[];
-}
+};
 
 /** open signal for the panel; set from the Help menu and the start screen. */
 export const whatsNewOpen = writable(false);

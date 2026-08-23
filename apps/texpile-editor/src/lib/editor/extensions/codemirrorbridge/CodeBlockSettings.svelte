@@ -14,11 +14,11 @@
 	import { isReadOnly } from '$lib/stores/permissionStore';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		node: PMNode;
 		view: EditorView;
 		getPos: () => number | undefined;
-	}
+	};
 
 	let { node, view, getPos }: Props = $props();
 

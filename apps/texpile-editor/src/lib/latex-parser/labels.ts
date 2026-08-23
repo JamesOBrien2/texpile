@@ -6,11 +6,11 @@ import { findMacros, getTextContent } from './ast-utils';
 import { MACRO_SIGNATURES, ENV_SIGNATURES } from './macros';
 import type { Macro } from '@unified-latex/unified-latex-types';
 
-export interface BibItemSlice {
+export type BibItemSlice = {
 	key: string;
 	/** The entry's free text: source after the `\bibitem[…]{…}` head, up to the next entry. */
 	body: string;
-}
+};
 
 /** Matches the `\bibitem[label]{key}` head at the start of an entry's source slice. */
 const BIBITEM_HEAD = /^\\bibitem\s*(?:\[[^\]]*\])?\s*\{([^}]*)\}/;

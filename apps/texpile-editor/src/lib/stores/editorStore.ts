@@ -25,13 +25,13 @@ export const labelStore = writable<string[]>([]);
 export const filePathStore = writable<string[]>([]);
 export const editorConfigStore = writable<EditorConfiguration | null>(null);
 
-interface CitationVariant {
+type CitationVariant = {
 	value: string; // e.g. "cite", "autocite", "parencite"
 	label: string; // e.g. "Numbered", "Parenthetical"
 	desc: string; // e.g. "[1], [2]", "(Author Year)"
-}
+};
 
-export interface TemplateFeatures {
+export type TemplateFeatures = {
 	citations: boolean;
 	tableCaption: boolean;
 	tableNotes: boolean;
@@ -41,7 +41,7 @@ export interface TemplateFeatures {
 	citationVariants?: CitationVariant[]; // undefined = default biblatex options
 	highlight?: boolean; // false: highlight won't appear in the final document (user sees warning)
 	textColor?: boolean; // false: text color won't appear in the final document (user sees warning)
-}
+};
 
 const DEFAULT_TEMPLATE_FEATURES: TemplateFeatures = {
 	citations: true,

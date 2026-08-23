@@ -22,11 +22,11 @@ import { Decoration, DecorationSet } from 'prosemirror-view';
 import { TableMap, TableView, updateColumnsOnResize, cellAround, pointsAtCell, tableNodeTypes } from 'prosemirror-tables';
 
 /** TEXPILE: upstream's util.ts CellAttrs, which the package declares but does not export. */
-interface CellAttrs {
+type CellAttrs = {
 	colspan: number;
 	rowspan: number;
 	colwidth: number[] | null;
-}
+};
 
 export const columnResizingPluginKey = new PluginKey<ResizeState>('tableColumnResizing');
 
@@ -39,12 +39,12 @@ export type Dragging = {
 };
 
 /** TEXPILE: what a snap function is told about the table being dragged. */
-export interface SnapContext {
+export type SnapContext = {
 	/** the table's rendered width in px */
 	tableWidth: number;
 	/** grid columns, spans counted */
 	columns: number;
-}
+};
 
 export type ColumnResizingOptions = {
 	handleWidth?: number;

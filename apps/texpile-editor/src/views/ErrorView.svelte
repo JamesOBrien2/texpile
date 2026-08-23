@@ -4,10 +4,10 @@
 	import AppFrame from '$lib/editor/comp/chrome/AppFrame.svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		status?: number;
 		message?: string;
-	}
+	};
 
 	let { status = 404, message = '' }: Props = $props();
 

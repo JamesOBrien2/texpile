@@ -14,13 +14,13 @@
 	// on a dark surface and too washed out on a light one: darker in light mode, lifted in dark.
 	import { fileIconSvg, folderIconSvg } from './fileIconMap';
 
-	interface Props {
+	type Props = {
 		/** file name (or path); the extension picks the icon. ignored when `folder` is set */
 		name: string;
 		/** render the folder glyph instead of matching on the name; 'open' when the row is expanded */
 		folder?: 'closed' | 'open' | null;
 		class?: string;
-	}
+	};
 	let { name, folder = null, class: cls = '' }: Props = $props();
 	const svg = $derived(folder ? folderIconSvg(folder === 'open') : fileIconSvg(name));
 </script>

@@ -48,12 +48,12 @@ const CONTENT_COMMANDS = new Set([
 
 const isLetter = (c: string) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 
-export interface TexMask {
+export type TexMask = {
 	/** source with every masked char replaced by a space; same length as the input */
 	text: string;
 	/** merged [from, to) masked ranges, sorted — lints overlapping any of these are synthetic */
 	spans: [number, number][];
-}
+};
 
 export function maskTex(src: string): TexMask {
 	const n = src.length;

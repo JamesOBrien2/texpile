@@ -20,12 +20,12 @@ import type { VisualParser } from '$lib/workspace/visualParse.svelte';
 import type { ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
 import type { Node as PMNode } from 'prosemirror-model';
 
-export interface VisualCollabBridgeDeps {
+export type VisualCollabBridgeDeps = {
 	doc: DocumentBuffer;
 	parser: VisualParser;
 	parse(text: string): Promise<{ parsed?: ParsedLatexFile }>;
 	scheduleSave(path: string, content: string): void;
-}
+};
 
 /** the api object VisualCollab reads and writes through */
 export function visualCollabBridge(deps: VisualCollabBridgeDeps) {
@@ -60,7 +60,7 @@ export function visualCollabBridge(deps: VisualCollabBridgeDeps) {
 	};
 }
 
-export interface SessionHandlerDeps {
+export type SessionHandlerDeps = {
 	runCompile(): void;
 	/** a run is already in flight; guest requests are dropped rather than queued */
 	isBusy(): boolean;
@@ -74,7 +74,7 @@ export interface SessionHandlerDeps {
 	/** resolve a guest's typst src -> preview position through the host's tinymist; no-op when no
 	 *  preview task is running. `rel` is manifest-relative and already validated. */
 	typstScrollForGuest(rel: string, line: number, character: number): void;
-}
+};
 
 /** attach the host's handlers for guest requests; returns the teardown, which also ends the
  * session - leaving the workspace must not leave it shared invisibly. */

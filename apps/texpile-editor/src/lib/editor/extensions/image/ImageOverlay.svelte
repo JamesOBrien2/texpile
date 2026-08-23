@@ -10,13 +10,13 @@
 	import { settings } from '$lib/settings';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		node: PMNode;
 		view: EditorView;
 		getPos: () => number | undefined;
 		/** dialect-aware chrome (see lib/editor/dialect.ts): feature flags derive from this. */
 		dialect?: Dialect;
-	}
+	};
 
 	let { node, view, getPos, dialect = 'latex' }: Props = $props();
 	// markdown has no width or figure-numbering syntax to write back, so those controls hide

@@ -13,7 +13,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { FilePlus, FolderPlus, RefreshCw, GitBranch, Search } from '@lucide/svelte';
 
-	interface Props {
+	type Props = {
 		width: number;
 		guest: boolean;
 		modLabel: string;
@@ -51,7 +51,7 @@
 		scmDiscard: (changes: GitStatusEntry[]) => void;
 		scmCommit: (message: string) => Promise<boolean>;
 		scmOpenDiff: (path: string) => void;
-	}
+	};
 	let {
 		width,
 		guest,

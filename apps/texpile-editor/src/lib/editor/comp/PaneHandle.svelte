@@ -8,14 +8,14 @@
 	// Positioning is the caller's: only the caller knows where its divider is.
 	import type { Component } from 'svelte';
 
-	interface Props {
+	type Props = {
 		// capitalised so it can be used as a tag: {@const} is not allowed directly inside an element
 		icon: Component;
 		onclick: () => void;
 		title: string;
 		ariaLabel: string;
 		class?: string;
-	}
+	};
 	let { icon: Icon, onclick, title, ariaLabel, class: extra = '' }: Props = $props();
 </script>
 

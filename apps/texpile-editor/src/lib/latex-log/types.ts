@@ -1,6 +1,6 @@
 export type LogLevel = 'error' | 'warning' | 'badbox' | 'info';
 
-export interface LogEntry {
+export type LogEntry = {
 	level: LogLevel;
 	/** First line of the message, prefix kept as printed (e.g. "LaTeX Error: File `x' not found."). */
 	message: string;
@@ -32,15 +32,15 @@ export interface LogEntry {
 	/** Which tool produced the entry: undefined = the LaTeX engine, 'bib' = bibtex/biber (.blg),
 	 * 'dvi' = the dvipdfmx/xdvipdfmx driver (captured from the compile's terminal output). */
 	source?: 'bib' | 'dvi';
-}
+};
 
 /** Nested file-open tree reconstructed from the log's `(file ... )` markers. */
-export interface LogFileNode {
+export type LogFileNode = {
 	path: string;
 	children: LogFileNode[];
-}
+};
 
-export interface LogRunStatus {
+export type LogRunStatus = {
 	/** `!  ==> Fatal error occurred, no output PDF file produced!` seen. */
 	fatal: boolean;
 	/** `! Emergency stop.` seen. */
@@ -52,9 +52,9 @@ export interface LogRunStatus {
 	noPages: boolean;
 	/** First line of the log (engine banner), e.g. "This is pdfTeX, Version ...". */
 	engine?: string;
-}
+};
 
-export interface LatexLogParseResult {
+export type LatexLogParseResult = {
 	/** All entries in log order. */
 	entries: LogEntry[];
 	errors: LogEntry[];
@@ -62,9 +62,9 @@ export interface LatexLogParseResult {
 	badboxes: LogEntry[];
 	files: LogFileNode[];
 	status: LogRunStatus;
-}
+};
 
-export interface ParseLatexLogOptions {
+export type ParseLatexLogOptions = {
 	/** Collapse identical (level, message, file, line) repeats (reruns/passes). Default true. */
 	dedupe?: boolean;
 	/** Also collect `LaTeX Font Info:` / `Package X Info:` lines. Default false. */
@@ -73,4 +73,4 @@ export interface ParseLatexLogOptions {
 	maxPrintLine?: number;
 	/** Hard cap on entries, guards against pathological logs. Default 500. */
 	maxEntries?: number;
-}
+};

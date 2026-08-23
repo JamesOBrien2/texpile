@@ -1,14 +1,14 @@
 // \usepackage{...} name list: LaTeX Workshop's CTAN scrape (data/packagenames.json, MIT)
 // merged over the hand-curated common set, which keeps its plain-language details and ranks
 // first via common. regenerate with scratchpad/gen-names.mjs.
-export interface PackageInfo {
+export type PackageInfo = {
 	name: string;
 	detail?: string;
 	/** CTAN documentation page */
 	url?: string;
 	/** curated everyday package: ranked above the long tail */
 	common?: boolean;
-}
+};
 
 export const PACKAGE_NAMES: PackageInfo[] = [
 	{ name: 'acronym', detail: 'Acronym lists', url: 'https://ctan.org/pkg/acronym', common: true },

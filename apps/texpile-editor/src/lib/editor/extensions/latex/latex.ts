@@ -29,7 +29,7 @@ const MODULE_CMD =
 const LABEL_CMD = /^\\(?:label|ref|eqref|pageref|autoref|nameref|[cCv]ref|[a-zA-Z]*cite[a-zA-Z]*)\*?(?=\s*[[{])/;
 const URL_CMD = /^\\(?:url|href)(?=\s*\{)/;
 
-interface LatexState {
+type LatexState = {
 	/** how the current math region closes: '$', '$$', ')', ']' or 'env:<name>'; null in text */
 	math: string | null;
 	/** verbatim environment we are inside, ended only by its own \end{...} */
@@ -44,7 +44,7 @@ interface LatexState {
 	pendingArg: string | null;
 	/** the next {name} names an environment, and whether it opens or closes one */
 	pendingEnv: 'begin' | 'end' | null;
-}
+};
 
 /** environment-name argument consumed: flip math/verbatim state to match. */
 function enterEnv(state: LatexState, name: string) {

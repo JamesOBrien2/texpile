@@ -11,7 +11,7 @@
 	import type { Snippet } from 'svelte';
 	import { MoreHorizontal } from '@lucide/svelte';
 
-	export interface OverflowItem {
+	export type OverflowItem = {
 		id: string;
 		/** never collapses; the bar's essential controls */
 		pinned?: boolean;
@@ -19,7 +19,7 @@
 		 *  one snippet reads this instead of needing a snippet per control */
 		data?: unknown;
 		render: Snippet<[OverflowItem]>;
-	}
+	};
 
 	let {
 		items,

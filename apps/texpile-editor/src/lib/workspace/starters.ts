@@ -20,7 +20,7 @@ const BINARY_URLS = import.meta.glob('./starters/*/**/*.png', {
 	eager: true
 }) as Record<string, string>;
 
-export interface Starter {
+export type Starter = {
 	id: string;
 	name: string;
 	description: string;
@@ -38,7 +38,7 @@ export interface Starter {
 	files: Record<string, string>;
 	/** relative path -> bundled asset URL, fetched and written as bytes into the folder. */
 	binaryFiles?: Record<string, string>;
-}
+};
 
 /** gathers the bundled text files for a starter id. */
 function filesFor(id: string): Record<string, string> {
@@ -135,10 +135,10 @@ export function starterById(id: string): Starter | undefined {
 }
 
 /** a text file chosen through the "Import your own" starter card. */
-export interface ImportedFile {
+export type ImportedFile = {
 	name: string;
 	content: string;
-}
+};
 
 /** picks the file to open: the first .tex with \begin{document}, else the first .tex, else null. */
 export function pickImportMain(files: ImportedFile[]): string | null {

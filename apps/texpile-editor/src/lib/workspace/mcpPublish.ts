@@ -15,13 +15,13 @@ import { relativeTo } from './fileSystem';
 
 export type ViewMode = 'visual' | 'source' | 'diff';
 
-interface TabPayload {
+type TabPayload = {
 	path: string;
 	dirty: boolean;
 	active: boolean;
-}
+};
 
-export interface WindowStatePayload {
+export type WindowStatePayload = {
 	mainFile: string | null;
 	activeFile: string | null;
 	viewMode: ViewMode | null;
@@ -31,11 +31,11 @@ export interface WindowStatePayload {
 	/** live preview instead of the shell compile. Changes what compile does, which PDF exists, and
 	 *  where diagnostics come from, so it belongs in the state an agent reads BEFORE any of that. */
 	livePreview: boolean;
-}
+};
 
-interface NativeMcp {
+type NativeMcp = {
 	mcpPublishState?: (state: WindowStatePayload) => void;
-}
+};
 function native(): NativeMcp | undefined {
 	if (!browser) return undefined;
 	return (window as unknown as { texpileNative?: NativeMcp }).texpileNative;

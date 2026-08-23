@@ -29,7 +29,7 @@ function uncommentedIndexOf(text: string, marker: string, last = false): number 
 	return found;
 }
 
-export interface ParsedLatexFile {
+export type ParsedLatexFile = {
 	/** Everything up to and including \begin{document} (preserved verbatim on save). */
 	preamble: string;
 	/** \end{document} and anything after it (preserved verbatim on save). */
@@ -40,7 +40,7 @@ export interface ParsedLatexFile {
 	hadDocumentEnv: boolean;
 	/** Non-fatal notes (e.g. raw LaTeX that could not be converted). */
 	warnings: string[];
-}
+};
 
 /** counts raw_latex / inline_latex nodes (constructs the parser couldn't model). */
 function countRaw(doc: Node): number {

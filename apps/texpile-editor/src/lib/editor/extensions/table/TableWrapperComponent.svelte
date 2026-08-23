@@ -18,7 +18,7 @@
 	import { parseColspec, generateColspec, type ColAlign } from '$lib/latex-parser/colspec';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		/** typst hides every LaTeX-only control; see tableWrapperView's TableDialect */
 		dialect?: 'latex' | 'typst';
 		tableNumber: number;
@@ -35,7 +35,7 @@
 		colspec: string;
 		tableEnv: string;
 		setColspec: (spec: string) => void;
-	}
+	};
 
 	let {
 		dialect = 'latex',

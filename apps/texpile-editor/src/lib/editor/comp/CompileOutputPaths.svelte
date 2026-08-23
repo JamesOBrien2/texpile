@@ -6,10 +6,10 @@
 	import * as cc from '$lib/workspace/compileCommand';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		outputs: { pdf: string; log: string };
 		open: boolean;
-	}
+	};
 	let { outputs = $bindable(), open = $bindable() }: Props = $props();
 
 	function pathWarning(v: string, ext: '.pdf' | '.log'): string | null {

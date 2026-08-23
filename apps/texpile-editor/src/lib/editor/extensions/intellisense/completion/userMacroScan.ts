@@ -5,10 +5,10 @@ import { listNewcommands } from '@unified-latex/unified-latex-util-macros';
 import { parseLatex } from '$lib/latex-parser/parser';
 import { MACRO_SIGNATURES, ENV_SIGNATURES } from '$lib/latex-parser/macros';
 
-export interface UserMacroDef {
+export type UserMacroDef = {
 	name: string;
 	signature: string;
-}
+};
 
 export const MAX_SCAN_LENGTH = 2_000_000; // guards against parsing many megabytes per refresh
 

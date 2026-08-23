@@ -9,7 +9,7 @@ import { m } from '$lib/paraglide/messages';
 export type UpdatePhase = 'idle' | 'available' | 'downloading' | 'downloaded' | 'error';
 export type CheckStatus = 'update' | 'none' | 'error' | 'unsupported';
 
-export interface UpdateState {
+export type UpdateState = {
 	phase: UpdatePhase;
 	version: string | null;
 	notes?: string[];
@@ -19,7 +19,7 @@ export interface UpdateState {
 	/** 'package-manager' = linux deb/rpm/pacman: full download, then a system password prompt. */
 	installMode: 'restart' | 'package-manager';
 	error: string | null;
-}
+};
 
 const IDLE: UpdateState = { phase: 'idle', version: null, percent: 0, transferred: 0, total: 0, installMode: 'restart', error: null };
 
@@ -32,14 +32,14 @@ type CheckResult =
 	| { status: 'error'; message: string }
 	| { status: 'unsupported' };
 
-interface UpdatesBridge {
+type UpdatesBridge = {
 	check: (manual?: boolean) => Promise<CheckResult>;
 	download: () => Promise<{ ok: boolean }>;
 	install: () => Promise<void>;
 	onProgress: (cb: (p: { percent: number; transferred: number; total: number }) => void) => () => void;
 	onDownloaded: (cb: (info: { version: string }) => void) => () => void;
 	onError: (cb: (err: { message: string }) => void) => () => void;
-}
+};
 
 function bridge(): UpdatesBridge | undefined {
 	if (!browser) return undefined;

@@ -6,17 +6,17 @@ import type * as Y from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
 import type { ControlPayload } from './protocol';
 
-export interface CollabBinding {
+export type CollabBinding = {
 	ytext: Y.Text;
 	awareness: Awareness;
 	/** the file is held elsewhere (host's visual editor): edit read-only. */
 	readOnly?: boolean;
-}
+};
 
 /** one diagnostic from the host's compile, file already root-relative. line is absent for warnings
  *  the log gives no source location for (undefined \ref/\cite, package warnings): the Problems panel
  *  still lists them, only the inline underline needs a line. */
-export interface SharedDiagnostic {
+export type SharedDiagnostic = {
 	file: string;
 	line?: number;
 	lineEnd?: number;
@@ -26,17 +26,17 @@ export interface SharedDiagnostic {
 	column?: number;
 	anchorText?: string;
 	command?: string;
-}
+};
 
 /** the host's parsed compile products (aux label numbers + log), shared once instead of every
  *  guest re-parsing artifacts; rides the session meta map so late joiners get it from doc state. */
-export interface SharedCompileIntel {
+export type SharedCompileIntel = {
 	auxNumbers: Record<string, string>;
 	auxPages: Record<string, string>;
 	log: SharedDiagnostic[];
-}
+};
 
-export interface EditSession {
+export type EditSession = {
 	readonly active: boolean;
 	readonly isGuest: boolean;
 	/** bumps when the shared file set changes; the editor keys its binding on it. */
@@ -66,4 +66,4 @@ export interface EditSession {
 	pushPdf(path: string): Promise<void>;
 	end(tellGuests?: boolean): Promise<void>;
 	guestCount(): number;
-}
+};

@@ -7,11 +7,11 @@ import { collectTypstFileRefs } from '$lib/typst/filerefs';
 import { collectMarkdownFileRefs } from '$lib/markdown/filerefs';
 
 /** a path literal in some source file: the span holding the path, and the path as written */
-export interface FileRef {
+export type FileRef = {
 	innerStart: number;
 	innerEnd: number;
 	current: string;
-}
+};
 
 export type RefDialect = 'tex' | 'typ' | 'md';
 

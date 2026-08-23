@@ -10,7 +10,7 @@
 
 /** what the palette is allowed to do. Everything here already exists as a workspace action; the
  *  palette is a second way to reach it, never a second implementation. */
-export interface PaletteActions {
+export type PaletteActions = {
 	save(): void;
 	runCompile(): void;
 	stopCompile(): void;
@@ -55,7 +55,7 @@ export interface PaletteActions {
 	/** Zotero citation pick: available on hosts in the desktop app, for the matching dialect */
 	canZoteroCite?(): boolean;
 	insertZoteroCitation?(): void;
-}
+};
 
 class CommandPaletteState {
 	open = $state(false);

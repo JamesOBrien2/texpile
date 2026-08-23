@@ -1,6 +1,6 @@
 import type * as Ast from '@unified-latex/unified-latex-types';
 
-export interface ParseOptions {
+export type ParseOptions = {
 	/** 'math' parses math-mode content. */
 	mode?: 'regular' | 'math';
 
@@ -19,7 +19,7 @@ export interface ParseOptions {
 		/** autodetect macros that look like they need @, _, or :. */
 		autodetectExpl3AndAtLetter?: boolean;
 	};
-}
+};
 
 export type LatexAst = Ast.Root;
 

@@ -13,7 +13,7 @@ import { setLocale as setParaglideLocale } from '$lib/paraglide/runtime';
 import { trailingDebounce } from '$lib/trailingDebounce';
 import { migrateSettingsObject } from '$lib/migration/settings';
 
-export interface AppSettings {
+export type AppSettings = {
 	/** settings.json's own shape version; absent means pre-restructure and triggers migration */
 	v: 1;
 	reopenLastFolder: boolean;
@@ -75,7 +75,7 @@ export interface AppSettings {
 	openFolders: string[];
 	/** MCP port override (0 = channel default); a hand-edit escape hatch for port clashes. */
 	mcpPort: number;
-}
+};
 
 /** default compile command. -cd runs the compile in the main file's own directory, so a main file in
  *  a subfolder resolves its \input siblings (TeX resolves those against the working directory, and
@@ -116,11 +116,11 @@ const DEFAULTS: AppSettings = {
 
 const LS_KEY = 'texpile:settings';
 
-interface NativeSettings {
+type NativeSettings = {
 	getSettings?: () => Promise<Partial<AppSettings>>;
 	setSettings?: (partial: Partial<AppSettings>) => Promise<AppSettings>;
 	replaceSettings?: (full: Record<string, unknown>) => Promise<void>;
-}
+};
 function native(): NativeSettings | undefined {
 	if (!browser) return undefined;
 	return (window as unknown as { texpileNative?: NativeSettings }).texpileNative;

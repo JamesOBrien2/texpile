@@ -21,7 +21,7 @@ import { createSourceHistory } from '$lib/workspace/sourceHistory';
 export type ViewMode = 'visual' | 'source' | 'diff';
 type DocMeta = Pick<ParsedLatexFile, 'preamble' | 'postamble' | 'hadDocumentEnv'> | null;
 
-export interface ViewModeDeps {
+export type ViewModeDeps = {
 	getKind(): string | null;
 	getLoadedPath(): string | null;
 	getSource(): string;
@@ -32,7 +32,7 @@ export interface ViewModeDeps {
 	rebuildVisual(): void;
 	captureDiffSnapshot(): void;
 	scheduleSave(path: string | null, text: string): void;
-}
+};
 
 export class ViewModeSwitch {
 	mode = $state<ViewMode>('visual');

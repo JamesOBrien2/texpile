@@ -1,10 +1,10 @@
 // mnemonic quick-symbol shortcuts, LaTeX Workshop's "@-suggestions" idea. triggered by typing
 // "@" then the mnemonic; `body` uses the same "${1}" tab-stop syntax as CodeMirror snippets.
-export interface AtSuggestion {
+export type AtSuggestion = {
 	prefix: string; // without the leading "@"
 	body: string;
 	detail: string;
-}
+};
 
 export const AT_SUGGESTIONS: AtSuggestion[] = [
 	{ prefix: '.', body: '\\cdot', detail: '\\cdot' },

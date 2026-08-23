@@ -19,11 +19,11 @@ import type { EventBus } from './EventBus';
 
 const DEFAULT_LINK_REL = 'noopener noreferrer nofollow';
 
-export interface SimpleLinkServiceOptions {
+export type SimpleLinkServiceOptions = {
 	eventBus: EventBus;
 	externalLinkTarget?: number;
 	externalLinkRel?: string;
-}
+};
 
 export const LinkTarget = {
 	NONE: 0,

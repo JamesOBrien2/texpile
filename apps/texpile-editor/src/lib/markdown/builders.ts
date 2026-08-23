@@ -7,10 +7,10 @@ import { mdSchema } from './schema';
 export type PMNode = PMNodeT;
 
 /** A lightweight descriptor of a mark to apply; realised into a Mark at text-build time. */
-export interface PMMark {
+export type PMMark = {
 	type: string;
 	attrs?: Record<string, unknown>;
-}
+};
 
 /** Realise mark descriptors via Mark.addToSet (a raw .map() could produce duplicate same-type
  * marks, an invalid collection doc.check() rejects). */

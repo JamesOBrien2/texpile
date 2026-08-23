@@ -40,7 +40,7 @@ export function fillOrigNorms(doc: Node, serializeNode: (node: Node, ctx: Ctx) =
 // verbatim source preservation: the `orig` attr the importer stamps on top-level blocks
 // (see ORIG_BLOCKS in schema.ts). `latex` is historically named; it holds the original source
 // slice in whichever dialect the file is.
-interface OrigAttr {
+type OrigAttr = {
 	latex?: string | null;
 	norm?: string | null;
 	pre?: string | null;
@@ -50,7 +50,7 @@ interface OrigAttr {
 	groupSize?: number | null;
 	/** Body-relative source offset of the block's slice. not read here; positional consumers only. */
 	start?: number | null;
-}
+};
 
 function origOf(node: Node): OrigAttr | null {
 	const o = (node.attrs as { orig?: unknown }).orig;
@@ -76,24 +76,24 @@ function verbatimRun(doc: Node, parts: string[], i: number): number {
 	return size;
 }
 
-interface DocTail {
+type DocTail = {
 	text?: string | null;
 	afterSeq?: number | null;
-}
+};
 
 function docTailOf(doc: Node): DocTail | null {
 	const t = (doc.attrs as { docTail?: unknown }).docTail;
 	return t && typeof t === 'object' ? (t as DocTail) : null;
 }
 
-export interface DocSerializeResult {
+export type DocSerializeResult = {
 	text: string;
 	/** True iff the leading bytes are the body's verbatim original leading gap; the caller
 	 *  (the roundtrip glue) must NOT prepend its own separator then, or it duplicates. */
 	leadProtected: boolean;
 	/** Same, for the trailing edge. */
 	tailProtected: boolean;
-}
+};
 
 function neighborKey(sib: Node | null): string {
 	if (!sib) return '';

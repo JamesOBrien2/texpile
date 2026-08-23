@@ -20,14 +20,14 @@ export function zoteroAvailable(): boolean {
 	return typeof window !== 'undefined' && !!window.texpileZotero;
 }
 
-export interface ZoteroInsertDeps {
+export type ZoteroInsertDeps = {
 	/** 'tex' or 'typ': the dialect of the open file (the gate ensures it matches the main's) */
 	kind: 'tex' | 'typ';
 	/** the workspace root, for finding stray .bib files when the main declares none */
 	root: string;
 	/** the OPEN document, so an unsaved main is scanned as the user sees it, not as disk has it */
 	openDoc(): { path: string | null; text: string };
-}
+};
 
 /** entry point: check Zotero is reachable, then hand off to the in-app picker dialog */
 export async function insertCitationFromZotero(deps: ZoteroInsertDeps): Promise<void> {

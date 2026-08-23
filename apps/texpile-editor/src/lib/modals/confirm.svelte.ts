@@ -4,14 +4,14 @@
 // cycled (alt-tab). Same reason window.prompt was already replaced. Await confirmAsk() anywhere;
 // <ConfirmHost/> (mounted once in App) renders it.
 
-interface ConfirmState {
+type ConfirmState = {
 	message: string;
 	confirmLabel: string;
 	/** label for the decline button; defaults to Cancel. */
 	cancelLabel: string | null;
 	danger: boolean;
 	resolve: (ok: boolean) => void;
-}
+};
 
 let current = $state<ConfirmState | null>(null);
 

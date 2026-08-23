@@ -90,12 +90,12 @@ function createTransport(): Transport {
 	};
 }
 
-interface Session {
+type Session = {
 	root: string | null;
 	client: LSPClient;
 	/** resolves once the server process is up; the client's own `initializing` follows it */
 	started: Promise<boolean>;
-}
+};
 
 let session: Session | null = null;
 
@@ -191,14 +191,14 @@ export async function typstClient(root: string | null): Promise<LSPClient | null
 }
 
 /** what `tinymist.doStartPreview` answers with */
-interface StartPreviewResponse {
+type StartPreviewResponse = {
 	staticServerAddr?: string;
 	dataPlanePort?: number;
 	isPrimary?: boolean;
-}
+};
 
 /** Where a started preview can be reached. */
-export interface TypstPreviewTarget {
+export type TypstPreviewTarget = {
 	/**
 	 * `host:port` serving both tinymist's preview page and its data plane websocket.
 	 *
@@ -208,7 +208,7 @@ export interface TypstPreviewTarget {
 	host: string;
 	/** the handle for steering this preview afterwards, e.g. killTypstPreview */
 	taskId: string;
-}
+};
 
 /**
  * Ask the preview to scroll to a source position, so it follows the caret.
@@ -341,10 +341,10 @@ export async function formatTypstDocument(root: string | null, file: string, tex
 }
 
 /** one file's share of a rename, keyed by absolute path rather than URI */
-export interface RenameFileEdits {
+export type RenameFileEdits = {
 	path: string;
 	edits: LspTextEdit[];
-}
+};
 
 /**
  * Ask tinymist to rename the symbol at `offset` in `file`, and return the edits it wants made,
@@ -359,10 +359,10 @@ export interface RenameFileEdits {
  * `documentChanges` (the versioned form) is accepted as well as `changes`: which one a server
  * sends depends on the client capabilities it was initialised with, and tinymist can send either.
  */
-export interface LspWorkspaceEdit {
+export type LspWorkspaceEdit = {
 	changes?: Record<string, LspTextEdit[]>;
 	documentChanges?: { textDocument?: { uri?: string }; edits?: LspTextEdit[] }[];
-}
+};
 
 /** Flatten a WorkspaceEdit into per-file edit lists. Kept separate from the request so the shape
  *  handling is testable without a server. */
@@ -434,11 +434,11 @@ export async function exportTypstPdf(root: string | null, file: string, outDir?:
  * Positions are ZERO-based `[line, character]`, and either end may be null when the span could not
  * be resolved to a range.
  */
-export interface PreviewJumpInfo {
+export type PreviewJumpInfo = {
 	filepath: string;
 	start: [number, number] | null;
 	end: [number, number] | null;
-}
+};
 
 /**
  * Where a preview jump goes. Held at module scope rather than passed to typstClient because the
@@ -503,12 +503,12 @@ function handleShowDocument(json: string, b: NonNullable<ReturnType<typeof bridg
 }
 
 /** One LSP diagnostic, as tinymist publishes it; just what the Problems panel needs. */
-export interface TypstDiagnostic {
+export type TypstDiagnostic = {
 	range: { start: { line: number; character: number }; end?: { line: number; character: number } };
 	/** 1 error, 2 warning, 3 info, 4 hint */
 	severity?: number;
 	message: string;
-}
+};
 
 let diagnosticsHandler: ((path: string, diags: TypstDiagnostic[]) => void) | null = null;
 

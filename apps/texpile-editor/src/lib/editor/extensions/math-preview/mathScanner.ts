@@ -4,7 +4,7 @@
 
 export type MathRegionKind = 'inline' | 'display';
 
-export interface MathRegion {
+export type MathRegion = {
 	/** Full range including the delimiters (or `\begin…\end`). */
 	from: number;
 	to: number;
@@ -16,7 +16,7 @@ export interface MathRegion {
 	env?: string;
 	/** no closing delimiter yet (mid-edit), clamped at a blank line or EOF. */
 	unclosed?: boolean;
-}
+};
 
 /** `math` is the inline one. */
 const MATH_ENVS = new Set([
@@ -43,7 +43,7 @@ const MATH_ENVS = new Set([
 /** literal-text envs, no math delimiters apply inside. */
 const SKIP_ENVS = new Set(['verbatim', 'verbatim*', 'lstlisting', 'minted', 'comment', 'filecontents', 'filecontents*']);
 
-interface OpenRegion {
+type OpenRegion = {
 	from: number;
 	innerFrom: number;
 	kind: MathRegionKind;
@@ -52,7 +52,7 @@ interface OpenRegion {
 	env?: string;
 	/** same-name env nesting depth, so an inner \begin{x} doesn't close the outer. */
 	depth: number;
-}
+};
 
 function isLetter(code: number): boolean {
 	return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);

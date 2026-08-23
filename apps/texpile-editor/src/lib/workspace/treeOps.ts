@@ -20,7 +20,7 @@ import { FileHistory } from './fileHistory.svelte';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 
-export interface TreeOpsDeps {
+export type TreeOpsDeps = {
 	create(path: string, type: 'file' | 'dir', content: string): Promise<unknown>;
 	remove(path: string): Promise<unknown>;
 	rename(from: string, to: string): Promise<unknown>;
@@ -53,7 +53,7 @@ export interface TreeOpsDeps {
 	/** the main file moved (new path) or was deleted (null): repoint the choice and persist it.
 	 * Absent on surfaces without a main-file concept (a guest's session tree). */
 	retargetMainFile?(next: string | null): void;
-}
+};
 
 export class TreeOps {
 	/** undo/redo for the operations below; WorkspaceView binds the tree's Ctrl+Z to it */

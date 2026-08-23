@@ -31,7 +31,7 @@ import {
 import { resolveAuthor, forgetAuthor } from '$lib/comments/author';
 import type { CommentRange } from '$lib/editor/extensions/comments';
 
-interface Deps {
+type Deps = {
 	/** absolute workspace root, or null before a folder is open */
 	root: () => string | null;
 	/** the Preferences name; blank falls back to git */
@@ -57,7 +57,7 @@ interface Deps {
 	 * ingest() never publishes.
 	 */
 	publish?: (event: CommentEvent) => void;
-}
+};
 
 export class CommentsController {
 	readonly store = new CommentStore();

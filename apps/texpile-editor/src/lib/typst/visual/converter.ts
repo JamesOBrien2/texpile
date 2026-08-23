@@ -302,11 +302,11 @@ function convertInline(nodes: SyntaxNode[], src: string, marks: PMMark[]): PMNod
 }
 
 /** one source construct -> its PM blocks, with the span the slice is cut from. */
-interface Seg {
+type Seg = {
 	blocks: PMNode[];
 	from: number;
 	to: number;
-}
+};
 
 function ensureBlocks(blocks: PMNode[]): PMNode[] {
 	return blocks.length > 0 ? blocks : [el('paragraph')];
@@ -591,11 +591,11 @@ function imageCallParts(call: SyntaxNode, src: string): { src: string; options: 
 	return { src: path, options: options || null };
 }
 
-interface FigureParts {
+type FigureParts = {
 	img: { src: string; options: string | null };
 	captionMarkup: SyntaxNode | null;
 	isFigure: boolean;
-}
+};
 
 /** `#figure(image(...), caption: [...])` (caption optional) or a bare `#image(...)`; anything
  *  richer — placement, scope, kind, a table body — stays raw. */
@@ -781,7 +781,7 @@ function columnCount(value: SyntaxNode, src: string): number | null {
 	return null;
 }
 
-interface TableParts {
+type TableParts = {
 	/** the columns: value, verbatim, so track sizes (auto, 1fr, 2cm) survive round trips */
 	colspec: string;
 	/** the align: value, verbatim, when the source had one */
@@ -794,7 +794,7 @@ interface TableParts {
 	/** the table.hline() calls after the last row */
 	bottomRules: string[];
 	rows: PMNode[][];
-}
+};
 
 /**
  * The editable-grid subset: `#table(columns: ..., [cell], ...)`, plus the parts a real table
@@ -1006,9 +1006,9 @@ function withOrig(node: PMNode, orig: Record<string, unknown>): PMNode {
 	return node.type.create({ ...node.attrs, orig }, node.content, node.marks);
 }
 
-export interface TypstParseResult {
+export type TypstParseResult = {
 	doc: PMNode;
-}
+};
 
 export function typstToProseMirror(source: string): TypstParseResult {
 	const kids = children(parseTree(source).topNode);

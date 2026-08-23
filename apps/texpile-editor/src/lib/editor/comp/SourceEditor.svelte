@@ -60,7 +60,7 @@
 	// initialScrollPos: one-shot mode-switch sync applied at mount.
 	// onHistoryBoundary: called when CM undo/redo is exhausted; return true if the workspace history handled it.
 	// diagnostics: compile-log problems for this file, line-anchored (the log gives no columns).
-	interface SourceDiagnostic {
+	type SourceDiagnostic = {
 		line: number;
 		lineEnd?: number;
 		severity: 'error' | 'warning' | 'info';
@@ -71,14 +71,14 @@
 		anchorText?: string;
 		/** the offending \command, sized for the underline when found on the line. */
 		token?: string;
-	}
+	};
 	// shared-session binding: the Y.Text is the doc (value is ignored), remote cursors render via
 	// awareness, undo becomes CRDT-aware (only your own edits).
-	interface CollabBinding {
+	type CollabBinding = {
 		ytext: Y.Text;
 		awareness: Awareness;
 		readOnly?: boolean;
-	}
+	};
 	let {
 		value = '',
 		onInput,

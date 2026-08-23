@@ -5,7 +5,7 @@
 	import DiffPanel from './DiffPanel.svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		filename: string;
 		original: string;
 		modified: string;
@@ -16,7 +16,7 @@
 		onToggleLayout: () => void;
 		onRefresh: () => void;
 		onExit: () => void;
-	}
+	};
 	let { filename, original, modified, layout, loading, error, hasHead, onToggleLayout, onRefresh, onExit }: Props = $props();
 </script>
 

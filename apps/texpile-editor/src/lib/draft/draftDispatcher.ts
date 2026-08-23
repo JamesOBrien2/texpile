@@ -17,12 +17,12 @@ const PATCH_DEBOUNCE_MS = 400;
 const RECOMPILE_DEBOUNCE_MS = 500;
 
 /** the slice of DraftView this dispatcher drives (structural, to avoid importing the component) */
-export interface DraftTarget {
+export type DraftTarget = {
 	instantPatch(req: Record<string, unknown>): void;
 	focusAfterCompile(req: { file: string; line: number; endLine?: number; text?: string; listItem?: boolean }): void;
-}
+};
 
-export interface DraftDispatchDeps {
+export type DraftDispatchDeps = {
 	getSource(): string;
 	getLoadedPath(): string | null;
 	/** draft mode on, preview open, a file loaded, not paused */
@@ -34,7 +34,7 @@ export interface DraftDispatchDeps {
 	 * unchanged (a comment or \label line), the page holds and the engine certifies quietly */
 	triggerQuietCompile?(): void;
 	getTarget(): DraftTarget | null;
-}
+};
 
 /** dev-only breadcrumb trail, read by the live edit-class matrix */
 const dev = (kind: string, detail?: unknown) => {

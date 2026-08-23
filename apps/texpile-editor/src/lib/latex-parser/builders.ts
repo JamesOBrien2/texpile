@@ -7,18 +7,18 @@ import { schema } from '$lib/schema/schema';
 export type PMNode = PMNodeT;
 
 /** A lightweight descriptor of a mark to apply; realised into a Mark at text-build time. */
-export interface PMMark {
+export type PMMark = {
 	type: string;
 	attrs?: Record<string, unknown>;
-}
+};
 
-export interface ConversionContext {
+export type ConversionContext = {
 	marks: PMMark[];
 	inMathMode: boolean;
 	inlineBuffer: PMNode[];
-}
+};
 
-export interface ConversionOptions {
+export type ConversionOptions = {
 	preserveComments?: boolean;
 	/** unknown macro/env handling: 'raw_latex' block (default), 'inline' text, or 'ignore'. */
 	unknownHandling?: 'raw_latex' | 'inline' | 'ignore';
@@ -28,7 +28,7 @@ export interface ConversionOptions {
 	/** progress ping for the loading UI; fired at the few boundaries we can actually observe
 	 *  (the unified-latex parse itself is one opaque sync call). */
 	onPhase?: (phase: 'building') => void;
-}
+};
 
 /**
  * Realise mark descriptors into a proper prosemirror mark SET via Mark.addToSet, not a raw

@@ -3,14 +3,14 @@
 
 import { normalizeShareCode } from './shareCode';
 
-export interface SessionKeys {
+export type SessionKeys = {
 	/** relay room address; safe to show the relay. */
 	roomId: string;
 	/** admission ticket; the relay stores only its hash. */
 	joinProof: string;
 	/** AES-256-GCM content key; never leaves the clients. */
 	contentKey: CryptoKey;
-}
+};
 
 const te = new TextEncoder();
 const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');

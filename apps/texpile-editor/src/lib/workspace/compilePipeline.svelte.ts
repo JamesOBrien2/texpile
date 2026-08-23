@@ -54,7 +54,7 @@ function withBatchFlags(cmd: string): string {
 	return flags.length > 0 ? cmd.replace(hit[1], `${hit[1]} ${flags.join(' ')}`) : cmd;
 }
 
-export interface CompileDeps {
+export type CompileDeps = {
 	getLoadedPath(): string | null;
 	/** the reactive compile command; {main} expands to the main file's path. */
 	getCompileCommand(): string;
@@ -83,7 +83,7 @@ export interface CompileDeps {
 	openTypstPreview(): void;
 	/** publish the parsed compile products (aux numbers + diagnostics) to session guests. */
 	shareCompileState(): void;
-}
+};
 
 export class CompilePipeline {
 	// true from Compile until the run visibly ends (PDF landed, log settled, or timeout);

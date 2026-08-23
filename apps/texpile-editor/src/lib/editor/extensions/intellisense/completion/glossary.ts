@@ -7,13 +7,13 @@ import { referenceStore } from '$lib/stores/editorStore';
 import { projectIntelStore } from '$lib/stores/projectIntel';
 import { lastListToken } from './shared';
 
-export interface GlossEntry {
+export type GlossEntry = {
 	key: string;
 	description: string;
 	acronym: boolean;
 	/** 1-based definition line, for the cross-file project scan and go-to-definition */
 	line: number;
-}
+};
 
 // the glossaries package's macro family: \gls, \glspl, \glstext, \glsdisp, \Glsname, \acs, \acl,
 // \acf, \acp, \Acrlong, ... (case-insensitive, matching LaTeX Workshop's own enumeration)

@@ -26,7 +26,7 @@ async function ensurePdfJsLoaded() {
 	}
 }
 
-export interface AnnotationLayerBuilderOptions {
+export type AnnotationLayerBuilderOptions = {
 	pdfPage: PDFPageProxy;
 	linkService: SimpleLinkService;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,12 +34,12 @@ export interface AnnotationLayerBuilderOptions {
 	imageResourcesPath?: string;
 	renderForms?: boolean;
 	onAppend?: (div: HTMLDivElement) => void;
-}
+};
 
-export interface AnnotationLayerBuilderRenderOptions {
+export type AnnotationLayerBuilderRenderOptions = {
 	viewport: PageViewport;
 	intent?: string;
-}
+};
 
 export class AnnotationLayerBuilder {
 	private pdfPage: PDFPageProxy;

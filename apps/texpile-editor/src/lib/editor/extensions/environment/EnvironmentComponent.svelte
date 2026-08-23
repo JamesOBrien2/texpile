@@ -58,7 +58,7 @@
 			spellcheck="false"
 			aria-label={m.envcomp_aria_env_name()}
 		/>
-		<span class="env-syntax">{'}'}</span>
+		<span class="env-syntax">}</span>
 		{#if showTitleField}
 			<input
 				class="env-args"

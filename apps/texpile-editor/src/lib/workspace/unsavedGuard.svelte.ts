@@ -17,7 +17,7 @@ import type { SavePipeline } from '$lib/workspace/savePipeline.svelte';
 
 type Choice = 'save' | 'discard' | 'cancel';
 
-export interface UnsavedGuardDeps {
+export type UnsavedGuardDeps = {
 	/** a getter, not the instance: the guard is constructed before the pipeline exists */
 	saver(): SavePipeline;
 	getLoadedPath(): string | null;
@@ -26,7 +26,7 @@ export interface UnsavedGuardDeps {
 	/** a tab-close that triggered this switch, cancelled alongside it */
 	takePendingTabClose(): string | null;
 	clearPendingTabClose(): void;
-}
+};
 
 export class UnsavedGuard {
 	/** the modal's outgoing snapshot; non-null while the dialog is up */

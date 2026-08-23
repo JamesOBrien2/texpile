@@ -31,10 +31,10 @@ const cssType = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'mi
 
 type LintMatch = Awaited<ReturnType<typeof lintText>>['matches'][number];
 
-interface Paragraph {
+type Paragraph = {
 	from: number;
 	text: string;
-}
+};
 
 // maximal runs of non-blank lines; masked markup is all spaces, so blank lines in the masked text
 // are exactly the prose paragraph boundaries of the source (offsets are 1:1 with it)

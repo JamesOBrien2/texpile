@@ -21,7 +21,7 @@ import {
 	withOutputDir
 } from './compileCommand';
 
-export interface McpCommandDeps {
+export type McpCommandDeps = {
 	/** the open file's absolute path */
 	getLoadedPath(): string | null;
 	/** the live buffer for whichever kind is open */
@@ -46,13 +46,13 @@ export interface McpCommandDeps {
 	getCompileCommand(): string;
 	/** persist a command and/or the folder's PDF/log overrides; both optional, see applyCommand */
 	applyCompile(command?: string, outputs?: { pdf?: string; log?: string }): void;
-}
+};
 
-interface NativeMcp {
+type NativeMcp = {
 	onMcpRequest?: (cb: (req: { id: number; kind: string; args?: Record<string, unknown> }) => void) => () => void;
 	mcpRespond?: (id: number, data: unknown) => void;
 	onMcpCommand?: (cb: (cmd: Record<string, unknown>) => void) => () => void;
-}
+};
 function native(): NativeMcp | undefined {
 	if (!browser) return undefined;
 	return (window as unknown as { texpileNative?: NativeMcp }).texpileNative;

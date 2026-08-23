@@ -65,10 +65,10 @@
 		files = buildFileItems(a);
 	});
 
-	interface Scored {
+	type Scored = {
 		item: PaletteItem;
 		hits: number[];
-	}
+	};
 
 	function rank(items: PaletteItem[], q: string, limit: number): Scored[] {
 		// searchOnly items (diagnostics) exist to be typed for, never browsed to

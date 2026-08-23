@@ -14,11 +14,11 @@ import type { CommentAnchor } from './anchor';
 /** bumped only for a change that an older build could not read; parseLog drops anything higher */
 export const LOG_VERSION = 1;
 
-interface Base {
+type Base = {
 	v: number;
 	at: string;
 	by: string;
-}
+};
 
 export type CommentEvent =
 	| (Base & { t: 'open'; id: string; file: string; body: string; anchor: CommentAnchor })
@@ -43,16 +43,16 @@ export type CommentEvent =
 	// looked at itself and lets the live verdict override it for the file that is open.
 	| (Base & { t: 'place'; thread: string; detached?: boolean; hidden?: boolean });
 
-export interface CommentMessage {
+export type CommentMessage = {
 	id: string;
 	at: string;
 	by: string;
 	body: string;
 	/** when it was last rewritten, so the reader can tell these words are not the original ones */
 	editedAt?: string;
-}
+};
 
-export interface CommentThread {
+export type CommentThread = {
 	id: string;
 	/** workspace-relative, posix separators, so the file travels between machines */
 	file: string;
@@ -68,7 +68,7 @@ export interface CommentThread {
 	 */
 	detached?: boolean;
 	hidden?: boolean;
-}
+};
 
 /**
  * Parse the log, skipping anything unreadable.

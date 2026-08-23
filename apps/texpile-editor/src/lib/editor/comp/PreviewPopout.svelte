@@ -19,7 +19,7 @@
 	import { basename } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		guest: boolean;
 		guestPdf: ArrayBuffer | null;
 		guestTypstOffered: boolean;
@@ -37,7 +37,7 @@
 		onInverseSync: (file: string, line: number, selectText?: string) => void;
 		onSettled: () => void;
 		onDiagnostics: (logPath: string) => void;
-	}
+	};
 	let {
 		guest,
 		guestPdf,

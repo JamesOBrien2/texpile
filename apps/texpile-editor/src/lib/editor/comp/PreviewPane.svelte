@@ -10,7 +10,7 @@
 	import type { DraftController } from '$lib/draft/draftController.svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		width: number;
 		dockShrunk: boolean;
 		guest: boolean;
@@ -50,7 +50,7 @@
 		onSettled: () => void;
 		/** the finished compile's log path, for the Problems panel */
 		onDiagnostics: (logPath: string) => void;
-	}
+	};
 	let {
 		width,
 		dockShrunk,

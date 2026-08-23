@@ -140,10 +140,10 @@ export const fetchImageAsBase64 = async (url: string) => {
 		);
 };
 
-export interface Store {
+export type Store = {
 	get: (key: string) => string | undefined;
 	set: (key: string, value: string) => void;
-}
+};
 
 export const localStorageCache = (keyPrefix: string): Store => {
 	const get = (key: string) => {

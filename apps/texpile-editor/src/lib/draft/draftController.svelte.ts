@@ -10,7 +10,7 @@ import { compileBaseDir } from '$lib/workspace/compileCommand';
 import { relFromRoot } from '$lib/workspace/compilePipeline.svelte';
 import { native } from '$lib/workspace/fileSystem';
 
-export interface DraftControllerDeps {
+export type DraftControllerDeps = {
 	/** the resolved shell compile command; its `-cd` decides where the engine runs */
 	compileCommand(): string;
 	/** the main-file prompt has been answered (holds the first live compile until then) */
@@ -21,7 +21,7 @@ export interface DraftControllerDeps {
 	getSource(): string;
 	getLoadedPath(): string | null;
 	flushSaves(): Promise<void>;
-}
+};
 
 export class DraftController {
 	// bump to run a full draft compile; the quiet variant announces nothing (boundary edits)

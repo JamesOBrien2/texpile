@@ -4,10 +4,10 @@
 import { get } from 'svelte/store';
 import { projectIntelStore } from '$lib/stores/projectIntel';
 
-export interface MacroDef {
+export type MacroDef = {
 	def: string;
 	args?: number;
-}
+};
 
 const MAX_BODY = 500; // a "macro" body longer than this is not something a preview should inline
 

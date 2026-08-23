@@ -28,7 +28,7 @@ async function ensurePdfJsLoaded() {
 	}
 }
 
-export interface PDFPageViewOptions {
+export type PDFPageViewOptions = {
 	container: HTMLElement;
 	id: number;
 	defaultViewport: PageViewport;
@@ -36,7 +36,7 @@ export interface PDFPageViewOptions {
 	scale?: number;
 	rotation?: number;
 	linkService?: SimpleLinkService;
-}
+};
 
 export const RenderingStates = {
 	INITIAL: 0,

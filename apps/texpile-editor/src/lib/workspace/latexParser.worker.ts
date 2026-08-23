@@ -4,7 +4,7 @@
 import { parseLatexFile } from './latexRoundtrip';
 import { parseMarkdownFile } from '$lib/markdown/roundtrip';
 
-interface ParseRequest {
+type ParseRequest = {
 	id: number;
 	source: string;
 	projectMacros: string;
@@ -12,7 +12,7 @@ interface ParseRequest {
 	maxNodes?: number;
 	/** source dialect; defaults to LaTeX. */
 	format?: 'tex' | 'md';
-}
+};
 
 self.onmessage = (event: MessageEvent<ParseRequest>) => {
 	const { id, source, projectMacros, maxNodes, format } = event.data;

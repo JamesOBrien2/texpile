@@ -1,20 +1,20 @@
 // curated UI field lists per entry type; full BibLaTeX would mean ~41 optional fields for article
 import { m } from '$lib/paraglide/messages';
 
-export interface FieldConfig {
+export type FieldConfig = {
 	name: string;
 	label: string;
 	type: 'text' | 'number' | 'textarea' | 'select';
 	required: boolean;
 	placeholder?: string;
 	helpText?: string;
-}
+};
 
-export interface EntryTypeConfig {
+export type EntryTypeConfig = {
 	name: string;
 	label: string;
 	fields: FieldConfig[];
-}
+};
 
 // built per call, never cached in a module-level const: this module is imported before
 // settings.ts applies the saved uiLocale, so a cached config would freeze on the base locale

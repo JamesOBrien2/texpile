@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-export interface TocItem {
+export type TocItem = {
 	level: number;
 	text: string;
 	pos: number;
@@ -12,7 +12,7 @@ export interface TocItem {
 	line?: number;
 	/** absolute path when the entry was merged in from an \input fragment */
 	file?: string;
-}
+};
 
 /** Headings of the current document, kept in sync by the TOC plugin (createTocPlugin). Visual mode. */
 export const tocStore = writable<TocItem[]>([]);

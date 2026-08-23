@@ -32,13 +32,13 @@
 // seeds a folder's config file. A 0.16.1 user's own command is recorded as trusted at the same
 // time - they typed it, and asking them to approve their own command would be absurd.
 
-export interface MigrationStash {
+export type MigrationStash = {
 	v: 1;
 	/** per-folder compile config waiting for its .texpile/config.json to be seeded */
 	folders?: Record<string, { command?: string; outputs?: { pdf?: string; log?: string } }>;
 	/** the 0.16.1 global compile toggles, seeded into every folder's config on first open */
 	toggles?: { draftMode?: boolean; typstLiveMode?: boolean; compileSentinel?: boolean };
-}
+};
 
 const STASH_KEY = 'texpile:migration';
 
@@ -80,13 +80,13 @@ export function writeMigrationStash(stash: MigrationStash | null): void {
 // Phase A: localStorage
 // ---------------------------------------------------------------------------
 
-interface FolderAcc {
+type FolderAcc = {
 	main?: string;
 	lastFile?: string;
 	trusted?: { latex?: string; typst?: string };
 	tabs?: string[];
 	positions?: Record<string, unknown>;
-}
+};
 
 export function migrateLocalStorage(): void {
 	if (typeof localStorage === 'undefined') return;

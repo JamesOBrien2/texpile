@@ -11,13 +11,13 @@ import type { Token } from 'markdown-it';
 import { el, txtNodes, collapseTextNodes, type PMNode, type PMMark, realMarks } from './builders';
 import { createMarkdownEngine } from './engine';
 
-interface Cap {
+type Cap = {
 	source: string;
 	lineStarts: number[];
 	seq: number;
 	prevEnd: number;
 	group: number;
-}
+};
 
 function buildLineStarts(source: string): number[] {
 	const starts = [0];
@@ -330,9 +330,9 @@ function withOrig(node: PMNode, orig: Record<string, unknown>): PMNode {
 	return node.type.create({ ...node.attrs, orig }, node.content, node.marks);
 }
 
-export interface MarkdownParseResult {
+export type MarkdownParseResult = {
 	doc: PMNode;
-}
+};
 
 export function markdownToProseMirror(source: string): MarkdownParseResult {
 	const md = createMarkdownEngine();

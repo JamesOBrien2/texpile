@@ -15,7 +15,7 @@
 	import { themeColour } from './themeColour';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		/** `host:port` of the running preview server, or null while it is still starting */
 		host: string | null;
 		/** a splitter is being dragged; hold the frame's size instead of reflowing it every frame */
@@ -24,7 +24,7 @@
 		onSaveTypstPdf: () => Promise<void>;
 		/** move the preview into its own OS window; null (already popped out) hides the button */
 		onPopout?: (() => void) | null;
-	}
+	};
 	let { host, paneDragging, onSaveTypstPdf, onPopout = null }: Props = $props();
 
 	/** an export is in flight; the button shows it and refuses a second one */
@@ -112,7 +112,7 @@
 	});
 
 	/** what the framed page reports about itself; see the bridge in electron/src/typst-preview-page.ts */
-	interface FrameStatus {
+	type FrameStatus = {
 		pages: number;
 		/** WebSocket.readyState, or -1 when the page never constructed a socket at all */
 		socket: number;
@@ -126,7 +126,7 @@
 		viewer: boolean;
 		initialized: boolean;
 		zoom: number | null;
-	}
+	};
 	let status = $state<FrameStatus | null>(null);
 
 	// A framed page is a different origin with its own console, so a failure in there is invisible

@@ -7,14 +7,14 @@
 import type * as Y from 'yjs';
 import { manifestOf, locksOf, textOf, type ManifestEntry } from './session';
 
-export interface MaterializeFs {
+export type MaterializeFs = {
 	/** raw bytes: both the text/binary classification and the seeded body come from one read */
 	readBytes(absPath: string): Promise<Uint8Array>;
 	writeText(absPath: string, content: string): Promise<void>;
 	/** flat file list, root-relative forward-slash paths. mtimeMs is only meaningful for binaries;
 	 *  it becomes the manifest rev a guest uses to notice its cached copy went stale. */
 	listFiles(root: string): Promise<{ rel: string; size: number; mtimeMs?: number }[]>;
-}
+};
 
 // Which files co-edit as CRDT text is decided by CONTENT (decodeIfText below), not by an
 // extension list: the old allow-list silently locked guests out of every file of a type nobody

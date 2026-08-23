@@ -1,14 +1,14 @@
 // document-class list for \documentclass{...} completion: LaTeX Workshop's CTAN scrape
 // (data/classnames.json, MIT) merged over the hand-curated common set, which keeps its
 // plain-language details and ranks first via common. regenerate with scratchpad/gen-names.mjs.
-export interface ClassInfo {
+export type ClassInfo = {
 	name: string;
 	detail?: string;
 	/** CTAN documentation page */
 	url?: string;
 	/** curated everyday class: ranked above the long tail */
 	common?: boolean;
-}
+};
 
 export const CLASS_NAMES: ClassInfo[] = [
 	{ name: 'acmart', detail: 'ACM journals/proceedings', url: 'https://ctan.org/pkg/acmart', common: true },

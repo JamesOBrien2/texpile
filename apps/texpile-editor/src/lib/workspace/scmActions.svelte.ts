@@ -9,7 +9,7 @@ import { confirmAsk } from '$lib/modals/confirm.svelte';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 
-export interface ScmDeps {
+export type ScmDeps = {
 	getLoadedPath(): string | null;
 	/** drop the open file's queued autosave before git rewrites it on disk. */
 	discardPendingSave(): void;
@@ -20,7 +20,7 @@ export interface ScmDeps {
 	captureDiffSnapshot(): void;
 	isDiffMode(): boolean;
 	enterDiffMode(): void;
-}
+};
 
 export class ScmActions {
 	busy = $state(false);

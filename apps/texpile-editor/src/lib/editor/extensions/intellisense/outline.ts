@@ -3,12 +3,12 @@
 // panel. NOT wired to any UI yet — Texpile's existing TableOfContents.svelte reads the WYSIWYG
 // doc via tocStore/editorViewStore, and pointing a Source-mode panel at this would need its own
 // store plus a jump-by-offset affordance in WorkspaceView; deferred, see the parity report.
-export interface OutlineItem {
+export type OutlineItem = {
 	kind: 'section' | 'environment';
 	level: number; // 1 = part, 2 = chapter, ... 5 = subsubsection; environments get level 6
 	text: string;
 	pos: number;
-}
+};
 
 const SECTION_LEVELS = ['part', 'chapter', 'section', 'subsection', 'subsubsection'];
 const SECTION_RE = new RegExp(`\\\\(${SECTION_LEVELS.join('|')})\\*?\\{`, 'g');

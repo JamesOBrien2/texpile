@@ -2,11 +2,11 @@
 // "Copy as Typst"). Reached only for equations the user actually EDITED in a mathfield - which
 // guarantees MathLive is loaded, since the mathfield is how the edit happened. Unedited
 // equations never come here: the serializer re-emits their original typst attr byte-for-byte.
-interface MathfieldLike {
+type MathfieldLike = {
 	setValue(v: string, opts?: { silenceNotifications?: boolean }): void;
 	getValue(format: string): string;
 	style: CSSStyleDeclaration;
-}
+};
 
 let mf: MathfieldLike | null = null;
 

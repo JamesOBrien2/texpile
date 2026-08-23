@@ -12,12 +12,12 @@ import { goToDefinition, type DefinitionHooks } from './definition';
 
 export { latexCompletionSource, bibFileCompletionSource };
 
-interface IntellisenseOptions {
+type IntellisenseOptions = {
 	/** popup escapes a node's own box; needed for completions/hover inside a raw/inline LaTeX chip. */
 	tooltipsInBody?: boolean;
 	/** .bib files get entry-type/field completion instead of the LaTeX macro/citation/ref dispatch. */
 	bib?: boolean;
-}
+};
 
 // CodeMirror re-queries completion only on INSERTED text; deletions never reactivate it. This repairs it,
 // but forcing every source on every backspace is too dear on big buffers, so a line-local guard runs first:

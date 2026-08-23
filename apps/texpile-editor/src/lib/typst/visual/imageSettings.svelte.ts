@@ -10,9 +10,9 @@ import type { ImagePluginSettings } from '$lib/editor/extensions/image/types';
 import { createTemplateEditorSettings, createLocalImageSettings } from '$lib/editor/extensions/image/imageplugin.svelte';
 import ImageOverlay from '$lib/editor/extensions/image/ImageOverlay.svelte';
 
-interface OverlayHost extends HTMLElement {
+type OverlayHost = {
 	__svelteComponentProps?: { node: PMNode; view: EditorView; getPos: () => number | undefined };
-}
+} & HTMLElement;
 
 // defaultUpdateOverlay with one difference: the overlay mounts with dialect="typst"
 function typUpdateOverlay(overlay: Node, getPos: () => number | undefined, view: EditorView, node: PMNode): void {

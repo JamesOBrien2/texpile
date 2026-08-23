@@ -9,14 +9,14 @@ import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
 import { buildBlockMap, blockAtPm, blockAtSource, sourceStartAt, pmPosToSourceOffset, sourceOffsetToPmPos } from './sourceMap';
 import { flashNodeAt } from './extensions/flash-plugin';
 
-export interface VisualAnchor {
+export type VisualAnchor = {
 	scroll: number | null;
 	cursor: number | null;
-}
-export interface SourceAnchor {
+};
+export type SourceAnchor = {
 	scroll: number;
 	cursor: number | null;
-}
+};
 
 function findScrollParent(el: HTMLElement | null): HTMLElement | null {
 	let cur = el?.parentElement ?? null;

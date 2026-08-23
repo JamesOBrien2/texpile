@@ -40,7 +40,7 @@
 
 	import type { FileKind } from '$lib/workspace/documentBuffer.svelte';
 
-	interface Props {
+	type Props = {
 		loadedPath: string | null;
 		openTabs: string[];
 		/** the unedited preview tab, if any (see TabsStore.preview) */
@@ -112,7 +112,7 @@
 		onToggleDiffLayout: () => void;
 		onRefreshDiff: () => void;
 		onExitDiff: () => void;
-	}
+	};
 	let {
 		loadedPath,
 		openTabs,

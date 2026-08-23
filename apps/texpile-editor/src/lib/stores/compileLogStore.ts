@@ -2,11 +2,11 @@ import { writable } from 'svelte/store';
 import type { LatexLogParseResult } from '$lib/latex-log';
 
 /** parse result of the latest compile's .log; null before the first compile. set by WorkspaceView's log watcher. */
-export interface CompileLogState extends LatexLogParseResult {
+export type CompileLogState = {
 	logPath: string;
 	/** epoch ms of the log state this was parsed from. */
 	updatedAt: number;
-}
+} & LatexLogParseResult;
 
 export const compileLog = writable<CompileLogState | null>(null);
 

@@ -28,18 +28,18 @@ import { folderKey } from '$lib/storage/workspaces';
 import { readMigrationStash, writeMigrationStash } from '$lib/migration/migrate';
 import { hasProjectConfig, readProjectConfig, writeProjectConfig, type ProjectConfig } from '$lib/workspace/projectConfig';
 
-export interface PendingCommand {
+export type PendingCommand = {
 	root: string;
 	format: 'latex' | 'typst';
 	command: string;
-}
+};
 
-export interface CompileConfigState {
+export type CompileConfigState = {
 	latex: { command: string | null; outputs: CompileOutputs; liveMode: boolean };
 	typst: { command: string | null; outputs: CompileOutputs; preview: boolean };
 	/** append a marker echo after the compile command to detect when it finishes */
 	completionMarker: boolean;
-}
+};
 
 const defaults = (): CompileConfigState => ({
 	latex: { command: null, outputs: {}, liveMode: false },

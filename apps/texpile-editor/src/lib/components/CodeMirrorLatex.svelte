@@ -11,7 +11,7 @@
 	import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 	import { searchKeymap } from '@codemirror/search';
 
-	interface Props {
+	type Props = {
 		value: string;
 		placeholder?: string;
 		onValueChange?: (value: string) => void;
@@ -19,7 +19,7 @@
 		minHeight?: string;
 		class?: string;
 		language?: 'latex' | 'json' | 'markdown' | 'bibtex';
-	}
+	};
 
 	let {
 		value = $bindable(),

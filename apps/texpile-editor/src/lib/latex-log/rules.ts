@@ -2,7 +2,7 @@
 
 import type { LogEntry } from './types';
 
-interface EnrichmentRule {
+type EnrichmentRule = {
 	id: string;
 	match: RegExp;
 	hint?: string | ((entry: LogEntry, m: RegExpMatchArray) => string | undefined);
@@ -12,7 +12,7 @@ interface EnrichmentRule {
 	anchor?: (m: RegExpMatchArray) => string | undefined;
 	/** suppress when an earlier entry already matched one of these rule ids (cascade noise). */
 	cascadesFrom?: string[];
-}
+};
 
 // package that defines a command, for "Undefined control sequence" hints
 const PACKAGE_FOR_COMMAND: Record<string, string> = {

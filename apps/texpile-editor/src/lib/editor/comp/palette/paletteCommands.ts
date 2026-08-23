@@ -40,7 +40,7 @@ import { combo } from '$lib/editor/comp/shortcutText';
 import type { PaletteActions } from '$lib/workspace/commandPalette.svelte';
 import { m } from '$lib/paraglide/messages';
 
-export interface PaletteItem {
+export type PaletteItem = {
 	id: string;
 	label: string;
 	group: string;
@@ -54,7 +54,7 @@ export interface PaletteItem {
 	 *  invisible enough that browsing users never meet a debugger. */
 	searchOnly?: boolean;
 	run(): void;
-}
+};
 
 /** files are capped so a big project cannot push every command off the list */
 export const MAX_FILE_RESULTS = 40;

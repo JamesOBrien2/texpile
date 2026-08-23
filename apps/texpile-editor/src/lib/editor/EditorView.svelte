@@ -71,7 +71,7 @@
 	import type { CommentThread } from '$lib/comments/log';
 	import type { BibLaTeXReference } from '$lib/biblatex';
 
-	interface Props {
+	type Props = {
 		// the document as a ProseMirror Node
 		localValue?: PMNode | null;
 		onLocalChange?: (value: PMNode) => void;
@@ -107,7 +107,7 @@
 		commentPendingActive?: boolean;
 		/** pill label, translated by the caller */
 		addCommentLabel?: string;
-	}
+	};
 
 	let {
 		localValue = null,

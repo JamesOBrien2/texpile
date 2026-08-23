@@ -14,7 +14,7 @@
 		type PdfSource
 	} from './pdf-viewer/context';
 
-	interface Props {
+	type Props = {
 		/** PDF source - URL string, ArrayBuffer, Uint8Array, or Blob */
 		src: PdfSource;
 		/** logical-document id: unchanged across a src change keeps scroll (recompile), changed resets it */
@@ -34,7 +34,7 @@
 		class?: string;
 		/** Children (toolbar and renderer) */
 		children?: Snippet;
-	}
+	};
 
 	let {
 		src,

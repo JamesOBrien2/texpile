@@ -49,7 +49,7 @@
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		disabled?: boolean;
 		/** what is open in the editor pane; decides which menus apply and which dialect they write */
 		fileKind?: FileKind;
@@ -87,7 +87,7 @@
 		onZoomIn?: () => void;
 		onZoomOut?: () => void;
 		onZoomReset?: () => void;
-	}
+	};
 	let {
 		disabled = false,
 		fileKind = null,

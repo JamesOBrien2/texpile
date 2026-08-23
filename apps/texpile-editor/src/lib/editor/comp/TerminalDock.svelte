@@ -5,7 +5,7 @@
 	import type { CommentMessage, CommentThread } from '$lib/comments/log';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		visible: boolean;
 		height: number;
 		shrink: boolean;
@@ -38,7 +38,7 @@
 		commentPending?: { quote: string } | null;
 		onCommentSubmitPending?: (body: string) => void;
 		onCommentCancelPending?: () => void;
-	}
+	};
 	let {
 		visible,
 		height,

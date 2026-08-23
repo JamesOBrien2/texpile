@@ -4,17 +4,17 @@ import type { CreateSuggestionBox, Problem as ProofreadProblem } from 'prosemirr
 import SuggestionBox from './SuggestionBox.svelte';
 
 // shapes match prosemirror-proofread
-interface Position {
+type Position = {
 	x: number;
 	y: number;
-}
+};
 
 type OnReplaceCallback = (value: string) => void;
 type OnIgnoreCallback = () => void;
 type OnCloseCallback = () => void;
 type OnInvalidateCacheCallback = () => void;
 
-export interface Problem {
+export type Problem = {
 	from: number;
 	to: number;
 	msg: string;
@@ -22,9 +22,9 @@ export interface Problem {
 	type: string;
 	replacements: string[];
 	text: string; // the error text itself
-}
+};
 
-export interface SuggestionBoxOptions {
+export type SuggestionBoxOptions = {
 	error: Problem;
 	errors: Problem[]; // all errors in this segment (overlaps)
 	position: Position;
@@ -32,7 +32,7 @@ export interface SuggestionBoxOptions {
 	onIgnore: OnIgnoreCallback;
 	onClose: OnCloseCallback;
 	invalidateCache: OnInvalidateCacheCallback; // force re-check after dictionary changes
-}
+};
 
 let currentCleanup: (() => void) | null = null;
 

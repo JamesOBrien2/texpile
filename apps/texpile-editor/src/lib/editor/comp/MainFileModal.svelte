@@ -4,14 +4,14 @@
 	import { samePath, type TexFile } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		candidates: TexFile[];
 		choice: string | null;
 		detected: string | null;
 		docRoots: Set<string>;
 		onConfirm: () => void;
 		onDismiss: () => void;
-	}
+	};
 	let { candidates, choice = $bindable(), detected, docRoots, onConfirm, onDismiss }: Props = $props();
 </script>
 

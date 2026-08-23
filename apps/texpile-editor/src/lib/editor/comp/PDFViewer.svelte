@@ -8,12 +8,12 @@
 	import { layout } from '$lib/storage/layout';
 	import { onMount } from 'svelte';
 
-	interface Props {
+	type Props = {
 		filename?: string;
 		src?: string | ArrayBuffer;
 		/** SyncTeX inverse search: double-click reports page + position (PDF points) plus the clicked word for anchoring. */
 		onPageClick?: (page: number, x: number, y: number, selectText?: string) => void;
-	}
+	};
 	let { filename, src, onPageClick }: Props = $props();
 
 	let actions: PdfViewerActions | null = null;

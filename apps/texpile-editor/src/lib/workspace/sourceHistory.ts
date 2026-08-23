@@ -7,7 +7,7 @@
 const MAX_ENTRIES = 200;
 const MAX_CHARS = 16_000_000; // ~32 MB of UTF-16 snapshot text
 
-export interface SourceHistory {
+export type SourceHistory = {
 	/** seed with the on-disk content: the floor of the history. */
 	reset(content: string): void;
 	/** empty + inert (capture bails) for file kinds without cross-mode history. */
@@ -17,7 +17,7 @@ export interface SourceHistory {
 	 * pending debounced capture is never skipped; the internal applying flag (cleared next tick)
 	 * swallows the echo capture from the caller's application. */
 	step(dir: 'undo' | 'redo', current: string): string | null;
-}
+};
 
 export function createSourceHistory(): SourceHistory {
 	let hist: string[] = [];

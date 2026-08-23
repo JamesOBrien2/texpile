@@ -12,7 +12,7 @@ import { tags, type Tag } from '@lezer/highlight';
 import { get } from 'svelte/store';
 import { resolvedMode } from '$lib/theme';
 
-interface Role {
+type Role = {
 	tag: Tag | readonly Tag[];
 	/** light-mode / dark-mode colour; omitted = default text colour (font-only role) */
 	light?: string;
@@ -20,7 +20,7 @@ interface Role {
 	fontWeight?: string;
 	fontStyle?: string;
 	textDecoration?: string;
-}
+};
 
 // One row per semantic role. The tags cover what our three dialects emit: the LaTeX mode's
 // tokenTable, typst-syntax-wasm's styleTags, @lezer/markdown, and the BibTeX mode - sub-tags

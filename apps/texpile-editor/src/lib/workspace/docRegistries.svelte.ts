@@ -11,13 +11,13 @@ import { extractDocRefsAsync } from '$lib/latex-parser/labelsClient';
 
 const DEBOUNCE_MS = 400;
 
-export interface DocRegistryDeps {
+export type DocRegistryDeps = {
 	/** read LIVE at fire time, never closed over: a file switch blanks the buffer briefly and a
 	 * stale closure would push that transient '' into the label/citation/history state */
 	getSource(): string;
 	/** the cross-mode undo history takes a snapshot on the same lull */
 	captureHistory(text: string): void;
-}
+};
 
 export class DocRegistries {
 	/** \bibitem entries found in the current doc; .bib entries win on key clashes */

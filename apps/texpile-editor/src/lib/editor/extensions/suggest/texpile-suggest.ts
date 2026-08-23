@@ -3,7 +3,7 @@
 import { Plugin, PluginKey, EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 
-export interface TexpileSuggester {
+export type TexpileSuggester = {
 	/** The trigger character (e.g., '@') */
 	char: string;
 
@@ -28,19 +28,19 @@ export interface TexpileSuggester {
 
 	/** Called when suggestion becomes inactive (user moved away, clicked out, etc.) */
 	onExit?: (params: { view: EditorView }) => void;
-}
+};
 
-interface SuggestMatch {
+type SuggestMatch = {
 	from: number;
 	to: number;
 	query: string;
 	suggester: TexpileSuggester;
-}
+};
 
-interface SuggestState {
+type SuggestState = {
 	active: SuggestMatch | null;
 	decorations: DecorationSet;
-}
+};
 
 function findSuggestion(state: EditorState, suggester: TexpileSuggester): SuggestMatch | null {
 	const { selection } = state;

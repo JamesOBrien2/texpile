@@ -6,7 +6,7 @@
 // the citation nodes see fresh keys immediately.
 import { native } from '$lib/workspace/fileSystem';
 
-export interface WindowWiringDeps {
+export type WindowWiringDeps = {
 	refreshTree(): void;
 	reloadReferences(): void;
 	/** guests have no on-disk copy to diff against */
@@ -16,7 +16,7 @@ export interface WindowWiringDeps {
 	onWindowResize(): void;
 	/** re-read .texpile/ - the comment log and the compile config - after an outside write */
 	reloadProjectState(): void;
-}
+};
 
 /** attach the workspace's window listeners; returns the detach function */
 export function attachWindowListeners(deps: WindowWiringDeps): () => void {
@@ -62,14 +62,14 @@ export function attachWindowListeners(deps: WindowWiringDeps): () => void {
 	};
 }
 
-export interface CloseGuardDeps {
+export type CloseGuardDeps = {
 	/** a prompt is already up: its detached edit is invisible to the save pipeline */
 	promptIsOpen(): boolean;
 	/** nothing unsaved that needs asking about */
 	canCloseSilently(): boolean;
 	flushSaves(): Promise<void>;
 	confirmLeaveUnsaved(): Promise<boolean>;
-}
+};
 
 /** The window close is HELD by the main process until we answer (with a 2s backstop for a hung
  * renderer). Fast path: flush the autosave debounce and proceed. With autosave off and a pending

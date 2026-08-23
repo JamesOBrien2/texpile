@@ -9,7 +9,7 @@
 // `positions` makes this the hottest-written key in the app (debounced caret moves), which is an
 // accepted trade for having one key per concern; reads and writes are whole-blob and synchronous.
 
-export interface FolderEntry {
+export type FolderEntry = {
 	/** root-relative main file (compile target + macro-scan anchor); the sync-at-boot copy that
 	 *  keeps the pick-a-main modal from flashing while .texpile/config.json is still being read */
 	main?: string;
@@ -21,12 +21,12 @@ export interface FolderEntry {
 	tabs?: string[];
 	/** per-file caret + scroll; shape owned and validated by workspace/docPositions.ts */
 	positions?: Record<string, unknown>;
-}
+};
 
-interface WorkspacesBlob {
+type WorkspacesBlob = {
 	v: 1;
 	folders: Record<string, FolderEntry>;
-}
+};
 
 const KEY = 'texpile:workspaces';
 

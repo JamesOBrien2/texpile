@@ -23,11 +23,11 @@
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
 	// ---- AI assistant access (MCP) ----
-	interface McpStatus {
+	type McpStatus = {
 		running: boolean;
 		port: number | null;
 		error: string | null;
-	}
+	};
 	let mcp = $state<McpStatus | null>(null);
 
 	const nativeMcp = () => (window as unknown as { texpileNative?: { mcpStatus?: () => Promise<McpStatus> } }).texpileNative;

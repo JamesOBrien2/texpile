@@ -13,7 +13,7 @@
 
 import { writable, get } from 'svelte/store';
 
-export interface LayoutState {
+export type LayoutState = {
 	v: 1;
 	/** appearance choice; `resolvedMode` in lib/theme.ts turns 'system' into light/dark */
 	theme: 'light' | 'dark' | 'system';
@@ -36,7 +36,7 @@ export interface LayoutState {
 	/** render the editor in a paper-like container */
 	pageView: boolean;
 	previewVisible: boolean;
-}
+};
 
 const KEY = 'texpile:layout';
 

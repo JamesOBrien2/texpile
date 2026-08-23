@@ -16,17 +16,17 @@ const MAX_VISUAL_NODES = 100_000;
 const MIN_TIMEOUT_MS = 3000;
 const MAX_TIMEOUT_MS = 30000;
 
-export interface ParseFailure {
+export type ParseFailure = {
 	timeout: boolean;
 	message: string;
 	/** doc parsed but is too large to render; carries the node count for the message */
 	tooComplex?: number;
-}
+};
 
-export interface ParseOutcome {
+export type ParseOutcome = {
 	parsed?: ParsedLatexFile;
 	failure?: ParseFailure;
-}
+};
 
 export class VisualParser {
 	/** which stage the in-flight parse reached, for the visual-mode loading bar; null = idle */

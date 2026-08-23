@@ -24,7 +24,7 @@ const MIN_QUOTE = 3;
 /** a runaway scan guard: past this many hits the quote is not distinctive enough to place */
 const MAX_HITS = 500;
 
-export interface CommentAnchor {
+export type CommentAnchor = {
 	/** the commented text itself */
 	quote: string;
 	/** text immediately before and after it, used to pick between repeats of the quote */
@@ -33,14 +33,14 @@ export interface CommentAnchor {
 	/** where the quote sat when the comment was written; re-checked, never trusted */
 	start: number;
 	end: number;
-}
+};
 
-export interface ResolvedAnchor {
+export type ResolvedAnchor = {
 	from: number;
 	to: number;
 	/** the offsets were still right - nothing has moved under this comment */
 	exact: boolean;
-}
+};
 
 export function buildAnchor(text: string, from: number, to: number): CommentAnchor {
 	return {
@@ -436,14 +436,14 @@ export function normalizeForMatch(s: string, dialect: AnchorDialect = 'tex'): { 
  * 200KB document. Doing that per THREAD made a file with 50 relocated comments cost 150ms instead
  * of 5 - the same work 50 times over, for one answer that never changes.
  */
-export interface LooseHaystack {
+export type LooseHaystack = {
 	/** the original string, so a hit can be mapped back to offsets the caller can use */
 	raw: string;
 	text: string;
 	map: number[];
 	/** the dialect the haystack was normalized with; anchors must be normalized to match */
 	dialect: AnchorDialect;
-}
+};
 
 export function prepareLoose(text: string, dialect: AnchorDialect = 'tex'): LooseHaystack {
 	const n = normalizeForMatch(text, dialect);

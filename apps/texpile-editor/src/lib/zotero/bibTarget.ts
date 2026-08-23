@@ -44,14 +44,14 @@ export function translatorForSource(text: string, kind: 'tex' | 'typ'): string {
 	return /\\addbibresource\b|\\usepackage\s*(?:\[[^\]]*\])?\s*\{[^}]*\bbiblatex\b[^}]*\}/.test(text) ? 'Better BibLaTeX' : 'Better BibTeX';
 }
 
-export interface AppendResult {
+export type AppendResult = {
 	/** the target file's new content (unchanged when nothing was added) */
 	text: string;
 	/** keys appended */
 	added: string[];
 	/** keys skipped because the file already has them */
 	skipped: string[];
-}
+};
 
 /**
  * Append the incoming entries that the file does not already have, byte-preserving everything

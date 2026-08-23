@@ -11,7 +11,7 @@
 	import { dirname, relativeTo, samePath } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		/** the draft command; the engine chips rewrite it in place */
 		command: string;
 		/** live mode is on, so the command below is not what Compile runs */
@@ -21,7 +21,7 @@
 		/** the segmented-control classes, shared with the modal's format switch */
 		segment: string;
 		seg: (active: boolean, compact?: boolean) => string;
-	}
+	};
 	let { command = $bindable(), superseded, sessionActive, segment, seg }: Props = $props();
 
 	// chip highlight state, reflected live from the draft (null engine = unrecognized)

@@ -24,7 +24,7 @@ import { openTutorialProject } from '$lib/workspace/starters';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 
-export interface FolderLifecycleDeps {
+export type FolderLifecycleDeps = {
 	scanTexFiles(root: string): Promise<{ files: TexFile[] }>;
 	/** false cancels the whole operation (the user chose Cancel at the unsaved prompt) */
 	confirmLeaveUnsaved(): Promise<boolean>;
@@ -42,7 +42,7 @@ export interface FolderLifecycleDeps {
 	setProjectMacros(macros: string): void;
 	/** the open shells were spawned in the previous folder; respawn them in the new one */
 	resetTerminals(): void;
-}
+};
 
 export class FolderLifecycle {
 	constructor(private deps: FolderLifecycleDeps) {}

@@ -6,7 +6,7 @@
 
 import type { Node } from 'prosemirror-model';
 
-export interface BlockSpan {
+export type BlockSpan = {
 	index: number;
 	/** doc position of the block node itself. */
 	pmPos: number;
@@ -14,7 +14,7 @@ export interface BlockSpan {
 	/** absolute source offset of the block's span start; null on editor-created blocks. */
 	srcStart: number | null;
 	latex: string | null;
-}
+};
 
 /** one walk over the top-level blocks; bodyOffset (the preamble length) absolutizes orig.start. */
 export function buildBlockMap(doc: Node, bodyOffset: number): BlockSpan[] {

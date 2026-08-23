@@ -7,10 +7,10 @@
 	import { workspaceRoot } from '$lib/workspace/workspaceStore';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		/** Preview is on, so the command below is not what Compile runs */
 		superseded: boolean;
-	}
+	};
 	let { superseded }: Props = $props();
 </script>
 

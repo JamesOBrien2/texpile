@@ -6,7 +6,7 @@
 	import { modLabel } from '$lib/platform';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		root: string;
 		isRepo: boolean;
 		branch: string | null;
@@ -19,7 +19,7 @@
 		onCommit: (message: string) => Promise<boolean>;
 		onOpenDiff: (path: string) => void;
 		onRefresh: () => void;
-	}
+	};
 	let {
 		root,
 		isRepo,

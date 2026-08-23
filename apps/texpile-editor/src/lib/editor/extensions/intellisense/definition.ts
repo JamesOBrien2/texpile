@@ -38,12 +38,12 @@ function jumpTo(view: EditorView, offset: number): void {
 	view.focus();
 }
 
-export interface DefinitionHooks {
+export type DefinitionHooks = {
 	/** open an \input/\include target by its written name (resolution is the workspace's job) */
 	onJumpToFile?: (name: string) => void;
 	/** open another project file at a 1-based line (cross-file definitions) */
 	onOpenFileAt?: (file: string, line: number) => void;
-}
+};
 
 function definitionAt(view: EditorView, pos: number, hooks: DefinitionHooks): boolean {
 	const line = view.state.doc.lineAt(pos);

@@ -9,7 +9,7 @@ import { isMac } from '$lib/platform';
 
 export type ToolGroup = 'latex' | 'typst' | 'general';
 
-export interface ToolInfo {
+export type ToolInfo = {
 	/** matches ToolProbe.id from the main process, or 'tinymist' which is probed separately */
 	id: string;
 	/** the binary's own name; a proper noun, never translated */
@@ -20,7 +20,7 @@ export interface ToolInfo {
 	/** true when the app still works without it, just with one feature missing */
 	optional: boolean;
 	install: { win: string; mac: string; linux: string };
-}
+};
 
 const TEX_DISTRO = {
 	win: 'Install MiKTeX or TeX Live',

@@ -27,7 +27,7 @@
 		MessageSquare
 	} from '@lucide/svelte';
 
-	interface Props {
+	type Props = {
 		loadedPath: string | null;
 		kind: FileKind;
 		viewMode: 'visual' | 'source' | 'diff';
@@ -66,7 +66,7 @@
 		onSyncToCursor?: (() => void) | null;
 		/** flavors the sync button's tooltip: live preview wording vs SyncTeX wording */
 		syncTargetsPreview?: boolean;
-	}
+	};
 	let {
 		loadedPath,
 		kind,

@@ -9,7 +9,7 @@ import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
 import { toLf, detectEol, type Eol } from '$lib/workspace/fileSystem';
 import { recordDiskStamp } from '$lib/workspace/diskStamp';
 
-export interface ExternalChangeDeps {
+export type ExternalChangeDeps = {
 	getLoadedPath(): string | null;
 	/** only text-ish kinds can meaningfully conflict */
 	isTextual(): boolean;
@@ -35,7 +35,7 @@ export interface ExternalChangeDeps {
 	 * the guard is what raised this conflict, and by choosing "keep" the user has seen that disk
 	 * differs and decided to overwrite it. An unforced save would just re-trip the guard forever. */
 	saveNow(): void;
-}
+};
 
 export class ExternalChangeWatcher {
 	conflict = $state<{ path: string; disk: string; eol: Eol } | null>(null);

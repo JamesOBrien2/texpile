@@ -14,7 +14,7 @@
 	import { m } from '$lib/paraglide/messages';
 
 	// matches prosemirror-proofread's Problem
-	interface Problem {
+	type Problem = {
 		from: number;
 		to: number;
 		msg: string;
@@ -22,9 +22,9 @@
 		type: string;
 		replacements: string[];
 		text: string; // the error text itself
-	}
+	};
 
-	interface Props {
+	type Props = {
 		error: Problem;
 		errors: Problem[]; // all errors in this segment
 		position: { x: number; y: number };
@@ -32,7 +32,7 @@
 		onIgnore: () => void;
 		onClose: () => void;
 		invalidateCache: () => void; // force re-check after dictionary changes
-	}
+	};
 
 	// errors is accepted for the factory contract but not rendered yet
 	let { error, errors: _errors, position, onReplace, onIgnore, onClose, invalidateCache }: Props = $props();

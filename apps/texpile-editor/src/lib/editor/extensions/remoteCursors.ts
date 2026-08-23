@@ -9,14 +9,14 @@ import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { Node as PMNode } from 'prosemirror-model';
 import './remoteCursors.css';
 
-export interface RemotePeerSel {
+export type RemotePeerSel = {
 	clientId: number;
 	name: string;
 	color: string;
 	/** PM positions, already clamped-mapped by the caller. */
 	anchor: number;
 	head: number;
-}
+};
 
 export const remoteCursorsKey = new PluginKey<DecorationSet>('remote-cursors');
 

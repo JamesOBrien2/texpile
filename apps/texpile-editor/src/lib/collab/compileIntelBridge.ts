@@ -42,7 +42,7 @@ export function shareCompileState(session: EditSession, isGuest: boolean): void 
 
 /** A shared entry rendered for the editor gutter. Badboxes ride along as "info" so they underline
  * without alarming colours. */
-export interface SourceDiagnostic {
+export type SourceDiagnostic = {
 	line: number;
 	lineEnd?: number;
 	severity: 'error' | 'warning' | 'info';
@@ -50,7 +50,7 @@ export interface SourceDiagnostic {
 	column?: number;
 	anchorText?: string;
 	token?: string;
-}
+};
 
 type SharedEntry = {
 	level: LogLevel;

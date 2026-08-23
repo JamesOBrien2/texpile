@@ -2,18 +2,18 @@
 // structured data for a READ-ONLY preview. never regenerates latex: the raw block stays the
 // source of truth, and anything off-shape returns null so the caller falls back to the raw editor.
 
-export interface AffilLine {
+export type AffilLine = {
 	text: string;
 	/** The line was wrapped in \textit{…} (IEEE italicises affiliation lines). */
 	italic: boolean;
-}
+};
 
-export interface IEEEAuthor {
+export type IEEEAuthor = {
 	name: string;
 	/** Name carried a leading "N\textsuperscript{st|nd|…}" ordinal (regenerated from card order). */
 	ordinal: boolean;
 	affil: AffilLine[];
-}
+};
 
 /** A raw block that looks like an IEEE \author{…\IEEEauthorblockN…} block. */
 export function isIEEEAuthorBlock(text: string): boolean {

@@ -33,7 +33,7 @@
 	// state) and reads its colour from COMPILE_TONE above, so the pair always matches.
 	import type { Component } from 'svelte';
 
-	interface Props {
+	type Props = {
 		tone: CompileTone;
 		label: string;
 		title: string;
@@ -44,7 +44,7 @@
 		dot?: boolean;
 		/** greyed and inert; the title says why. Enforcement is in runCompile, not here. */
 		disabled?: boolean;
-	}
+	};
 	let { tone, label, title, onclick, icon = null, dot = false, disabled = false }: Props = $props();
 </script>
 

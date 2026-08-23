@@ -5,11 +5,11 @@
 // typing three letters instead of nine.
 
 /** how a match scored, plus the matched character offsets so the UI can highlight them */
-export interface FuzzyMatch {
+export type FuzzyMatch = {
 	score: number;
 	/** indices into the haystack, ascending */
 	hits: number[];
-}
+};
 
 const BONUS_START = 12; // match at the very beginning
 const BONUS_WORD = 8; // match right after a separator, so "of" hits "open Folder"

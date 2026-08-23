@@ -5,33 +5,33 @@ import { native } from './fileSystem';
 /** single-letter tree badge (VS Code convention). */
 export type GitBadge = 'M' | 'A' | 'D' | 'U' | 'R';
 
-export interface GitStatusEntry {
+export type GitStatusEntry = {
 	path: string; // absolute, matching the file-tree's path strings
 	x: string; // index (staged) porcelain char, ' ' if none, '?' if untracked
 	y: string; // working-dir (unstaged) porcelain char
-}
+};
 
-export interface GitStatusResult {
+export type GitStatusResult = {
 	ok: boolean;
 	reason?: 'not-a-repo' | 'no-git';
 	error?: string;
 	branch?: string;
 	entries?: GitStatusEntry[];
-}
+};
 
-export interface GitShowResult {
+export type GitShowResult = {
 	ok: boolean;
 	reason?: 'not-a-repo' | 'no-git';
 	error?: string;
 	hasHead: boolean;
 	content?: string;
-}
+};
 
-export interface GitOpResult {
+export type GitOpResult = {
 	ok: boolean;
 	reason?: 'not-a-repo' | 'no-git';
 	error?: string;
-}
+};
 
 const NO_BRIDGE = 'Git requires the Texpile desktop app.';
 

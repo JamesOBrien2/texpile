@@ -9,7 +9,7 @@ import { relFromRoot } from '$lib/workspace/compilePipeline.svelte';
 import type { RefUpdate } from '$lib/editor/comp/RefUpdateModal.svelte';
 import type { TreeEntry } from '$lib/workspace/fileSystem';
 
-export interface RefUpdateDeps {
+export type RefUpdateDeps = {
 	getLoadedPath(): string | null;
 	/** the open file's live buffer, which is newer than its on-disk copy */
 	getSourceText(): string;
@@ -21,7 +21,7 @@ export interface RefUpdateDeps {
 	writeText(path: string, content: string): Promise<unknown>;
 	/** the open file was rewritten in place: re-render, mark dirty, queue the save */
 	onActiveFileEdited(): void;
-}
+};
 
 /** every file that could hold a reference, whatever dialect it is written in. Falls back to the
  *  .tex-only store if the provider cannot scan by extension (it is optional on the interface). */

@@ -1,4 +1,4 @@
-export interface DocumentCount {
+export type DocumentCount = {
 	words: number;
 	characters: number;
 	charactersWithSpaces: number;
@@ -6,7 +6,7 @@ export interface DocumentCount {
 	selectionWords: number | null;
 	selectionCharacters: number | null;
 	selectionCharactersWithSpaces: number | null;
-}
+};
 
 export const documentCountStore = $state<DocumentCount>({
 	words: 0,

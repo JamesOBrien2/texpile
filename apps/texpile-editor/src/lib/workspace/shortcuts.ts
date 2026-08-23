@@ -22,7 +22,7 @@ export const uiZoomIn = () => setUiZoom((get(settings).uiZoom ?? 1) + UI_ZOOM_ST
 export const uiZoomOut = () => setUiZoom((get(settings).uiZoom ?? 1) - UI_ZOOM_STEP);
 export const uiZoomReset = () => setUiZoom(1);
 
-export interface ShortcutDeps {
+export type ShortcutDeps = {
 	getLoadedPath(): string | null;
 	closeTab(path: string): void;
 	/** a guest has nothing to save: its edits are already live in the shared doc */
@@ -33,7 +33,7 @@ export interface ShortcutDeps {
 	isCompiling(): boolean;
 	runCompile(): void;
 	stopCompile(): void;
-}
+};
 
 export function createKeydownHandler(deps: ShortcutDeps): (e: KeyboardEvent) => void {
 	return (e: KeyboardEvent) => {

@@ -6,7 +6,7 @@ import { parseRelayNotice, type RelayNotice } from './protocol';
 
 export type TransportStatus = 'connecting' | 'connected' | 'disconnected' | 'closed';
 
-export interface Transport {
+export type Transport = {
 	/** ArrayBuffer-backed: a SharedArrayBuffer-backed view is not a valid BufferSource for send() */
 	send(data: Uint8Array<ArrayBuffer>): void;
 	close(): void;
@@ -14,7 +14,7 @@ export interface Transport {
 	onMessage: ((data: Uint8Array, fromHost: boolean) => void) | null;
 	onNotice: ((n: RelayNotice) => void) | null;
 	onStatus: ((s: TransportStatus, detail?: string) => void) | null;
-}
+};
 
 /** ws(s):// -> http(s):// for the relay's REST half. */
 export function relayHttpUrl(wsUrl: string): string {

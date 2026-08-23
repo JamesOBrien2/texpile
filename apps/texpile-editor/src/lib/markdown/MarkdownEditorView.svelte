@@ -63,7 +63,7 @@
 	import '$lib/editor/extensions/image/styles/sideResize.css';
 	import '$lib/editor/styles/cursor.css';
 
-	interface Props {
+	type Props = {
 		localValue?: PMNode | null;
 		onLocalChange?: (value: PMNode) => void;
 		onSelectionChange?: () => void;
@@ -84,7 +84,7 @@
 		addCommentLabel?: string;
 		/** a composer is open for a selection here; false clears the pending selection tint */
 		commentPendingActive?: boolean;
-	}
+	};
 
 	let {
 		localValue = null,

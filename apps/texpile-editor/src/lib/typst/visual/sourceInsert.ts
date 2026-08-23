@@ -143,7 +143,7 @@ export function computeMathBlock(state: EditorState): TransactionSpec {
 	};
 }
 
-export interface TypTableOptions {
+export type TypTableOptions = {
 	/** total rows, the header row included when `header` is on */
 	rows: number;
 	cols: number;
@@ -151,7 +151,7 @@ export interface TypTableOptions {
 	header: boolean;
 	/** wrap in #figure(..., caption: [Caption]) so typst numbers it; the caption gets selected */
 	figure: boolean;
-}
+};
 
 /** #table skeleton on its own lines after the cursor's line; the figure form matches the visual
  * serializer's table_wrapper layout byte for byte, so it graduates on the next reparse. */

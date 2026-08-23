@@ -9,13 +9,13 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { Fragment, Mark } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
 
-export interface BlockPatch {
+export type BlockPatch = {
 	/** replace [from, to) in the old doc ... */
 	from: number;
 	to: number;
 	/** ... with these children of the new doc. */
 	nodes: PMNode[];
-}
+};
 
 function attrsEqualExceptOrig(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
 	const ka = Object.keys(a).filter((k) => k !== 'orig');

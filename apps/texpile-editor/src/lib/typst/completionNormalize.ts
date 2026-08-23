@@ -16,12 +16,12 @@
 /** a tab stop or placeholder ($1, ${1:...}), or a snippet escape the plain path would not undo */
 const SNIPPET_SYNTAX = /\$\{|\$\d|\\[$}\\]/;
 
-interface CompletionItemish {
+type CompletionItemish = {
 	insertTextFormat?: number;
 	insertText?: string;
 	label?: string;
 	textEdit?: { newText?: string };
-}
+};
 
 function normalizeItem(item: CompletionItemish): void {
 	if (item.insertTextFormat !== 2) return;

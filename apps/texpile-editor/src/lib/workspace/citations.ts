@@ -77,10 +77,10 @@ export function parseBibItems(tex: string): BibLaTeXReference[] {
 
 /** what loadReferences reads through: native fs by default, the workspace provider for a guest
  *  session (whose "files" live in the shared doc, not on this machine's disk). */
-export interface ReferencesFs {
+export type ReferencesFs = {
 	scan(root: string, exts: string[]): Promise<TexFile[]>;
 	read(path: string): Promise<string>;
-}
+};
 const nativeFs: ReferencesFs = { scan: (r, e) => scanFiles(r, e).then((x) => x.files), read: readTextFile };
 
 // stale-load guard: reloads fire on every save and every window focus, and an older scan landing

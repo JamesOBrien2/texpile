@@ -25,12 +25,12 @@ export function isKeyUnique(key: string, existingReferences: BibLaTeXReference[]
 }
 
 /** tokens is the full file-order stream so the serializer can round-trip everything; entries is the entry-only view. */
-export interface ParseBibTeXResult {
+export type ParseBibTeXResult = {
 	tokens: BibToken[];
 	entries: BibLaTeXReference[];
 	warnings: { key: string; issues: string[] }[];
 	parseError?: string;
-}
+};
 
 export function parseBibTeX(bibtexContent: string): BibLaTeXReference[] {
 	return parseBibTeXWithWarnings(bibtexContent).entries;

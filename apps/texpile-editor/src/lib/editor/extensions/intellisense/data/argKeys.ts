@@ -2,12 +2,12 @@
 // does NOT carry (verified by scratchpad/gen-packages.mjs coverage probe: pagestyle/pagenumbering
 // have no key groups anywhere in LW's data). package-dependent slots live in
 // completion/packageData.ts; add a rule here only when the data genuinely lacks the values.
-export interface ArgKeyRule {
+export type ArgKeyRule = {
 	name: string;
 	/** matches text-to-cursor; must end right where the key list starts or continues. */
 	trigger: RegExp;
 	options: string[];
-}
+};
 
 export const ARG_KEY_RULES: ArgKeyRule[] = [
 	{

@@ -1,10 +1,10 @@
 // vendored from LaTeX Workshop's data/biblatex-entries.json + biblatex-optional-entries.json
 // (MIT, github.com/James-Yu/LaTeX-Workshop), with bibtex-only legacy types merged in. drives .bib
 // entry-type/field completion; regenerate with scratchpad/gen-bib.mjs against the LW clone.
-export interface BibEntrySpec {
+export type BibEntrySpec = {
 	required: string[];
 	optional: string[];
-}
+};
 
 export const BIB_ENTRY_TYPES: Record<string, BibEntrySpec> = {
 	article: {

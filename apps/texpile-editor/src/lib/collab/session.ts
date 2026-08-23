@@ -28,11 +28,11 @@ import {
 } from './protocol';
 import type { Transport, TransportStatus } from './transport';
 
-export interface PeerInfo {
+export type PeerInfo = {
 	name: string;
 	color: string;
 	role: 'host' | 'guest';
-}
+};
 
 export type SessionEndReason = 'host-ended' | 'relay-closed' | 'quota' | 'error' | 'no-session' | 'full';
 
@@ -78,7 +78,7 @@ function closeReason(code?: string): SessionEndReason {
 	return 'relay-closed';
 }
 
-export interface SessionEvents {
+export type SessionEvents = {
 	onPeersChange?: (peers: Map<number, PeerInfo>) => void;
 	onControl?: (payload: ControlPayload, from: number) => void;
 	/** a fully reassembled blob arrived (v1: the compiled PDF). */
@@ -91,7 +91,7 @@ export interface SessionEvents {
 	onPreview?: (payload: PreviewPayload, from: number) => void;
 	onStatus?: (s: TransportStatus | 'host-gone' | 'host-back', detail?: string) => void;
 	onSessionEnd?: (reason: SessionEndReason, detail?: string) => void;
-}
+};
 
 /** shared-doc layout: the manifest (file tree), per-file bodies, and host locks. */
 export const manifestOf = (doc: Y.Doc) => doc.getMap<ManifestEntry>('manifest');
@@ -99,7 +99,7 @@ export const locksOf = (doc: Y.Doc) => doc.getMap<number>('locks');
 export const metaOf = (doc: Y.Doc) => doc.getMap<number | string>('meta');
 export const textOf = (doc: Y.Doc, relPath: string) => doc.getText('f:' + relPath);
 
-export interface ManifestEntry {
+export type ManifestEntry = {
 	kind: 'text' | 'binary';
 	size: number;
 	/** original on-disk line ending for text files; writes restore it. */
@@ -109,7 +109,7 @@ export interface ManifestEntry {
 	/** binaries only: changes when the bytes do (host mtime), so a guest can drop a stale blob.
 	 *  Text needs none, its edits arrive through the CRDT. */
 	rev?: number;
-}
+};
 
 export class CollabSession {
 	readonly doc: Y.Doc;

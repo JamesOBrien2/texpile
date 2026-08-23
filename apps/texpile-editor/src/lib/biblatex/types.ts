@@ -3,7 +3,7 @@
  * on the read path. Only key and entrytype are guaranteed; legacy names like journal/address
  * come through unmodified. Zod validation is opt-in via the visual form (./schema.ts).
  */
-export interface BibLaTeXReference {
+export type BibLaTeXReference = {
 	/** the only field consumers can rely on. */
 	key: string;
 	/** lowercased, no normalization or alias mapping. */
@@ -36,4 +36,4 @@ export interface BibLaTeXReference {
 
 	// escape hatch for anything else the parser found; boolean only covers hasInlineComment
 	[k: string]: string | boolean | undefined;
-}
+};

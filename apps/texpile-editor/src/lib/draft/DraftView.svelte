@@ -29,7 +29,7 @@
 	import type { DraftPage } from '$lib/workspace/fileSystem';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		root: string;
 		mainFile: string;
 		/** bump to trigger a recompile (e.g. on save / compile press). */
@@ -43,7 +43,7 @@
 		onSettled?: () => void;
 		/** a compile landed: its log is at this path, for the Problems panel to parse. */
 		onDiagnostics?: (logPath: string) => void;
-	}
+	};
 	let { root, mainFile, trigger, quietTrigger = 0, onInverseSync, onSettled, onDiagnostics }: Props = $props();
 
 	let pages = $state<DraftPage[]>([]);

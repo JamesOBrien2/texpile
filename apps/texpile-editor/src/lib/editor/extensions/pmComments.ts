@@ -33,19 +33,19 @@ import { get } from 'svelte/store';
 import { settings, updateSettings } from '$lib/settings';
 import { m } from '$lib/paraglide/messages';
 
-export interface PmCommentRange {
+export type PmCommentRange = {
 	id: string;
 	from: number;
 	to: number;
 	resolved: boolean;
-}
+};
 
-export interface FlatDoc {
+export type FlatDoc = {
 	/** the document's prose in reading order */
 	text: string;
 	/** index[i] = ProseMirror position of text[i]; the whole reason this exists instead of textBetween */
 	index: number[];
-}
+};
 
 /**
  * Atoms whose content ProseMirror still renders, through a hole its node view leaves open.
@@ -158,13 +158,13 @@ export function resolvePmComments(
 	return { ranges, lost };
 }
 
-interface PmCommentsState {
+type PmCommentsState = {
 	ranges: PmCommentRange[];
 	focused: string | null;
 	/** the selection a composer is being written for: held visible while the editor is blurred */
 	pending: { from: number; to: number } | null;
 	deco: DecorationSet;
-}
+};
 
 type PmCommentsMeta =
 	| { type: 'set'; ranges: PmCommentRange[] }
@@ -266,14 +266,14 @@ export function buildPmAnchor(doc: PMNode, from: number, to: number): CommentAnc
 	return buildAnchor(text, f, t);
 }
 
-interface PmCommentsConfig {
+type PmCommentsConfig = {
 	/** commented text was clicked. Selection only - the panel decides whether it is even open. */
 	onSelect?: (id: string) => void;
 	/** the reader asked to comment on the current selection; null when it spans no real text */
 	onAdd?: (anchor: CommentAnchor | null) => void;
 	/** label for the pill, so the caller owns translation */
 	addLabel?: string;
-}
+};
 
 export function pmComments({ onSelect, onAdd, addLabel = 'Comment' }: PmCommentsConfig = {}): Plugin[] {
 	const state = new Plugin<PmCommentsState>({

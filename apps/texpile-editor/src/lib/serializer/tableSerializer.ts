@@ -9,7 +9,7 @@ import type { Ctx } from './types';
 
 type SerializeNodeFn = (node: Node, ctx: Ctx) => string;
 
-interface TableStyle {
+type TableStyle = {
 	width: string;
 	headerColFirst: string;
 	headerColRest: string;
@@ -17,7 +17,7 @@ interface TableStyle {
 	vertical: boolean;
 	topRule: boolean;
 	rowRule: string;
-}
+};
 
 const BORDERED: TableStyle = {
 	width: '0.8\\textwidth',

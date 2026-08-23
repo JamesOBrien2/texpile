@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	import type { TreeEntry } from '$lib/workspace/fileSystem';
 
-	export interface TreeTarget {
+	export type TreeTarget = {
 		entry: TreeEntry | null;
 		createDir: string;
 		pasteDir: string;
@@ -11,7 +11,7 @@
 		canSetMain: boolean;
 		canPaste: boolean;
 		canReveal: boolean;
-	}
+	};
 </script>
 
 <script lang="ts">
@@ -19,7 +19,7 @@
 	import type { FileHistory } from '$lib/workspace/fileHistory.svelte';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		// file tree undo/redo
 		history?: FileHistory | null;
 		// if typst then show #include instead of \include
@@ -32,7 +32,7 @@
 		onRename?: (entry: TreeEntry) => void;
 		onDelete?: (entry: TreeEntry) => void;
 		onClose?: () => void;
-	}
+	};
 	let {
 		history = null,
 		typstProject = false,

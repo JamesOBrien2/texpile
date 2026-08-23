@@ -20,7 +20,7 @@
 	// engine). Typst's Preview is exempt: its stream is relayed to guests (previewRelay).
 	const sessionActive = $derived(collabHost.active);
 
-	interface Props {
+	type Props = {
 		open: boolean;
 		command: string;
 		outputs: { pdf: string; log: string };
@@ -28,7 +28,7 @@
 		onSave: (thenRun: boolean) => void;
 		onUseDefault: () => void;
 		onRun: () => void;
-	}
+	};
 	let {
 		open = $bindable(),
 		command = $bindable(),

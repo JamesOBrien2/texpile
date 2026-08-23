@@ -46,7 +46,7 @@ export function isRawTextKind(kind: FileKind): kind is 'text' | 'bib' {
 	return kind === 'text' || kind === 'bib';
 }
 
-export interface DocumentBufferDeps {
+export type DocumentBufferDeps = {
 	/** queue a debounced write of the given content */
 	scheduleSave(path: string | null, content: string): void;
 	/** drop a queued write (the buffer already matches disk) */
@@ -61,7 +61,7 @@ export interface DocumentBufferDeps {
 	noteLocalEdit(): void;
 	/** the user is typing: a pending mode-switch scroll anchor is moot */
 	clearPendingAnchor(): void;
-}
+};
 
 export class DocumentBuffer {
 	path = $state<string | null>(null);

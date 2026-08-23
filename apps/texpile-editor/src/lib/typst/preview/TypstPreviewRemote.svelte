@@ -27,12 +27,12 @@
 	import { themeColour } from './themeColour';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		/** a splitter is being dragged; hold the frame's size instead of reflowing it every frame */
 		paneDragging: boolean;
 		/** move the preview into its own OS window; null (already popped out) hides the button */
 		onPopout?: (() => void) | null;
-	}
+	};
 	let { paneDragging, onPopout = null }: Props = $props();
 
 	const CHANNEL = 'texpile-preview';

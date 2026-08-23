@@ -40,7 +40,7 @@ export type { PMNode, PMMark, ConversionOptions };
 // block still serializes to `norm`. armed by latexToProseMirror, consumed (grab-and-null) by the
 // first convertNodesToBlocks call, so recursive calls never capture.
 
-interface CaptureState {
+type CaptureState = {
 	/** The exact source string the AST positions index into. */
 	source: string;
 	/** Next top-level block index. EVERY pushed block gets a seq, even span-less ones, so the
@@ -51,7 +51,7 @@ interface CaptureState {
 	prevEnd: number;
 	/** Next group id for one-source-construct to many-blocks results. */
 	group: number;
-}
+};
 let pendingCapture: CaptureState | null = null;
 // stashed by the top-level convertNodesToBlocks right before it returns so latexToProseMirror
 // can read the final prevEnd/seq for the body's trailing gap. grab-and-null, like pendingCapture.
@@ -1774,11 +1774,11 @@ function extractContent(ast: Root): Node[] {
 // same scan string arrives on every reparse (mode switch, reload), and re-parsing it twice per
 // call dominated large projects. single slot, latest wins; a timed-out worker is rebooted,
 // which clears it for free.
-interface PreambleScan {
+type PreambleScan = {
 	key: string;
 	delimPairs: Map<string, string>;
 	newcommands: ReturnType<typeof listNewcommands>;
-}
+};
 let preambleScanMemo: PreambleScan | null = null;
 
 function scanPreambleText(preamble: string, parseOptions: ParseOptions): PreambleScan {

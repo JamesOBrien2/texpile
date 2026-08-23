@@ -14,11 +14,11 @@ import type { ControlPayload, PreviewPayload } from './protocol';
 import type { CommentEvent } from '$lib/comments/log';
 import { settings } from '$lib/settings';
 
-export interface GuestFile {
+export type GuestFile = {
 	rel: string;
 	kind: 'text' | 'binary';
 	locked: boolean;
-}
+};
 
 class GuestCollabController {
 	status = $state<'idle' | 'joining' | 'online' | 'reconnecting' | 'ended'>('idle');

@@ -2,7 +2,7 @@
 // falls back to: source-mode users are writing their own LaTeX, and tabularx would silently need a
 // \usepackage they never asked for. ${n} are CodeMirror snippet tab stops.
 
-export interface TableOptions {
+export type TableOptions = {
 	rows: number;
 	cols: number;
 	/** wrap in a table float with \centering, \caption and \label */
@@ -11,7 +11,7 @@ export interface TableOptions {
 	rules: boolean;
 	/** first row is a header (bold-free, just rule-separated, as plain LaTeX does it) */
 	header: boolean;
-}
+};
 
 /** a row of empty cells; the first gets the cursor's first tab stop */
 function bodyRows(rows: number, cols: number, rules: boolean, header: boolean, indent: string): string[] {

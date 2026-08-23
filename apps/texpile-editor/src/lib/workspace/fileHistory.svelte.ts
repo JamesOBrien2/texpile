@@ -14,12 +14,12 @@
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 
-export interface HistoryEntry {
+export type HistoryEntry = {
 	/** already-localized, shown in the menu ("Undo Delete figure.png") and the toast */
 	label: string;
 	undo(): Promise<void>;
 	redo(): Promise<void>;
-}
+};
 
 /** Deep enough to cover a session's worth of tree edits, bounded so a long session cannot grow
  *  without limit. Entries are tiny (a few paths and a closure), so this is about tidiness. */

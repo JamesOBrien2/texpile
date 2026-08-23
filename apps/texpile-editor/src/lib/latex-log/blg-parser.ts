@@ -3,10 +3,10 @@
 
 import type { LogEntry } from './types';
 
-export interface BibLogParseResult {
+export type BibLogParseResult = {
 	tool: 'bibtex' | 'biber' | null;
 	entries: LogEntry[];
-}
+};
 
 const BIBER_LINE = /^\[\d+\] [^>]*> (INFO|WARN|ERROR) - (.*)$/;
 

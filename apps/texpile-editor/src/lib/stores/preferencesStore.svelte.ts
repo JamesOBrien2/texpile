@@ -7,7 +7,7 @@ import { get } from 'svelte/store';
 import { layout, updateLayout } from '$lib/storage/layout';
 import { users, updateUsers } from '$lib/storage/users';
 
-export interface EditorPreferences {
+export type EditorPreferences = {
 	/** editor zoom level (1 = 100%). */
 	zoom: number;
 	/** renders the editor in a paper-like container. */
@@ -17,7 +17,7 @@ export interface EditorPreferences {
 	advancedWarningDismissed: boolean;
 	onboardingCompleted: boolean;
 	tourCompleted: boolean;
-}
+};
 
 function snapshot(): EditorPreferences {
 	const l = get(layout);

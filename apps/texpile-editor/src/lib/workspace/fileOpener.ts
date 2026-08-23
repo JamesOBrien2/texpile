@@ -13,7 +13,7 @@ import type { VisualParser, ParseOutcome, ParseFailure } from '$lib/workspace/vi
 import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 
-export interface FileOpenerDeps {
+export type FileOpenerDeps = {
 	doc: DocumentBuffer;
 	parser: VisualParser;
 	readText(path: string): Promise<string>;
@@ -36,7 +36,7 @@ export interface FileOpenerDeps {
 	captureDiffSnapshot(): void;
 	/** a half-open file must not stay on screen behind the error */
 	closeOpenFile(): void;
-}
+};
 
 export class FileOpener {
 	constructor(private deps: FileOpenerDeps) {}

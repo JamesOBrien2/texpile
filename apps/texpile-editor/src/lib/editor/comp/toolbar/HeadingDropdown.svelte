@@ -2,14 +2,14 @@
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { ChevronDown, Check } from '@lucide/svelte';
 
-	interface Props {
+	type Props = {
 		/** Current heading level of the selection (0 = normal paragraph). */
 		level: number;
 		/** Whether the current heading is numbered (\section vs \section*). */
 		numbered: boolean;
 		/** Apply a heading level (0 = normal) with the chosen numbering. */
 		onSelect: (level: number, numbered: boolean) => void;
-	}
+	};
 
 	let { level, numbered, onSelect }: Props = $props();
 

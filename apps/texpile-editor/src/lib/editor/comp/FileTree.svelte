@@ -11,7 +11,7 @@
 	import { confirmAsk } from '$lib/modals/confirm.svelte';
 	import { toaster } from '$lib/modals/toaster-svelte';
 
-	interface Props {
+	type Props = {
 		tree: TreeEntry[];
 		rootPath: string;
 		activePath: string | null;
@@ -42,7 +42,7 @@
 		/** guest session: browse + open only, no rename/delete/internal-move. */
 		/** allow adding new files by drop-from-OS / paste (true even for a read-only guest). */
 		allowImport?: boolean;
-	}
+	};
 	let {
 		tree,
 		rootPath,
@@ -63,11 +63,11 @@
 		allowImport = true
 	}: Props = $props();
 
-	interface ImportItem {
+	type ImportItem = {
 		/** destination path relative to the drop/paste target dir (forward slashes). */
 		relPath: string;
 		file: globalThis.File;
-	}
+	};
 
 	// samePath, not ===: a restored activePath can arrive mixed-separator on Windows and match no row
 	const isActive = (e: TreeEntry) => !!activePath && samePath(activePath, e.path);

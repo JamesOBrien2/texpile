@@ -2,10 +2,10 @@
 // superseded or failed request resolves null and the caller just keeps its previous state.
 import type { BibItemSlice } from './labels';
 
-export interface DocRefs {
+export type DocRefs = {
 	labels: string[];
 	bibitems: BibItemSlice[];
-}
+};
 
 let worker: Worker | null = null;
 let nextId = 1;

@@ -14,20 +14,20 @@ import { renderStaticMath, setStaticMath, cancelStaticMath } from './mathStatic'
 import { upgradeWhenNear, cancelUpgrade } from './mathViewport';
 
 // reactive props stashed on the container so update() can reach the mounted component without a registry.
-interface SettingsHost extends HTMLElement {
+type SettingsHost = {
 	__svelteComponentProps?: { node: Node; view: EditorView; getPos: () => number | undefined };
-}
+} & HTMLElement;
 
 const PER_LINE_ENVIRONMENTS = ['align', 'gather', 'alignat', 'eqnarray'] as const;
 const SINGLE_LABEL_ENVIRONMENTS = ['multline'] as const;
 const MULTILINE_ENVIRONMENTS = [...PER_LINE_ENVIRONMENTS, ...SINGLE_LABEL_ENVIRONMENTS] as const;
 type MultilineEnvironment = (typeof MULTILINE_ENVIRONMENTS)[number];
 
-interface EnvironmentDetection {
+type EnvironmentDetection = {
 	environment: MultilineEnvironment;
 	isStarred: boolean; // starred (align*) = unnumbered
 	supportsPerLineLabels: boolean;
-}
+};
 
 function detectMultilineEnvironment(latex: string): EnvironmentDetection | null {
 	for (const env of MULTILINE_ENVIRONMENTS) {

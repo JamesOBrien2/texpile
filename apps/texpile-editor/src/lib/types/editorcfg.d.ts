@@ -1,6 +1,6 @@
 export type DocumentLanguage = 'en' | 'zh-hans' | 'zh-hant';
 
-export interface EditorConfiguration {
+export type EditorConfiguration = {
 	/** custom words to ignore in spell check. */
 	dictionary: string[];
 	spellcheck: boolean;
@@ -16,4 +16,4 @@ export interface EditorConfiguration {
 		editors: string[];
 	};
 	exports?: Record<string, unknown>;
-}
+};

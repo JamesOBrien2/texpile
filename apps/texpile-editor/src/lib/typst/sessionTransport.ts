@@ -15,20 +15,20 @@ import type { Transport } from '@codemirror/lsp-client';
 import type { ControlPayload } from '$lib/collab/protocol';
 
 /** How this transport reaches the session. Narrow on purpose, so it can be tested without one. */
-export interface SessionLspPort {
+export type SessionLspPort = {
 	send(payload: ControlPayload): void;
 	/** host -> guest LSP traffic; returns an unsubscribe */
 	subscribe(handler: (payload: ControlPayload) => void): () => void;
-}
+};
 
 /** JSON-RPC internal error, for a request the session could not complete. */
 const INTERNAL_ERROR = -32603;
 
-interface JsonRpcOut {
+type JsonRpcOut = {
 	id?: number | string;
 	method?: string;
 	params?: unknown;
-}
+};
 
 /**
  * A Transport backed by `port`.

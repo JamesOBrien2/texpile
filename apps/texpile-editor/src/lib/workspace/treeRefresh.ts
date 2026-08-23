@@ -16,13 +16,13 @@ import type { EditSession } from '$lib/collab/editSession';
 /** every file path in the tree, flattened, for pruning tabs whose file vanished */
 export const flatFiles = (es: TreeEntry[]): string[] => es.flatMap((e) => (e.type === 'dir' ? flatFiles(e.children ?? []) : [e.path]));
 
-export interface TreeRefreshDeps {
+export type TreeRefreshDeps = {
 	provider: WorkspaceProvider;
 	session: EditSession;
 	/** don't rebuild while the user is typing a name in the tree: a refresh would tear the inline
 	 * input down mid-edit. It rescans once they commit. */
 	isEditingTree(): boolean;
-}
+};
 
 export async function refreshTree(deps: TreeRefreshDeps): Promise<void> {
 	const { provider, session } = deps;

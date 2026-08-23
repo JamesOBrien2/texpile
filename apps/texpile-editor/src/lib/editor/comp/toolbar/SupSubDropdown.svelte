@@ -4,14 +4,14 @@
 	import { modLabel } from '$lib/platform';
 	import { m } from '$lib/paraglide/messages';
 
-	interface Props {
+	type Props = {
 		/** Whether the current selection has the superscript mark. */
 		sup: boolean;
 		/** Whether the current selection has the subscript mark. */
 		sub: boolean;
 		/** Toggle one of the two marks. */
 		onToggle: (which: 'sup' | 'sub') => void;
-	}
+	};
 
 	let { sup, sub, onToggle }: Props = $props();
 

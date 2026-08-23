@@ -4,13 +4,13 @@
 	import { BLOCK_INSERT_ITEMS, type BlockInsertItem } from './blockInsertItems';
 	import { m } from '$lib/paraglide/messages';
 
-	interface State {
+	type State = {
 		visible: boolean;
 		top: number;
 		left: number;
 		right: number;
 		popoverOpen: boolean;
-	}
+	};
 	let {
 		state,
 		onInsert,

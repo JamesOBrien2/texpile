@@ -8,7 +8,7 @@ import ReferencePickerDropdown from './ReferencePickerDropdown.svelte';
 import type { TexpileSuggester } from '../suggest/texpile-suggest';
 
 // table/figure/equation shapes share these; the filter reads the per-kind text field (caption/alt/content)
-export interface ReferenceItemMeta {
+export type ReferenceItemMeta = {
 	label: string;
 	number: number;
 	position: number;
@@ -17,15 +17,15 @@ export interface ReferenceItemMeta {
 	alt?: string;
 	content?: string;
 	lineIndex?: number;
-}
+};
 
-export interface ReferenceItem {
+export type ReferenceItem = {
 	type: 'bibliography' | 'equation' | 'figure' | 'table';
 	id: string;
 	displayText: string;
 	subtitle?: string;
 	data: BibLaTeXReference | ReferenceItemMeta;
-}
+};
 
 let selectedIndex = 0;
 let referenceList: ReferenceItem[] = [];

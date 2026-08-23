@@ -8,7 +8,7 @@ import { m } from '$lib/paraglide/messages';
 
 const AUTOSAVE_MS = 1500;
 
-export interface SaveDeps {
+export type SaveDeps = {
 	/** shared session: every edit streams into the shared doc per keystroke. */
 	sessionEdit(path: string, content: string): void;
 	/** a guest has no disk: edits live in the CRDT only, pending/writes never engage. */
@@ -27,7 +27,7 @@ export interface SaveDeps {
 	recordDiskStamp(path: string): Promise<void>;
 	/** an external write was detected where we were about to save: hand off to the conflict flow */
 	raiseConflict(path: string): void;
-}
+};
 
 export class SavePipeline {
 	saving = $state(false);
