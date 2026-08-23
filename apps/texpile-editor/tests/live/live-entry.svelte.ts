@@ -11,7 +11,8 @@ import '../../src/app.css';
 import DraftView from '$lib/draft/DraftView.svelte';
 import { decideEdit } from '$lib/draft/dispatch';
 
-const SRV = 'http://localhost:8099';
+// ?bridge=<port> pairs this page with one bridge instance (parallel shards run several)
+const SRV = 'http://localhost:' + (new URLSearchParams(location.search).get('bridge') ?? '8099');
 const origFetch = window.fetch.bind(window);
 // texfile:// is the Electron protocol; in plain Chromium route it to the bridge
 window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
