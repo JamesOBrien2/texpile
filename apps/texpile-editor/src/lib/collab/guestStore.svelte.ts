@@ -7,9 +7,9 @@ import { get } from 'svelte/store';
 import { deriveSessionKeys } from './e2e/keys';
 import { isValidShareCode } from './e2e/shareCode';
 import { CollabSession, manifestOf, locksOf, metaOf, textOf, type PeerInfo, type ManifestEntry } from './session';
-import { spliceDiff, EDIT_ORIGIN } from './materialize';
+import { GhostDirs } from './guestGhostDirs';
 import { RelayTransport } from './transport';
-import type { EditSession, SharedCompileIntel } from './editSession';
+import type { SharedCompileIntel } from './editSession';
 import type { ControlPayload, PreviewPayload } from './protocol';
 import type { CommentEvent } from '$lib/comments/log';
 import { settings } from '$lib/settings';
@@ -72,7 +72,7 @@ class GuestCollabController {
 	// guest-local empty folders (git model: a folder is nothing until a file lands inside it).
 	// They live only in this tree view; the first file created inside reaches the host and makes
 	// the folder real, at which point the ghost is pruned.
-	private ghosts = new Set<string>();
+	private ghostState = new GhostDirs(() => this.notifyTree());
 
 	/** subscribe to file-tree changes (the CRDT manifest); returns an unsubscribe. */
 	subscribe(cb: () => void): () => void {
@@ -193,8 +193,7 @@ class GuestCollabController {
 			out.push({ rel, kind: e.kind, locked: locks.has(rel) });
 		}
 		out.sort((a, b) => a.rel.localeCompare(b.rel));
-		// a ghost folder becomes real once a shared file lands inside it
-		for (const g of this.ghosts) if (out.some((f) => f.rel.startsWith(g + '/'))) this.ghosts.delete(g);
+		this.ghostState.prune(out);
 		this.files = out;
 		// bump the rebind key only when the shared SET changed (a file added/removed/became shared),
 		// not on a lock flip: that just updates `files`, and the editor's read-only state live-flips
@@ -214,36 +213,21 @@ class GuestCollabController {
 	}
 
 	get ghostDirs(): string[] {
-		return [...this.ghosts];
+		return this.ghostState.list();
 	}
 
 	addGhostDir(rel: string): void {
-		if (!rel) return;
-		this.ghosts.add(rel);
-		this.notifyTree();
+		this.ghostState.add(rel);
 	}
 
 	/** true when rel was a ghost (handled locally); false means it's a real, host-side entry. */
 	dropGhostDir(rel: string): boolean {
-		const hit = this.ghosts.delete(rel);
-		// deleting a ghost parent takes its ghost children with it
-		for (const g of this.ghosts) if (g.startsWith(rel + '/')) this.ghosts.delete(g);
-		if (hit) this.notifyTree();
-		return hit;
+		return this.ghostState.drop(rel);
 	}
 
 	/** true when rel was a ghost and got renamed locally. */
 	renameGhostDir(from: string, to: string): boolean {
-		if (!this.ghosts.delete(from)) return false;
-		this.ghosts.add(to);
-		for (const g of [...this.ghosts]) {
-			if (g.startsWith(from + '/')) {
-				this.ghosts.delete(g);
-				this.ghosts.add(to + g.slice(from.length));
-			}
-		}
-		this.notifyTree();
-		return true;
+		return this.ghostState.rename(from, to);
 	}
 
 	/** ask the host (the only disk-writer) to rename/delete; the manifest brings the result back. */
@@ -434,7 +418,7 @@ class GuestCollabController {
 		for (const { url } of this.imageCache.values()) URL.revokeObjectURL(url);
 		this.imageCache.clear();
 		this.imageReq.clear();
-		this.ghosts.clear();
+		this.ghostState.clear();
 		const session = this.session;
 		this.session = null;
 		this.transport = null;
@@ -464,59 +448,3 @@ function guestColor(clientId: number): string {
 }
 
 export const collabGuest = new GuestCollabController();
-
-// adapts the guest controller to the EditSession shape WorkspaceView drives; host-only methods
-// are no-ops (a guest owns no disk, never materializes, never compiles)
-export const guestSession: EditSession = {
-	get active() {
-		return collabGuest.status === 'online' || collabGuest.status === 'reconnecting';
-	},
-	isGuest: true,
-	get manifestRev() {
-		return collabGuest.rev;
-	},
-	get guestPdf() {
-		return collabGuest.pdf;
-	},
-	onCompileRequest: null,
-	onSyncRequest: null,
-	onFileOp: null,
-	shareCompileIntel() {},
-	get compileIntel() {
-		return collabGuest.compileIntel;
-	},
-	sharedKindOf(path) {
-		if (!path) return null;
-		return collabGuest.files.find((f) => f.rel === path)?.kind ?? null;
-	},
-	collabFor(path) {
-		if (!path) return null;
-		const ytext = collabGuest.ytextFor(path);
-		const awareness = collabGuest.awareness;
-		return ytext && awareness ? { ytext, awareness, readOnly: collabGuest.isLocked(path) } : null;
-	},
-	// the guest visual editor's write path: fold the serialized doc into the shared Y.Text as a
-	// minimal splice; the change syncs to the host, whose materializer lands it on disk. The
-	// source editor is Y-bound, so its calls arrive content-equal and splice nothing.
-	edit(path, content) {
-		if (!path || collabGuest.isLocked(path)) return;
-		const t = collabGuest.ytextFor(path);
-		if (!t) return;
-		const diff = spliceDiff(t.toString(), content.replace(/\r\n?/g, '\n'));
-		if (!diff) return;
-		t.doc?.transact(() => {
-			if (diff.remove > 0) t.delete(diff.index, diff.remove);
-			if (diff.insert) t.insert(diff.index, diff.insert);
-		}, EDIT_ORIGIN);
-	},
-	async beforeOpen() {},
-	setVisualLock() {},
-	async syncTree() {},
-	async pushPdf() {},
-	async end() {
-		collabGuest.leave();
-	},
-	guestCount() {
-		return collabGuest.peers.length;
-	}
-};

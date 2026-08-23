@@ -3,7 +3,7 @@
 	// uses, driven by the CRDT-backed provider + guest session (no separate guest editor to drift).
 	import { get } from 'svelte/store';
 	import { collabGuest } from '$lib/collab/guestStore.svelte';
-	import { guestSession } from '$lib/collab/guestStore.svelte';
+	import { guestSession } from '$lib/collab/guestSession';
 	import { sessionProvider, GUEST_ROOT } from '$lib/collab/sessionProvider';
 	import { dropGuestTypstLsp } from '$lib/languages/typst/intellisense/guestLspExtension';
 	import SessionJoin from '$lib/collab/SessionJoin.svelte';

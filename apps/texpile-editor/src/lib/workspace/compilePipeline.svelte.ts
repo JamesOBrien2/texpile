@@ -6,54 +6,19 @@ import { compileLog, rebaseLogFile } from '$lib/stores/compileLogStore';
 import { parseCompileDiagnosticsInWorker } from '$lib/compileLog/parseInWorker';
 import { pdfStore } from '$lib/stores/pdfStore';
 import { projectIntelStore } from '$lib/stores/projectIntel';
-import { DEFAULT_COMPILE_COMMAND, settings } from '$lib/settings';
+import { settings } from '$lib/settings';
 import { compileConfig } from './projectConfigSync.svelte';
 import { workspaceRoot, mainFile, texFiles, effectiveCompileFormat, savedMainFile } from './workspaceStore';
 import * as cc from './compileCommand';
-import { buildTypstCommand, drivesTypst, isTypstCommand, typstLogArg } from './typstCommand';
+import { relFromRoot, resolveCompileCommand, withBatchFlags } from './compileResolve';
+
+export { relFromRoot, resolveCompileCommand, resolveFormatCommand } from './compileResolve';
+import { drivesTypst, isTypstCommand } from './typstCommand';
 import { basename, joinPath, samePath } from './fileSystem';
 import type { EditSession } from '$lib/collab/editSession';
 import { toaster } from '$lib/modals/toaster-svelte';
-import { missingProgram, redirectsStderr } from './toolMissing';
-import { openToolchainPrefs } from '$lib/stores/dialogStore';
+import { reportMissingTool } from './toolMissing';
 import { m } from '$lib/paraglide/messages';
-
-// a root-relative, forward-slashed path (the form file references take in LaTeX)
-export function relFromRoot(p: string, root: string) {
-	return p
-		.slice(root.length)
-		.replace(/^[\\/]+/, '')
-		.replace(/\\/g, '/');
-}
-
-/**
- * The command this folder compiles with. The main file's extension decides the lane (latex or
- * typst - see effectiveCompileFormat), and each lane resolves independently: the ADOPTED command
- * from .texpile/config.json first (compileConfig - the file's command after the trust gate), else
- * that lane's stock default. Both lanes are kept, so a project holding a .tex and a .typ keeps
- * both commands and changing the main file changes which one runs.
- */
-export function resolveFormatCommand(format: 'latex' | 'typst', main?: string | null) {
-	const adopted = get(compileConfig)[format].command;
-	if (adopted) return adopted;
-	return format === 'typst' ? buildTypstCommand(main ?? null) : DEFAULT_COMPILE_COMMAND;
-}
-
-export function resolveCompileCommand(main?: string | null) {
-	return resolveFormatCommand(effectiveCompileFormat(main ?? null), main);
-}
-
-// a TeX engine at its default errorstop interaction parks at the interactive ? prompt on the
-// first error. for known engine commands, inject -interaction=nonstopmode (plus -file-line-error
-// for exact error attribution); custom scripts/makefiles are left untouched.
-function withBatchFlags(cmd: string): string {
-	const hit = cmd.match(/^(\s*(?:latexmk|pdflatex|xelatex|lualatex)(?:\.exe)?)(?=\s|$)/i);
-	if (!hit) return cmd;
-	const flags: string[] = [];
-	if (!/-interaction[= ]/.test(cmd)) flags.push('-interaction=nonstopmode');
-	if (!/-file-line-error\b/.test(cmd)) flags.push('-file-line-error');
-	return flags.length > 0 ? cmd.replace(hit[1], `${hit[1]} ${flags.join(' ')}`) : cmd;
-}
 
 export type CompileDeps = {
 	getLoadedPath(): string | null;
@@ -427,7 +392,13 @@ export class CompilePipeline {
 			} catch {
 				/* fs hiccup: the run still ended, the button must still reset */
 			}
-			const toolMissing = await this.reportMissingTool(logPath);
+			const toolMissing = await reportMissingTool({
+				cmd: this.deps.getCompileCommand(),
+				stdout: this.compileStdout,
+				baseDir: this.compileBaseDir(),
+				logPath,
+				readText: (p) => this.deps.readText(p)
+			});
 			// The command exited, no log advanced and the watched PDF path holds nothing: the build
 			// wrote somewhere the app is not watching (a cd-prefixed command, say), and every panel
 			// would stay silent while the user reads that as "compiled ok". An up-to-date rebuild is
@@ -444,53 +415,6 @@ export class CompilePipeline {
 			this.endRun();
 			this.deps.refreshTree();
 		}, 400);
-	}
-
-	/**
-	 * The command named a program the shell could not find: say so, and offer the panel that lists
-	 * what IS installed.
-	 *
-	 * Worth its own toast because this failure produces no diagnostics to show. No log is written,
-	 * no PDF appears, and the Problems panel stays empty - the only evidence is one line of shell
-	 * text in a terminal the reader may not have open, phrased by the shell rather than by us
-	 * ("'latexmk' is not recognized as an internal or external command"), which says nothing about
-	 * what to do next.
-	 *
-	 * Only on the marker-tracked path, because that is the only one that captures output at all
-	 * (see runCompile). With the completion marker off, this failure stays as silent as it was.
-	 */
-	private async reportMissingTool(logPath: string | null): Promise<boolean> {
-		const cmd = this.deps.getCompileCommand();
-		let program = missingProgram(this.compileStdout);
-		// a command that redirects stderr (the Typst default does) leaves the shell's own error in
-		// the log rather than the terminal. Only read it in that case: a LaTeX log can be megabytes,
-		// and without a redirect it cannot hold the line anyway.
-		//
-		// Read the `2>` target parsed from the command itself, not the lane-derived logPath: lane
-		// detection keys off the binary name, so the exact failure this reports (`tinymiast`, a
-		// misspelled tinymist) also breaks the lane's idea of where the log is - the evidence sat
-		// in the redirect file while the pipeline read a path that was never written. The lane
-		// path stays as the fallback for redirect shapes the parser does not model (&>, >&).
-		if (!program && redirectsStderr(cmd)) {
-			const base = this.compileBaseDir() ?? get(workspaceRoot);
-			const target = typstLogArg(cmd); // generic 2>/2>> parsing despite the home module
-			const stderrPath = target && base ? cc.resolveOutputPath(base, target) : logPath;
-			if (stderrPath) {
-				try {
-					program = missingProgram(await this.deps.readText(stderrPath));
-				} catch {
-					/* no log to read: nothing more to say */
-				}
-			}
-		}
-		if (!program) return false;
-		toaster.error({
-			title: m.compile_tool_missing_title(),
-			description: m.compile_tool_missing({ tool: program }),
-			duration: 8000,
-			action: { label: m.compile_tool_missing_action(), onClick: openToolchainPrefs }
-		});
-		return true;
 	}
 
 	private async ensureOutputDir(cmd = this.deps.getCompileCommand()) {

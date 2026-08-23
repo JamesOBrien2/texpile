@@ -39,7 +39,8 @@
 	import { latex } from '$lib/languages/latex/source/latexLanguage';
 	import { releaseTypstLsp, typstLspExtension, typstServerGen } from '$lib/languages/typst/intellisense/lspClient';
 	import { typstGuestLspExtension, releaseGuestTypstLsp } from '$lib/languages/typst/intellisense/guestLspExtension';
-	import { collabGuest, guestSession } from '$lib/collab/guestStore.svelte';
+	import { collabGuest } from '$lib/collab/guestStore.svelte';
+	import { guestSession } from '$lib/collab/guestSession';
 	import { guestRelPath } from '$lib/collab/sessionProvider';
 	import { workspaceRoot } from '$lib/workspace/workspaceStore';
 	import { sourceCmView } from '$lib/stores/editorStore';

@@ -1,3 +1,10 @@
+import { get } from 'svelte/store';
+import { toaster } from '$lib/modals/toaster-svelte';
+import { openToolchainPrefs } from '$lib/stores/dialogStore';
+import { workspaceRoot } from './workspaceStore';
+import { resolveOutputPath } from './compileCommand';
+import { typstLogArg } from './typstCommand';
+import { m } from '$lib/paraglide/messages';
 // "The compile run needed a program that isn't installed" - read out of what the shell printed.
 // Pure: no DOM, no IPC, unit-testable.
 //
@@ -71,4 +78,57 @@ export function missingProgram(output: string): string | null {
  */
 export function redirectsStderr(cmd: string): boolean {
 	return /(?:^|\s)(?:2>|&>|>&)/.test(cmd);
+}
+
+/**
+ * The command named a program the shell could not find: say so, and offer the panel that lists
+ * what IS installed.
+ *
+ * Worth its own toast because this failure produces no diagnostics to show. No log is written,
+ * no PDF appears, and the Problems panel stays empty - the only evidence is one line of shell
+ * text in a terminal the reader may not have open, phrased by the shell rather than by us
+ * ("'latexmk' is not recognized as an internal or external command"), which says nothing about
+ * what to do next.
+ *
+ * Only on the marker-tracked path, because that is the only one that captures output at all
+ * (see runCompile). With the completion marker off, this failure stays as silent as it was.
+ */
+export async function reportMissingTool(opts: {
+	cmd: string;
+	stdout: string;
+	baseDir: string | null;
+	logPath: string | null;
+	readText(path: string): Promise<string>;
+}): Promise<boolean> {
+	const { cmd } = opts;
+	let program = missingProgram(opts.stdout);
+	// a command that redirects stderr (the Typst default does) leaves the shell's own error in
+	// the log rather than the terminal. Only read it in that case: a LaTeX log can be megabytes,
+	// and without a redirect it cannot hold the line anyway.
+	//
+	// Read the `2>` target parsed from the command itself, not the lane-derived logPath: lane
+	// detection keys off the binary name, so the exact failure this reports (`tinymiast`, a
+	// misspelled tinymist) also breaks the lane's idea of where the log is - the evidence sat
+	// in the redirect file while the pipeline read a path that was never written. The lane
+	// path stays as the fallback for redirect shapes the parser does not model (&>, >&).
+	if (!program && redirectsStderr(cmd)) {
+		const base = opts.baseDir ?? get(workspaceRoot);
+		const target = typstLogArg(cmd); // generic 2>/2>> parsing despite the home module
+		const stderrPath = target && base ? resolveOutputPath(base, target) : opts.logPath;
+		if (stderrPath) {
+			try {
+				program = missingProgram(await opts.readText(stderrPath));
+			} catch {
+				/* no log to read: nothing more to say */
+			}
+		}
+	}
+	if (!program) return false;
+	toaster.error({
+		title: m.compile_tool_missing_title(),
+		description: m.compile_tool_missing({ tool: program }),
+		duration: 8000,
+		action: { label: m.compile_tool_missing_action(), onClick: openToolchainPrefs }
+	});
+	return true;
 }
