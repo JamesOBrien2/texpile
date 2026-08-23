@@ -11,7 +11,7 @@
 // in the same place with no second record to disagree with the first.
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/sourceMap';
+import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/visual/sourceMap';
 import { docPositions, offsetToRowCol, rowColToOffset } from './docPositions';
 
 /**

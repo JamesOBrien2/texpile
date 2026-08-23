@@ -5,7 +5,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { parseMarkdownFile } from '$lib/languages/markdown/visual/roundtrip';
 import { parseLatexFile } from '$lib/workspace/latexRoundtrip';
 import { parseTypstFile } from '$lib/languages/typst/visual/roundtrip';
-import { buildPmAnchor } from '$lib/editor/extensions/pmComments';
+import { buildPmAnchor } from '$lib/editor/visual/extensions/pmComments';
 import { toSourceAnchor, type AnchorDialect } from '$lib/comments/anchor';
 
 // The bug this reproduces: drag a random selection in a visual editor, hit Comment, and the

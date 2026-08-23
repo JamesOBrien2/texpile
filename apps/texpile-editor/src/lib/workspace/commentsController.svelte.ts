@@ -29,7 +29,7 @@ import {
 	type CommentThread
 } from '$lib/comments/log';
 import { resolveAuthor, forgetAuthor } from '$lib/comments/author';
-import type { CommentRange } from '$lib/editor/extensions/comments';
+import type { CommentRange } from '$lib/editor/visual/extensions/comments';
 
 type Deps = {
 	/** absolute workspace root, or null before a folder is open */

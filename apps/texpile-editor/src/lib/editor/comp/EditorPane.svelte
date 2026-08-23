@@ -11,10 +11,10 @@
 	import SearchBar from './SearchBar.svelte';
 	import StarterPicker from './StarterPicker.svelte';
 	import DiffPane from './DiffPane.svelte';
-	import SourceEditor from './SourceEditor.svelte';
-	import BibManager from './BibManager.svelte';
+	import SourceEditor from '$lib/editor/source/SourceEditor.svelte';
+	import BibManager from '$lib/editor/visual/bib/BibManager.svelte';
 	import PDFViewer from './PDFViewer.svelte';
-	import PreambleFrontmatter from './PreambleFrontmatter.svelte';
+	import PreambleFrontmatter from '$lib/editor/visual/PreambleFrontmatter.svelte';
 	import LatexEditorView from '$lib/languages/latex/visual/LatexEditorView.svelte';
 	import MarkdownEditorView from '$lib/languages/markdown/visual/MarkdownEditorView.svelte';
 	import MarkdownToolbar from '$lib/languages/markdown/visual/MarkdownToolbar.svelte';
@@ -24,7 +24,7 @@
 	import TypstSourceToolbar from '$lib/languages/typst/source/TypstSourceToolbar.svelte';
 	import type { EditSession } from '$lib/collab/editSession';
 	import type { ParsedLatexFile, ParsePhase } from '$lib/workspace/latexRoundtrip';
-	import VisualLoading from './VisualLoading.svelte';
+	import VisualLoading from '$lib/editor/visual/VisualLoading.svelte';
 	import type { BiblatexReference } from '$lib/workspace/citations';
 	import type { Starter, ImportedFile } from '$lib/workspace/starters';
 	import { get } from 'svelte/store';
@@ -93,7 +93,7 @@
 		/** caret moved to this ZERO-based line/column in the source editor */
 		onCaretMove?: (line: number, character: number) => void;
 		/** review-comment ranges for the open file, and the hooks the editor raises; see lib/comments */
-		commentRanges?: import('$lib/editor/extensions/comments').CommentRange[];
+		commentRanges?: import('$lib/editor/visual/extensions/comments').CommentRange[];
 		/** the same file's threads with their anchors: the visual editor re-resolves against its own
 		 * rendered text, because source offsets mean nothing there (see pmComments) */
 		commentThreads?: import('$lib/comments/log').CommentThread[];

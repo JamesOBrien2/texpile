@@ -10,8 +10,8 @@ import { describe, it, expect } from 'vitest';
 import { EditorState as CmState } from '@codemirror/state';
 import { EditorState as PmState } from 'prosemirror-state';
 import { schema as texSchema } from '$lib/languages/latex/schema/latexPMSchema';
-import { comments, setCommentRanges, commentAt } from '$lib/editor/extensions/comments';
-import { pmComments, pmCommentsKey, pmCommentAt } from '$lib/editor/extensions/pmComments';
+import { comments, setCommentRanges, commentAt } from '$lib/editor/visual/extensions/comments';
+import { pmComments, pmCommentsKey, pmCommentAt } from '$lib/editor/visual/extensions/pmComments';
 
 const RANGE = { id: 't1', resolved: false };
 

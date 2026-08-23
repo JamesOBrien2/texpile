@@ -5,7 +5,7 @@ import { mount, unmount } from 'svelte';
 import type { Node } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { NodeSelection } from 'prosemirror-state';
-import BibliographyView from '$lib/editor/extensions/bibliography/BibliographyView.svelte';
+import BibliographyView from '$lib/editor/visual/extensions/bibliography/BibliographyView.svelte';
 
 export function isTypstBibliography(text: string): boolean {
 	return /^#bibliography\(/.test(text.trim());

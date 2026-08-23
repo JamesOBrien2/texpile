@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { schema } from '$lib/languages/latex/schema/latexPMSchema';
-import { flattenDoc, resolvePmComments, pmComments, setPmComments, revealPmComment } from '$lib/editor/extensions/pmComments';
+import { flattenDoc, resolvePmComments, pmComments, setPmComments, revealPmComment } from '$lib/editor/visual/extensions/pmComments';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { buildAnchor } from '$lib/comments/anchor';
 import type { CommentThread } from '$lib/comments/log';

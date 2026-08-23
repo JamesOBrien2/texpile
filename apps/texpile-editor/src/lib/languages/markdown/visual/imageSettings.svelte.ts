@@ -5,9 +5,9 @@
 import { mount } from 'svelte';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
-import type { ImagePluginSettings } from '$lib/editor/extensions/image/types';
-import { createTemplateEditorSettings, createLocalImageSettings } from '$lib/editor/extensions/image/imageplugin.svelte';
-import ImageOverlay from '$lib/editor/extensions/image/ImageOverlay.svelte';
+import type { ImagePluginSettings } from '$lib/editor/visual/extensions/image/types';
+import { createTemplateEditorSettings, createLocalImageSettings } from '$lib/editor/visual/extensions/image/imageplugin.svelte';
+import ImageOverlay from '$lib/editor/visual/extensions/image/ImageOverlay.svelte';
 
 type OverlayHost = {
 	__svelteComponentProps?: { node: PMNode; view: EditorView; getPos: () => number | undefined };

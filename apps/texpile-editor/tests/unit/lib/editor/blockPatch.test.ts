@@ -6,7 +6,7 @@ import { EditorState } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 import { parseLatexFile } from '$lib/workspace/latexRoundtrip';
-import { computeBlockPatch, syncOrigAttrs } from '$lib/editor/blockPatch';
+import { computeBlockPatch, syncOrigAttrs } from '$lib/editor/visual/blockPatch';
 
 const SRC = `\\documentclass{article}
 \\begin{document}

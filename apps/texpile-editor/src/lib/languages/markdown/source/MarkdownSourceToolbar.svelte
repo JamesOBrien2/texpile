@@ -20,7 +20,7 @@
 	} from '@lucide/svelte';
 	import type { EditorState, TransactionSpec } from '@codemirror/state';
 	import { sourceCmView } from '$lib/stores/editorStore';
-	import ToolbarOverflow from '$lib/editor/comp/toolbar/ToolbarOverflow.svelte';
+	import ToolbarOverflow from '$lib/editor/visual/toolbar/ToolbarOverflow.svelte';
 	import {
 		computeToggleDelim,
 		computeHeadingLine,

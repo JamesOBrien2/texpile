@@ -8,7 +8,7 @@
 // words surviving the strip match the rendered text's words, in the same order and count. Anything
 // the reader never sees (link targets, reference definitions, HTML attributes) must NOT survive, or
 // it inflates the occurrence count and the caret lands on the wrong repeat of a word.
-import type { Dialect } from '$lib/editor/dialect';
+import type { Dialect } from '$lib/editor/visual/dialect';
 import { stripTypst } from '$lib/languages/typst/visual/sourceMap';
 
 /** strip Markdown syntax so what's left resembles the rendered text the editor shows. */

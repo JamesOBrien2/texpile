@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tocStore, sourceTocStore, type TocItem } from '$lib/editor/extensions/tableofcontents/tocStore';
+	import { tocStore, sourceTocStore, type TocItem } from '$lib/editor/visual/extensions/tableofcontents/tocStore';
 	import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
 	import { TextSelection } from 'prosemirror-state';
 	import { EditorView } from '@codemirror/view';

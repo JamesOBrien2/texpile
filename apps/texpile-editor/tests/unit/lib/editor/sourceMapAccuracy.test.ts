@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Node as PMNode } from 'prosemirror-model';
 import { parseLatexFile, bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
-import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/sourceMap';
+import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/visual/sourceMap';
 
 // the block's visible text with a PM position per char, mirroring the sourceMap's own indexing
 function visibleIndex(doc: PMNode): { text: string; positions: number[] } {

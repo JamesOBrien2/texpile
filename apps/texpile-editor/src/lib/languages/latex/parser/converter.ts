@@ -5,7 +5,7 @@ import { parseLatex } from './parser';
 import type { ParseOptions } from './types';
 import { listNewcommands } from '@unified-latex/unified-latex-util-macros';
 import { attachMacroArgs } from '@unified-latex/unified-latex-util-arguments';
-import { mergeAdjacentRawBlocks } from '$lib/editor/mergeRawBlocks';
+import { mergeAdjacentRawBlocks } from '$lib/editor/visual/mergeRawBlocks';
 import { el, txt, createDefaultContext, collapseTextNodes, type PmNode, type PmMark, type ConversionOptions } from './builders';
 
 import { MACRO_SIGNATURES, ENV_SIGNATURES, stripSamelineComments } from './macros';

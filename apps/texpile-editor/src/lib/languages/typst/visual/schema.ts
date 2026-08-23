@@ -6,7 +6,7 @@
 // objects must never mix in one document.
 //
 // Deliberately DOM-import-free beyond prosemirror-model: the parse worker loads this module.
-import { updateImageNode, type SchemaImageSettings } from '$lib/editor/extensions/image/updateImageNode';
+import { updateImageNode, type SchemaImageSettings } from '$lib/editor/visual/extensions/image/updateImageNode';
 import { Schema, type NodeSpec, type MarkSpec } from 'prosemirror-model';
 import { nodes as texNodes, marks as texMarks } from '$lib/languages/latex/schema/latexPMSchema';
 

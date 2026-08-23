@@ -25,9 +25,9 @@
 	import type { EditorState, TransactionSpec } from '@codemirror/state';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { computeToggleWrap, computeWrapBlock, computeLink } from '$lib/languages/latex/intellisense/shortcuts';
-	import SourceTableDropdown from '$lib/editor/comp/toolbar/SourceTableDropdown.svelte';
-	import SourceMathDropdown from '$lib/editor/comp/toolbar/SourceMathDropdown.svelte';
-	import ToolbarOverflow from '$lib/editor/comp/toolbar/ToolbarOverflow.svelte';
+	import SourceTableDropdown from '$lib/editor/source/toolbar/SourceTableDropdown.svelte';
+	import SourceMathDropdown from '$lib/editor/source/toolbar/SourceMathDropdown.svelte';
+	import ToolbarOverflow from '$lib/editor/visual/toolbar/ToolbarOverflow.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	function run(build: (state: EditorState) => TransactionSpec) {

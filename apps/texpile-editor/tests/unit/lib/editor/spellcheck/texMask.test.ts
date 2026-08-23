@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maskTex, overlapsMask } from '$lib/editor/extensions/spellcheck/texMask';
+import { maskTex, overlapsMask } from '$lib/editor/spellcheck/texMask';
 
 // The LaTeX masker feeding harper in source mode: markup becomes spaces (offsets preserved),
 // prose (including content-command arguments) stays. Mirrors upstream harper-tex's Masker.

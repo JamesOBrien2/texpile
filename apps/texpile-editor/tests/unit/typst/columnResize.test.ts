@@ -15,7 +15,7 @@ import { typstToProseMirror } from '$lib/languages/typst/visual/converter';
 import { serializeToTypst } from '$lib/languages/typst/visual/serializer';
 import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
 import { parseTracks, distribute, toFrTracks, snapFr } from '$lib/languages/typst/visual/tracks';
-import { snapWidthToFr } from '$lib/editor/extensions/table/snapWidth';
+import { snapWidthToFr } from '$lib/editor/visual/extensions/table/snapWidth';
 import type { Node } from 'prosemirror-model';
 
 const PLAIN = '#table(\n  columns: 3,\n  [a], [b], [c],\n)\n';

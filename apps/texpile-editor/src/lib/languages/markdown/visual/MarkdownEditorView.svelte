@@ -13,7 +13,7 @@
 	import { gapCursor } from 'prosemirror-gapcursor';
 	import { dropCursor } from 'prosemirror-dropcursor';
 	import { fixTables, tableEditing, goToNextCell } from 'prosemirror-tables';
-	import { tableViewOnly } from '$lib/editor/extensions/table/tableViewOnly';
+	import { tableViewOnly } from '$lib/editor/visual/extensions/table/tableViewOnly';
 	import { createListPlugins, listInputRules, listKeymap, createIndentListCommand, createDedentListCommand } from 'prosemirror-flat-list';
 	import { inputRules, textblockTypeInputRule, wrappingInputRule, InputRule, undoInputRule } from 'prosemirror-inputrules';
 	import { search } from 'prosemirror-search';
@@ -22,34 +22,34 @@
 	import { isMac } from '$lib/platform';
 	import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
 	import { preferences } from '$lib/stores/preferencesStore.svelte';
-	import { toggleHeading, toggleBlockQuote } from '$lib/editor/helperCommands';
-	import { createMathField } from '$lib/editor/extensions/mathlivebridge/mlcommands';
-	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
-	import { cmarrowHandlers } from '$lib/editor/extensions/codemirrorbridge/cmarrowhandler';
-	import { imagePlugin } from '$lib/editor/extensions/image';
+	import { toggleHeading, toggleBlockQuote } from '$lib/editor/visual/helperCommands';
+	import { createMathField } from '$lib/editor/visual/extensions/mathlivebridge/mlcommands';
+	import { createCodeBlock } from '$lib/editor/visual/extensions/codemirrorbridge/cmcommands';
+	import { cmarrowHandlers } from '$lib/editor/visual/extensions/codemirrorbridge/cmarrowhandler';
+	import { imagePlugin } from '$lib/editor/visual/extensions/image';
 	import { createMarkdownImageSettings } from './imageSettings.svelte';
-	import { menuUpdatePlugin } from '$lib/editor/extensions/toolbarlistenerplugin';
-	import { createCursorPlugin } from '$lib/editor/extensions/cursor-plugin';
-	import { createLinkPlugin } from '$lib/editor/extensions/link';
-	import { pasteUUIDFixPlugin } from '$lib/editor/extensions/paste-uuid-fix';
-	import { placeholderPlugin } from '$lib/editor/extensions/placeholderplugin';
-	import { tablePlaceholderPlugin } from '$lib/editor/extensions/table/tablePlaceholderPlugin';
-	import { createWordCountPlugin } from '$lib/editor/extensions/wordcount/wordCountPlugin';
-	import { createTocPlugin } from '$lib/editor/extensions/tableofcontents/tocPlugin';
-	import { createPersistentSelectionPlugin } from '$lib/editor/extensions/persistentSelection/persistentSelectionPlugin';
-	import { proofreadPlugin, spellClickBoundaryPlugin } from '$lib/editor/extensions/spellcheck/spellcheckplugin';
-	import { createTrailingParagraphPlugin, buildTrailingParagraphTr } from '$lib/editor/extensions/trailing-paragraph-plugin';
-	import { createBoundaryClickPlugin } from '$lib/editor/extensions/boundary-click-plugin';
-	import { createBlockHandlePlugin } from '$lib/editor/extensions/block-handle-plugin.svelte';
-	import { createNodeFlashPlugin } from '$lib/editor/extensions/flash-plugin';
-	import { remoteCursorsPlugin } from '$lib/editor/extensions/remoteCursors';
+	import { menuUpdatePlugin } from '$lib/editor/visual/extensions/toolbarlistenerplugin';
+	import { createCursorPlugin } from '$lib/editor/visual/extensions/cursor-plugin';
+	import { createLinkPlugin } from '$lib/editor/visual/extensions/link';
+	import { pasteUUIDFixPlugin } from '$lib/editor/visual/extensions/paste-uuid-fix';
+	import { placeholderPlugin } from '$lib/editor/visual/extensions/placeholderplugin';
+	import { tablePlaceholderPlugin } from '$lib/editor/visual/extensions/table/tablePlaceholderPlugin';
+	import { createWordCountPlugin } from '$lib/editor/visual/extensions/wordcount/wordCountPlugin';
+	import { createTocPlugin } from '$lib/editor/visual/extensions/tableofcontents/tocPlugin';
+	import { createPersistentSelectionPlugin } from '$lib/editor/visual/extensions/persistentSelection/persistentSelectionPlugin';
+	import { proofreadPlugin, spellClickBoundaryPlugin } from '$lib/editor/spellcheck/spellcheckplugin';
+	import { createTrailingParagraphPlugin, buildTrailingParagraphTr } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
+	import { createBoundaryClickPlugin } from '$lib/editor/visual/extensions/boundary-click-plugin';
+	import { createBlockHandlePlugin } from '$lib/editor/visual/extensions/block-handle-plugin.svelte';
+	import { createNodeFlashPlugin } from '$lib/editor/visual/extensions/flash-plugin';
+	import { remoteCursorsPlugin } from '$lib/editor/visual/extensions/remoteCursors';
 	import { MD_BLOCK_INSERT_ITEMS } from './blockInsertItems';
-	import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
-	import { RawLatexView } from '$lib/editor/extensions/raw-latex/rawLatexView';
-	import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
-	import ContextMenu from '$lib/editor/comp/toolbar/ContextMenu.svelte';
-	import { pmComments } from '$lib/editor/extensions/pmComments';
-	import { syncPmComments } from '$lib/editor/extensions/pmCommentsSync.svelte';
+	import { CodeBlockView } from '$lib/editor/visual/extensions/codemirrorbridge/cmview.svelte';
+	import { RawLatexView } from '$lib/editor/visual/extensions/raw-latex/rawLatexView';
+	import { InlineLatexView } from '$lib/editor/visual/extensions/raw-latex/inlineLatexView';
+	import ContextMenu from '$lib/editor/visual/toolbar/ContextMenu.svelte';
+	import { pmComments } from '$lib/editor/visual/extensions/pmComments';
+	import { syncPmComments } from '$lib/editor/visual/extensions/pmCommentsSync.svelte';
 	import type { CommentAnchor } from '$lib/comments/anchor';
 	import type { CommentThread } from '$lib/comments/log';
 	import type { BiblatexReference } from '$lib/languages/bib/biblatex';
@@ -58,10 +58,10 @@
 	import 'prosemirror-gapcursor/style/gapcursor.css';
 	import 'prosemirror-flat-list/dist/style.css';
 	import 'prosemirror-search/style/search.css';
-	import '$lib/editor/extensions/image/styles/common.css';
-	import '$lib/editor/extensions/image/styles/withResize.css';
-	import '$lib/editor/extensions/image/styles/sideResize.css';
-	import '$lib/editor/styles/cursor.css';
+	import '$lib/editor/visual/extensions/image/styles/common.css';
+	import '$lib/editor/visual/extensions/image/styles/withResize.css';
+	import '$lib/editor/visual/extensions/image/styles/sideResize.css';
+	import '$lib/editor/visual/styles/cursor.css';
 
 	type Props = {
 		localValue?: PMNode | null;
@@ -123,7 +123,7 @@
 	];
 
 	onMount(async () => {
-		const { mathlivePlugin, mlarrowHandlers } = await import('$lib/editor/extensions/mathlivebridge/mlplugin');
+		const { mathlivePlugin, mlarrowHandlers } = await import('$lib/editor/visual/extensions/mathlivebridge/mlplugin');
 
 		const plugins = [
 			markdownCopyPlugin,

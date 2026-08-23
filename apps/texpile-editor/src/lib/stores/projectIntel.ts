@@ -3,7 +3,7 @@
 // project file (the active buffer's own contents stay live in the editor). populated by
 // workspace/projectIntel.ts; consumed by completion/hover/definition and the outline.
 import { writable } from 'svelte/store';
-import type { RawOutlineItem } from '$lib/editor/extensions/tableofcontents/latexHeadings';
+import type { RawOutlineItem } from '$lib/editor/visual/extensions/tableofcontents/latexHeadings';
 
 export type ProjectLabel = {
 	name: string;

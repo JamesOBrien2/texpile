@@ -12,7 +12,7 @@
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { TypstParser } from 'texpile-typst-syntax-wasm';
 import { el, txtNodes, type PmNode } from './builders';
-import { mergeAdjacentRawBlocks } from '$lib/editor/mergeRawBlocks';
+import { mergeAdjacentRawBlocks } from '$lib/editor/visual/mergeRawBlocks';
 import {
 	children,
 	childOf,

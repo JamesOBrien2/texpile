@@ -6,7 +6,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { createTexpileSuggest, type TexpileSuggester } from '$lib/editor/extensions/suggest/texpile-suggest';
+import { createTexpileSuggest, type TexpileSuggester } from '$lib/editor/visual/extensions/suggest/texpile-suggest';
 import { typSchema } from '$lib/languages/typst/visual/schema';
 
 function openSuggestion(suggester: TexpileSuggester): EditorView {

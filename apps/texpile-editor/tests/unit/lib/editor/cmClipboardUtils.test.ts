@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { copySelection, cutSelection, pasteAtCursor } from '../../../../src/lib/editor/cmClipboardUtils';
+import { copySelection, cutSelection, pasteAtCursor } from '../../../../src/lib/editor/source/cmClipboardUtils';
 
 let clipboard = '';
 let denied = false;

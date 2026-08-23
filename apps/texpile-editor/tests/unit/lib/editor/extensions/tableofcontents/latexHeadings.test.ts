@@ -3,7 +3,7 @@ import {
 	latexHeadings,
 	parseOutlineRaw,
 	assembleProjectOutline
-} from '../../../../../../src/lib/editor/extensions/tableofcontents/latexHeadings';
+} from '../../../../../../src/lib/editor/visual/extensions/tableofcontents/latexHeadings';
 
 describe('outline parsing and numbering', () => {
 	it('numbers headings, letters appendices, skips starred ones', () => {

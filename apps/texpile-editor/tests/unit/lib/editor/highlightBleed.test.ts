@@ -9,7 +9,7 @@ import { EditorState } from '@codemirror/state';
 import { ensureSyntaxTree } from '@codemirror/language';
 import { highlightTree, tagHighlighter } from '@lezer/highlight';
 import { markdown } from '@codemirror/lang-markdown';
-import { colouredTags } from '$lib/editor/cmHighlight';
+import { colouredTags } from '$lib/editor/source/cmHighlight';
 
 const DOC = `# Heading
 

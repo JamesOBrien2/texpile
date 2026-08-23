@@ -10,7 +10,7 @@
 // fake observer.
 import { describe, it, expect, beforeAll } from 'vitest';
 import { schema } from '$lib/languages/latex/schema/latexPMSchema';
-import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
+import { InlineLatexView } from '$lib/editor/visual/extensions/raw-latex/inlineLatexView';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 
 // CodeMirror measures on construction; jsdom has no layout, so stub what it reads.

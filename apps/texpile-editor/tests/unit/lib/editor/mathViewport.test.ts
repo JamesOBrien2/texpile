@@ -36,7 +36,7 @@ beforeEach(() => {
 
 describe('upgradeWhenNear', () => {
 	it('waits rather than upgrading on the spot', async () => {
-		const { upgradeWhenNear } = await import('$lib/editor/extensions/mathlivebridge/mathViewport');
+		const { upgradeWhenNear } = await import('$lib/editor/visual/extensions/mathlivebridge/mathViewport');
 		const el = document.createElement('div');
 		const upgrade = vi.fn();
 		upgradeWhenNear(el, upgrade);
@@ -45,7 +45,7 @@ describe('upgradeWhenNear', () => {
 	});
 
 	it('upgrades when the element comes near the viewport', async () => {
-		const { upgradeWhenNear } = await import('$lib/editor/extensions/mathlivebridge/mathViewport');
+		const { upgradeWhenNear } = await import('$lib/editor/visual/extensions/mathlivebridge/mathViewport');
 		const el = document.createElement('div');
 		const upgrade = vi.fn();
 		upgradeWhenNear(el, upgrade);
@@ -54,7 +54,7 @@ describe('upgradeWhenNear', () => {
 	});
 
 	it('stops watching once upgraded, so scrolling past again cannot rebuild the field', async () => {
-		const { upgradeWhenNear } = await import('$lib/editor/extensions/mathlivebridge/mathViewport');
+		const { upgradeWhenNear } = await import('$lib/editor/visual/extensions/mathlivebridge/mathViewport');
 		const el = document.createElement('div');
 		const upgrade = vi.fn();
 		upgradeWhenNear(el, upgrade);
@@ -64,7 +64,7 @@ describe('upgradeWhenNear', () => {
 	});
 
 	it('ignores an element leaving the viewport', async () => {
-		const { upgradeWhenNear } = await import('$lib/editor/extensions/mathlivebridge/mathViewport');
+		const { upgradeWhenNear } = await import('$lib/editor/visual/extensions/mathlivebridge/mathViewport');
 		const el = document.createElement('div');
 		const upgrade = vi.fn();
 		upgradeWhenNear(el, upgrade);
@@ -74,7 +74,7 @@ describe('upgradeWhenNear', () => {
 	});
 
 	it('cancelUpgrade drops a pending element without running it', async () => {
-		const { upgradeWhenNear, cancelUpgrade } = await import('$lib/editor/extensions/mathlivebridge/mathViewport');
+		const { upgradeWhenNear, cancelUpgrade } = await import('$lib/editor/visual/extensions/mathlivebridge/mathViewport');
 		const el = document.createElement('div');
 		const upgrade = vi.fn();
 		upgradeWhenNear(el, upgrade);
@@ -84,14 +84,14 @@ describe('upgradeWhenNear', () => {
 	});
 
 	it('cancelUpgrade is safe on an element that was never observed', async () => {
-		const { cancelUpgrade } = await import('$lib/editor/extensions/mathlivebridge/mathViewport');
+		const { cancelUpgrade } = await import('$lib/editor/visual/extensions/mathlivebridge/mathViewport');
 		expect(() => cancelUpgrade(document.createElement('div'))).not.toThrow();
 	});
 
 	it('upgrades immediately when IntersectionObserver is unavailable', async () => {
 		delete (globalThis as Partial<typeof globalThis>).IntersectionObserver;
 		vi.resetModules();
-		const { upgradeWhenNear } = await import('$lib/editor/extensions/mathlivebridge/mathViewport');
+		const { upgradeWhenNear } = await import('$lib/editor/visual/extensions/mathlivebridge/mathViewport');
 		const upgrade = vi.fn();
 		upgradeWhenNear(document.createElement('div'), upgrade);
 		expect(upgrade).toHaveBeenCalledTimes(1);

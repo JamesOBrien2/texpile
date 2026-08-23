@@ -9,18 +9,18 @@
 	import { recentFolders } from '$lib/workspace/workspaceStore';
 	import { basename, isDesktop, openNewWindow, openFolderInNewWindow } from '$lib/workspace/fileSystem';
 	import { isMac } from '$lib/platform';
-	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
+	import { setSpellcheckEnabled } from '$lib/editor/spellcheck/spellcheckConfig';
 	const appVersion = __APP_VERSION__; // injected by Vite from package.json
-	import { createMathField } from '$lib/editor/extensions/mathlivebridge/mlcommands';
-	import { computeMathAttrs } from '$lib/editor/extensions/mathlivebridge/mlview.svelte';
-	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
-	import { createTableNode } from '$lib/editor/utils/tableUtils';
+	import { createMathField } from '$lib/editor/visual/extensions/mathlivebridge/mlcommands';
+	import { computeMathAttrs } from '$lib/editor/visual/extensions/mathlivebridge/mlview.svelte';
+	import { createCodeBlock } from '$lib/editor/visual/extensions/codemirrorbridge/cmcommands';
+	import { createTableNode } from '$lib/editor/visual/tableUtils';
 	import { typTableNode } from '$lib/languages/typst/visual/blockInsertItems';
 	import { mdTableNode } from '$lib/languages/markdown/visual/blockInsertItems';
-	import { toggleLinkCommand } from './toolbar/markState';
+	import { toggleLinkCommand } from '$lib/editor/visual/toolbar/markState';
 	import { computeLink as texLink, computeWrapBlock } from '$lib/languages/latex/intellisense/shortcuts';
-	import { tableLatex } from './toolbar/tableLatex';
-	import { insertSnippetAtCursor } from './toolbar/sourceInsert';
+	import { tableLatex } from '$lib/editor/source/toolbar/tableLatex';
+	import { insertSnippetAtCursor } from '$lib/editor/source/toolbar/sourceInsert';
 	import {
 		computeFence as mdFence,
 		computeTableSkeleton as mdTable,
@@ -35,8 +35,8 @@
 		computeHr as typHr,
 		computeLink as typLink
 	} from '$lib/languages/typst/source/sourceInsert';
-	import { startImageUpload } from '$lib/editor/extensions/image';
-	import { createLocalImageSettings } from '$lib/editor/extensions/image/imageplugin.svelte';
+	import { startImageUpload } from '$lib/editor/visual/extensions/image';
+	import { createLocalImageSettings } from '$lib/editor/visual/extensions/image/imageplugin.svelte';
 	import { hasVisualMode, isRawTextKind, formatOf, type FileKind } from '$lib/workspace/documentBuffer.svelte';
 	import { run, insertNode, activeCm, cmReplace, cmApply, editSelect, formatSelect } from './menuBarCommands';
 	import { checkForUpdate, updateModalOpen, updateState } from '$lib/updates';

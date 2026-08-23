@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 import type { PluginKey } from 'prosemirror-state';
-import type { MathLivePluginState } from '$lib/editor/extensions/mathlivebridge/mlplugin';
+import type { MathLivePluginState } from '$lib/editor/visual/extensions/mathlivebridge/mlplugin';
 
 // A mathfield is a heavy web component with no layout in jsdom; none of these tests exercise it.
 // It still has to be a real element, since the node view appends it to its own DOM.
@@ -32,14 +32,14 @@ vi.mock('mathlive', () => {
 });
 vi.mock('mathlive/static.css', () => ({}));
 vi.mock('mathlive/fonts.css', () => ({}));
-vi.mock('$lib/editor/extensions/mathlivebridge/virtualKeyboardConfig', () => ({ configureMathVirtualKeyboard() {} }));
+vi.mock('$lib/editor/visual/extensions/mathlivebridge/virtualKeyboardConfig', () => ({ configureMathVirtualKeyboard() {} }));
 
 const mountSpy = vi.fn((_component: unknown, _options: { props: { node: unknown } }) => ({ __component: true }));
 const unmountSpy = vi.fn();
 vi.mock('svelte', async (orig) => ({ ...(await orig<Record<string, unknown>>()), mount: mountSpy, unmount: unmountSpy }));
 
 const { schema } = await import('$lib/languages/latex/schema/latexPMSchema');
-const { MathLiveView } = await import('$lib/editor/extensions/mathlivebridge/mlview.svelte');
+const { MathLiveView } = await import('$lib/editor/visual/extensions/mathlivebridge/mlview.svelte');
 
 function makeView(isBlock: boolean) {
 	const type = isBlock ? schema.nodes.block_math : schema.nodes.inline_math;

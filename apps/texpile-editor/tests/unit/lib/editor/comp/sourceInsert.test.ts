@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { snippet } from '@codemirror/autocomplete';
-import { SYMBOL_GROUPS, toCmSnippet, toSourceBlock, generateMatrixLatex } from '../../../../../src/lib/editor/comp/toolbar/mathSymbols';
-import { tableLatex } from '../../../../../src/lib/editor/comp/toolbar/tableLatex';
+import { SYMBOL_GROUPS, toCmSnippet, toSourceBlock, generateMatrixLatex } from '../../../../../src/lib/editor/visual/toolbar/mathSymbols';
+import { tableLatex } from '../../../../../src/lib/editor/source/toolbar/tableLatex';
 
 /** run a template through CodeMirror the way the toolbars do, and read back what landed.
  *  destroy eagerly: a live view keeps measuring in rAF, which throws in a layout-less jsdom. */

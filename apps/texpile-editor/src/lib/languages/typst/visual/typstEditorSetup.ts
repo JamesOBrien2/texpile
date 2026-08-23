@@ -5,7 +5,7 @@ import type { EditorProps } from 'prosemirror-view';
 import { Fragment, Slice, type Node as PmNode } from 'prosemirror-model';
 import { typstToProseMirror } from './converter';
 import { typstCopyPlugin } from './clipboard';
-import { createSuggestPlugin } from '$lib/editor/extensions/suggest/suggestPlugin';
+import { createSuggestPlugin } from '$lib/editor/visual/extensions/suggest/suggestPlugin';
 import { TypstBibliographyView, isTypstBibliography } from './extensions/typstBibliographyView.svelte';
 import { keymap } from 'prosemirror-keymap';
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
@@ -13,9 +13,9 @@ import { undo as historyUndo, redo as historyRedo, history } from 'prosemirror-h
 import { gapCursor } from 'prosemirror-gapcursor';
 import { dropCursor } from 'prosemirror-dropcursor';
 import { tableEditing, goToNextCell } from 'prosemirror-tables';
-import { columnResizing } from '$lib/editor/extensions/table/columnResizing';
-import { snapWidthToFr } from '$lib/editor/extensions/table/snapWidth';
-import { captureColumnWidths } from '$lib/editor/extensions/table/captureColumnWidths';
+import { columnResizing } from '$lib/editor/visual/extensions/table/columnResizing';
+import { snapWidthToFr } from '$lib/editor/visual/extensions/table/snapWidth';
+import { captureColumnWidths } from '$lib/editor/visual/extensions/table/captureColumnWidths';
 import {
 	createListPlugins,
 	listKeymap,
@@ -25,39 +25,39 @@ import {
 	type ListAttributes
 } from 'prosemirror-flat-list';
 import { inputRules, textblockTypeInputRule, InputRule, undoInputRule, smartQuotes, ellipsis } from 'prosemirror-inputrules';
-import { emDashRule, enDashRule, emDashUpgradeRule } from '$lib/editor/extensions/inputrules/dashRules';
+import { emDashRule, enDashRule, emDashUpgradeRule } from '$lib/editor/visual/extensions/inputrules/dashRules';
 import { search } from 'prosemirror-search';
 import { typSchema } from './schema';
 import { TypstRefView } from './extensions/typstRefView';
 import { TYP_BLOCK_INSERT_ITEMS } from './blockInsertItems';
 import { isMac } from '$lib/platform';
-import { toggleHeading } from '$lib/editor/helperCommands';
-import { createMathField } from '$lib/editor/extensions/mathlivebridge/mlcommands';
-import { imagePlugin } from '$lib/editor/extensions/image';
+import { toggleHeading } from '$lib/editor/visual/helperCommands';
+import { createMathField } from '$lib/editor/visual/extensions/mathlivebridge/mlcommands';
+import { imagePlugin } from '$lib/editor/visual/extensions/image';
 import { createTypstImageSettings } from './imageSettings.svelte';
-import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
-import { cmarrowHandlers } from '$lib/editor/extensions/codemirrorbridge/cmarrowhandler';
-import { menuUpdatePlugin } from '$lib/editor/extensions/toolbarlistenerplugin';
-import { createCursorPlugin } from '$lib/editor/extensions/cursor-plugin';
-import { createLinkPlugin } from '$lib/editor/extensions/link';
-import { pasteUUIDFixPlugin } from '$lib/editor/extensions/paste-uuid-fix';
-import { placeholderPlugin } from '$lib/editor/extensions/placeholderplugin';
-import { tablePlaceholderPlugin } from '$lib/editor/extensions/table/tablePlaceholderPlugin';
-import { createWordCountPlugin } from '$lib/editor/extensions/wordcount/wordCountPlugin';
-import { createTocPlugin } from '$lib/editor/extensions/tableofcontents/tocPlugin';
-import { createPersistentSelectionPlugin } from '$lib/editor/extensions/persistentSelection/persistentSelectionPlugin';
-import { proofreadPlugin, spellClickBoundaryPlugin } from '$lib/editor/extensions/spellcheck/spellcheckplugin';
-import { createTrailingParagraphPlugin } from '$lib/editor/extensions/trailing-paragraph-plugin';
-import { createBoundaryClickPlugin } from '$lib/editor/extensions/boundary-click-plugin';
-import { createBlockHandlePlugin } from '$lib/editor/extensions/block-handle-plugin.svelte';
-import { createNodeFlashPlugin } from '$lib/editor/extensions/flash-plugin';
-import { remoteCursorsPlugin } from '$lib/editor/extensions/remoteCursors';
-import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
-import { typstTableWrapperView } from '$lib/editor/extensions/table/tableWrapperView.svelte';
-import { RawLatexView } from '$lib/editor/extensions/raw-latex/rawLatexView';
-import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
-import { IncludeDocView } from '$lib/editor/extensions/includedoc/includeDocView.svelte';
-import { pmComments } from '$lib/editor/extensions/pmComments';
+import { createCodeBlock } from '$lib/editor/visual/extensions/codemirrorbridge/cmcommands';
+import { cmarrowHandlers } from '$lib/editor/visual/extensions/codemirrorbridge/cmarrowhandler';
+import { menuUpdatePlugin } from '$lib/editor/visual/extensions/toolbarlistenerplugin';
+import { createCursorPlugin } from '$lib/editor/visual/extensions/cursor-plugin';
+import { createLinkPlugin } from '$lib/editor/visual/extensions/link';
+import { pasteUUIDFixPlugin } from '$lib/editor/visual/extensions/paste-uuid-fix';
+import { placeholderPlugin } from '$lib/editor/visual/extensions/placeholderplugin';
+import { tablePlaceholderPlugin } from '$lib/editor/visual/extensions/table/tablePlaceholderPlugin';
+import { createWordCountPlugin } from '$lib/editor/visual/extensions/wordcount/wordCountPlugin';
+import { createTocPlugin } from '$lib/editor/visual/extensions/tableofcontents/tocPlugin';
+import { createPersistentSelectionPlugin } from '$lib/editor/visual/extensions/persistentSelection/persistentSelectionPlugin';
+import { proofreadPlugin, spellClickBoundaryPlugin } from '$lib/editor/spellcheck/spellcheckplugin';
+import { createTrailingParagraphPlugin } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
+import { createBoundaryClickPlugin } from '$lib/editor/visual/extensions/boundary-click-plugin';
+import { createBlockHandlePlugin } from '$lib/editor/visual/extensions/block-handle-plugin.svelte';
+import { createNodeFlashPlugin } from '$lib/editor/visual/extensions/flash-plugin';
+import { remoteCursorsPlugin } from '$lib/editor/visual/extensions/remoteCursors';
+import { CodeBlockView } from '$lib/editor/visual/extensions/codemirrorbridge/cmview.svelte';
+import { typstTableWrapperView } from '$lib/editor/visual/extensions/table/tableWrapperView.svelte';
+import { RawLatexView } from '$lib/editor/visual/extensions/raw-latex/rawLatexView';
+import { InlineLatexView } from '$lib/editor/visual/extensions/raw-latex/inlineLatexView';
+import { IncludeDocView } from '$lib/editor/visual/extensions/includedoc/includeDocView.svelte';
+import { pmComments } from '$lib/editor/visual/extensions/pmComments';
 import type { CommentAnchor } from '$lib/comments/anchor';
 
 // typst-flavored autoformat: = headings, ``` fences, - / + / 1. lists. Deliberately no task

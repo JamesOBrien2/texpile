@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { Slice, type Node } from 'prosemirror-model';
 import { mdSchema } from '$lib/languages/markdown/visual/schema';
 import { sliceToMarkdown } from '$lib/languages/markdown/visual/clipboard';
-import { sliceToLatex } from '$lib/editor/extensions/latexClipboard';
+import { sliceToLatex } from '$lib/editor/visual/extensions/latexClipboard';
 
 const para = (text: string, attrs: Record<string, unknown> | null = null): Node => mdSchema.node('paragraph', attrs, [mdSchema.text(text)]);
 

@@ -4,7 +4,7 @@
 // lineAt() throw inside every later transaction and wedged the whole source editor.
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
-import { comments, setCommentRanges, commentAt } from '$lib/editor/extensions/comments';
+import { comments, setCommentRanges, commentAt } from '$lib/editor/visual/extensions/comments';
 
 function state(doc: string) {
 	return EditorState.create({ doc, extensions: comments() });

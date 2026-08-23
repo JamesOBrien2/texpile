@@ -11,13 +11,13 @@
 	import { fixTables } from 'prosemirror-tables';
 	import { typSchema } from './schema';
 	import { typstEditorPlugins, typstNodeViews } from './typstEditorSetup';
-	import { swapParsedDoc } from '$lib/editor/docSwap';
+	import { swapParsedDoc } from '$lib/editor/visual/docSwap';
 	import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
 	import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 	import { preferences } from '$lib/stores/preferencesStore.svelte';
-	import { buildTrailingParagraphTr } from '$lib/editor/extensions/trailing-paragraph-plugin';
-	import ContextMenu from '$lib/editor/comp/toolbar/ContextMenu.svelte';
-	import { syncPmComments } from '$lib/editor/extensions/pmCommentsSync.svelte';
+	import { buildTrailingParagraphTr } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
+	import ContextMenu from '$lib/editor/visual/toolbar/ContextMenu.svelte';
+	import { syncPmComments } from '$lib/editor/visual/extensions/pmCommentsSync.svelte';
 	import type { CommentAnchor } from '$lib/comments/anchor';
 	import type { CommentThread } from '$lib/comments/log';
 	import 'prosemirror-view/style/prosemirror.css';
@@ -25,8 +25,8 @@
 	import 'prosemirror-gapcursor/style/gapcursor.css';
 	import 'prosemirror-flat-list/dist/style.css';
 	import 'prosemirror-search/style/search.css';
-	import '$lib/editor/extensions/image/styles/common.css';
-	import '$lib/editor/styles/cursor.css';
+	import '$lib/editor/visual/extensions/image/styles/common.css';
+	import '$lib/editor/visual/styles/cursor.css';
 
 	type Props = {
 		localValue?: PMNode | null;
@@ -84,7 +84,7 @@
 	onMount(async () => {
 		// MathLive edits the math nodes' LaTeX content; the serializer's mathTypstOf round-trips
 		// it back to typst through MathLive's own typst serializer (see latexToTypst.ts)
-		const { mathlivePlugin, mlarrowHandlers } = await import('$lib/editor/extensions/mathlivebridge/mlplugin');
+		const { mathlivePlugin, mlarrowHandlers } = await import('$lib/editor/visual/extensions/mathlivebridge/mlplugin');
 
 		const plugins = typstEditorPlugins({
 			mathlivePlugin,

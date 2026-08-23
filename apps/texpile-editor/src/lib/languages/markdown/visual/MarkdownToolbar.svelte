@@ -26,13 +26,13 @@
 	import { mdSchema } from './schema';
 	import MarkdownToolbarTable from './MarkdownToolbarTable.svelte';
 	import MdHeadingDropdown from './MdHeadingDropdown.svelte';
-	import { markIsActive, toggleLinkCommand } from '$lib/editor/comp/toolbar/markState';
+	import { markIsActive, toggleLinkCommand } from '$lib/editor/visual/toolbar/markState';
 	import { displaySearchBarStore, editorViewStore, rawEditorActiveStore } from '$lib/stores/editorStore';
-	import MathToolbar, { mathToolbarState } from '$lib/editor/comp/toolbar/MathToolbar.svelte';
-	import MathDropdown from '$lib/editor/comp/toolbar/MathDropdown.svelte';
-	import ToolbarOverflow from '$lib/editor/comp/toolbar/ToolbarOverflow.svelte';
-	import { setHeadingLevel, toggleBlockQuote } from '$lib/editor/helperCommands';
-	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
+	import MathToolbar, { mathToolbarState } from '$lib/editor/visual/toolbar/MathToolbar.svelte';
+	import MathDropdown from '$lib/editor/visual/toolbar/MathDropdown.svelte';
+	import ToolbarOverflow from '$lib/editor/visual/toolbar/ToolbarOverflow.svelte';
+	import { setHeadingLevel, toggleBlockQuote } from '$lib/editor/visual/helperCommands';
+	import { createCodeBlock } from '$lib/editor/visual/extensions/codemirrorbridge/cmcommands';
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 

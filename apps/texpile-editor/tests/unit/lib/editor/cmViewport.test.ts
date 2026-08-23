@@ -9,9 +9,9 @@
 // screen must be a real, syntax-highlighted CodeMirror, never plain text.
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { schema } from '$lib/languages/latex/schema/latexPMSchema';
-import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
-import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
-import { CM_PLACEHOLDER_CLASS } from '$lib/editor/extensions/codemirrorbridge/cmStatic';
+import { InlineLatexView } from '$lib/editor/visual/extensions/raw-latex/inlineLatexView';
+import { CodeBlockView } from '$lib/editor/visual/extensions/codemirrorbridge/cmview.svelte';
+import { CM_PLACEHOLDER_CLASS } from '$lib/editor/visual/extensions/codemirrorbridge/cmStatic';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 
 type Entry = { target: Element; isIntersecting: boolean };

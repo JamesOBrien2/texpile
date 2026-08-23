@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { findMathRegions, mathRegionAt, type MathRegion } from '../../../../../../src/lib/editor/extensions/math-preview/mathScanner';
+import {
+	findMathRegions,
+	mathRegionAt,
+	type MathRegion
+} from '../../../../../../src/lib/editor/source/extensions/math-preview/mathScanner';
 
 const outer = (text: string, regions: MathRegion[]) => regions.map((r) => text.slice(r.from, r.to));
 const inner = (text: string, regions: MathRegion[]) => regions.map((r) => text.slice(r.innerFrom, r.innerTo));

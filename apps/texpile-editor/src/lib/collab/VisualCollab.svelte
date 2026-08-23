@@ -11,10 +11,10 @@
 	import type { EditorView as PMEditorView } from 'prosemirror-view';
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { fixTables } from 'prosemirror-tables';
-	import { buildTrailingParagraphTr } from '$lib/editor/extensions/trailing-paragraph-plugin';
-	import { computeBlockPatch, protectCaretBlock, syncOrigAttrs } from '$lib/editor/blockPatch';
-	import { setRemoteCursors, type RemotePeerSel } from '$lib/editor/extensions/remoteCursors';
-	import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/sourceMap';
+	import { buildTrailingParagraphTr } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
+	import { computeBlockPatch, protectCaretBlock, syncOrigAttrs } from '$lib/editor/visual/blockPatch';
+	import { setRemoteCursors, type RemotePeerSel } from '$lib/editor/visual/extensions/remoteCursors';
+	import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/visual/sourceMap';
 	import { stripFor } from '$lib/languages/markdown/visual/sourceMap';
 	import { bodyOffsetOf, type ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
 	import { spliceDiff, EDIT_ORIGIN, SEED_ORIGIN } from '$lib/collab/materialize';

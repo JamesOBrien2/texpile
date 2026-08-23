@@ -7,7 +7,7 @@ import { EditorView, keymap } from '@codemirror/view';
 import { mount, unmount, type Component } from 'svelte';
 import ChevronDown from '@lucide/svelte/icons/chevron-down';
 import ChevronRight from '@lucide/svelte/icons/chevron-right';
-import { docText } from '$lib/editor/docText';
+import { docText } from '$lib/editor/source/docText';
 import type { EditorState } from '@codemirror/state';
 import type { Extension } from '@codemirror/state';
 

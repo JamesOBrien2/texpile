@@ -4,7 +4,7 @@
 	import Modal from '../Modal.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { editorConfigStore } from '$lib/stores/editorStore';
-	import { addWordToDocumentDictionary, removeWordFromDocumentDictionary } from '$lib/editor/extensions/harper';
+	import { addWordToDocumentDictionary, removeWordFromDocumentDictionary } from '$lib/editor/spellcheck/harper';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 

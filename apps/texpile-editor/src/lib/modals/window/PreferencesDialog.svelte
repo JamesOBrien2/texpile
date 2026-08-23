@@ -6,7 +6,7 @@
 	import { settings, updateSettings, updateSettingsLive, applyUiLocale, setMcpEnabled, type AppSettings } from '$lib/settings';
 	import { layout, updateLayout } from '$lib/storage/layout';
 	import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
-	import { setSpellcheckEnabled } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
+	import { setSpellcheckEnabled } from '$lib/editor/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
 	import { toolsInGroup } from '$lib/workspace/toolchainCatalog';
 	import { preferencesTab } from '$lib/stores/dialogStore';

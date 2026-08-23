@@ -2,12 +2,12 @@
 // contexts (citation/reference/environment/package/file-path) must all get a chance to match
 // before the bare "\" + letters macro trigger, which would otherwise swallow everything after it.
 import type { CompletionContext, CompletionResult } from '@codemirror/autocomplete';
-import { docText } from '$lib/editor/docText';
+import { docText } from '$lib/editor/source/docText';
 import { citationCompletionSource } from './citations';
 import { referenceCompletionSource } from './references';
 import { environmentCompletionSource } from './environments';
 import { packageClassCompletionSource } from './packagesClasses';
-import { filePathCompletionSource } from '$lib/editor/filePathCompletion';
+import { filePathCompletionSource } from '$lib/editor/source/filePathCompletion';
 import { glossaryCompletionSource } from './glossary';
 import { argumentCompletionSource } from './arguments';
 import { macroOptions } from './macros';

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { Node } from 'prosemirror-model';
 import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 import { parseLatexFile } from '../../../../src/lib/workspace/latexRoundtrip';
-import { buildBlockMap, blockAtSource, pmPosToSourceOffset, sourceOffsetToPmPos, sourceStartAt } from '$lib/editor/sourceMap';
+import { buildBlockMap, blockAtSource, pmPosToSourceOffset, sourceOffsetToPmPos, sourceStartAt } from '$lib/editor/visual/sourceMap';
 
 const SRC = [
 	'\\documentclass{article}',

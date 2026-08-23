@@ -20,18 +20,18 @@
 	import type { Starter, ImportedFile } from '$lib/workspace/starters';
 	import { StarterActions } from '$lib/workspace/starterActions.svelte';
 	import { editorViewStore } from '$lib/stores/editorStore';
-	import { revealPmComment } from '$lib/editor/extensions/pmComments';
+	import { revealPmComment } from '$lib/editor/visual/extensions/pmComments';
 	import { tabs } from '$lib/workspace/tabs.svelte';
 	import { docPositions } from '$lib/workspace/docPositions';
 	import { SyncTexNav, sessionRelativeTarget, needsActivate, normSyncPath } from '$lib/workspace/syncTexNav';
-	import { sourceTocStore } from '$lib/editor/extensions/tableofcontents/tocStore';
-	import { parseOutlineRaw, assembleProjectOutline } from '$lib/editor/extensions/tableofcontents/latexHeadings';
+	import { sourceTocStore } from '$lib/editor/visual/extensions/tableofcontents/tocStore';
+	import { parseOutlineRaw, assembleProjectOutline } from '$lib/editor/visual/extensions/tableofcontents/latexHeadings';
 	import { refreshProjectIntel } from '$lib/workspace/projectIntel';
 	import { projectIntelStore } from '$lib/stores/projectIntel';
 	import { setGraphicResolver } from '$lib/languages/latex/intellisense/hover';
-	import { graphicCandidateUrls } from '$lib/editor/graphicsCandidates';
-	import { setEditorFileAccess } from '$lib/editor/fileAccess';
-	import { initSpellcheckConfig } from '$lib/editor/extensions/spellcheck/spellcheckConfig';
+	import { graphicCandidateUrls } from '$lib/editor/visual/graphicsCandidates';
+	import { setEditorFileAccess } from '$lib/editor/visual/fileAccess';
+	import { initSpellcheckConfig } from '$lib/editor/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
 	import { isSafeRel } from '$lib/collab/protocol';
 	import { previewRelay } from '$lib/collab/previewRelay.svelte';
@@ -48,7 +48,7 @@
 	import { filePathStore } from '$lib/stores/editorStore';
 	import { sourceCmView } from '$lib/stores/editorStore';
 	import { trailingDebounce } from '$lib/trailingDebounce';
-	import { buildBlockMap, pmPosToSourceOffset, firstWordEndOnLine } from '$lib/editor/sourceMap';
+	import { buildBlockMap, pmPosToSourceOffset, firstWordEndOnLine } from '$lib/editor/visual/sourceMap';
 	import {
 		formatTypstDocument,
 		typstBridgeAvailable,

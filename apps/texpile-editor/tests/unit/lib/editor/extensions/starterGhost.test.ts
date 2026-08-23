@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
-import { starterGhost } from '../../../../../src/lib/editor/extensions/starter-ghost/starterGhost';
+import { starterGhost } from '../../../../../src/lib/editor/source/extensions/starter-ghost/starterGhost';
 import { createStarterLatex } from '../../../../../src/lib/workspace/latexRoundtrip';
 
 let view: EditorView | null = null;

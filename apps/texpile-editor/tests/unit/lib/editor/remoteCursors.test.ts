@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { EditorState } from 'prosemirror-state';
 import { parseLatexFile } from '$lib/workspace/latexRoundtrip';
-import { remoteCursorsPlugin, remoteCursorsKey, type RemotePeerSel } from '$lib/editor/extensions/remoteCursors';
+import { remoteCursorsPlugin, remoteCursorsKey, type RemotePeerSel } from '$lib/editor/visual/extensions/remoteCursors';
 
 const mkState = () => {
 	const { doc } = parseLatexFile('Hello world of prose.\n\nSecond paragraph sits here.\n');

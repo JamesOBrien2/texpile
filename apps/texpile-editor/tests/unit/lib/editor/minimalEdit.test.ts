@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
-import { minimalEdit } from '$lib/editor/minimalEdit';
+import { minimalEdit } from '$lib/editor/source/minimalEdit';
 
 const apply = (doc: string, cursor: number, next: string) => {
 	const start = EditorState.create({ doc, selection: { anchor: cursor } });

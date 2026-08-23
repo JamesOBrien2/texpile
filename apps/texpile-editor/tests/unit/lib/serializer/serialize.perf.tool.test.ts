@@ -6,7 +6,7 @@ import { EditorState } from 'prosemirror-state';
 import { parseLatexFile } from '$lib/workspace/latexRoundtrip';
 import { serializeToLatex } from '../../../../src/lib/languages/latex/serializer/latexSerializer';
 import { extractDocRefs } from '../../../../src/lib/languages/latex/parser/labels';
-import { parseOutlineRaw } from '../../../../src/lib/editor/extensions/tableofcontents/latexHeadings';
+import { parseOutlineRaw } from '../../../../src/lib/editor/visual/extensions/tableofcontents/latexHeadings';
 
 function buildPaper(targetBytes: number): string {
 	const chunks: string[] = ['\\documentclass{article}\n\\usepackage{amsmath}\n\\usepackage{graphicx}\n\\begin{document}\n'];

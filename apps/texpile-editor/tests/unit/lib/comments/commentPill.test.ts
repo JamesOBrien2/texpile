@@ -9,7 +9,7 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 import { settings } from '$lib/settings';
-import { pmComments } from '$lib/editor/extensions/pmComments';
+import { pmComments } from '$lib/editor/visual/extensions/pmComments';
 
 let host: HTMLDivElement;
 let view: EditorView | null = null;

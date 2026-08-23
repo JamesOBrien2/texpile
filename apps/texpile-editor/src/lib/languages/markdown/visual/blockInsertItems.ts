@@ -16,7 +16,7 @@ import {
 	Code,
 	Minus
 } from '@lucide/svelte';
-import type { BlockInsertItem } from '$lib/editor/extensions/blockInsertItems';
+import type { BlockInsertItem } from '$lib/editor/visual/extensions/blockInsertItems';
 import { m } from '$lib/paraglide/messages';
 
 /** GFM tables need a header row; the defaults give 1 header + 2 body rows, 2 columns. */

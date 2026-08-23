@@ -1,26 +1,26 @@
 <script lang="ts">
-	import ContextMenu from '$lib/editor/comp/toolbar/ContextMenu.svelte';
+	import ContextMenu from '$lib/editor/visual/toolbar/ContextMenu.svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { EditorState, Transaction } from 'prosemirror-state';
 	import { EditorView } from 'prosemirror-view';
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 	import { latexEditorPlugins, latexNodeViews } from './latexEditorSetup';
-	import { swapParsedDoc } from '$lib/editor/docSwap';
+	import { swapParsedDoc } from '$lib/editor/visual/docSwap';
 	import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
 	import { preferences } from '$lib/stores/preferencesStore.svelte';
 	import { fixTables } from 'prosemirror-tables';
 	import 'prosemirror-view/style/prosemirror.css';
 	import 'prosemirror-tables/style/tables.css';
 	import 'prosemirror-gapcursor/style/gapcursor.css';
-	import '$lib/editor/extensions/image/styles/common.css';
-	import '$lib/editor/extensions/image/styles/withResize.css';
-	import '$lib/editor/extensions/image/styles/sideResize.css';
-	import '$lib/editor/styles/cursor.css';
+	import '$lib/editor/visual/extensions/image/styles/common.css';
+	import '$lib/editor/visual/extensions/image/styles/withResize.css';
+	import '$lib/editor/visual/extensions/image/styles/sideResize.css';
+	import '$lib/editor/visual/styles/cursor.css';
 	import 'prosemirror-flat-list/dist/style.css';
 	import 'prosemirror-search/style/search.css';
-	import { buildTrailingParagraphTr } from '$lib/editor/extensions/trailing-paragraph-plugin';
-	import { syncPmComments } from '$lib/editor/extensions/pmCommentsSync.svelte';
+	import { buildTrailingParagraphTr } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
+	import { syncPmComments } from '$lib/editor/visual/extensions/pmCommentsSync.svelte';
 	import type { CommentAnchor } from '$lib/comments/anchor';
 	import type { CommentThread } from '$lib/comments/log';
 	import type { BiblatexReference } from '$lib/languages/bib/biblatex';
@@ -91,7 +91,7 @@
 	let editorState: EditorState | null = $state(null);
 
 	onMount(async () => {
-		const { mathlivePlugin, mlarrowHandlers } = await import('$lib/editor/extensions/mathlivebridge/mlplugin');
+		const { mathlivePlugin, mlarrowHandlers } = await import('$lib/editor/visual/extensions/mathlivebridge/mlplugin');
 
 		const plugins = latexEditorPlugins({
 			mathlivePlugin,

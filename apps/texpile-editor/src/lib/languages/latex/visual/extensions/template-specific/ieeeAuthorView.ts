@@ -1,4 +1,4 @@
-import { RawLatexView } from '$lib/editor/extensions/raw-latex/rawLatexView';
+import { RawLatexView } from '$lib/editor/visual/extensions/raw-latex/rawLatexView';
 import { parseIeeeAuthors, isIeeeAuthorBlock, ordinalLabel } from './ieeeAuthor';
 import type { Node } from 'prosemirror-model';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';

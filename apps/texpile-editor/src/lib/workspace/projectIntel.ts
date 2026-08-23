@@ -5,8 +5,8 @@ import { readTextFile, type TexFile } from './fileSystem';
 import { projectIntelStore, EMPTY_PROJECT_INTEL, type ProjectIntel } from '$lib/stores/projectIntel';
 import { scanGlossary } from '$lib/languages/latex/intellisense/completion/glossary';
 import { scanScripts } from '$lib/languages/latex/intellisense/completion/subsuperscript';
-import { scanMacroDefinitions } from '$lib/editor/extensions/math-preview/userMacros';
-import { parseOutlineRaw } from '$lib/editor/extensions/tableofcontents/latexHeadings';
+import { scanMacroDefinitions } from '$lib/editor/source/extensions/math-preview/userMacros';
+import { parseOutlineRaw } from '$lib/editor/visual/extensions/tableofcontents/latexHeadings';
 
 const MAX_FILES = 300;
 const MAX_FILE_LENGTH = 2_000_000;

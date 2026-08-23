@@ -26,16 +26,16 @@
 	import { typSchema } from './schema';
 	import TypstHeadingDropdown from './TypstHeadingDropdown.svelte';
 	import TypstToolbarTable from './TypstToolbarTable.svelte';
-	import SupSubDropdown from '$lib/editor/comp/toolbar/SupSubDropdown.svelte';
-	import TextColorDropdown from '$lib/editor/comp/toolbar/TextColorDropdown.svelte';
-	import HighlightDropdown from '$lib/editor/comp/toolbar/HighlightDropdown.svelte';
-	import { markIsActive, activeMarkColor, toggleLinkCommand } from '$lib/editor/comp/toolbar/markState';
+	import SupSubDropdown from '$lib/editor/visual/toolbar/SupSubDropdown.svelte';
+	import TextColorDropdown from '$lib/editor/visual/toolbar/TextColorDropdown.svelte';
+	import HighlightDropdown from '$lib/editor/visual/toolbar/HighlightDropdown.svelte';
+	import { markIsActive, activeMarkColor, toggleLinkCommand } from '$lib/editor/visual/toolbar/markState';
 	import { displaySearchBarStore, editorViewStore, rawEditorActiveStore } from '$lib/stores/editorStore';
-	import MathToolbar, { mathToolbarState } from '$lib/editor/comp/toolbar/MathToolbar.svelte';
-	import MathDropdown from '$lib/editor/comp/toolbar/MathDropdown.svelte';
-	import ToolbarOverflow from '$lib/editor/comp/toolbar/ToolbarOverflow.svelte';
-	import { setHeadingLevel, toggleBlockQuote } from '$lib/editor/helperCommands';
-	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
+	import MathToolbar, { mathToolbarState } from '$lib/editor/visual/toolbar/MathToolbar.svelte';
+	import MathDropdown from '$lib/editor/visual/toolbar/MathDropdown.svelte';
+	import ToolbarOverflow from '$lib/editor/visual/toolbar/ToolbarOverflow.svelte';
+	import { setHeadingLevel, toggleBlockQuote } from '$lib/editor/visual/helperCommands';
+	import { createCodeBlock } from '$lib/editor/visual/extensions/codemirrorbridge/cmcommands';
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 

@@ -4,7 +4,7 @@ import {
 	extractPreambleFrontmatter,
 	replacePreambleFrontmatter,
 	placeholderCommand
-} from '../../../../../../src/lib/editor/extensions/raw-latex/frontmatterView';
+} from '../../../../../../src/lib/editor/visual/extensions/raw-latex/frontmatterView';
 
 describe('simpleFrontmatter — body raw_latex detection (AST, not regex)', () => {
 	it('detects a plain single-argument \\title/\\author/\\date', () => {

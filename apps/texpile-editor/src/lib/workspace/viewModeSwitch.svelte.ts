@@ -13,7 +13,11 @@ import { layout, updateLayout } from '$lib/storage/layout';
 import { isGitRepo } from '$lib/workspace/gitStore';
 import { isDirty } from '$lib/workspace/workspaceStore';
 import { editorViewStore, viewMode as viewModeStore } from '$lib/stores/editorStore';
-import { captureVisualAnchor as captureVisualAnchorAt, captureSourceAnchor, resolveVisualAnchor } from '$lib/editor/modeSwitchAnchors';
+import {
+	captureVisualAnchor as captureVisualAnchorAt,
+	captureSourceAnchor,
+	resolveVisualAnchor
+} from '$lib/editor/visual/modeSwitchAnchors';
 import { bodyOffsetOf, type ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
 import { stripFor } from '$lib/languages/markdown/visual/sourceMap';
 import { createSourceHistory } from '$lib/workspace/sourceHistory';

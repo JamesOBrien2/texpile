@@ -1,6 +1,6 @@
 // import updateImageNode DIRECTLY, not through the image barrel: the barrel pulls in
 // imageplugin.svelte (Svelte + document at module load), fatal for the parser Web Worker
-import { updateImageNode, type SchemaImageSettings } from '$lib/editor/extensions/image/updateImageNode';
+import { updateImageNode, type SchemaImageSettings } from '$lib/editor/visual/extensions/image/updateImageNode';
 import { Schema } from 'prosemirror-model';
 import { nodes } from './pmSchemaNodes';
 import { marks } from './pmSchemaMarks';

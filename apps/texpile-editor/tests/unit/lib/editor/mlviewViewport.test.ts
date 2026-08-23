@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 import type { PluginKey } from 'prosemirror-state';
-import type { MathLivePluginState } from '$lib/editor/extensions/mathlivebridge/mlplugin';
+import type { MathLivePluginState } from '$lib/editor/visual/extensions/mathlivebridge/mlplugin';
 
 type Entry = { target: Element; isIntersecting: boolean };
 type Cb = (entries: Entry[], obs: unknown) => void;
@@ -68,12 +68,12 @@ vi.mock('mathlive', () => {
 });
 vi.mock('mathlive/static.css', () => ({}));
 vi.mock('mathlive/fonts.css', () => ({}));
-vi.mock('$lib/editor/extensions/mathlivebridge/virtualKeyboardConfig', () => ({ configureMathVirtualKeyboard() {} }));
+vi.mock('$lib/editor/visual/extensions/mathlivebridge/virtualKeyboardConfig', () => ({ configureMathVirtualKeyboard() {} }));
 vi.mock('svelte', async (orig) => ({ ...(await orig<Record<string, unknown>>()), mount: () => ({}), unmount: () => {} }));
 
 const { schema } = await import('$lib/languages/latex/schema/latexPMSchema');
-const { PLACEHOLDER_CLASS } = await import('$lib/editor/extensions/mathlivebridge/mathStatic');
-const { MathLiveView } = await import('$lib/editor/extensions/mathlivebridge/mlview.svelte');
+const { PLACEHOLDER_CLASS } = await import('$lib/editor/visual/extensions/mathlivebridge/mathStatic');
+const { MathLiveView } = await import('$lib/editor/visual/extensions/mathlivebridge/mlview.svelte');
 
 function makeView(latex = 'x^2', isBlock = false) {
 	const type = isBlock ? schema.nodes.block_math : schema.nodes.inline_math;

@@ -10,7 +10,7 @@ import { undo as cmUndo, redo as cmRedo } from '@codemirror/commands';
 import { openSearchPanel } from '@codemirror/search';
 import { undo, redo } from 'prosemirror-history';
 import { toggleMark } from 'prosemirror-commands';
-import { toggleHeading, toggleBlockQuote } from '$lib/editor/helperCommands';
+import { toggleHeading, toggleBlockQuote } from '$lib/editor/visual/helperCommands';
 import { editorViewStore, displaySearchBarStore, viewMode, sourceCmView } from '$lib/stores/editorStore';
 import { computeToggleWrap, computeWrapBlock } from '$lib/languages/latex/intellisense/shortcuts';
 import {

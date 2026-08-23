@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { schema } from '$lib/languages/latex/schema/latexPMSchema';
-import { markIsActive, activeMarkColor } from '$lib/editor/comp/toolbar/markState';
+import { markIsActive, activeMarkColor } from '$lib/editor/visual/toolbar/markState';
 
 // regression: markIsActive used to return rangeHasMark's boolean for range selections and the
 // toolbar read .attrs.color off it. selecting highlighted text (or applying a highlight to a

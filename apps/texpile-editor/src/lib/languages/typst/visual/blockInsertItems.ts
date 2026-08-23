@@ -4,8 +4,8 @@
 // typst-aware nodes — the menu must not be able to create what the serializer can't emit.
 import { Type, Heading1, Heading2, Heading3, List, ListOrdered, Code, Minus, Table as TableIcon } from '@lucide/svelte';
 import type { Schema, Node as PMNode } from 'prosemirror-model';
-import type { BlockInsertItem } from '$lib/editor/extensions/blockInsertItems';
-import { generateLabel } from '$lib/editor/utils/label';
+import type { BlockInsertItem } from '$lib/editor/visual/extensions/blockInsertItems';
+import { generateLabel } from '$lib/editor/visual/label';
 import { m } from '$lib/paraglide/messages';
 
 function listItem(schema: Schema, kind: 'bullet' | 'ordered') {
