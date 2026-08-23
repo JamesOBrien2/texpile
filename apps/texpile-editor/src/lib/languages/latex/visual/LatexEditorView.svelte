@@ -16,7 +16,7 @@
 	import '$lib/editor/extensions/image/styles/common.css';
 	import '$lib/editor/extensions/image/styles/withResize.css';
 	import '$lib/editor/extensions/image/styles/sideResize.css';
-	import './styles/cursor.css';
+	import '$lib/editor/styles/cursor.css';
 	import 'prosemirror-flat-list/dist/style.css';
 	import 'prosemirror-search/style/search.css';
 	import { buildTrailingParagraphTr } from '$lib/editor/extensions/trailing-paragraph-plugin';
@@ -219,7 +219,7 @@
 <ContextMenu {onAddComment} {onInsertCitation} />
 
 <style lang="postcss">
-	@reference "../../app.css";
+	@reference "../../../../app.css";
 
 	:global(.suggestion-add) {
 		background-color: rgba(74, 222, 128, 0.2);

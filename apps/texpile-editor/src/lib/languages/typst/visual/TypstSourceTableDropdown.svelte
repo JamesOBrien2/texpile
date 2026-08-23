@@ -115,7 +115,7 @@
 </Popover>
 
 <style lang="postcss">
-	@reference "../../../app.css";
+	@reference "../../../../app.css";
 
 	.toolbarButton {
 		@apply rounded-base transition-all ease-in-out;

@@ -179,7 +179,7 @@
 <ContextMenu dialect="typst" {onAddComment} {onInsertCitation} />
 
 <style lang="postcss">
-	@reference "../../../app.css";
+	@reference "../../../../app.css";
 
 	/* (the code-block card's quiet inset is now the shared default in cmview.ts, so the override
 	   that used to live here is gone) */
