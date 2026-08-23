@@ -49,7 +49,9 @@ Exceptions and amendments for this project:
 2. Function names should be descriptive. Do not use simple names like load, load what? Variable names should be just as clear
 3. Comments should be avoided as much as possible. In most cases, if you need a comment, making that part of the code a separate function with a separate name is a better option
 4. Exception: a comment explaining why is allowed when a function name cannot carry it. Workarounds, spec quirks, and performance tradeoffs qualify. Comments explaining what the code does do not
-5. Names should be general such that they can be taken out of context and understood. If a name gets too long then it is doing too many things, so consider splitting. ~50 characters is the soft benchmark where lint starts warning:
+5. No section comments: no `// ---- x ----` banners, no divider lines, and no plain `// x` region labels either. A region worth labeling is worth being its own function or file. In markup the fix is extraction first: a component whose name says what the region is beats any comment (`<!-- toolbar -->` over a run of html is inferior to `<VisualEditorMathToolbar />`); failing that, a semantic element (`<section>`) over a labeled `<div>`
+6. If you find yourself weighing whether a comment is needed, it is not
+7. Names should be general such that they can be taken out of context and understood. If a name gets too long then it is doing too many things, so consider splitting. ~50 characters is the soft benchmark where lint starts warning:
 
 ```
 units.ts // What units?

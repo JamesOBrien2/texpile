@@ -140,7 +140,7 @@
 		);
 	} else view = 'problems';
 
-	// ---- parent API (via bind:this) ----
+	// parent API (via bind:this)
 	/** the compile shell, created on demand and reused; never one the user is working in */
 	function ensureCompileTerm(): number | null {
 		if (!terminalEnabled) return null;

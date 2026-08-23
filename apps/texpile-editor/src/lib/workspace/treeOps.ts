@@ -272,7 +272,7 @@ export class TreeOps {
 		}
 	};
 
-	// ---- the pieces the operations above share ----
+	// the pieces the operations above share
 
 	/** where `entry` lands inside `targetDir`, or null when that is where it already is. */
 	#destIn(targetDir: string, entry: TreeEntry): string | null {

@@ -168,7 +168,7 @@ export class ProjectConfigSync {
 		compileConfig.update((s) => ({ ...s, [p.format]: { ...s[p.format], command: p.command } }));
 	}
 
-	// ---- setters: every mutation lands in the store AND the file ----
+	// setters: every mutation lands in the store AND the file
 
 	/** save (or clear, with null) one lane's command; a command the user typed here is trusted by
 	 *  definition, or reopening the folder would ask them to approve their own command. */

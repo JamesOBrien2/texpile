@@ -39,7 +39,6 @@
 	});
 </script>
 
-<!-- dismissal keeps the references as they are: the file already moved, so "do nothing" is a choice -->
 <Modal title={m.wsview_refupdate_title()} onClose={onKeep}>
 	<p class="text-surface-600-300 text-sm">
 		{body}

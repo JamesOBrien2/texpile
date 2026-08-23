@@ -508,7 +508,7 @@ function occurrences(text: string, needle: string): number[] {
 	return out;
 }
 
-// ---- block downgrade: locate a quote that cannot be matched whole ----
+// block downgrade: locate a quote that cannot be matched whole
 
 /**
  * Spans of a quote with no textual counterpart on the other side of the dialect boundary, used to

@@ -76,7 +76,7 @@
 	// reverting. Cleared on a full compile (fresh records already carry the edit).
 	const activePatch = new Map<number, Patch | Patch[]>(); // arrays = split patches (column spans)
 
-	// ---- zoom / view state ----
+	// zoom / view state
 	// 100% == actual physical size on a 96dpi display (matches the PDF viewer's zoom).
 	const PT2PX = 96 / 72.27;
 	const MIN_ZOOM = 0.2,
@@ -251,7 +251,7 @@
 		})();
 	}
 
-	// ---- exact-PDF resting view ----
+	// exact-PDF resting view
 	// At rest each visible page paints a pdf.js raster of _draft/draft.pdf -- pixel-exact by
 	// construction (true fonts, figures, tikz). The record canvas remains the LIVE overlay
 	// while typing (patch composites below) and the automatic fallback when the PDF is
@@ -372,7 +372,7 @@
 		ctx.restore();
 	}
 
-	// ---- viewport windowing: only paint visible pages +-2 ----
+	// viewport windowing: only paint visible pages +-2
 	// Every page keeps its CSS-sized element (scroll geometry), but only windowed pages hold
 	// a raster: at A4 x dpr2 each painted canvas is ~14MB of backing store, and repainting
 	// every changed page after a reconcile stalled typing O(pages) on long documents.
@@ -536,7 +536,7 @@
 		});
 	}
 
-	// ---- instant per-paragraph patch (the "no delay while typing" path) ----
+	// instant per-paragraph patch (the "no delay while typing" path)
 
 	type Cal = {
 		pageNo: number;
@@ -1222,7 +1222,7 @@
 		if (t > 0) untrack(() => compile('quiet:' + t));
 	});
 
-	// ---- zoom / fit ----
+	// zoom / fit
 	function clampZoom(z: number) {
 		return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 	}
@@ -1374,7 +1374,7 @@
 		else center();
 	}
 
-	// ---- SyncTeX in the live preview ----
+	// SyncTeX in the live preview
 	// The word under a click, rebuilt from the page's glyph records (same baseline row,
 	// expanded to the nearest space-gaps). It anchors the source jump against line drift,
 	// exactly like the PDF viewer's double-clicked word. Type1 slots map to text through

@@ -1,14 +1,4 @@
 <script lang="ts">
-	// How to point an assistant at the MCP server. Its own modal rather than an expanding panel in
-	// Preferences: these are read once and then never again, so they should not cost height in the
-	// settings list forever.
-	//
-	// Stacks ABOVE Preferences. Every other modal in the app sits at z-1300 because they are mutually
-	// exclusive; this one is the first that opens on top of another, so it needs its own layer.
-	//
-	// Per-client blocks rather than one command, because they are not interchangeable: Claude Code
-	// takes a CLI call, Codex takes a TOML entry in a config file. Labelling them was the point -
-	// showing only the Claude form left Codex users with something that looks like it should work.
 	import { Check, Copy } from '@lucide/svelte';
 	import Modal from '../Modal.svelte';
 	import { m } from '$lib/paraglide/messages';

@@ -1274,7 +1274,7 @@
 		}
 	});
 
-	// ---- the preview stream's host end ----
+	// the preview stream's host end
 	// the relay dials the data plane, so it needs the task's address (and its disappearance)
 	$effect(() => previewRelay.setHost(typstPreviewHost));
 	// the relay found the task's port dead (dials refused): kill it; the demand effect above
@@ -1295,7 +1295,7 @@
 		if (collabHost.active && !guest) collabHost.advertiseTypstPreview(typstPreviewWanted);
 	});
 
-	// ---- the Problems panel in Preview mode ----
+	// the Problems panel in Preview mode
 	// With Preview on, Compile never shell-runs, so the log watcher that normally fills the
 	// panel has nothing to parse - yet the errors exist, live, as tinymist's LSP diagnostics
 	// (the same compiler the preview renders with). Feed the panel from those instead. They
@@ -1504,7 +1504,7 @@
 		return syncTex.inverseFromClick(page, x, y, selectText);
 	}
 
-	// ---- Zotero citations (host-only; see lib/zotero) ----
+	// Zotero citations (host-only; see lib/zotero)
 	// The open file's dialect must match the main's engine: the imported entries land in the
 	// bibliography the MAIN file declares, so a .typ scratch file open in a LaTeX project has
 	// nowhere sensible to point its citation.

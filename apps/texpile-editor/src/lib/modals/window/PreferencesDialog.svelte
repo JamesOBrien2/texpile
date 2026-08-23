@@ -23,7 +23,7 @@
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
-	// ---- AI assistant access (MCP) ----
+	// MCP
 	type McpStatus = {
 		running: boolean;
 		port: number | null;

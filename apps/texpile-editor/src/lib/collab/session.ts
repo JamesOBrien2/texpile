@@ -193,7 +193,7 @@ export class CollabSession {
 		this.events.onPeersChange?.(this.peers);
 	};
 
-	// ---- outbound ----
+	// outbound
 
 	private post(frame: Frame): void {
 		if (this.destroyed) return;
@@ -268,7 +268,7 @@ export class CollabSession {
 		}
 	}
 
-	// ---- inbound ----
+	// inbound
 
 	private async receive(sealed: Uint8Array, fromHost: boolean): Promise<void> {
 		if (this.destroyed) return;

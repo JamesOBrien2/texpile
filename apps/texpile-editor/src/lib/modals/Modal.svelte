@@ -1,7 +1,6 @@
 <script module lang="ts">
-	// one Escape closes one modal: every open shell registers here and only the top of the
-	// stack answers the key. Without this, stacked dialogs (MCP setup above Preferences) each
-	// held a window listener and a single Escape closed both.
+	// every open shell registers here and only the top of the stack answers Escape, so one
+	// keypress closes one modal even when dialogs stack
 	const escapeStack: symbol[] = [];
 </script>
 
@@ -78,9 +77,7 @@
 		role="presentation"
 		onmousedown={(e) => e.target === e.currentTarget && dismissable && close()}
 	>
-		<!-- max-h + a scroll model from `card`: the dialog grows with its content, and a short window
-		     must keep the buttons reachable rather than clip them off both ends. The scrim's p-4 is
-		     the margin the card stops at. -->
+		<!-- max-h + card scroll: a short window scrolls the card instead of clipping the buttons -->
 		<!-- svelte-ignore a11y_autofocus -->
 		<div
 			class="card bg-surface-50-950 border-surface-300-700 w-full border shadow-2xl {card}"

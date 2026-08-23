@@ -1,9 +1,5 @@
 <script lang="ts">
-	// The keyboard shortcut sheet (Help > Keyboard shortcuts).
-	//
-	// Its own component, and mounted by WindowDialogs rather than by the menu bar: a guest session
-	// draws no menu bar, and the sheet is not a menu feature, it is a window feature that a menu item
-	// happens to open.
+	// Help > Keyboard shortcuts
 	import { isMac } from '$lib/platform';
 	import { shortcutsOpen } from '$lib/stores/dialogStore';
 	import Modal from '../Modal.svelte';

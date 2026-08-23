@@ -98,7 +98,7 @@
 		};
 	});
 
-	// ---- the socket splice ----
+	// the socket splice
 	// One live connection: `conn` is our epoch on the session wire, `shimEpoch` the page's
 	// construction counter for it. Both stamped on every hop, so anything stale drops silently.
 	let conn = 0;
@@ -112,7 +112,7 @@
 		collabGuest.sendPreview({ conn, ev, seq: 0, part: 0, parts: 1, bytes: EMPTY });
 	}
 
-	// ---- reattach backoff ----
+	// reattach backoff
 	// The viewer reconnects the instant its socket closes, so a systematically failing attach (the
 	// task's port dead on the host, frames lost on the relay) otherwise becomes a tight construct/
 	// close loop hammering the session with 1006 closes. A conn that dies young counts as a

@@ -72,7 +72,7 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 		editor: m.palette_group_editor()
 	};
 
-	// ---- compile first: it is the reason most people reach for a palette in a LaTeX editor ----
+	// compile first: it is the reason most people reach for a palette in a LaTeX editor
 	if (a.compileAvailable()) {
 		push(
 			a.isCompiling()
@@ -123,7 +123,7 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 		});
 	}
 
-	// ---- view ----
+	// view
 	const mode = a.getViewMode();
 	if (a.hasFile()) {
 		if (mode !== 'visual')
@@ -173,7 +173,7 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 			run: () => a.openGlobalSearch()
 		});
 
-	// ---- editor ----
+	// editor
 	if (a.insertZoteroCitation && a.canZoteroCite?.())
 		push({
 			id: 'editor.zoteroCitation',
@@ -212,7 +212,7 @@ export function buildCommands(a: PaletteActions): PaletteItem[] {
 		});
 	}
 
-	// ---- file ----
+	// file
 	if (a.hasFile())
 		push({
 			id: 'file.save',

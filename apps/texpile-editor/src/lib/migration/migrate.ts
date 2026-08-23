@@ -80,9 +80,7 @@ export function writeMigrationStash(stash: MigrationStash | null): void {
 	}
 }
 
-// ---------------------------------------------------------------------------
 // Phase A: localStorage
-// ---------------------------------------------------------------------------
 
 type FolderAcc = {
 	main?: string;
@@ -95,7 +93,7 @@ type FolderAcc = {
 export function migrateLocalStorage(): void {
 	if (typeof localStorage === 'undefined') return;
 
-	// --- workspaces ---
+	// workspaces
 	if (!versioned('texpile:workspaces')) {
 		const folders: Record<string, FolderAcc> = {};
 		const stashFolders: NonNullable<MigrationStash['folders']> = {};
@@ -173,7 +171,7 @@ export function migrateLocalStorage(): void {
 		}
 	}
 
-	// --- layout ---
+	// layout
 	if (!versioned('texpile:layout')) {
 		const layout: Record<string, unknown> = { v: 1 };
 		const mode = localStorage.getItem('texpile:mode');
@@ -202,7 +200,7 @@ export function migrateLocalStorage(): void {
 		}
 	}
 
-	// --- users ---
+	// users
 	if (!versioned('texpile:users')) {
 		const u: Record<string, unknown> = { v: 1 };
 		const name = localStorage.getItem('texpile:collabName');

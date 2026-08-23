@@ -13,7 +13,6 @@
 	} = $props();
 </script>
 
-<!-- a forced choice: there is no neutral outcome, so no X, and backdrop or Escape do nothing -->
 <Modal dismissable={false} title={m.wsview_conflict_title()}>
 	<p class="text-surface-600-300 text-sm">
 		<span class="font-medium">{basename(path)}</span>

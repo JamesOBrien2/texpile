@@ -54,7 +54,7 @@ export class PaneLayout {
 		this.pdfPaneOpen = s.pdfPaneOpen;
 	}
 
-	// --- sidebar ---
+	// sidebar
 
 	setSidebarOpen = (open: boolean) => {
 		this.sidebarOpen = open;
@@ -98,7 +98,7 @@ export class PaneLayout {
 			commit: this.commitSidebar
 		});
 
-	// --- TOC split ---
+	// TOC split
 
 	private setToc = (f: number) => (this.tocFraction = clampToc(f));
 	private commitToc = () => updateLayout({ tocFraction: this.tocFraction });
@@ -118,7 +118,7 @@ export class PaneLayout {
 			commit: this.commitToc
 		});
 
-	// --- PDF preview pane ---
+	// PDF preview pane
 
 	/** cap: whatever is left after the sidebar, keeping room for the editor */
 	private pdfMaxWidth(): number {

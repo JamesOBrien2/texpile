@@ -60,7 +60,7 @@
 		if ((globalThis as { texpileCursorDebug?: boolean }).texpileCursorDebug) console.log('[collab-cursor]', ...args);
 	}
 
-	// ---- remote edits -> block patch ----
+	// remote edits -> block patch
 	let remotePatchTimer: ReturnType<typeof setTimeout> | null = null;
 	let remoteParseMs = 0;
 	// set by a local visual edit: the doc's orig stamps predate it, so the next quiet moment
@@ -271,7 +271,7 @@
 		return () => dom.removeEventListener('focusout', onFocusOut);
 	});
 
-	// ---- presence: our caret out, peers' carets in ----
+	// presence: our caret out, peers' carets in
 	let visualCursorTimer: ReturnType<typeof setTimeout> | null = null;
 	// last published offsets: identical positions never rebroadcast (an equal-content awareness
 	// update still bumps clocks, which reads as caret flicker on some consumers)
