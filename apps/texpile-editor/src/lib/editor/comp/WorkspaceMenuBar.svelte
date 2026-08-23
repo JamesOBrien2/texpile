@@ -17,7 +17,7 @@
 	import { typTableNode } from '$lib/languages/typst/visual/blockInsertItems';
 	import { mdTableNode } from '$lib/languages/markdown/visual/blockInsertItems';
 	import { toggleLinkCommand } from './toolbar/markState';
-	import { computeLink as texLink, computeWrapBlock } from '$lib/editor/extensions/intellisense/shortcuts';
+	import { computeLink as texLink, computeWrapBlock } from '$lib/languages/latex/intellisense/shortcuts';
 	import { tableLatex } from './toolbar/tableLatex';
 	import { insertSnippetAtCursor } from './toolbar/sourceInsert';
 	import {

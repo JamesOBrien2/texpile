@@ -6,8 +6,8 @@
 	import type { ComponentProps } from 'svelte';
 	import { Loader2, CircleAlert, Info } from '@lucide/svelte';
 	import { isTexpileManaged } from '$lib/comments/managed';
-	import Toolbar from './toolbar/Toolbar.svelte';
-	import SourceToolbar from './toolbar/SourceToolbar.svelte';
+	import LatexToolbar from '$lib/languages/latex/visual/LatexToolbar.svelte';
+	import LatexSourceToolbar from '$lib/languages/latex/visual/LatexSourceToolbar.svelte';
 	import SearchBar from './SearchBar.svelte';
 	import StarterPicker from './StarterPicker.svelte';
 	import DiffPane from './DiffPane.svelte';
@@ -15,7 +15,7 @@
 	import BibManager from './BibManager.svelte';
 	import PDFViewer from './PDFViewer.svelte';
 	import PreambleFrontmatter from './PreambleFrontmatter.svelte';
-	import EditorView from '$lib/editor/EditorView.svelte';
+	import LatexEditorView from '$lib/languages/latex/visual/LatexEditorView.svelte';
 	import MarkdownEditorView from '$lib/languages/markdown/visual/MarkdownEditorView.svelte';
 	import MarkdownToolbar from '$lib/languages/markdown/visual/MarkdownToolbar.svelte';
 	import MarkdownSourceToolbar from '$lib/languages/markdown/visual/MarkdownSourceToolbar.svelte';
@@ -175,10 +175,10 @@
 	const sourceKey = $derived(`${loadedPath}:${session.active}:${session.manifestRev}`);
 
 	// Building the visual editor's node views is one long synchronous block - seconds on a large
-	// paper - and it does NOT happen when <EditorView> mounts. That component's onMount awaits a
+	// paper - and it does NOT happen when <LatexEditorView> mounts. That component's onMount awaits a
 	// dynamic import first, so the browser paints (the title appears, the editor area is still
 	// empty), and only then does ProseMirror construct and freeze the thread. So mounting is not the
-	// signal; EditorView reports the real one through onReady.
+	// signal; LatexEditorView reports the real one through onReady.
 	//
 	// Keeping the loading bar rendered until then puts it on screen during that import-await paint,
 	// and whatever was last painted stays up through the block that follows.
@@ -247,7 +247,7 @@
 			{:else if kind === 'typ'}
 				<TypstToolbar />
 			{:else}
-				<Toolbar />
+				<LatexToolbar />
 			{/if}
 		</div>
 	{:else if loadedPath && structured && viewMode === 'source'}
@@ -257,7 +257,7 @@
 			{:else if kind === 'typ'}
 				<TypstSourceToolbar />
 			{:else}
-				<SourceToolbar />
+				<LatexSourceToolbar />
 			{/if}
 		</div>
 	{/if}
@@ -410,7 +410,7 @@
 									addCommentLabel={m.comments_add()}
 								/>
 							{:else}
-								<EditorView
+								<LatexEditorView
 									localValue={visualDoc}
 									localReferences={allReferences}
 									imageDir={dirname(loadedPath)}

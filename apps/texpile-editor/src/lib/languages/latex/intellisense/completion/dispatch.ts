@@ -7,7 +7,7 @@ import { citationCompletionSource } from './citations';
 import { referenceCompletionSource } from './references';
 import { environmentCompletionSource } from './environments';
 import { packageClassCompletionSource } from './packagesClasses';
-import { filePathCompletionSource } from './filePaths';
+import { filePathCompletionSource } from '$lib/editor/filePathCompletion';
 import { glossaryCompletionSource } from './glossary';
 import { argumentCompletionSource } from './arguments';
 import { macroOptions } from './macros';

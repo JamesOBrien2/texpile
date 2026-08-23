@@ -24,10 +24,10 @@
 	} from '@lucide/svelte';
 	import type { EditorState, TransactionSpec } from '@codemirror/state';
 	import { sourceCmView } from '$lib/stores/editorStore';
-	import { computeToggleWrap, computeWrapBlock, computeLink } from '$lib/editor/extensions/intellisense/shortcuts';
-	import SourceTableDropdown from './SourceTableDropdown.svelte';
-	import SourceMathDropdown from './SourceMathDropdown.svelte';
-	import ToolbarOverflow from './ToolbarOverflow.svelte';
+	import { computeToggleWrap, computeWrapBlock, computeLink } from '$lib/languages/latex/intellisense/shortcuts';
+	import SourceTableDropdown from '$lib/editor/comp/toolbar/SourceTableDropdown.svelte';
+	import SourceMathDropdown from '$lib/editor/comp/toolbar/SourceMathDropdown.svelte';
+	import ToolbarOverflow from '$lib/editor/comp/toolbar/ToolbarOverflow.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	function run(build: (state: EditorState) => TransactionSpec) {

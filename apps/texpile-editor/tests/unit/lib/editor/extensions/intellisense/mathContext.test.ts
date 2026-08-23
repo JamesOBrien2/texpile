@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { CompletionContext } from '@codemirror/autocomplete';
-import { isMathContext } from '../../../../../../src/lib/editor/extensions/intellisense/completion/mathContext';
-import { latexCompletionSource } from '../../../../../../src/lib/editor/extensions/intellisense/completion/dispatch';
+import { isMathContext } from '../../../../../../src/lib/languages/latex/intellisense/completion/mathContext';
+import { latexCompletionSource } from '../../../../../../src/lib/languages/latex/intellisense/completion/dispatch';
 
 const at = (doc: string, pos = doc.length) => isMathContext(EditorState.create({ doc }), pos);
 

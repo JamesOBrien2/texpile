@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { CompletionContext } from '@codemirror/autocomplete';
-import { referenceCompletionSource } from '../../../../../../src/lib/editor/extensions/intellisense/completion/references';
+import { referenceCompletionSource } from '../../../../../../src/lib/languages/latex/intellisense/completion/references';
 import { labelStore } from '$lib/stores/editorStore';
 
 function completeAt(doc: string) {

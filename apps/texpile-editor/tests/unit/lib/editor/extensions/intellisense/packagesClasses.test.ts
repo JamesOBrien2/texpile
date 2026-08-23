@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { CompletionContext } from '@codemirror/autocomplete';
-import { packageClassCompletionSource } from '../../../../../../src/lib/editor/extensions/intellisense/completion/packagesClasses';
+import { packageClassCompletionSource } from '../../../../../../src/lib/languages/latex/intellisense/completion/packagesClasses';
 
 function completeAt(doc: string) {
 	const state = EditorState.create({ doc });

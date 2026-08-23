@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // definition.ts reaches mathlive, whose browser build touches HTMLElement as it loads
 import { describe, it, expect } from 'vitest';
-import { findMacroDefinition, includeTargetAt } from '../../../../../../src/lib/editor/extensions/intellisense/definition';
+import { findMacroDefinition, includeTargetAt } from '../../../../../../src/lib/languages/latex/intellisense/definition';
 
 describe('go-to-definition helpers', () => {
 	it('finds a \\newcommand definition by name', () => {

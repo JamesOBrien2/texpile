@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { CompletionContext } from '@codemirror/autocomplete';
-import { glossaryCompletionSource } from '../../../../../../src/lib/editor/extensions/intellisense/completion/glossary';
+import { glossaryCompletionSource } from '../../../../../../src/lib/languages/latex/intellisense/completion/glossary';
 
 function completeAt(doc: string, pos = doc.length) {
 	const state = EditorState.create({ doc });

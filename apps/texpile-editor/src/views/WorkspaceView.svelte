@@ -28,7 +28,7 @@
 	import { parseOutlineRaw, assembleProjectOutline } from '$lib/editor/extensions/tableofcontents/latexHeadings';
 	import { refreshProjectIntel } from '$lib/workspace/projectIntel';
 	import { projectIntelStore } from '$lib/stores/projectIntel';
-	import { setGraphicResolver } from '$lib/editor/extensions/intellisense/hover';
+	import { setGraphicResolver } from '$lib/languages/latex/intellisense/hover';
 	import { graphicCandidateUrls } from '$lib/editor/graphicsCandidates';
 	import { setEditorFileAccess } from '$lib/editor/fileAccess';
 	import { initSpellcheckConfig } from '$lib/editor/extensions/spellcheck/spellcheckConfig';

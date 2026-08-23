@@ -17,8 +17,8 @@
 	import { languages as cmlangdata } from '@codemirror/language-data';
 	import { searchKeymap } from '@codemirror/search';
 	import { texpileSearch } from '$lib/editor/extensions/search-panel/searchPanel';
-	import { latexAutocomplete, latexIntellisense } from '$lib/editor/extensions/intellisense/intellisense';
-	import { foldMarkerDOM, foldMarkerTheme } from '$lib/editor/extensions/intellisense/fold';
+	import { latexAutocomplete, latexIntellisense } from '$lib/languages/latex/intellisense/intellisense';
+	import { foldMarkerDOM, foldMarkerTheme } from '$lib/languages/latex/intellisense/fold';
 	import { mdSourceShortcuts } from '$lib/languages/markdown/visual/sourceExtensions';
 	import { typSourceShortcuts } from '$lib/languages/typst/visual/sourceExtensions';
 	import { mdPathCompletion } from '$lib/languages/markdown/pathCompletion';
@@ -33,10 +33,10 @@
 	} from '$lib/editor/extensions/comments';
 	import { mathPreview } from '$lib/editor/extensions/math-preview/mathPreview';
 	import { starterGhost } from '$lib/editor/extensions/starter-ghost/starterGhost';
-	import { synctexFlash, flashLineEffect } from '$lib/editor/extensions/synctex-flash/synctexFlash';
+	import { synctexFlash, flashLineEffect } from '$lib/languages/latex/extensions/synctex-flash/synctexFlash';
 	import { bindModalKeymap, modalKeymapCompartment } from '$lib/editor/extensions/keybindings/modalKeymap';
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
-	import { latex } from '$lib/editor/extensions/latex/latex';
+	import { latex } from '$lib/languages/latex/latexLanguage';
 	import { releaseTypstLsp, typstLspExtension, typstServerGen } from '$lib/languages/typst/intellisense/lspClient';
 	import { typstGuestLspExtension, releaseGuestTypstLsp } from '$lib/languages/typst/intellisense/guestLspExtension';
 	import { collabGuest, guestSession } from '$lib/collab/guestStore.svelte';

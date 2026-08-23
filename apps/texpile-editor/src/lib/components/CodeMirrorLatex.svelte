@@ -5,7 +5,7 @@
 	import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 	import { foldGutter, indentOnInput, bracketMatching, foldKeymap } from '@codemirror/language';
 	import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
-	import { latexAutocomplete } from '$lib/editor/extensions/intellisense/intellisense';
+	import { latexAutocomplete } from '$lib/languages/latex/intellisense/intellisense';
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
 	import { languages } from '@codemirror/language-data';
 	import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
@@ -59,7 +59,7 @@
 			} else {
 				// the app's own LaTeX mode (same tags and colours as the source editor), not
 				// language-data's stex, which paints commands in a tag the shared style ignores
-				const { latex } = await import('$lib/editor/extensions/latex/latex');
+				const { latex } = await import('$lib/languages/latex/latexLanguage');
 				languageExtension = [languageCompartment.of(latex())];
 			}
 		} catch {

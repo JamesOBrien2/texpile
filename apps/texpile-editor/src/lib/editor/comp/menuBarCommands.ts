@@ -12,7 +12,7 @@ import { undo, redo } from 'prosemirror-history';
 import { toggleMark } from 'prosemirror-commands';
 import { toggleHeading, toggleBlockQuote } from '$lib/editor/helperCommands';
 import { editorViewStore, displaySearchBarStore, viewMode, sourceCmView } from '$lib/stores/editorStore';
-import { computeToggleWrap, computeWrapBlock } from '$lib/editor/extensions/intellisense/shortcuts';
+import { computeToggleWrap, computeWrapBlock } from '$lib/languages/latex/intellisense/shortcuts';
 import { computeToggleDelim as mdDelim, computeHeadingLine as mdHeading, computeQuoteLines as mdQuote } from '$lib/languages/markdown/visual/sourceInsert';
 import { computeToggleDelim as typDelim, computeWrap as typWrap, computeHeadingLine as typHeading } from '$lib/languages/typst/visual/sourceInsert';
 import type { TransactionSpec } from '@codemirror/state';

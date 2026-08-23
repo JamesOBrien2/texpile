@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // hover.ts reaches mathlive, whose browser build touches HTMLElement as it loads
 import { describe, it, expect } from 'vitest';
-import { tokenAt, findLabelOffset } from '../../../../../../src/lib/editor/extensions/intellisense/hover';
+import { tokenAt, findLabelOffset } from '../../../../../../src/lib/languages/latex/intellisense/hover';
 
 describe('hover token detection (tokenAt)', () => {
 	it('finds a macro token under the cursor', () => {

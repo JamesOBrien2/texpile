@@ -3,8 +3,8 @@ import {
 	recordAccept,
 	withFrecency,
 	resetUsageForTests
-} from '../../../../../../src/lib/editor/extensions/intellisense/completion/frecency';
-import { macroOptions } from '../../../../../../src/lib/editor/extensions/intellisense/completion/macros';
+} from '../../../../../../src/lib/languages/latex/intellisense/completion/frecency';
+import { macroOptions } from '../../../../../../src/lib/languages/latex/intellisense/completion/macros';
 
 const DAY = 24 * 60 * 60 * 1000;
 const options = [{ label: '\\vec' }, { label: '\\varepsilon' }];

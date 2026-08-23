@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { macroOptions, macroLookup } from '../../../../../../src/lib/editor/extensions/intellisense/completion/macros';
+import { macroOptions, macroLookup } from '../../../../../../src/lib/languages/latex/intellisense/completion/macros';
 
 describe('macro completion: static CTAN DB + user-defined \\newcommand scan', () => {
 	it('includes the static CTAN database', () => {

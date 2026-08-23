@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractOutline } from '../../../../../../src/lib/editor/extensions/intellisense/outline';
+import { extractOutline } from '../../../../../../src/lib/languages/latex/intellisense/outline';
 
 describe('outline/symbol extraction', () => {
 	it('extracts sections in document order with their levels', () => {

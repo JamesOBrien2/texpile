@@ -10,7 +10,7 @@ import { autocompletion, completionStatus, startCompletion, type CompletionConte
 import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 import { filePathStore } from '$lib/stores/editorStore';
-import { IMG_EXTS, JUNK_PATH, pathOption } from '$lib/editor/extensions/intellisense/completion/filePaths';
+import { IMG_EXTS, JUNK_PATH, pathOption } from '$lib/editor/filePathCompletion';
 
 /**
  * `[text](path` or `![alt](path`, with the caret still inside the parentheses.

@@ -3,8 +3,8 @@
 // derives what completion/hover/definition/outline need. see stores/projectIntel.ts for types.
 import { readTextFile, type TexFile } from './fileSystem';
 import { projectIntelStore, EMPTY_PROJECT_INTEL, type ProjectIntel } from '$lib/stores/projectIntel';
-import { scanGlossary } from '$lib/editor/extensions/intellisense/completion/glossary';
-import { scanScripts } from '$lib/editor/extensions/intellisense/completion/subsuperscript';
+import { scanGlossary } from '$lib/languages/latex/intellisense/completion/glossary';
+import { scanScripts } from '$lib/languages/latex/intellisense/completion/subsuperscript';
 import { scanMacroDefinitions } from '$lib/editor/extensions/math-preview/userMacros';
 import { parseOutlineRaw } from '$lib/editor/extensions/tableofcontents/latexHeadings';
 

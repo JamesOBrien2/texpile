@@ -9,8 +9,8 @@ import type { Node } from 'prosemirror-model';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 import { languages as cmlangdata } from '@codemirror/language-data';
 import { rawEditorActiveStore } from '$lib/stores/editorStore';
-import { latexAutocomplete } from '$lib/editor/extensions/intellisense/intellisense';
-import { latex } from '$lib/editor/extensions/latex/latex';
+import { latexAutocomplete } from '$lib/languages/latex/intellisense/intellisense';
+import { latex } from '$lib/languages/latex/latexLanguage';
 import { cmCommentHighlights, cmCommentClicks, syncCmCommentHighlights } from '$lib/editor/extensions/codemirrorbridge/cmComments';
 
 // codemirror-backed NodeView for raw source blocks; content reaches the serializer unprocessed.

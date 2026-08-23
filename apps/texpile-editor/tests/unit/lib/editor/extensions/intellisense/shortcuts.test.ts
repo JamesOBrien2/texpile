@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState } from '@codemirror/state';
-import { computeToggleWrap, computeWrapBlock, computeLink } from '../../../../../../src/lib/editor/extensions/intellisense/shortcuts';
+import { computeToggleWrap, computeWrapBlock, computeLink } from '../../../../../../src/lib/languages/latex/intellisense/shortcuts';
 
 function apply(doc: string, anchor: number, head: number, fn: (state: EditorState) => ReturnType<typeof computeToggleWrap>) {
 	const state = EditorState.create({ doc, selection: { anchor, head } });

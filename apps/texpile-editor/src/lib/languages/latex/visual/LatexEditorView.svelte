@@ -1,72 +1,77 @@
 <script lang="ts">
-	import ContextMenu from './comp/toolbar/ContextMenu.svelte';
+	import ContextMenu from '$lib/editor/comp/toolbar/ContextMenu.svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { EditorState, Transaction, TextSelection } from 'prosemirror-state';
 	import { EditorView } from 'prosemirror-view';
 	import type { Node as PMNode } from 'prosemirror-model';
-	import { schema } from '../languages/latex/schema/latexPMSchema';
+	import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 	import { isMac } from '$lib/platform';
 	import { keymap } from 'prosemirror-keymap';
 	import { baseKeymap, toggleMark } from 'prosemirror-commands';
 	import { undo as historyUndo, redo as historyRedo, history } from 'prosemirror-history';
-	import { toggleBlockQuote, toggleHeading, cycleParagraphIndent } from './helperCommands';
+	import { toggleBlockQuote, toggleHeading, cycleParagraphIndent } from '$lib/editor/helperCommands';
 	import { gapCursor } from 'prosemirror-gapcursor';
-	import { createMathField } from './extensions/mathlivebridge/mlcommands';
-	import { createCodeBlock } from './extensions/codemirrorbridge/cmcommands';
-	import { cmarrowHandlers } from './extensions/codemirrorbridge/cmarrowhandler';
-	import { editorViewStore, referenceStore } from '../stores/editorStore';
+	import { createMathField } from '$lib/editor/extensions/mathlivebridge/mlcommands';
+	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
+	import { cmarrowHandlers } from '$lib/editor/extensions/codemirrorbridge/cmarrowhandler';
+	import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
 	import { preferences } from '$lib/stores/preferencesStore.svelte';
-	import { menuUpdatePlugin } from './extensions/toolbarlistenerplugin';
+	import { menuUpdatePlugin } from '$lib/editor/extensions/toolbarlistenerplugin';
 	import { dropCursor } from 'prosemirror-dropcursor';
 	import { fixTables, tableEditing, goToNextCell } from 'prosemirror-tables';
 	import { tableViewOnly } from '$lib/editor/extensions/table/tableViewOnly';
 	import 'prosemirror-view/style/prosemirror.css';
 	import 'prosemirror-tables/style/tables.css';
 	import 'prosemirror-gapcursor/style/gapcursor.css';
-	import './extensions/image/styles/common.css';
-	import './extensions/image/styles/withResize.css';
-	import './extensions/image/styles/sideResize.css';
-	import { imagePlugin } from './extensions/image';
-	import { createCursorPlugin } from './extensions/cursor-plugin';
-	import { remoteCursorsPlugin } from './extensions/remoteCursors';
-	import { pasteUUIDFixPlugin } from './extensions/paste-uuid-fix';
-	import { latexClipboardPlugin } from './extensions/latexClipboard';
+	import '$lib/editor/extensions/image/styles/common.css';
+	import '$lib/editor/extensions/image/styles/withResize.css';
+	import '$lib/editor/extensions/image/styles/sideResize.css';
+	import { imagePlugin } from '$lib/editor/extensions/image';
+	import { createCursorPlugin } from '$lib/editor/extensions/cursor-plugin';
+	import { remoteCursorsPlugin } from '$lib/editor/extensions/remoteCursors';
+	import { pasteUUIDFixPlugin } from '$lib/editor/extensions/paste-uuid-fix';
+	import { latexClipboardPlugin } from '$lib/editor/extensions/latexClipboard';
 	import './styles/cursor.css';
 	import { createListPlugins, listInputRules, listKeymap } from 'prosemirror-flat-list';
 	import { inputRules, InputRule, smartQuotes, ellipsis, undoInputRule } from 'prosemirror-inputrules';
 	import 'prosemirror-flat-list/dist/style.css';
-	import { placeholderPlugin } from './extensions/placeholderplugin';
-	import { tablePlaceholderPlugin } from './extensions/table/tablePlaceholderPlugin';
+	import { placeholderPlugin } from '$lib/editor/extensions/placeholderplugin';
+	import { tablePlaceholderPlugin } from '$lib/editor/extensions/table/tablePlaceholderPlugin';
 	import { search } from 'prosemirror-search';
 	import 'prosemirror-search/style/search.css';
-	import { CitationView } from './extensions/citation/citationView.svelte';
-	import { RefView } from './extensions/ref/refView.svelte';
-	import { createRefUpdatePlugin } from './extensions/ref/refUpdatePlugin';
-	import { createTocPlugin } from './extensions/tableofcontents/tocPlugin';
-	import { createPersistentSelectionPlugin } from './extensions/persistentSelection/persistentSelectionPlugin';
-	import { createSuggestPlugin } from './extensions/suggest/suggestPlugin';
-	import { proofreadPlugin, spellClickBoundaryPlugin } from './extensions/spellcheck/spellcheckplugin';
-	import { createTemplateEditorSettings, createLocalImageSettings } from './extensions/image/imageplugin.svelte';
-	import { createWordCountPlugin } from './extensions/wordcount/wordCountPlugin';
-	import { emDashRule, enDashRule, emDashUpgradeRule } from './extensions/inputrules/dashRules';
-	import { tableWrapperView } from './extensions/table/tableWrapperView.svelte';
-	import { CodeBlockView } from './extensions/codemirrorbridge/cmview.svelte';
-	import { RawLatexView } from './extensions/raw-latex/rawLatexView';
-	import { RawFigureView, isRawFigure } from './extensions/raw-latex/rawFigureView';
-	import { IEEEAuthorView, isIEEEAuthorBlock } from './extensions/template-specific/ieeeAuthorView';
-	import { InlineLatexView } from './extensions/raw-latex/inlineLatexView';
-	import { inlinePlaceholder, InlinePlaceholderView } from './extensions/raw-latex/inlinePlaceholderView';
-	import { FrontmatterRawView, simpleFrontmatter, PlaceholderRawView, placeholderCommand } from './extensions/raw-latex/frontmatterView';
-	import { BibliographyNodeView } from './extensions/bibliography/bibliographyNodeView.svelte';
-	import { environmentView } from './extensions/environment/environmentView.svelte';
-	import { IncludeDocView } from './extensions/includedoc/includeDocView.svelte';
-	import { createTrailingParagraphPlugin, buildTrailingParagraphTr } from './extensions/trailing-paragraph-plugin';
-	import { createBoundaryClickPlugin } from './extensions/boundary-click-plugin';
-	import { createBlockHandlePlugin } from './extensions/block-handle-plugin.svelte';
-	import { createNodeFlashPlugin } from './extensions/flash-plugin';
-	import { createLinkPlugin } from './extensions/link';
-	import { pmComments } from './extensions/pmComments';
-	import { syncPmComments } from './extensions/pmCommentsSync.svelte';
+	import { CitationView } from '$lib/languages/latex/extensions/citation/citationView.svelte';
+	import { RefView } from '$lib/languages/latex/extensions/ref/refView.svelte';
+	import { createRefUpdatePlugin } from '$lib/languages/latex/extensions/ref/refUpdatePlugin';
+	import { createTocPlugin } from '$lib/editor/extensions/tableofcontents/tocPlugin';
+	import { createPersistentSelectionPlugin } from '$lib/editor/extensions/persistentSelection/persistentSelectionPlugin';
+	import { createSuggestPlugin } from '$lib/editor/extensions/suggest/suggestPlugin';
+	import { proofreadPlugin, spellClickBoundaryPlugin } from '$lib/editor/extensions/spellcheck/spellcheckplugin';
+	import { createTemplateEditorSettings, createLocalImageSettings } from '$lib/editor/extensions/image/imageplugin.svelte';
+	import { createWordCountPlugin } from '$lib/editor/extensions/wordcount/wordCountPlugin';
+	import { emDashRule, enDashRule, emDashUpgradeRule } from '$lib/editor/extensions/inputrules/dashRules';
+	import { tableWrapperView } from '$lib/editor/extensions/table/tableWrapperView.svelte';
+	import { CodeBlockView } from '$lib/editor/extensions/codemirrorbridge/cmview.svelte';
+	import { RawLatexView } from '$lib/editor/extensions/raw-latex/rawLatexView';
+	import { RawFigureView, isRawFigure } from '$lib/editor/extensions/raw-latex/rawFigureView';
+	import { IEEEAuthorView, isIEEEAuthorBlock } from '$lib/languages/latex/extensions/template-specific/ieeeAuthorView';
+	import { InlineLatexView } from '$lib/editor/extensions/raw-latex/inlineLatexView';
+	import { inlinePlaceholder, InlinePlaceholderView } from '$lib/editor/extensions/raw-latex/inlinePlaceholderView';
+	import {
+		FrontmatterRawView,
+		simpleFrontmatter,
+		PlaceholderRawView,
+		placeholderCommand
+	} from '$lib/editor/extensions/raw-latex/frontmatterView';
+	import { BibliographyNodeView } from '$lib/editor/extensions/bibliography/bibliographyNodeView.svelte';
+	import { environmentView } from '$lib/languages/latex/extensions/environment/environmentView.svelte';
+	import { IncludeDocView } from '$lib/editor/extensions/includedoc/includeDocView.svelte';
+	import { createTrailingParagraphPlugin, buildTrailingParagraphTr } from '$lib/editor/extensions/trailing-paragraph-plugin';
+	import { createBoundaryClickPlugin } from '$lib/editor/extensions/boundary-click-plugin';
+	import { createBlockHandlePlugin } from '$lib/editor/extensions/block-handle-plugin.svelte';
+	import { createNodeFlashPlugin } from '$lib/editor/extensions/flash-plugin';
+	import { createLinkPlugin } from '$lib/editor/extensions/link';
+	import { pmComments } from '$lib/editor/extensions/pmComments';
+	import { syncPmComments } from '$lib/editor/extensions/pmCommentsSync.svelte';
 	import type { CommentAnchor } from '$lib/comments/anchor';
 	import type { CommentThread } from '$lib/comments/log';
 	import type { BibLaTeXReference } from '$lib/biblatex';
@@ -137,7 +142,7 @@
 	let editorState: EditorState | null = $state(null);
 
 	onMount(async () => {
-		const { mathlivePlugin, mlarrowHandlers } = await import('./extensions/mathlivebridge/mlplugin');
+		const { mathlivePlugin, mlarrowHandlers } = await import('$lib/editor/extensions/mathlivebridge/mlplugin');
 
 		const plugins = [
 			gapCursor(),

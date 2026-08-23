@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState, Transaction, type TransactionSpec } from '@codemirror/state';
 import { CompletionContext } from '@codemirror/autocomplete';
-import { environmentCompletionSource } from '../../../../../../src/lib/editor/extensions/intellisense/completion/environments';
+import { environmentCompletionSource } from '../../../../../../src/lib/languages/latex/intellisense/completion/environments';
 
 function completeAt(doc: string, pos = doc.length) {
 	const state = EditorState.create({ doc });
