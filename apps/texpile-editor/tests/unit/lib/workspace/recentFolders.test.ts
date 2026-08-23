@@ -42,9 +42,9 @@ describe('recentFolders', () => {
 	it('caps the list on read as well as write', async () => {
 		seed(Array.from({ length: 20 }, (_, i) => `/f${i}`));
 		const { users, addRecentFolder } = await load();
-		expect(get(users).recentFolders).toHaveLength(8);
+		expect(get(users).recentFolders).toHaveLength(10);
 		addRecentFolder('/new');
-		expect(get(users).recentFolders).toHaveLength(8);
+		expect(get(users).recentFolders).toHaveLength(10);
 		expect(get(users).recentFolders[0]).toBe('/new');
 	});
 
