@@ -17,8 +17,8 @@ import {
 	createDefaultContext,
 	collapseTextNodes,
 	realMarks,
-	type PMNode,
-	type PMMark,
+	type PmNode,
+	type PmMark,
 	type ConversionContext,
 	type ConversionOptions
 } from './builders';
@@ -32,7 +32,7 @@ import {
 	heuristicInferUnknownMacroSignatures
 } from './heuristics';
 
-export type { PMNode, PMMark, ConversionOptions };
+export type { PmNode, PmMark, ConversionOptions };
 
 // verbatim source capture (the `orig` attr, see ORIG_BLOCKS in schema.ts): the TOP-LEVEL
 // convertNodesToBlocks pass stamps every block with `orig: { latex, pre, seq, norm: null,
@@ -57,20 +57,29 @@ let pendingCapture: CaptureState | null = null;
 // can read the final prevEnd/seq for the body's trailing gap. grab-and-null, like pendingCapture.
 let lastCapResult: CaptureState | null = null;
 
-/** Walk `n`'s position (+ content/args) into `acc`, REJECTING any start before `floor`: never a
- *  legitimate undershoot, always a synthetic/corrupt offset (math script groups have no real
- *  position; a missing `.offset` reads back as 0, which a naive `<` would accept and drag the
- *  span to the file start). `floor` is always cap.prevEnd. */
-function extendExtent(n: unknown, acc: { min: number; max: number }, floor: number): void {
-	if (!n || typeof n !== 'object') return;
+/** Min/max offsets over `n`'s position (+ content/args), REJECTING any start before `floor`:
+ *  never a legitimate undershoot, always a synthetic/corrupt offset (math script groups have no
+ *  real position; a missing `.offset` reads back as 0, which a naive `<` would accept and drag
+ *  the span to the file start). `floor` is always cap.prevEnd. */
+function extentOf(n: unknown, floor: number): { min: number; max: number } {
+	let min = Infinity;
+	let max = -Infinity;
+	if (!n || typeof n !== 'object') return { min, max };
 	const node = n as { position?: { start?: { offset?: number }; end?: { offset?: number } }; content?: unknown; args?: unknown[] };
 	const p = node.position;
 	if (p) {
-		if (typeof p.start?.offset === 'number' && p.start.offset >= floor && p.start.offset < acc.min) acc.min = p.start.offset;
-		if (typeof p.end?.offset === 'number' && p.end.offset > acc.max) acc.max = p.end.offset;
+		if (typeof p.start?.offset === 'number' && p.start.offset >= floor) min = p.start.offset;
+		if (typeof p.end?.offset === 'number') max = p.end.offset;
 	}
-	if (Array.isArray(node.content)) for (const c of node.content) extendExtent(c, acc, floor);
-	if (Array.isArray(node.args)) for (const a of node.args) extendExtent(a, acc, floor);
+	for (const kids of [node.content, node.args]) {
+		if (!Array.isArray(kids)) continue;
+		for (const kid of kids) {
+			const e = extentOf(kid, floor);
+			min = Math.min(min, e.min);
+			max = Math.max(max, e.max);
+		}
+	}
+	return { min, max };
 }
 
 /** Min/max source offsets across node + content + attached args. recursing matters:
@@ -78,8 +87,7 @@ function extendExtent(n: unknown, acc: { min: number; max: number }, floor: numb
  *  the moved args carry their own, so extending past the node's own end is intentional. the
  *  node's OWN start, when >= floor, is additionally authoritative for the lower bound. */
 function nodeExtent(node: Node, floor = 0): { min: number; max: number } | null {
-	const acc = { min: Infinity, max: -Infinity };
-	extendExtent(node, acc, floor);
+	const acc = extentOf(node, floor);
 	if (acc.min > acc.max) return null;
 	const top = (node as unknown as { position?: { start?: { offset?: number } } }).position;
 	if (typeof top?.start?.offset === 'number' && top.start.offset >= floor && acc.min < top.start.offset) acc.min = top.start.offset;
@@ -88,7 +96,7 @@ function nodeExtent(node: Node, floor = 0): { min: number; max: number } | null 
 
 /** Recreate `node` with an `orig` attr. Types that don't declare `orig` are returned as-is
  *  (fail-safe: such a block simply always regenerates). */
-function withOrig(node: PMNode, orig: Record<string, unknown>): PMNode {
+function withOrig(node: PmNode, orig: Record<string, unknown>): PmNode {
 	if (!node.type.spec.attrs || !('orig' in node.type.spec.attrs)) return node;
 	return node.type.create({ ...node.attrs, orig }, node.content, node.marks);
 }
@@ -131,9 +139,8 @@ function repairArgTail(node: Node, src: string, endIn: number): number | null {
 	if (!args || args.length === 0) return endIn;
 	let last = -1;
 	for (let k = args.length - 1; k >= 0; k--) {
-		const acc = { min: Infinity, max: -Infinity };
-		for (const c of args[k].content) extendExtent(c, acc, 0);
-		if (Number.isFinite(acc.max) && acc.max > 0) {
+		const maxEnd = Math.max(-Infinity, ...args[k].content.map((c) => extentOf(c, 0).max));
+		if (Number.isFinite(maxEnd) && maxEnd > 0) {
 			last = k;
 			break;
 		}
@@ -214,7 +221,7 @@ function repairExtentTail(node: Node, ext: { min: number; max: number } | null):
 	return end != null && end > ext.max ? { min: ext.min, max: end } : ext;
 }
 
-type MacroHandler = (macro: Macro, ctx: ConversionContext) => PMNode[] | null;
+type MacroHandler = (macro: Macro, ctx: ConversionContext) => PmNode[] | null;
 
 const macroHandlers: Record<string, MacroHandler> = {
 	textbf: (macro, ctx) => {
@@ -433,7 +440,7 @@ function macroHasStar(macro: Macro): boolean {
 	);
 }
 
-function createHeading(macro: Macro, level: number): PMNode[] {
+function createHeading(macro: Macro, level: number): PmNode[] {
 	const content = getMacroFirstArg(macro);
 	const textNodes = convertNodesToInline(content, createDefaultContext());
 	// starred sectioning commands (\section*) are unnumbered
@@ -441,7 +448,7 @@ function createHeading(macro: Macro, level: number): PMNode[] {
 	return [el('heading', { level, numbered }, textNodes)];
 }
 
-function createIncludeDoc(macro: Macro): PMNode[] | null {
+function createIncludeDoc(macro: Macro): PmNode[] | null {
 	// keep the path exactly as written (LaTeX resolves the .tex extension itself)
 	const mandatoryArgs = macro.args?.filter((arg) => arg.openMark === '{') || [];
 	const path = mandatoryArgs[0] ? getTextContent(mandatoryArgs[0].content).trim() : '';
@@ -450,7 +457,7 @@ function createIncludeDoc(macro: Macro): PMNode[] | null {
 	return [el('includedoc', { path, command })];
 }
 
-function createCitation(macro: Macro): PMNode[] {
+function createCitation(macro: Macro): PmNode[] {
 	const optionalArgs = macro.args?.filter((arg) => arg.openMark === '[') || [];
 	const mandatoryArgs = macro.args?.filter((arg) => arg.openMark === '{') || [];
 
@@ -471,21 +478,22 @@ function createCitation(macro: Macro): PMNode[] {
 	return [el('citation', { variant, prenote, postnote }, key ? [txt(key)] : null)];
 }
 
-type EnvHandler = (env: Environment, ctx: ConversionContext, options: ConversionOptions) => PMNode[];
+type EnvHandler = (env: Environment, ctx: ConversionContext, options: ConversionOptions) => PmNode[];
 
-function createRef(macro: Macro, refType: string | null): PMNode[] {
+function createRef(macro: Macro, refType: string | null): PmNode[] {
 	const mandatoryArgs = macro.args?.filter((arg) => arg.openMark === '{') || [];
 	const label = mandatoryArgs[0] ? getTextContent(mandatoryArgs[0].content) : '';
 
-	// infer refType from the label prefix if not provided
-	if (!refType && label) {
+	// infer the kind from the label prefix if not provided
+	let kind = refType;
+	if (!kind && label) {
 		const lowerLabel = label.toLowerCase();
 		if (lowerLabel.startsWith('tab:') || lowerLabel.startsWith('table:') || lowerLabel.includes('texpile-table-')) {
-			refType = 'table';
+			kind = 'table';
 		} else if (lowerLabel.startsWith('fig:') || lowerLabel.startsWith('figure:') || lowerLabel.includes('texpile-fig-')) {
-			refType = 'figure';
+			kind = 'figure';
 		} else if (lowerLabel.startsWith('eq:') || lowerLabel.startsWith('equation:') || lowerLabel.includes('texpile-eq-')) {
-			refType = 'equation';
+			kind = 'equation';
 		}
 	}
 
@@ -493,7 +501,7 @@ function createRef(macro: Macro, refType: string | null): PMNode[] {
 	// to \autoref.
 	const command = typeof macro.content === 'string' && macro.content ? macro.content : 'autoref';
 	// unknown target kind: the general 'reference' type
-	return [el('ref', { refType: refType ?? 'reference', command }, label ? [txt(label)] : null)];
+	return [el('ref', { refType: kind ?? 'reference', command }, label ? [txt(label)] : null)];
 }
 
 // only `document` is truly transparent: center/flushleft/flushright change the rendered
@@ -502,7 +510,7 @@ const transparentEnvironments = new Set(['document']);
 
 /** verbatim/lstlisting/minted to one code_block, remembering the source env name + verbatim args
  * so the serializer reconstructs the SAME environment instead of a fixed one. */
-function codeBlockFromVerbatimEnv(env: Environment): PMNode {
+function codeBlockFromVerbatimEnv(env: Environment): PmNode {
 	// unified-latex stores verbatim-family bodies as a literal string on `content`, despite the
 	// declared `content: Node[]` type.
 	const rawContent = env.content as unknown as Node[] | string;
@@ -586,13 +594,13 @@ const envHandlers: Record<string, EnvHandler> = {
 };
 
 function extractTableComponents(content: Node[], ctx: ConversionContext) {
-	let caption: PMNode | null = null;
+	let caption: PmNode | null = null;
 	// collect ALL labels: the last stays primary (single-label case unchanged, and reference-
 	// manager UI reads `label` as one bare id), earlier ones round-trip via extraLabels.
 	// overwriting on each occurrence silently dropped every label but the last.
 	const labels: string[] = [];
-	const tables: PMNode[] = [];
-	const notes: PMNode[] = [];
+	const tables: PmNode[] = [];
+	const notes: PmNode[] = [];
 
 	// preNodes (setup like \setlength{\tabcolsep}{4pt} that must precede the tabular) round-trip
 	// as a raw prefix (preBody); noteNodes (after the tabular) become editable table_notes.
@@ -696,7 +704,7 @@ function containsTabular(nodes: Node[]): boolean {
 	return false;
 }
 
-function createTableWrapper(env: Environment, ctx: ConversionContext, options: ConversionOptions): PMNode[] {
+function createTableWrapper(env: Environment, ctx: ConversionContext, options: ConversionOptions): PmNode[] {
 	const { caption, label, extraLabels, tables, notes, preBody, postBody } = extractTableComponents(env.content, ctx);
 
 	const tableNode = tables[0];
@@ -772,7 +780,7 @@ function slotifyFigure(node: Node): Node {
 	return node;
 }
 
-function createFigureWrapper(env: Environment, ctx: ConversionContext, _options: ConversionOptions): PMNode[] {
+function createFigureWrapper(env: Environment, ctx: ConversionContext, _options: ConversionOptions): PmNode[] {
 	const graphics = collectMacrosDeep(env.content, 'includegraphics');
 
 	// tier 1: exactly one image anywhere in the float. model it as an editable image whose whole
@@ -809,8 +817,8 @@ function createFigureWrapper(env: Environment, ctx: ConversionContext, _options:
 	return [el('raw_latex', null, [txt(nodeRawSource(env) ?? nodeToLatexString(env))])];
 }
 
-function createList(env: Environment, kind: 'bullet' | 'ordered', options: ConversionOptions): PMNode[] {
-	const result: PMNode[] = [];
+function createList(env: Environment, kind: 'bullet' | 'ordered', options: ConversionOptions): PmNode[] {
+	const result: PmNode[] = [];
 	let currentItemContent: Node[] = [];
 	let foundFirstItem = false;
 
@@ -885,7 +893,7 @@ function createList(env: Environment, kind: 'bullet' | 'ordered', options: Conve
 	return result;
 }
 
-function createListItem(content: Node[], options: ConversionOptions): PMNode[] {
+function createListItem(content: Node[], options: ConversionOptions): PmNode[] {
 	const filteredContent = content.filter((n, i, arr) => {
 		if (n.type !== 'whitespace' && n.type !== 'parbreak') return true;
 		// keep whitespace only if between meaningful nodes
@@ -902,7 +910,7 @@ function createListItem(content: Node[], options: ConversionOptions): PMNode[] {
 	return blocks.length > 0 ? blocks : [el('paragraph')];
 }
 
-function createBlockMath(env: Environment, starred: boolean, environment?: string): PMNode[] {
+function createBlockMath(env: Environment, starred: boolean, environment?: string): PmNode[] {
 	const lineLabels: string[] = [];
 	const contentWithoutLabel: Node[] = [];
 
@@ -985,7 +993,7 @@ function isRowBreak(macro: Macro): boolean {
 	return c === '\\' || (typeof c === 'string' && c.length > 0 && /^\s+$/.test(c));
 }
 
-function createTable(env: Environment): PMNode[] {
+function createTable(env: Environment): PmNode[] {
 	// capture the EXACT architecture so the table re-serializes render-identically: env name,
 	// column spec, width, and \hline-family rules.
 	const mandatory = (env.args ?? []).filter((a) => a.openMark === '{');
@@ -995,8 +1003,8 @@ function createTable(env: Environment): PMNode[] {
 	const colspecArg = takesWidth ? mandatory[1] : mandatory[mandatory.length - 1];
 	const colspec = colspecArg ? printRaw(colspecArg.content) : null;
 
-	const rows: PMNode[] = [];
-	let currentRowCells: PMNode[] = [];
+	const rows: PmNode[] = [];
+	let currentRowCells: PmNode[] = [];
 	let currentCellContent: Node[] = [];
 	let pendingRules = ''; // rules seen since the last row, not yet assigned
 	let rowTop = ''; // the rules that precede the row currently being built
@@ -1010,7 +1018,7 @@ function createTable(env: Environment): PMNode[] {
 			pendingRules = '';
 		}
 	}
-	function flushRow(cells: PMNode[]) {
+	function flushRow(cells: PmNode[]) {
 		rows.push(el('table_row', { topRules: rowTop }, cells.length > 0 ? cells : [createTableCell([])]));
 		rowTop = '';
 		rowStarted = false;
@@ -1114,7 +1122,7 @@ function unwrapSpans(content: Node[]): { colspan: number; rowspan: number; inner
 	return { colspan, rowspan, inner };
 }
 
-function createTableCell(content: Node[]): PMNode {
+function createTableCell(content: Node[]): PmNode {
 	const { colspan, rowspan, inner } = unwrapSpans(content);
 	// trim blank AST nodes BEFORE conversion, not the merged text string after: a macro that
 	// produces literal spaces as real content (\quad row-label indents) is indistinguishable from
@@ -1132,14 +1140,14 @@ function createTableCell(content: Node[]): PMNode {
 // drop the placeholder cells LaTeX writes UNDER a \multirow so the prosemirror-tables covered-
 // cell model matches: a spanning cell appears once in its origin row, covered positions are
 // omitted below. no-rowspan tables come back unchanged.
-function resolveSpans(rows: PMNode[]): PMNode[] {
+function resolveSpans(rows: PmNode[]): PmNode[] {
 	const covered: boolean[][] = [];
 	function mark(r: number, c: number) {
 		while (covered.length <= r) covered.push([]);
 		covered[r][c] = true;
 	}
 	return rows.map((row, r) => {
-		const kept: PMNode[] = [];
+		const kept: PmNode[] = [];
 		let col = 0;
 		row.forEach((cell) => {
 			const cs = Number(cell.attrs.colspan ?? 1);
@@ -1169,7 +1177,7 @@ function latexLigaturesToUnicode(text: string): string {
 }
 
 /** Apply ligatures to ordinary prose text nodes (not \texttt/code, where -- and `` are literal). */
-function applyLigaturesToNodes(nodes: PMNode[]): PMNode[] {
+function applyLigaturesToNodes(nodes: PmNode[]): PmNode[] {
 	return nodes.map((n) =>
 		n.isText && n.text && !n.marks.some((m) => m.type.name === 'code') ? schema.text(latexLigaturesToUnicode(n.text), n.marks) : n
 	);
@@ -1183,15 +1191,15 @@ function applyLigaturesToNodes(nodes: PMNode[]): PMNode[] {
  * a braced group in text mode renders identically. `prevAst` must be the LITERALLY preceding AST
  * node (any whitespace in between disqualifies adjacency).
  */
-function groupAfterRawChip(node: Node, prevAst: Node | null, lastPm: PMNode | undefined): PMNode | null {
+function groupAfterRawChip(node: Node, prevAst: Node | null, lastPm: PmNode | undefined): PmNode | null {
 	if (node.type !== 'group' || prevAst?.type !== 'macro') return null;
 	// lexical control-word tail test on serialized chip text (no AST exists there any more)
 	if (!lastPm || lastPm.type.name !== 'inline_latex' || !/\\[a-zA-Z@]+$/.test(lastPm.textContent)) return null;
 	return el('inline_latex', null, [txt(nodeRawSource(node) ?? printRaw(node))]);
 }
 
-function convertNodesToInline(nodes: Node[], ctx: ConversionContext): PMNode[] {
-	const result: PMNode[] = [];
+function convertNodesToInline(nodes: Node[], ctx: ConversionContext): PmNode[] {
+	const result: PmNode[] = [];
 	let prevAst: Node | null = null;
 	for (const node of nodes) {
 		// line-wrap whitespace right after a `\\` (now a hard_break) is ignored by TeX; drop it
@@ -1213,7 +1221,7 @@ function convertNodesToInline(nodes: Node[], ctx: ConversionContext): PMNode[] {
 	return applyLigaturesToNodes(collapseTextNodes(result));
 }
 
-function convertNodeToInline(node: Node, ctx: ConversionContext): PMNode[] | null {
+function convertNodeToInline(node: Node, ctx: ConversionContext): PmNode[] | null {
 	switch (node.type) {
 		case 'string':
 			if (node.content) {
@@ -1296,18 +1304,18 @@ function convertNodeToInline(node: Node, ctx: ConversionContext): PMNode[] | nul
 
 // only unmarked inline_latex is merged/promoted (marks can't live on raw_latex, and the serializer
 // emits inline_latex verbatim with nothing between siblings, so concatenation is byte-neutral).
-function isInlineLatexNode(n?: PMNode): boolean {
+function isInlineLatexNode(n?: PmNode): boolean {
 	return !!n && n.type.name === 'inline_latex' && n.marks.length === 0;
 }
-function isWhitespaceTextNode(n?: PMNode): boolean {
+function isWhitespaceTextNode(n?: PmNode): boolean {
 	return !!n && n.isText && (n.text ?? '').trim() === '';
 }
 
 // merge a maximal run of adjacent inline_latex nodes (separated only by whitespace text) into
 // ONE, baking the separators in. anything else breaks the run. byte-neutral and convergent: the
 // merged text re-parses to the same fragments, which re-merge identically.
-function mergeAdjacentInlineLatex(nodes: PMNode[]): PMNode[] {
-	const out: PMNode[] = [];
+function mergeAdjacentInlineLatex(nodes: PmNode[]): PmNode[] {
+	const out: PmNode[] = [];
 	let i = 0;
 	while (i < nodes.length) {
 		if (!isInlineLatexNode(nodes[i])) {
@@ -1340,7 +1348,7 @@ function mergeAdjacentInlineLatex(nodes: PMNode[]): PMNode[] {
 // if a paragraph is nothing but raw LaTeX (chips, hard breaks, whitespace, at least one chip and
 // NO editable content) return its source so it can become one raw_latex block; else null. a `\\`
 // re-parses straight back to a hard_break, so promotion is a fixed point.
-function paragraphAsRawLatex(para: PMNode): string | null {
+function paragraphAsRawLatex(para: PmNode): string | null {
 	let out = '';
 	let hasChip = false;
 	let pure = true;
@@ -1364,19 +1372,21 @@ function paragraphAsRawLatex(para: PMNode): string | null {
 }
 
 /** Convert a list of AST nodes into block nodes, buffering inline runs into paragraphs. */
-function convertNodesToBlocks(nodes: Node[], options: ConversionOptions): PMNode[] {
+function convertNodesToBlocks(nodes: Node[], options: ConversionOptions): PmNode[] {
 	// verbatim source capture is armed only for the top-level call (grab-and-null; see above)
 	const cap = pendingCapture;
 	pendingCapture = null;
-	const result: PMNode[] = [];
+	const result: PmNode[] = [];
 	const ctx = createDefaultContext();
-	let currentParagraphContent: PMNode[] = [];
+	let currentParagraphContent: PmNode[] = [];
 	// source extent of the paragraph currently accumulating (top-level capture only)
 	let paraExt: { min: number; max: number } | null = null;
 	function extendPara(node: Node) {
 		if (!cap) return;
 		if (!paraExt) paraExt = { min: Infinity, max: -Infinity };
-		extendExtent(node, paraExt, cap.prevEnd);
+		const ext = extentOf(node, cap.prevEnd);
+		paraExt.min = Math.min(paraExt.min, ext.min);
+		paraExt.max = Math.max(paraExt.max, ext.max);
 		// an attached-arg macro's closing delimiter has no positioned node; reclaim it from the
 		// source or the block's orig.latex loses its final closer(s). see repairExtentTail.
 		if ((node as Macro).args?.length) {
@@ -1394,7 +1404,7 @@ function convertNodesToBlocks(nodes: Node[], options: ConversionOptions): PMNode
 	// them equal today, but the invariant is subtle: if a block ever gets ext=null while
 	// consuming source, prevEnd MUST still advance past it, or the NEXT block's `pre` silently
 	// swallows the skipped bytes as gap while its regenerated form is ALSO emitted.
-	function pushBlocks(blocks: PMNode[], ext: { min: number; max: number } | null, advanceExt: { min: number; max: number } | null = ext) {
+	function pushBlocks(blocks: PmNode[], ext: { min: number; max: number } | null, advanceExt: { min: number; max: number } | null = ext) {
 		if (!cap || blocks.length === 0) {
 			result.push(...blocks);
 			return;
@@ -1623,7 +1633,7 @@ const VERBATIM_ENVS = new Set([
 	'array'
 ]);
 
-function convertNodeToBlock(node: Node, ctx: ConversionContext, options: ConversionOptions): PMNode[] | null {
+function convertNodeToBlock(node: Node, ctx: ConversionContext, options: ConversionOptions): PmNode[] | null {
 	switch (node.type) {
 		case 'verbatim': {
 			// unified-latex parses any environment it recognizes as genuinely verbatim-bodied
@@ -1826,7 +1836,7 @@ function scanPreambleText(preamble: string, parseOptions: ParseOptions): Preambl
  * Convert a LaTeX string to a ProseMirror doc, extracting the document environment's content
  * when present. options.preamble feeds the \newcommand / \def scans below.
  */
-export function latexToProseMirror(latex: string, options: ConversionOptions = {}): { doc: PMNode; ast: Root } {
+export function latexToProseMirror(latex: string, options: ConversionOptions = {}): { doc: PmNode; ast: Root } {
 	const parseOptions: ParseOptions = { macros: MACRO_SIGNATURES, environments: ENV_SIGNATURES };
 
 	const ast = parseLatex(latex, parseOptions);
@@ -1878,7 +1888,7 @@ export function latexToProseMirror(latex: string, options: ConversionOptions = {
 		}
 	}
 	//  3. heuristic: infer an unknown command's arity from usage so the args don't flatten
-	heuristicInferUnknownMacroSignatures(ast, heuristicKnows, macroInfo);
+	Object.assign(macroInfo, heuristicInferUnknownMacroSignatures(ast, heuristicKnows, macroInfo));
 
 	if (Object.keys(macroInfo).length > 0) {
 		attachMacroArgs(ast, macroInfo);
@@ -1892,7 +1902,7 @@ export function latexToProseMirror(latex: string, options: ConversionOptions = {
 	// nested call, hence try/finally.
 	pendingCapture = { source: latex, seq: 0, prevEnd: 0, group: 0 };
 	rawSliceSource = latex;
-	let blocks: PMNode[];
+	let blocks: PmNode[];
 	try {
 		blocks = convertNodesToBlocks(content, options);
 	} finally {

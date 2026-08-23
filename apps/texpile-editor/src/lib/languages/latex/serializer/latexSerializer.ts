@@ -53,7 +53,8 @@ const MARKS: Record<string, (attrs: Record<string, unknown>) => { open: string; 
 
 /** Wrap `result` in each mark's open/close pair, inner to outer. shared with non-text leaves
  * that carry marks (an unknown macro chip under \textbf has no text node to carry the bold). */
-function applyMarks(result: string, marks: readonly Mark[]): string {
+function applyMarks(text: string, marks: readonly Mark[]): string {
+	let result = text;
 	for (const mark of marks) {
 		// a bare \url{href} parses to a link whose text IS the href; if unedited, round-trip
 		// \url back instead of widening to \href{href}{href} (a visible styling change under

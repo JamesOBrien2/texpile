@@ -97,7 +97,8 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 	}
 
 	/** consume an engine error block: help/context lines up to the l.NN pair or a blank line. */
-	function collectErrorBlock(entry: LogEntry): void {
+	function collectErrorBlock(entry: Readonly<LogEntry>): Partial<LogEntry> {
+		const patch: Partial<LogEntry> = {};
 		const contextLines: string[] = [];
 		let sawContext = false;
 		for (let guard = 0; guard < 60; guard++) {
@@ -109,14 +110,14 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 			}
 			const ctx = line.match(CONTEXT_LINE);
 			if (ctx) {
-				entry.line = entry.line ?? parseInt(ctx[1], 10);
+				if (entry.line == null) patch.line ??= parseInt(ctx[1], 10);
 				// the l.NN line prints the source up to the error point: its length is the column,
 				// and its tail re-anchors the range if the buffer drifted since the compile
 				const preText = ctx[2].startsWith(' ') ? ctx[2].slice(1) : ctx[2];
-				if (preText.length > 0 && entry.column === undefined) {
-					entry.column = preText.length + 1;
+				if (preText.length > 0 && entry.column === undefined && patch.column === undefined) {
+					patch.column = preText.length + 1;
 					const anchor = preText.slice(-24).trimStart();
-					if (anchor.length >= 2) entry.anchorText = anchor;
+					if (anchor.length >= 2) patch.anchorText = anchor;
 				}
 				sawContext = true;
 				contextLines.push(line);
@@ -137,13 +138,16 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 			contextLines.push(line);
 		}
 		const context = contextLines.join('\n').replace(/\n+$/, '');
-		if (context.length > 0) entry.context = context;
-		entry.raw = [entry.raw, context].filter(Boolean).join('\n');
+		if (context.length > 0) patch.context = context;
+		patch.raw = [entry.raw, context].filter(Boolean).join('\n');
+		return patch;
 	}
 
 	/** consume \MessageBreak continuation lines and fold them into one message. */
-	function collectWarningContinuation(entry: LogEntry, moduleName?: string): void {
+	function collectWarningContinuation(entry: Readonly<LogEntry>, moduleName?: string): Partial<LogEntry> {
+		const patch: Partial<LogEntry> = {};
 		const parts: string[] = [];
+		let raw = entry.raw;
 		for (let guard = 0; guard < 20; guard++) {
 			const line = scanner.next();
 			if (line === null) break;
@@ -154,17 +158,21 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 			let text = line;
 			if (moduleName && text.startsWith(`(${moduleName})`)) text = text.slice(moduleName.length + 2);
 			parts.push(text.trim());
-			entry.raw += '\n' + line;
+			raw += '\n' + line;
 		}
+		let message = entry.message;
 		if (parts.length > 0) {
-			entry.message = [entry.message, ...parts].join(' ').replace(/\s+/g, ' ').trim();
+			message = [message, ...parts].join(' ').replace(/\s+/g, ' ').trim();
 		}
-		const online = entry.message.match(ON_INPUT_LINE);
+		const online = message.match(ON_INPUT_LINE);
 		if (online) {
-			entry.line = parseInt(online[1], 10);
+			patch.line = parseInt(online[1], 10);
 			// the row already shows ":<line>", so drop the redundant phrase from the text
-			entry.message = entry.message.replace(ON_INPUT_LINE, '.').replace(/([.!?])\.$/, '$1');
+			message = message.replace(ON_INPUT_LINE, '.').replace(/([.!?])\.$/, '$1');
 		}
+		patch.raw = raw;
+		patch.message = message;
+		return patch;
 	}
 
 	/** walk a line's parentheses, maintaining the file stack. */
@@ -235,7 +243,7 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 				file: currentFile(),
 				raw: line
 			};
-			collectErrorBlock(entry);
+			Object.assign(entry, collectErrorBlock(entry));
 			push(entry);
 			continue;
 		}
@@ -248,7 +256,7 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 				line: parseInt(fle[2], 10),
 				raw: line
 			};
-			collectErrorBlock(entry);
+			Object.assign(entry, collectErrorBlock(entry));
 			push(entry);
 			continue;
 		}
@@ -286,7 +294,7 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 				file: currentFile(),
 				raw: line
 			};
-			collectWarningContinuation(entry);
+			Object.assign(entry, collectWarningContinuation(entry));
 			if (/Empty `thebibliography' environment/.test(entry.message)) continue; // noise, not actionable
 			push(entry);
 			continue;
@@ -305,7 +313,7 @@ export function parseLatexLog(text: string, options: ParseLatexLogOptions = {}):
 				file: currentFile(),
 				raw: line
 			};
-			collectWarningContinuation(entry, mod[2]);
+			Object.assign(entry, collectWarningContinuation(entry, mod[2]));
 			push(entry);
 			continue;
 		}

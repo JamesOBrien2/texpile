@@ -1,3 +1,4 @@
+/* eslint no-param-reassign: "off" -- StreamLanguage hands each token a mutable state; mutating it is the API */
 // Hand-written LaTeX StreamLanguage, replacing legacy-modes' stex (which language-data's "LaTeX"
 // descriptor loads). stex files almost everything under `tag`, a tag our shared highlight style -
 // and CodeMirror's default one - does not colour at all, so a .tex buffer was painted nearly flat

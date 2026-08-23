@@ -1,3 +1,4 @@
+/* eslint no-param-reassign: "off" -- markdown-it rules advance parsing by mutating state.pos/state.line; that is the API */
 // $-math rules for markdown-it, deliberately small: `$...$` inline on one line, `$$...$$`
 // blocks. Anything the rules don't match stays literal text, which the orig layer round-trips
 // untouched, so a false negative costs display fidelity, never bytes.

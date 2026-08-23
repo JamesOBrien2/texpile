@@ -220,13 +220,14 @@ export function heuristicMarkDelimitedMacroSpans(nodes: Node[] | undefined, sour
  * Infer an unknown command's arity from usage: a no-arg macro immediately followed by {...}
  * groups almost certainly takes them as arguments; recording `m` x count lets attachMacroArgs
  * re-attach them so they keep their braces. stops at a blank line so an unrelated group isn't
- * swallowed; ignores commands we already understand.
+ * swallowed; ignores commands we already understand. returns the inferred signatures for the
+ * caller to merge into its macro table.
  */
 export function heuristicInferUnknownMacroSignatures(
 	ast: Root,
 	isKnown: (name: string) => boolean,
-	macroInfo: Record<string, { signature: string }>
-): void {
+	macroInfo: Readonly<Record<string, { signature: string }>>
+): Record<string, { signature: string }> {
 	const MAX_ARGS = 9;
 	const counts: Record<string, number> = {};
 
@@ -276,7 +277,9 @@ export function heuristicInferUnknownMacroSignatures(
 	}
 	walk(ast.content as Node[]);
 
+	const inferred: Record<string, { signature: string }> = {};
 	for (const [name, n] of Object.entries(counts)) {
-		if (!macroInfo[name]) macroInfo[name] = { signature: Array(n).fill('m').join(' ') };
+		if (!macroInfo[name]) inferred[name] = { signature: Array(n).fill('m').join(' ') };
 	}
+	return inferred;
 }

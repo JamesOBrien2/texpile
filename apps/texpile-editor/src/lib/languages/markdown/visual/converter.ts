@@ -8,7 +8,7 @@
 // N items becomes N flat-list nodes sharing one group (same model as itemize), so substitution
 // stays all-or-nothing and an item edit regenerates the whole list.
 import type { Token } from 'markdown-it';
-import { el, txtNodes, collapseTextNodes, type PMNode, type PMMark, realMarks } from './builders';
+import { el, txtNodes, collapseTextNodes, type PmNode, type PmMark, realMarks } from './builders';
 import { createMarkdownEngine } from '../engine';
 
 type Cap = {
@@ -47,7 +47,7 @@ function constructEnd(tokens: Token[], i: number): number {
 	return tokens.length - 1; // unbalanced stream: consume to the end rather than loop
 }
 
-function withMarks(node: PMNode, marks: PMMark[]): PMNode {
+function withMarks(node: PmNode, marks: PmMark[]): PmNode {
 	return marks.length > 0 ? node.mark(realMarks(marks)) : node;
 }
 
@@ -87,7 +87,7 @@ function imageMarkdown(tok: Token): string {
 }
 
 /** `![alt](src "title")` alone in a paragraph: a block figure. title becomes the caption. */
-function imageBlock(tok: Token): PMNode {
+function imageBlock(tok: Token): PmNode {
 	const title = attrStr(tok, 'title');
 	return el(
 		'image',
@@ -107,14 +107,14 @@ const MARK_TOKENS: Record<string, string> = {
 	s: 's'
 };
 
-function convertInline(children: Token[], marks: PMMark[]): PMNode[] {
-	const out: PMNode[] = [];
+function convertInline(children: Token[], marks: PmMark[]): PmNode[] {
+	const out: PmNode[] = [];
 	for (let i = 0; i < children.length; i++) {
 		const tok = children[i];
 		const open = tok.type.endsWith('_open') ? tok.type.slice(0, -5) : null;
 		const close = tok.type.endsWith('_close') ? tok.type.slice(0, -6) : null;
 		if (open && (MARK_TOKENS[open] || open === 'link')) {
-			const mark: PMMark =
+			const mark: PmMark =
 				open === 'link'
 					? {
 							type: 'link',
@@ -165,12 +165,12 @@ function convertInline(children: Token[], marks: PMMark[]): PMNode[] {
 	return collapseTextNodes(out);
 }
 
-function paragraphContent(inline: Token | undefined): PMNode[] {
+function paragraphContent(inline: Token | undefined): PmNode[] {
 	return inline?.children ? convertInline(inline.children, []) : [];
 }
 
 /** GFM task marker on the item's first paragraph: strip it and lift into kind/checked attrs. */
-function detectTask(blocks: PMNode[]): { blocks: PMNode[]; checked: boolean | null } {
+function detectTask(blocks: PmNode[]): { blocks: PmNode[]; checked: boolean | null } {
 	const first = blocks[0];
 	if (!first || first.type.name !== 'paragraph' || first.childCount === 0) return { blocks, checked: null };
 	const lead = first.child(0);
@@ -178,18 +178,18 @@ function detectTask(blocks: PMNode[]): { blocks: PMNode[]; checked: boolean | nu
 	const m = /^\[([ xX])\] /.exec(lead.text);
 	if (!m) return { blocks, checked: null };
 	const rest = lead.text.slice(m[0].length);
-	const kids: PMNode[] = [];
+	const kids: PmNode[] = [];
 	if (rest) kids.push(lead.type.schema.text(rest, lead.marks));
 	for (let i = 1; i < first.childCount; i++) kids.push(first.child(i));
 	const para = el('paragraph', { ...first.attrs }, kids);
 	return { blocks: [para, ...blocks.slice(1)], checked: m[1] !== ' ' };
 }
 
-function listItems(tokens: Token[], i: number, j: number): PMNode[] {
+function listItems(tokens: Token[], i: number, j: number): PmNode[] {
 	const open = tokens[i];
 	const kind = open.type === 'ordered_list_open' ? 'ordered' : 'bullet';
 	const start = kind === 'ordered' ? Number(open.attrGet('start') ?? 1) : null;
-	const items: PMNode[] = [];
+	const items: PmNode[] = [];
 	let k = i + 1;
 	while (k < j) {
 		if (tokens[k].type !== 'list_item_open') {
@@ -219,11 +219,11 @@ function listItems(tokens: Token[], i: number, j: number): PMNode[] {
 	return items;
 }
 
-function tableNode(tokens: Token[], i: number, j: number): PMNode {
-	const rows: PMNode[] = [];
+function tableNode(tokens: Token[], i: number, j: number): PmNode {
+	const rows: PmNode[] = [];
 	const aligns: string[] = [];
 	let inHead = false;
-	let cells: PMNode[] = [];
+	let cells: PmNode[] = [];
 	for (let k = i + 1; k < j; k++) {
 		const tok = tokens[k];
 		switch (tok.type) {
@@ -258,7 +258,7 @@ function tableNode(tokens: Token[], i: number, j: number): PMNode {
 	return el('table', { env: null, colspec: aligns.join('|') || null }, rows);
 }
 
-function fenceNode(tok: Token): PMNode {
+function fenceNode(tok: Token): PmNode {
 	const info = (tok.info ?? '').trim();
 	const content = tok.content.replace(/\n$/, '');
 	// no info string means NO language: highlighting a bare fence as Markdown painted noise over
@@ -267,7 +267,7 @@ function fenceNode(tok: Token): PMNode {
 }
 
 /** one construct starting at tokens[i] (ending at j inclusive) -> block nodes. */
-function convertConstruct(tokens: Token[], i: number, j: number, cap: Cap | null): PMNode[] {
+function convertConstruct(tokens: Token[], i: number, j: number, cap: Cap | null): PmNode[] {
 	const tok = tokens[i];
 	switch (tok.type) {
 		case 'paragraph_open': {
@@ -308,13 +308,13 @@ function convertConstruct(tokens: Token[], i: number, j: number, cap: Cap | null
 	}
 }
 
-function ensureBlocks(blocks: PMNode[]): PMNode[] {
+function ensureBlocks(blocks: PmNode[]): PmNode[] {
 	return blocks.length > 0 ? blocks : [el('paragraph')];
 }
 
 /** nested walker (blockquote bodies, list items): no orig stamping below the top level. */
-function convertTokens(tokens: Token[], from: number, to: number): PMNode[] {
-	const out: PMNode[] = [];
+function convertTokens(tokens: Token[], from: number, to: number): PmNode[] {
+	const out: PmNode[] = [];
 	let i = from;
 	while (i < to) {
 		const j = constructEnd(tokens, i);
@@ -325,13 +325,13 @@ function convertTokens(tokens: Token[], from: number, to: number): PMNode[] {
 }
 
 /** Recreate `node` with an `orig` attr; types that don't declare it pass through unchanged. */
-function withOrig(node: PMNode, orig: Record<string, unknown>): PMNode {
+function withOrig(node: PmNode, orig: Record<string, unknown>): PmNode {
 	if (!node.type.spec.attrs || !('orig' in node.type.spec.attrs)) return node;
 	return node.type.create({ ...node.attrs, orig }, node.content, node.marks);
 }
 
 export type MarkdownParseResult = {
-	doc: PMNode;
+	doc: PmNode;
 };
 
 export function markdownToProseMirror(source: string): MarkdownParseResult {
@@ -339,7 +339,7 @@ export function markdownToProseMirror(source: string): MarkdownParseResult {
 	const tokens = md.parse(source, {}) as Token[];
 	const cap: Cap = { source, lineStarts: buildLineStarts(source), seq: 0, prevEnd: 0, group: 0 };
 
-	const result: PMNode[] = [];
+	const result: PmNode[] = [];
 	let i = 0;
 	while (i < tokens.length) {
 		const j = constructEnd(tokens, i);

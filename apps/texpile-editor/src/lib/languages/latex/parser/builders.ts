@@ -4,18 +4,18 @@ import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
 import { Node as PMNodeT, Mark as PMMarkT } from 'prosemirror-model';
 import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 
-export type PMNode = PMNodeT;
+export type PmNode = PMNodeT;
 
 /** A lightweight descriptor of a mark to apply; realised into a Mark at text-build time. */
-export type PMMark = {
+export type PmMark = {
 	type: string;
 	attrs?: Record<string, unknown>;
 };
 
 export type ConversionContext = {
-	marks: PMMark[];
+	marks: PmMark[];
 	inMathMode: boolean;
-	inlineBuffer: PMNode[];
+	inlineBuffer: PmNode[];
 };
 
 export type ConversionOptions = {
@@ -35,7 +35,7 @@ export type ConversionOptions = {
  * .map() array: nested same-mark sources (\emph{\textit{...}} both map to em) would produce
  * [em, em], an invalid mark collection doc.check() rejects.
  */
-export function realMarks(marks?: PMMark[] | null): readonly PMMarkT[] {
+export function realMarks(marks?: PmMark[] | null): readonly PMMarkT[] {
 	if (!marks || marks.length === 0) return PMMarkT.none;
 	let set: readonly PMMarkT[] = PMMarkT.none;
 	for (const m of marks) set = schema.marks[m.type].create(m.attrs ?? null).addToSet(set);
@@ -43,12 +43,12 @@ export function realMarks(marks?: PMMark[] | null): readonly PMMarkT[] {
 }
 
 /** Build a real text node, or null for the empty string (PM forbids empty text). */
-export function txt(text: string, marks?: PMMark[] | null): PMNodeT | null {
+export function txt(text: string, marks?: PmMark[] | null): PMNodeT | null {
 	return text.length > 0 ? schema.text(text, realMarks(marks)) : null;
 }
 
-/** Like `txt`, but returns a (possibly empty) array for handlers that return PMNode[]. */
-export function txtNodes(text: string, marks?: PMMark[] | null): PMNodeT[] {
+/** Like `txt`, but returns a (possibly empty) array for handlers that return PmNode[]. */
+export function txtNodes(text: string, marks?: PmMark[] | null): PMNodeT[] {
 	const t = txt(text, marks);
 	return t ? [t] : [];
 }
@@ -91,10 +91,10 @@ export function createDefaultContext(): ConversionContext {
 }
 
 /** Merge adjacent same-mark text nodes into single runs (and drop empty text, which PM forbids). */
-export function collapseTextNodes(nodes: PMNode[]): PMNode[] {
+export function collapseTextNodes(nodes: PmNode[]): PmNode[] {
 	if (nodes.length === 0) return nodes;
 
-	const result: PMNode[] = [];
+	const result: PmNode[] = [];
 	let buf = '';
 	let bufMarks: readonly PMMarkT[] = PMMarkT.none;
 	function flush() {

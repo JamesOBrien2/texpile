@@ -11,7 +11,7 @@
 // expression it introduces), so block grouping is synthesized here.
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { TypstParser } from 'texpile-typst-syntax-wasm';
-import { el, txtNodes, collapseTextNodes, realMarks, type PMNode, type PMMark } from './builders';
+import { el, txtNodes, collapseTextNodes, realMarks, type PmNode, type PmMark } from './builders';
 import { mergeAdjacentRawBlocks } from '$lib/editor/mergeRawBlocks';
 import { typstMathToLatex } from './mathTranslate';
 
@@ -72,16 +72,16 @@ function unescape(slice: string): string {
 	return slice.length >= 2 && slice[0] === '\\' ? slice.slice(1) : slice;
 }
 
-function withMarks(node: PMNode, marks: PMMark[]): PMNode {
+function withMarks(node: PmNode, marks: PmMark[]): PmNode {
 	return marks.length > 0 ? node.mark(realMarks(marks)) : node;
 }
 
 /** an inline raw-source chip; the escape hatch every unknown inline construct falls into. */
-function chip(text: string, marks: PMMark[]): PMNode[] {
+function chip(text: string, marks: PmMark[]): PmNode[] {
 	return text ? [withMarks(el('inline_latex', { lang: 'typst' }, txtNodes(text)), marks)] : [];
 }
 
-function rawBlock(text: string): PMNode {
+function rawBlock(text: string): PmNode {
 	return el('raw_latex', { lang: 'typst' }, txtNodes(text));
 }
 
@@ -167,7 +167,7 @@ const MARK_FUNCS: Record<string, 'u' | 'sup' | 'sub'> = { underline: 'u', super:
 /** `#underline[..] / #super[..] / #sub[..] / #highlight[..] / #highlight(fill: c)[..] /
  *  #text(fill: c)[..]` -> a mark over the inline content. Any other shape (extra arguments,
  *  unshared color) stays a chip, the same rule links follow. */
-function markCallParts(call: SyntaxNode, src: string): { mark: PMMark; markup: SyntaxNode } | null {
+function markCallParts(call: SyntaxNode, src: string): { mark: PmMark; markup: SyntaxNode } | null {
 	if (call.name !== 'FuncCall') return null;
 	const ident = call.firstChild;
 	if (!ident || ident.name !== 'Ident') return null;
@@ -206,8 +206,8 @@ function markCallParts(call: SyntaxNode, src: string): { mark: PMMark; markup: S
 }
 
 /** inline CST nodes -> inline PM nodes. Pairs each Hash with the expression following it. */
-function convertInline(nodes: SyntaxNode[], src: string, marks: PMMark[]): PMNode[] {
-	const out: PMNode[] = [];
+function convertInline(nodes: SyntaxNode[], src: string, marks: PmMark[]): PmNode[] {
+	const out: PmNode[] = [];
 	for (let i = 0; i < nodes.length; i++) {
 		const k = nodes[i];
 		const slice = src.slice(k.from, k.to);
@@ -263,7 +263,7 @@ function convertInline(nodes: SyntaxNode[], src: string, marks: PMMark[]): PMNod
 				const link = linkParts(next, src);
 				const markCall = link ? null : markCallParts(next, src);
 				if (link) {
-					const linkMark: PMMark = { type: 'link', attrs: { href: link.href, title: null, bare: false } };
+					const linkMark: PmMark = { type: 'link', attrs: { href: link.href, title: null, bare: false } };
 					out.push(...convertInline(children(link.markup), src, [...marks, linkMark]));
 				} else if (markCall) {
 					out.push(...convertInline(children(markCall.markup), src, [...marks, markCall.mark]));
@@ -305,18 +305,18 @@ function convertInline(nodes: SyntaxNode[], src: string, marks: PMMark[]): PMNod
 
 /** one source construct -> its PM blocks, with the span the slice is cut from. */
 type Seg = {
-	blocks: PMNode[];
+	blocks: PmNode[];
 	from: number;
 	to: number;
 };
 
-function ensureBlocks(blocks: PMNode[]): PMNode[] {
+function ensureBlocks(blocks: PmNode[]): PmNode[] {
 	return blocks.length > 0 ? blocks : [el('paragraph')];
 }
 
 /** true when nothing but whitespace remains before the paragraph ends. */
-function restOnlySpace(kids: SyntaxNode[], j: number): boolean {
-	for (; j < kids.length; j++) {
+function restOnlySpace(kids: SyntaxNode[], from: number): boolean {
+	for (let j = from; j < kids.length; j++) {
 		if (kids[j].name === 'Parbreak') return true;
 		if (kids[j].name !== 'Space') return false;
 	}
@@ -663,7 +663,7 @@ function figureSeg(kids: SyntaxNode[], i: number, src: string): { seg: Seg; next
 	if (!alone) return null;
 	const labelNode = alone.label;
 	const label = labelNode ? src.slice(labelNode.from + 1, labelNode.to - 1) : null;
-	let node: PMNode;
+	let node: PmNode;
 	if (parts) {
 		const caption = parts.captionMarkup ? convertInline(children(parts.captionMarkup), src, []) : [];
 		node = el(
@@ -696,7 +696,7 @@ const ARG_PUNCT = ['LeftParen', 'RightParen', 'Comma', 'Space'];
  * identically - and an UNEDITED one never regenerates at all, because the orig machinery re-emits
  * its original bytes.
  */
-function contentBlockCell(cb: SyntaxNode, src: string, headerCell: boolean, attrs: Record<string, unknown> | null = null): PMNode | null {
+function contentBlockCell(cb: SyntaxNode, src: string, headerCell: boolean, attrs: Record<string, unknown> | null = null): PmNode | null {
 	const type = headerCell ? 'table_header' : 'table_cell';
 	if (cb.name === 'Equation') return el(type, attrs, [el('paragraph', null, convertInline([cb], src, []))]);
 	if (cb.name !== 'ContentBlock') return null;
@@ -717,14 +717,14 @@ function contentBlockCell(cb: SyntaxNode, src: string, headerCell: boolean, attr
  * Anything else block-level (a list, a quote, a nested table) has no cell representation at all,
  * and null keeps the WHOLE table a raw island rather than quietly dropping the content.
  */
-function cellBlocks(blocks: PMNode[]): PMNode[] | null {
-	const out: PMNode[] = [];
+function cellBlocks(blocks: PmNode[]): PmNode[] | null {
+	const out: PmNode[] = [];
 	for (const b of blocks) {
 		if (b.type.name === 'paragraph') {
 			out.push(b);
 		} else if (b.type.name === 'block_math') {
-			const inner: PMNode[] = [];
-			b.forEach((k) => inner.push(k as PMNode));
+			const inner: PmNode[] = [];
+			b.forEach((k) => inner.push(k as PmNode));
 			out.push(el('paragraph', null, [el('inline_math', { typst: b.attrs.typst, latexOrig: b.attrs.latexOrig }, inner)]));
 		} else {
 			return null;
@@ -742,7 +742,7 @@ function tableMethod(n: SyntaxNode, src: string): string | null {
 
 /** `table.cell(colspan: 2, rowspan: 3)[body]` -> the cell plus its span. Only colspan/rowspan are
  *  modelled; a cell carrying anything else (fill:, align:, inset:) is not one this can rebuild. */
-function spannedCell(call: SyntaxNode, src: string, headerCell: boolean): { cell: PMNode; colspan: number; rowspan: number } | null {
+function spannedCell(call: SyntaxNode, src: string, headerCell: boolean): { cell: PmNode; colspan: number; rowspan: number } | null {
 	const args = call.firstChild?.nextSibling;
 	if (!args || args.name !== 'Args') return null;
 	let colspan = 1;
@@ -790,12 +790,12 @@ type TableParts = {
 	align: string | null;
 	/** every other named argument (stroke:, fill:, gutter:), verbatim and in source order */
 	extraArgs: string[];
-	header: PMNode[] | null;
+	header: PmNode[] | null;
 	/** the table.hline() calls sitting above row i, verbatim */
 	rowRules: string[][];
 	/** the table.hline() calls after the last row */
 	bottomRules: string[];
-	rows: PMNode[][];
+	rows: PmNode[][];
 };
 
 /**
@@ -854,7 +854,7 @@ function tableParts(call: SyntaxNode, src: string): TableParts | null {
 		return `${rr},${cc}`;
 	}
 
-	let header: PMNode[] | null = null;
+	let header: PmNode[] | null = null;
 	const h = real[idx];
 	if (h && tableMethod(h, src) === 'table.header') {
 		const hArgs = h.firstChild!.nextSibling;
@@ -887,7 +887,7 @@ function tableParts(call: SyntaxNode, src: string): TableParts | null {
 	// header rowspans) marks the positions a rowspan from an EARLIER row owns - within-row colspans
 	// are handled by advancing the cursor instead, so a row's width stays sum(colspan) + covered,
 	// with nothing counted twice.
-	const rows: PMNode[][] = [];
+	const rows: PmNode[][] = [];
 	const rowRules: string[][] = [];
 	let pending: string[] = [];
 	let r = 0;
@@ -950,8 +950,8 @@ function tableParts(call: SyntaxNode, src: string): TableParts | null {
 	return { colspec: src.slice(value.from, value.to), align, extraArgs, header, rowRules, bottomRules: pending, rows };
 }
 
-function buildTableNode(t: TableParts): PMNode | null {
-	const rowNodes: PMNode[] = [];
+function buildTableNode(t: TableParts): PmNode | null {
+	const rowNodes: PmNode[] = [];
 	if (t.header) rowNodes.push(el('table_row', { topRules: '' }, t.header));
 	t.rows.forEach((cells, i) => rowNodes.push(el('table_row', { topRules: '', typRules: t.rowRules[i] ?? [] }, cells)));
 	if (rowNodes.length === 0) return null;
@@ -995,7 +995,7 @@ function quoteSeg(kids: SyntaxNode[], i: number, src: string): { seg: Seg; next:
  * (expressions, missing extension, import-like paths) stays a raw block. The path keeps its
  * extension because Typst requires it — the chip's opener defaults to .typ only as a fallback.
  */
-function includeOrRaw(hash: SyntaxNode, stmt: SyntaxNode, src: string): PMNode {
+function includeOrRaw(hash: SyntaxNode, stmt: SyntaxNode, src: string): PmNode {
 	if (stmt.name === 'ModuleInclude') {
 		const real = children(stmt).filter((c) => !['Include', 'Space'].includes(c.name));
 		if (real.length === 1 && real[0].name === 'Str') {
@@ -1007,13 +1007,13 @@ function includeOrRaw(hash: SyntaxNode, stmt: SyntaxNode, src: string): PMNode {
 }
 
 /** Recreate `node` with an `orig` attr; types that don't declare it pass through unchanged. */
-function withOrig(node: PMNode, orig: Record<string, unknown>): PMNode {
+function withOrig(node: PmNode, orig: Record<string, unknown>): PmNode {
 	if (!node.type.spec.attrs || !('orig' in node.type.spec.attrs)) return node;
 	return node.type.create({ ...node.attrs, orig }, node.content, node.marks);
 }
 
 export type TypstParseResult = {
-	doc: PMNode;
+	doc: PmNode;
 };
 
 export function typstToProseMirror(source: string): TypstParseResult {
@@ -1022,7 +1022,7 @@ export function typstToProseMirror(source: string): TypstParseResult {
 
 	// stamp-and-push, the shared pushBlocks contract: every block gets a seq; multi-block
 	// constructs (a list run) share a group so verbatim substitution is all-or-nothing
-	const result: PMNode[] = [];
+	const result: PmNode[] = [];
 	let seq = 0;
 	let prevEnd = 0;
 	let group = 0;

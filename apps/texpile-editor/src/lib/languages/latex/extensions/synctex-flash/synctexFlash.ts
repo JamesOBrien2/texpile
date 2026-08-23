@@ -15,13 +15,13 @@ const lineDeco = Decoration.line({ class: 'cm-synctex-flash' });
 const flashField = StateField.define<DecorationSet>({
 	create: () => Decoration.none,
 	update(deco, tr) {
-		deco = deco.map(tr.changes);
+		let next = deco.map(tr.changes);
 		for (const e of tr.effects) {
 			if (e.is(flashLineEffect)) {
-				deco = e.value == null ? Decoration.none : Decoration.set([lineDeco.range(tr.state.doc.lineAt(e.value).from)]);
+				next = e.value == null ? Decoration.none : Decoration.set([lineDeco.range(tr.state.doc.lineAt(e.value).from)]);
 			}
 		}
-		return deco;
+		return next;
 	},
 	provide: (f) => EditorView.decorations.from(f)
 });

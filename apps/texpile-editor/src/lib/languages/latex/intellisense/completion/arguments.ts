@@ -76,8 +76,8 @@ export function argumentCompletionSource(ctx: CompletionContext): CompletionResu
 			.map((n) => n.trim())
 			.filter(Boolean);
 		return packageOptions(list).then((options) => {
-			if (list.includes('fontenc')) options = [...FONT_ENCODINGS.map(toCompletion), ...(options ?? [])];
-			return options?.length ? lastListToken(usepackage, options, { lenient: true }) : null;
+			const merged = list.includes('fontenc') ? [...FONT_ENCODINGS.map(toCompletion), ...(options ?? [])] : options;
+			return merged?.length ? lastListToken(usepackage, merged, { lenient: true }) : null;
 		});
 	}
 

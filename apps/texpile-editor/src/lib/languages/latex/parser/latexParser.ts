@@ -17,6 +17,6 @@ export {
 	getMacroArg
 } from './ast-utils';
 
-export { latexToProseMirror, type PMNode, type PMMark, type ConversionOptions } from './converter';
+export { latexToProseMirror, type PmNode, type PmMark, type ConversionOptions } from './converter';
 
 export type { Root, Node, Macro, Environment, InlineMath, DisplayMath, Group, Argument } from '@unified-latex/unified-latex-types';

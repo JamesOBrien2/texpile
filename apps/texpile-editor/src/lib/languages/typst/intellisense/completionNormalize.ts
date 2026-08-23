@@ -1,3 +1,4 @@
+/* eslint no-param-reassign: "off" -- normalizes the LSP response in place: the object is ours to rewrite before forwarding */
 // Reclassify "snippets" that contain no fields as plain text, so the caret survives accepting one.
 //
 // A semantics collision, measured from both ends. tinymist marks 71 of the 232 items at a bare

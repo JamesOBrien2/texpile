@@ -1,3 +1,4 @@
+/* eslint no-param-reassign: "off" -- StreamLanguage hands each token a mutable state; mutating it is the API */
 // hand-written bibtex StreamLanguage: neither @codemirror/language-data nor legacy-modes ships one.
 // token() returns standard highlight-tag names, which StreamLanguage resolves via tags[name], so no tokenTable needed.
 import { StreamLanguage, LanguageSupport } from '@codemirror/language';

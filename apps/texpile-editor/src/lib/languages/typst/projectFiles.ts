@@ -78,7 +78,7 @@ export class ProjectFileSet {
 				this.close(uri);
 				continue;
 			}
-			if (still.text !== doc.text) this.change(doc, still.text);
+			if (still.text !== doc.text) this.change(uri, still.text);
 		}
 		for (const [uri, file] of wanted) {
 			if (this.open.has(uri) || this.editorOwns(uri)) continue;
@@ -117,7 +117,9 @@ export class ProjectFileSet {
 	 * a local pipe, only when the content actually moved, and a whole-file replace cannot
 	 * desynchronise the server's copy from ours.
 	 */
-	private change(doc: OpenDoc, text: string): void {
+	private change(uri: string, text: string): void {
+		const doc = this.open.get(uri);
+		if (!doc) return;
 		try {
 			this.client.notification('textDocument/didChange', {
 				textDocument: { uri: doc.uri, version: ++doc.version },

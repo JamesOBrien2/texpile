@@ -194,9 +194,6 @@ export default ts.config(
 				{ selector: 'enumMember', format: ['UPPER_CASE'] },
 				{ selector: 'interface', format: ['StrictPascalCase'], custom: { regex: '^I[A-Z]', match: false } },
 				{ selector: 'class', format: ['StrictPascalCase'], custom: { regex: '^Abstract', match: false } },
-				// the sanctioned PMView/CMView alias convention (styles.md) extends to type aliases
-				// like PMNode/PMMark that re-alias ProseMirror/CodeMirror types
-				{ selector: 'typeLike', filter: { regex: '^(PM|CM)[A-Z]', match: true }, format: null },
 				{ selector: 'typeLike', format: ['StrictPascalCase'] }
 			]
 		}

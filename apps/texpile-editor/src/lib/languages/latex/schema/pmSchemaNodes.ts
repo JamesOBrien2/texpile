@@ -20,6 +20,7 @@ const tableNodeSpecs = tableNodes({
 				return dom.style.backgroundColor || null;
 			},
 			setDOMAttr(value, attrs) {
+				// eslint-disable-next-line no-param-reassign -- prosemirror-tables collects DOM attrs by mutation
 				if (value) attrs.style = (attrs.style || '') + `background-color: ${value};`;
 			}
 		}
