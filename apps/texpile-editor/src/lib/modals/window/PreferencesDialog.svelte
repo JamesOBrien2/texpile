@@ -2,14 +2,14 @@
 	import { X, Languages } from '@lucide/svelte';
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
 	import Modal from '../Modal.svelte';
-	import { themeChoice, setTheme, type ThemeChoice } from '$lib/theme';
-	import { settings, updateSettings, updateSettingsLive, applyUiLocale, setMcpEnabled, type AppSettings } from '$lib/settings';
+	import { themeChoice, setTheme } from '$lib/theme';
+	import { settings, updateSettings, updateSettingsLive, setMcpEnabled, type AppSettings } from '$lib/settings';
 	import { layout, updateLayout } from '$lib/storage/layout';
 	import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 	import { setSpellcheckEnabled } from '$lib/editor/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
-	// eslint-disable-next-line no-restricted-imports -- only the catalog's names/groups; probing gates on the desktop bridge at runtime
-	import { toolsInGroup } from '$lib/workspace/toolchainCatalog';
+	import PrefsToolchainPanel from './PrefsToolchainPanel.svelte';
+	import { changeUiLocale, keymapOptions, resizeStepOptions, themeOptions, uiLocaleOptions } from './prefsOptions';
 	import { preferencesTab } from '$lib/stores/dialogStore';
 	import McpSetupModal from './McpSetupModal.svelte';
 	// dark wordmark for light backgrounds, white one for dark mode - the pair StartView uses
@@ -19,8 +19,6 @@
 
 	// autosave is forced on (shown disabled) while live mode or a hosted session is active
 	const autosaveForced = $derived($compileConfig.latex.liveMode || collabHost.active);
-	import { LOCALE_META } from '$lib/localeMeta';
-	import { toaster } from '$lib/modals/toaster-svelte';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -78,43 +76,6 @@
 		{ id: 'ai', label: m.prefs_group_ai() }
 	];
 
-	// Nothing in the Toolchain panel is bundled, so the only honest thing it can show is what was
-	// actually found. Probed on demand rather than on mount: it spawns ten processes, and most
-	// users never open the category.
-	let tinymist = $state<TinymistInfo | null | 'unchecked'>('unchecked');
-	let probes = $state<ToolProbe[]>([]);
-	let probing = $state(false);
-	/** the probe itself could not run - an old main process, or no desktop bridge at all */
-	let probeFailed = $state(false);
-	async function probeToolchain() {
-		probing = true;
-		probeFailed = false;
-		try {
-			const bridge = window.texpileTypst;
-			if (!bridge?.probeToolchain) throw new Error('no toolchain bridge');
-			// in parallel: latexindent alone can take a second, and tinymist resolves separately
-			// because it reports more (embedded Typst version, and which location won)
-			const [tools, tm] = await Promise.all([bridge.probeToolchain(), bridge.resolve()]);
-			probes = tools;
-			tinymist = tm;
-		} catch {
-			// A FAILED probe is not the same as "nothing is installed", and reporting it as such is
-			// how a stale main process made a full TeX Live install look absent. Say we don't know.
-			probeFailed = true;
-			probes = [];
-			tinymist = null;
-		} finally {
-			probing = false;
-		}
-	}
-	function probeFor(id: string) {
-		return probes.find((p) => p.id === id);
-	}
-
-	$effect(() => {
-		if (open && category === 'toolchain' && tinymist === 'unchecked' && !probing) void probeToolchain();
-	});
-
 	// Opened to answer a particular question (the compile modal's "your compiler is missing"): land
 	// on that tab, then clear the request. Cleared only when it was SET, or the store write would
 	// re-run this effect forever.
@@ -137,58 +98,6 @@
 	 * currently form down the whole panel - the thing that makes the list scannable at all.
 	 */
 	const SUB = 'pl-4';
-
-	const themes: { value: ThemeChoice; label: string }[] = [
-		{ value: 'system', label: m.prefs_theme_system() },
-		{ value: 'light', label: m.prefs_theme_light() },
-		{ value: 'dark', label: m.prefs_theme_dark() }
-	];
-
-	// source-editor keybindings; Vim and Emacs are names, so they are not translated
-	const keymaps: { value: AppSettings['editorKeymap']; label: string }[] = [
-		{ value: 'default', label: m.prefs_keybindings_default() },
-		{ value: 'vim', label: 'Vim' },
-		{ value: 'emacs', label: 'Emacs' }
-	];
-
-	// image resize snaps to multiples of this fraction of \textwidth
-	const resizeSteps: { value: number; label: string }[] = [
-		{ value: 0.1, label: '10%' },
-		{ value: 0.25, label: '25%' },
-		{ value: 0.5, label: '50%' }
-	];
-
-	// <option> only renders plain text, so the machine-translated tag is appended into the label itself
-	const uiLocales: { value: AppSettings['uiLocale']; label: string }[] = (
-		Object.entries(LOCALE_META) as [AppSettings['uiLocale'], (typeof LOCALE_META)[AppSettings['uiLocale']]][]
-	).map(([value, meta]) => ({
-		value,
-		label: meta.machineTranslated ? `${meta.label} ${m.prefs_machine_translated_tag({}, { locale: value })}` : meta.label
-	}));
-
-	function onLocaleChange(e: Event) {
-		const uiLocale = (e.currentTarget as HTMLSelectElement).value as AppSettings['uiLocale'];
-		updateSettings({ uiLocale });
-		if (!LOCALE_META[uiLocale]?.machineTranslated) {
-			applyUiLocale(uiLocale);
-			return;
-		}
-		// warn every time (not just once) since switching to this language is a deliberate, infrequent action
-		toaster.warning({
-			title: m.mt_warning_title(),
-			description: m.mt_warning_description(),
-			duration: 6000,
-			action: {
-				label: m.mt_warning_report_action(),
-				onClick: () => {
-					const title = `Translation issue: ${LOCALE_META[uiLocale]?.label ?? uiLocale}`;
-					window.open(`https://github.com/texpile/texpile/issues/new?title=${encodeURIComponent(title)}`, '_blank', 'noopener,noreferrer');
-				}
-			}
-		});
-		// give the toast a moment on screen before the locale-switch reload would otherwise wipe it
-		setTimeout(() => applyUiLocale(uiLocale), 3000);
-	}
 </script>
 
 {#snippet label(text: string, hint: string, disabled = false)}
@@ -203,62 +112,8 @@
      docs, which the header links no matter what.
      One panel for all of them, grouped by what they serve. They were three sidebar tabs; a reader
      asking "is my machine set up" had to visit all three and could not see the answer at once. -->
-{#snippet toolchainHeader()}
-	<div class="border-surface-200-800 flex items-center justify-between gap-3 border-b pt-1 pb-3">
-		<p class="text-surface-500 text-xs">
-			{m.prefs_toolchain_intro()}
-			<!-- always shown, not only when something is missing: one place to go, stated up front -->
-			{m.prefs_toolchain_docs_hint()}
-			<a class="anchor" href="https://texpile.com/docs/installation" target="_blank" rel="noopener noreferrer"
-				>{m.prefs_toolchain_install_guide()}</a
-			>
-		</p>
-		<button class="btn preset-tonal shrink-0 text-xs" onclick={probeToolchain} disabled={probing}>
-			{m.prefs_toolchain_recheck()}
-		</button>
-	</div>
-	{#if probeFailed}
-		<p class="text-warning-700-300 pt-3 text-xs">{m.prefs_toolchain_probe_failed()}</p>
-	{/if}
-{/snippet}
-
 {#snippet sectionHeading(text: string)}
 	<h3 class="text-surface-600-300 pt-4 pb-1 text-xs font-semibold tracking-wide uppercase">{text}</h3>
-{/snippet}
-
-{#snippet toolRows(group: 'latex' | 'typst' | 'general', heading: string)}
-	{@render sectionHeading(heading)}
-	<!-- two columns for the LaTeX crowd: one column of name-plus-verdict rows was half whitespace.
-	     A group with a single tool (tinymist, git) keeps the full width, so its version line does
-	     not truncate for a column that isn't there. The version rides along truncated when needed
-	     (hover for the full line); the tool's purpose is the row tooltip -->
-	<div class="{SUB} grid gap-x-6 {toolsInGroup(group).length > 1 ? 'grid-cols-2' : 'grid-cols-1'}">
-		{#each toolsInGroup(group) as tool (tool.id)}
-			{@const probe = probeFor(tool.id)}
-			<!-- tinymist resolves through its own path (configured / PATH / managed), so its row reads
-			     that result rather than the generic probe -->
-			{@const found = tool.id === 'tinymist' ? tinymist !== null && tinymist !== 'unchecked' : !!probe?.found}
-			{@const detail =
-				tool.id === 'tinymist'
-					? tinymist && tinymist !== 'unchecked'
-						? `${tinymist.version} (Typst ${tinymist.typstVersion}, ${tinymist.source})`
-						: undefined
-					: probe?.detail}
-			<div class="border-surface-200-800 flex min-w-0 items-baseline gap-2 border-b py-2" title={tool.purpose}>
-				<span class="shrink-0 font-mono text-sm font-medium">{tool.name}</span>
-				{#if probing || probeFailed}
-					<span class="text-surface-400 text-xs">…</span>
-				{:else}
-					<span class="shrink-0 text-xs {found ? 'text-success-600-400' : 'text-surface-400'}">
-						{found ? m.prefs_toolchain_found() : m.prefs_toolchain_missing()}
-					</span>
-					{#if found && detail}
-						<span class="text-surface-400 min-w-0 truncate font-mono text-xs" title={detail}>{detail}</span>
-					{/if}
-				{/if}
-			</div>
-		{/each}
-	</div>
 {/snippet}
 
 {#snippet toggleRow(text: string, hint: string, checked: boolean, onChange: (v: boolean) => void, disabled = false, title = '')}
@@ -325,7 +180,7 @@
 				<div class={ROW}>
 					{@render label(m.prefs_theme(), m.prefs_appearance_hint())}
 					<div class="bg-surface-200-800 rounded-base flex shrink-0 gap-1 p-0.5">
-						{#each themes as t (t.value)}
+						{#each themeOptions() as t (t.value)}
 							<button
 								class="rounded-base px-3 py-1 text-sm {$themeChoice === t.value
 									? 'bg-surface-50-950 font-medium shadow-sm'
@@ -344,8 +199,8 @@
 						<Languages class="text-surface-500 size-4 shrink-0" />
 						{@render label(m.prefs_language(), '')}
 					</div>
-					<select class="select w-32 shrink-0 text-sm" value={$settings.uiLocale} onchange={onLocaleChange}>
-						{#each uiLocales as l (l.value)}
+					<select class="select w-32 shrink-0 text-sm" value={$settings.uiLocale} onchange={changeUiLocale}>
+						{#each uiLocaleOptions() as l (l.value)}
 							<option value={l.value}>{l.label}</option>
 						{/each}
 					</select>
@@ -383,7 +238,7 @@
 					$settings.openDockOnCompile !== false,
 					(v) => updateSettings({ openDockOnCompile: v })
 				)}
-				{@render selectRow(m.prefs_keybindings(), m.prefs_keybindings_note(), $settings.editorKeymap ?? 'default', keymaps, (v) =>
+				{@render selectRow(m.prefs_keybindings(), m.prefs_keybindings_note(), $settings.editorKeymap ?? 'default', keymapOptions(), (v) =>
 					updateSettings({ editorKeymap: v as AppSettings['editorKeymap'] })
 				)}
 				{@render sectionHeading(m.prefs_group_source())}
@@ -419,7 +274,7 @@
 						m.prefs_image_resize_step(),
 						m.prefs_image_resize_step_note(),
 						$settings.figureResizeStep,
-						resizeSteps,
+						resizeStepOptions(),
 						(v) => updateSettings({ figureResizeStep: Number(v) }),
 						'w-24'
 					)}
@@ -430,15 +285,7 @@
 						     completion marker - were second copies of switches in the compile-command dialog,
 						     which is where you go to decide how this project builds. One control, one home.
 						     Typst's preview switch was never duplicated here for the same reason. -->
-				{@render toolchainHeader()}
-				{@render toolRows('latex', m.prefs_group_latex())}
-				{@render toolRows('typst', m.prefs_group_typst())}
-				<!-- No path box for tinymist, and none for the eight above it either. Where a program
-						     lives is the operating system's answer to give: every installer puts it on PATH,
-						     and fixShellPath() in main.ts already recovers the login-shell PATH a GUI launch
-						     misses. A second copy of $PATH kept in app settings is one more place for it to be
-						     wrong, and the row above already says whether the OS's answer worked. -->
-				{@render toolRows('general', m.prefs_group_vcs())}
+				<PrefsToolchainPanel />
 			{:else if category === 'integrations'}
 				{@render toggleRow(m.prefs_zotero(), m.prefs_zotero_note(), $settings.zoteroEnabled !== false, (v) =>
 					updateSettings({ zoteroEnabled: v })
