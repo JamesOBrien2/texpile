@@ -8,7 +8,7 @@
 	// block is what the command center measures itself against: anything in there eats into
 	// menuBudget, so opening a session used to push menus into the overflow button.
 	import { Users } from '@lucide/svelte';
-	import InitialAvatar from '$lib/editor/comp/InitialAvatar.svelte';
+	import InitialAvatar from '$lib/components/InitialAvatar.svelte';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
 	import { m } from '$lib/paraglide/messages';
 

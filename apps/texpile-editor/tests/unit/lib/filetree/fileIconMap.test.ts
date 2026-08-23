@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fileIconSvg, folderIconSvg } from '$lib/editor/comp/fileIconMap';
+import { fileIconSvg, folderIconSvg } from '$lib/filetree/fileIconMap';
 
 /** the vendored icons are single-path; identify one by a distinctive slice of its markup */
 const distinct = (name: string) => fileIconSvg(name)?.replace(/\s+/g, '') ?? '';

@@ -7,7 +7,7 @@
 	import { sessionProvider, GUEST_ROOT } from '$lib/collab/sessionProvider';
 	import { dropGuestTypstLsp } from '$lib/languages/typst/intellisense/guestLspExtension';
 	import SessionJoin from '$lib/collab/SessionJoin.svelte';
-	import WorkspaceView from './WorkspaceView.svelte';
+	import WorkspaceView from './workspace/WorkspaceView.svelte';
 	import { workspaceRoot, activeFilePath, fileTree, texFiles } from '$lib/workspace/workspaceStore';
 	const joined = $derived(collabGuest.status === 'online' || collabGuest.status === 'reconnecting');
 

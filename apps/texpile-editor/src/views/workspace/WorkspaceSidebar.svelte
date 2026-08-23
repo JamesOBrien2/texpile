@@ -1,9 +1,9 @@
 <script lang="ts">
 	// The left sidebar: folder header + explorer / source-control / find-in-files, with the file
 	// tree and (in explorer) a resizable table-of-contents. Presentational — logic stays in the view.
-	import FileTree from './FileTree.svelte';
-	import GlobalSearch from './GlobalSearch.svelte';
-	import SourceControlPanel from './SourceControlPanel.svelte';
+	import FileTree from '$lib/filetree/FileTree.svelte';
+	import GlobalSearch from '$lib/search/GlobalSearch.svelte';
+	import SourceControlPanel from '$lib/workspace/SourceControlPanel.svelte';
 	import TableOfContents from './TableOfContents.svelte';
 	import { workspaceRoot, fileTree, activeFilePath, mainFile } from '$lib/workspace/workspaceStore';
 	import { isGitRepo, gitBranch, gitChanges, gitStatusMap } from '$lib/workspace/gitStore';

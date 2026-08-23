@@ -2,12 +2,12 @@
 	// The editor column: toolbar, editor/preview pair, and the bottom dock. Everything here reads
 	// from the workspace's state objects rather than a long list of scalar props, which is what
 	// makes this splittable at all - the state lives in lib/workspace/*.svelte.ts, not in the view.
-	import EditorTopbar from '$lib/editor/comp/EditorTopbar.svelte';
-	import EditorPane from '$lib/editor/comp/EditorPane.svelte';
-	import PreviewPane from '$lib/editor/comp/PreviewPane.svelte';
-	import PreviewPopout from '$lib/editor/comp/PreviewPopout.svelte';
-	import PaneSplitter from '$lib/editor/comp/PaneSplitter.svelte';
-	import TerminalDock from '$lib/editor/comp/TerminalDock.svelte';
+	import EditorTopbar from './EditorTopbar.svelte';
+	import EditorPane from './EditorPane.svelte';
+	import PreviewPane from '$lib/preview/PreviewPane.svelte';
+	import PreviewPopout from '$lib/preview/PreviewPopout.svelte';
+	import PaneSplitter from '$lib/components/PaneSplitter.svelte';
+	import TerminalDock from '$lib/terminal/TerminalDock.svelte';
 	import { ChevronLeft } from '@lucide/svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { DraftController } from '$lib/draft/draftController.svelte';

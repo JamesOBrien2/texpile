@@ -4,8 +4,8 @@
 	// with the popped-out preview window (PreviewPopout), which is why none of it lives here.
 	// Renders two grid siblings, so it must sit in a display:contents wrapper on the editor grid.
 	import { ArrowRight, ChevronRight } from '@lucide/svelte';
-	import PaneHandle from './PaneHandle.svelte';
-	import PaneSplitter from './PaneSplitter.svelte';
+	import PaneHandle from '$lib/components/PaneHandle.svelte';
+	import PaneSplitter from '$lib/components/PaneSplitter.svelte';
 	import PreviewBody from './PreviewBody.svelte';
 	import type { DraftController } from '$lib/draft/draftController.svelte';
 	import { m } from '$lib/paraglide/messages';

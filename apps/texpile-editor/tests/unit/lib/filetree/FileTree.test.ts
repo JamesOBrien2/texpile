@@ -3,8 +3,8 @@
 // tests the rest of the suite uses. These cover the two ways the naming step used to break.
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { mount, unmount, flushSync } from 'svelte';
-import FileTree from '../../../../../src/lib/editor/comp/FileTree.svelte';
-import type { TreeEntry } from '../../../../../src/lib/workspace/fileSystem';
+import FileTree from '../../../../src/lib/filetree/FileTree.svelte';
+import type { TreeEntry } from '../../../../src/lib/workspace/fileSystem';
 
 const ROOT = '/ws';
 const tree: TreeEntry[] = [

@@ -3,7 +3,7 @@
 	import { isMac } from '$lib/platform';
 	import { shortcutsOpen } from '$lib/stores/dialogStore';
 	import Modal from '../Modal.svelte';
-	import { combo } from '$lib/editor/comp/shortcutText';
+	import { combo } from '$lib/chrome/shortcutText';
 	import Kbd from '$lib/components/Kbd.svelte';
 	import { m } from '$lib/paraglide/messages';
 

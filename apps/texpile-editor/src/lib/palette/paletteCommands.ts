@@ -36,7 +36,7 @@ import { native, relativeTo, type TreeEntry } from '$lib/workspace/fileSystem';
 import { confirmAsk } from '$lib/modals/confirm.svelte';
 import { collabHost } from '$lib/collab/hostStore.svelte';
 import { settings, updateSettings, type AppSettings } from '$lib/settings';
-import { combo } from '$lib/editor/comp/shortcutText';
+import { combo } from '$lib/chrome/shortcutText';
 import type { PaletteActions } from '$lib/workspace/commandPalette.svelte';
 import { m } from '$lib/paraglide/messages';
 

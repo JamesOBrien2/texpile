@@ -7,7 +7,7 @@
 	import ConflictModal from './ConflictModal.svelte';
 	import SaveBeforeSwitchModal from './SaveBeforeSwitchModal.svelte';
 	import RefUpdateModal, { type RefUpdate } from './RefUpdateModal.svelte';
-	import CommandPalette from '$lib/editor/comp/palette/CommandPalette.svelte';
+	import CommandPalette from '$lib/palette/CommandPalette.svelte';
 	import type { MainFilePrompt } from '$lib/workspace/mainFilePrompt.svelte';
 	import type { UnsavedGuard } from '$lib/workspace/unsavedGuard.svelte';
 	import type { ExternalChangeWatcher } from '$lib/workspace/externalChange.svelte';

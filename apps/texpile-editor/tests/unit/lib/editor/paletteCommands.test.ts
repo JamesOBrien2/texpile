@@ -3,7 +3,7 @@
 // and on compile, but never on the provider's capabilities - so a guest could find "New LaTeX
 // document" and run it into a provider that cannot create files.
 import { describe, it, expect } from 'vitest';
-import { buildCommands } from '$lib/editor/comp/palette/paletteCommands';
+import { buildCommands } from '$lib/palette/paletteCommands';
 import type { PaletteActions } from '$lib/workspace/commandPalette.svelte';
 
 /** every host-only capability off is exactly what a guest's provider reports */

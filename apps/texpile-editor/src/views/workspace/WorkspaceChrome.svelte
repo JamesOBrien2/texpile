@@ -2,15 +2,15 @@
 	// The workspace's chrome: the menu bar (or the guest banner in its place) and the left sidebar
 	// with its drag handle. Like WorkspaceMain, this reads from the shared state objects rather
 	// than a long prop list.
-	import TitleBar from '$lib/editor/comp/chrome/TitleBar.svelte';
-	import WorkspaceMenuBar from '$lib/editor/comp/WorkspaceMenuBar.svelte';
-	import SessionPresence from '$lib/editor/comp/chrome/SessionPresence.svelte';
-	import WorkspaceSidebar from '$lib/editor/comp/WorkspaceSidebar.svelte';
+	import TitleBar from '$lib/chrome/TitleBar.svelte';
+	import WorkspaceMenuBar from '$lib/chrome/WorkspaceMenuBar.svelte';
+	import SessionPresence from '$lib/chrome/SessionPresence.svelte';
+	import WorkspaceSidebar from './WorkspaceSidebar.svelte';
 	import GuestPresence from '$lib/collab/GuestPresence.svelte';
 	import WindowDialogs from '$lib/modals/window/WindowDialogs.svelte';
-	import PaneSplitter from '$lib/editor/comp/PaneSplitter.svelte';
+	import PaneSplitter from '$lib/components/PaneSplitter.svelte';
 	import { ChevronLeft, ChevronRight, ShieldQuestion } from '@lucide/svelte';
-	import type GlobalSearch from '$lib/editor/comp/GlobalSearch.svelte';
+	import type GlobalSearch from '$lib/search/GlobalSearch.svelte';
 	import type { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 	import type { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
 	import type { TerminalDockState } from '$lib/workspace/terminalDockState.svelte';

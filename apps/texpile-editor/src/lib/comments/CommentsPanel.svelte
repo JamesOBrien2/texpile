@@ -7,7 +7,7 @@
 	// what lets comments exist at all in a layout that already spends its width on the preview: a
 	// list wants horizontal room, which the dock has and a 230px rail beside the editor does not.
 	import { MessageSquare, Check, Trash2, Unlink, Pencil, EyeOff, FileX } from '@lucide/svelte';
-	import InitialAvatar from './InitialAvatar.svelte';
+	import InitialAvatar from '$lib/components/InitialAvatar.svelte';
 	import type { CommentMessage, CommentThread } from '$lib/comments/log';
 	import { m } from '$lib/paraglide/messages';
 

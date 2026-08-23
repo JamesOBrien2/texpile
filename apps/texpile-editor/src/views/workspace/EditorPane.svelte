@@ -8,12 +8,12 @@
 	import { isTexpileManaged } from '$lib/comments/managed';
 	import LatexToolbar from '$lib/languages/latex/visual/LatexToolbar.svelte';
 	import LatexSourceToolbar from '$lib/languages/latex/source/LatexSourceToolbar.svelte';
-	import SearchBar from './SearchBar.svelte';
-	import StarterPicker from './StarterPicker.svelte';
+	import SearchBar from '$lib/editor/visual/SearchBar.svelte';
+	import StarterPicker from '$lib/workspace/StarterPicker.svelte';
 	import DiffPane from './DiffPane.svelte';
 	import SourceEditor from '$lib/editor/source/SourceEditor.svelte';
 	import BibManager from '$lib/editor/visual/bib/BibManager.svelte';
-	import PDFViewer from './PDFViewer.svelte';
+	import PDFViewer from '$lib/preview/PDFViewer.svelte';
 	import PreambleFrontmatter from '$lib/editor/visual/PreambleFrontmatter.svelte';
 	import LatexEditorView from '$lib/languages/latex/visual/LatexEditorView.svelte';
 	import MarkdownEditorView from '$lib/languages/markdown/visual/MarkdownEditorView.svelte';

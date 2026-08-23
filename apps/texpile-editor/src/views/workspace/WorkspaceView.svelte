@@ -3,8 +3,8 @@
 	import { get } from 'svelte/store';
 	import { navigate } from '$lib/router.svelte';
 	import WorkspaceModals from '$lib/modals/workspace/WorkspaceModals.svelte';
-	import WorkspaceMain from '$lib/editor/comp/WorkspaceMain.svelte';
-	import WorkspaceChrome from '$lib/editor/comp/WorkspaceChrome.svelte';
+	import WorkspaceMain from './WorkspaceMain.svelte';
+	import WorkspaceChrome from './WorkspaceChrome.svelte';
 	import { type RefUpdate } from '$lib/modals/workspace/RefUpdateModal.svelte';
 	import { compileLog } from '$lib/stores/compileLogStore';
 	import {
@@ -15,7 +15,7 @@
 		hostDiagnosticsFor
 	} from '$lib/collab/compileIntelBridge';
 	import { DraftController } from '$lib/draft/draftController.svelte';
-	import GlobalSearch from '$lib/editor/comp/GlobalSearch.svelte';
+	import GlobalSearch from '$lib/search/GlobalSearch.svelte';
 	import TutorialConfirmModal from '$lib/modals/start/TutorialConfirmModal.svelte';
 	import type { Starter, ImportedFile } from '$lib/workspace/starters';
 	import { StarterActions } from '$lib/workspace/starterActions.svelte';

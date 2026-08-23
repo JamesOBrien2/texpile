@@ -3,7 +3,7 @@
 	import { AppWindow, Folder, FolderOpen, Loader2, Settings, Users } from '@lucide/svelte';
 	import { modKey } from '$lib/platform';
 	import { whatsNewOpen, hasUnseenWhatsNew } from '$lib/whatsNew';
-	import AppFrame from '$lib/editor/comp/chrome/AppFrame.svelte';
+	import AppFrame from '$lib/chrome/AppFrame.svelte';
 	import RecentFoldersModal from '$lib/modals/start/RecentFoldersModal.svelte';
 	// dark wordmark for light backgrounds, white one for dark mode
 	import logoOnLight from '$lib/assets/logo/Logo-dark.svg';
@@ -64,7 +64,7 @@
 	// it streams while the folder scans. failures are non-fatal here: App's own loader retries
 	// and owns the error path
 	function preloadWorkspace() {
-		return void import('./WorkspaceView.svelte').catch(() => {});
+		return void import('./workspace/WorkspaceView.svelte').catch(() => {});
 	}
 
 	async function finishOpen(root: string, active: string | null) {

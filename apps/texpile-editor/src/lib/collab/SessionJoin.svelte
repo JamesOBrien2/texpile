@@ -4,7 +4,7 @@
 	import { navigate } from '$lib/router.svelte';
 	import { collabGuest } from '$lib/collab/guestStore.svelte';
 	import { formatShareCode, isValidShareCode, normalizeShareCode } from '$lib/collab/e2e/shareCode';
-	import AppFrame from '$lib/editor/comp/chrome/AppFrame.svelte';
+	import AppFrame from '$lib/chrome/AppFrame.svelte';
 	import { settings, updateSettings, DEFAULT_COLLAB_RELAY_URL } from '$lib/settings';
 	import { get } from 'svelte/store';
 	import { users, updateUsers } from '$lib/storage/users';

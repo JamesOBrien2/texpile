@@ -6,7 +6,7 @@
 	import { isDirty } from '$lib/workspace/workspaceStore';
 	import { compileLog } from '$lib/stores/compileLogStore';
 	import WordCount from './WordCount.svelte';
-	import CompileButton, { COMPILE_TONE } from './CompileButton.svelte';
+	import CompileButton, { COMPILE_TONE } from '$lib/preview/CompileButton.svelte';
 	import type { ComponentProps } from 'svelte';
 	import type { FileKind } from '$lib/workspace/documentBuffer.svelte';
 	import { m } from '$lib/paraglide/messages';

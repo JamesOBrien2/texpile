@@ -2,8 +2,8 @@
 	// The bottom dock: a Terminal/Problems tab strip over the shell instances. Owns the multi-
 	// terminal state (VS Code-style: one shown, the rest kept mounted so their shells persist).
 	// The parent owns only the dock's height/visibility (they drive its grid layout).
-	import ProblemsPanel from './ProblemsPanel.svelte';
-	import CommentsPanel from './CommentsPanel.svelte';
+	import ProblemsPanel from '$lib/workspace/ProblemsPanel.svelte';
+	import CommentsPanel from '$lib/comments/CommentsPanel.svelte';
 	import type { CommentMessage, CommentThread } from '$lib/comments/log';
 	import { compileLog } from '$lib/stores/compileLogStore';
 	import { m } from '$lib/paraglide/messages';

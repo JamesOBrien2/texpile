@@ -45,7 +45,7 @@
 	import { combo } from './shortcutText';
 	import { commandPalette } from '$lib/workspace/commandPalette.svelte';
 	import { attachNativeMenu, publishMenuState } from '$lib/workspace/nativeMenu';
-	import { titleBarLayout } from '$lib/editor/comp/chrome/titleBarLayout.svelte';
+	import { titleBarLayout } from '$lib/chrome/titleBarLayout.svelte';
 	import { toaster } from '$lib/modals/toaster-svelte';
 	import type { Node as PMNode } from 'prosemirror-model';
 	import { m } from '$lib/paraglide/messages';

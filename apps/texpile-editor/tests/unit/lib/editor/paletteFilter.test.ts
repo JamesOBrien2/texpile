@@ -2,7 +2,7 @@
 // the failure modes are quiet: a wrong ranking just means the command you wanted is third, which
 // nobody reports as a bug. So the ordering rules get pinned down here.
 import { describe, it, expect } from 'vitest';
-import { fuzzyScore, highlightRuns } from '$lib/editor/comp/palette/paletteFilter';
+import { fuzzyScore, highlightRuns } from '$lib/palette/paletteFilter';
 
 /** rank a list the way the palette does, best first */
 function order(items: string[], query: string): string[] {

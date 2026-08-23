@@ -19,7 +19,7 @@
 
 	// route-split: StartView stays static (first paint), the editor views load on demand so the
 	// boot chunk stays small
-	let WorkspaceView = $state<typeof import('./views/WorkspaceView.svelte').default | null>(null);
+	let WorkspaceView = $state<typeof import('./views/workspace/WorkspaceView.svelte').default | null>(null);
 	let SessionRoute = $state<typeof import('./views/SessionRoute.svelte').default | null>(null);
 
 	// a view chunk can fail transiently: in dev Vite re-optimizes deps mid-session and serves 504s
@@ -46,7 +46,7 @@
 	let workspaceLoad: Promise<void> | null = null;
 	let sessionLoad: Promise<void> | null = null;
 	function loadWorkspace() {
-		return (workspaceLoad ??= retryImport(() => import('./views/WorkspaceView.svelte')).then((mod) => {
+		return (workspaceLoad ??= retryImport(() => import('./views/workspace/WorkspaceView.svelte')).then((mod) => {
 			if (mod) WorkspaceView = mod.default;
 			else workspaceLoad = null;
 		}));

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { navigate } from '$lib/router.svelte';
 	import { ArrowLeft } from '@lucide/svelte';
-	import AppFrame from '$lib/editor/comp/chrome/AppFrame.svelte';
+	import AppFrame from '$lib/chrome/AppFrame.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	type Props = {

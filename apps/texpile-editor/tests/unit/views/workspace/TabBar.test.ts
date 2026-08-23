@@ -5,7 +5,7 @@
 // left over. clientWidth is stubbed because jsdom lays nothing out (every box is 0x0).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount, unmount, flushSync, type ComponentProps } from 'svelte';
-import TabBar from '../../../../../src/lib/editor/comp/TabBar.svelte';
+import TabBar from '../../../../src/views/workspace/TabBar.svelte';
 
 const files = (n: number) => Array.from({ length: n }, (_, i) => `/ws/file${i}.tex`);
 
