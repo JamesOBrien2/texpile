@@ -7,6 +7,7 @@
 	import type { CommentMessage, CommentThread } from '$lib/comments/log';
 	import { compileLog } from '$lib/stores/compileLogStore';
 	import { m } from '$lib/paraglide/messages';
+	import { TerminalShells } from './terminalShells.svelte';
 	import { SquareTerminal, ChevronDown, Check, Trash2, Plus, X, FoldHorizontal, UnfoldHorizontal } from '@lucide/svelte';
 
 	type TermRef =
@@ -67,61 +68,9 @@
 
 	const openComments = $derived(comments.filter((c) => !c.resolved).length);
 
-	let terminals = $state<{ id: number; title: string }[]>([]);
-	let activeTermId = $state<number | null>(null);
+	// shells (roster, compile shell, run/reset plumbing) live in terminalShells.svelte.ts
+	const shells = new TerminalShells(() => onClose());
 	let menuOpen = $state(false);
-	let seq = 0;
-	const refs: Record<number, TermRef> = {};
-	function activeRef(): TermRef {
-		return activeTermId != null ? refs[activeTermId] : undefined;
-	}
-
-	// Compile gets a shell of its own. It used to run on whichever tab happened to be selected,
-	// which is only safe if that tab is sitting at a prompt: with Claude Code, vim, less, an ssh
-	// session or a REPL in front, the compile command was typed into THAT program's stdin instead.
-	// There is no reliable way to ask a pty whether a foreground process is reading input, so the
-	// fix is to never borrow the user's shell in the first place.
-	let compileTermId = $state<number | null>(null);
-
-	// The tab NUMBER is counted separately from the shell id. Ids are unique across every shell,
-	// the compile one included, so titling by id meant that once compile had taken id 1 the user's
-	// first terminal came out called "Terminal 2". This counter only ever advances for shells the
-	// user can see as numbered tabs.
-	let termNo = 0;
-	function userTerm(id: number) {
-		return { id, title: m.wsview_terminal_numbered({ id: ++termNo }) };
-	}
-
-	function ensure() {
-		if (terminals.length === 0) {
-			const t = userTerm(++seq);
-			terminals = [t];
-			activeTermId = t.id;
-		}
-	}
-	function add() {
-		const t = userTerm(++seq);
-		terminals = [...terminals, t];
-		activeTermId = t.id;
-		menuOpen = false;
-		setTimeout(() => activeRef()?.focus(), 50);
-	}
-	function select(id: number) {
-		activeTermId = id;
-		menuOpen = false;
-		setTimeout(() => {
-			activeRef()?.refit();
-			activeRef()?.focus();
-		}, 0);
-	}
-	function kill(id: number) {
-		terminals = terminals.filter((t) => t.id !== id);
-		refs[id] = undefined;
-		if (compileTermId === id) compileTermId = null; // the next compile makes a fresh one
-		if (activeTermId === id) activeTermId = terminals.at(-1)?.id ?? null;
-		if (terminals.length === 0) onClose();
-		else setTimeout(() => activeRef()?.refit(), 0);
-	}
 
 	// Terminal drags in @xterm/* + css, so it loads when the dock first mounts, not at boot
 	let TerminalComp = $state<typeof import('./Terminal.svelte').default | null>(null);
@@ -141,75 +90,38 @@
 	} else view = 'problems';
 
 	// parent API (via bind:this)
-	/** the compile shell, created on demand and reused; never one the user is working in */
-	function ensureCompileTerm(): number | null {
-		if (!terminalEnabled) return null;
-		if (compileTermId != null && terminals.some((t) => t.id === compileTermId)) return compileTermId;
-		const id = ++seq;
-		terminals = [...terminals, { id, title: m.wsview_terminal_compile() }];
-		compileTermId = id;
-		return id;
+	/** run a command on the dedicated compile shell (never one the user is working in). */
+	export function runCommand(cmd: string, onDone?: (output: string) => void): void {
+		if (terminalEnabled) shells.runCommand(cmd, onDone);
 	}
-
-	/** run a command on the dedicated compile shell, retrying until it has spawned. */
-	export function runCommand(cmd: string, onDone?: (output: string) => void, tries = 0): void {
-		const id = ensureCompileTerm();
-		if (id == null) return; // guest dock: no shells at all
-		// Runs in the background: whatever tab the user is on stays selected. Compiling should not
-		// yank them out of a shell they are working in - errors surface in Problems either way, and
-		// the Compile tab is right there if they want the raw output.
-		//
-		// The exception is having nothing selected at all (first compile before any shell existed),
-		// where showing the compile shell steals nothing.
-		if (activeTermId == null) {
-			activeTermId = id;
-			setTimeout(() => refs[id]?.refit(), 0);
-		}
-		const ref = refs[id];
-		if (ref) {
-			ref.run(cmd, onDone);
-			return;
-		}
-		if (tries < 40) setTimeout(() => runCommand(cmd, onDone, tries + 1), 25); // ~1s for first mount
-	}
-	/** drop every shell (folder changed: they are all in the old cwd) and respawn one, but only if
-	 *  the user actually had one. A dock holding nothing but the compile shell goes back to empty
-	 *  rather than gaining a terminal off the back of a folder switch. Numbering restarts with the
-	 *  new folder. */
+	/** folder changed: drop the old cwd's shells (see TerminalShells.reset). */
 	export function reset(): void {
-		if (terminals.length === 0) return;
-		const hadUserShell = terminals.some((t) => t.id !== compileTermId);
-		compileTermId = null;
-		termNo = 0;
-		if (!hadUserShell) {
-			terminals = [];
-			activeTermId = null;
-			return;
-		}
-		const t = userTerm(++seq);
-		terminals = [t];
-		activeTermId = t.id;
-		setTimeout(() => activeRef()?.refit(), 0);
+		shells.reset();
 	}
 	export function refit(): void {
-		activeRef()?.refit();
+		shells.refit();
 	}
 	export function focusActive(): void {
-		activeRef()?.focus();
+		shells.focusActive();
 	}
 	export function addTerminal(): void {
 		add();
 	}
 	/** the user opened the terminal on purpose: give them a shell if they have none yet */
 	export function ensureTerminal(): void {
-		if (terminalEnabled) ensure();
+		if (terminalEnabled) shells.ensure();
 	}
-	/** Ctrl-C the running command (compile stop). Targets the compile shell, not the selected tab:
-	 *  Stop must kill the compile even if the user has since switched to their own terminal, and
-	 *  must never Ctrl-C whatever they are running there. */
+	/** Ctrl-C the running compile (see TerminalShells.interrupt). */
 	export function interrupt(): void {
-		const ref = compileTermId != null ? refs[compileTermId] : undefined;
-		(ref ?? activeRef())?.interrupt();
+		shells.interrupt();
+	}
+	function add(): void {
+		shells.add();
+		menuOpen = false;
+	}
+	function select(id: number): void {
+		shells.select(id);
+		menuOpen = false;
 	}
 </script>
 
@@ -228,7 +140,7 @@
 				class="shrink-0 rounded px-2 py-1 whitespace-nowrap {view === 'terminal' ? 'preset-tonal' : 'hover:preset-tonal'}"
 				onclick={() => {
 					view = 'terminal';
-					ensure(); // a fresh shell if the last one was killed, so the pane is never empty
+					shells.ensure(); // a fresh shell if the last one was killed, so the pane is never empty
 				}}
 			>
 				{m.wsview_terminal_label()}
@@ -273,7 +185,7 @@
 					     all three tabs plus the full action row stop fitting, with slack for the longer
 					     German and Chinese labels. -->
 					<span class="truncate font-medium @max-[30rem]:hidden"
-						>{terminals.find((t) => t.id === activeTermId)?.title ?? m.wsview_terminal_label()}</span
+						>{shells.terminals.find((t) => t.id === shells.activeTermId)?.title ?? m.wsview_terminal_label()}</span
 					>
 					<ChevronDown class="size-3 shrink-0" />
 				</button>
@@ -283,17 +195,17 @@
 					<div
 						class="bg-surface-50-950 border-surface-300-700 absolute right-0 bottom-full z-50 mb-1 min-w-52 overflow-hidden rounded border py-1 shadow-lg"
 					>
-						{#each terminals as t (t.id)}
+						{#each shells.terminals as t (t.id)}
 							<div class="hover:preset-tonal-surface flex items-center">
 								<button class="flex flex-1 items-center gap-2 px-2.5 py-1.5 text-left" onclick={() => select(t.id)}>
-									<Check class="size-3.5 {t.id === activeTermId ? '' : 'invisible'}" />
+									<Check class="size-3.5 {t.id === shells.activeTermId ? '' : 'invisible'}" />
 									<span class="truncate">{t.title}</span>
 								</button>
 								<button
 									class="hover:preset-tonal-error mr-1 rounded p-1"
 									title={m.wsview_kill_terminal()}
 									aria-label={m.wsview_kill_terminal()}
-									onclick={() => kill(t.id)}
+									onclick={() => shells.kill(t.id)}
 								>
 									<Trash2 class="size-3.5" />
 								</button>
@@ -302,7 +214,7 @@
 						<!-- the rule and its margin separate this from the terminal list above; with no terminals
 						     there is nothing to separate it from and they just read as a gap at the top -->
 						<button
-							class="hover:preset-tonal-primary flex w-full items-center gap-2 px-2.5 py-1.5 text-left {terminals.length
+							class="hover:preset-tonal-primary flex w-full items-center gap-2 px-2.5 py-1.5 text-left {shells.terminals.length
 								? 'border-surface-200-800 mt-1 border-t'
 								: ''}"
 							onclick={add}
@@ -320,7 +232,7 @@
 				class="hover:preset-tonal-error rounded p-1"
 				title={m.wsview_kill_terminal()}
 				aria-label={m.wsview_kill_terminal()}
-				onclick={() => activeTermId != null && kill(activeTermId)}
+				onclick={() => shells.activeTermId != null && shells.kill(shells.activeTermId)}
 			>
 				<Trash2 class="size-3.5" />
 			</button>
@@ -368,13 +280,13 @@
 		</div>
 	{/if}
 	{#if TerminalComp}
-		{#each terminals as t (t.id)}
-			<div class="absolute inset-0" style={t.id === activeTermId ? '' : 'display: none'}>
-				<TerminalComp bind:this={refs[t.id]} {cwd} />
+		{#each shells.terminals as t (t.id)}
+			<div class="absolute inset-0" style={t.id === shells.activeTermId ? '' : 'display: none'}>
+				<TerminalComp bind:this={shells.refs[t.id]} {cwd} />
 			</div>
 		{/each}
 	{/if}
-	{#if terminalEnabled && view === 'terminal' && terminals.length === 0}
+	{#if terminalEnabled && view === 'terminal' && shells.terminals.length === 0}
 		<!-- the dock reopens without shells (a compile or a Problems jump is what left it visible) -->
 		<div class="absolute inset-0 flex items-center justify-center">
 			<button class="btn btn-xs preset-tonal flex items-center gap-1.5 text-xs" onclick={add}>
