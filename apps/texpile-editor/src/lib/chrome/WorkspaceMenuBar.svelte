@@ -2,52 +2,33 @@
 	import { onMount, untrack } from 'svelte';
 	import { Menu, Portal } from '@skeletonlabs/skeleton-svelte';
 	// Menu is Skeleton's here, so lucide's hamburger comes in aliased
-	import { Check, ChevronRight, Menu as MenuIcon, MoreHorizontal } from '@lucide/svelte';
-	import Modal from '$lib/modals/Modal.svelte';
-	import { get } from 'svelte/store';
-	import { editorViewStore, referenceStore, editorConfigStore, cursorInCm } from '$lib/stores/editorStore';
+	import { Menu as MenuIcon, MoreHorizontal } from '@lucide/svelte';
+	import { editorConfigStore, cursorInCm } from '$lib/stores/editorStore';
 	import { recentFolders } from '$lib/workspace/workspaceStore';
-	import { basename, isDesktop, openNewWindow, openFolderInNewWindow } from '$lib/workspace/fileSystem';
+	import { isDesktop, openNewWindow, openFolderInNewWindow } from '$lib/workspace/fileSystem';
 	import { isMac } from '$lib/platform';
 	import { setSpellcheckEnabled } from '$lib/editor/spellcheck/spellcheckConfig';
-	const appVersion = __APP_VERSION__; // injected by Vite from package.json
-	import { createMathField } from '$lib/editor/visual/extensions/mathlivebridge/mlcommands';
-	import { computeMathAttrs } from '$lib/editor/visual/extensions/mathlivebridge/mathEnvironments';
-	import { createCodeBlock } from '$lib/editor/visual/extensions/codemirrorbridge/cmcommands';
-	import { createTableNode } from '$lib/editor/visual/tableUtils';
-	import { typTableNode } from '$lib/languages/typst/visual/blockInsertItems';
-	import { mdTableNode } from '$lib/languages/markdown/visual/blockInsertItems';
-	import { toggleLinkCommand } from '$lib/editor/visual/toolbar/markState';
-	import { computeLink as texLink, computeWrapBlock } from '$lib/languages/latex/intellisense/shortcuts';
-	import { tableLatex } from '$lib/editor/source/toolbar/tableLatex';
-	import { insertSnippetAtCursor } from '$lib/editor/source/toolbar/sourceInsert';
-	import {
-		computeFence as mdFence,
-		computeTableSkeleton as mdTable,
-		computeImage as mdImage,
-		computeHr as mdHr,
-		computeLink as mdLink
-	} from '$lib/languages/markdown/source/sourceInsert';
-	import {
-		computeFence as typFence,
-		computeTableSkeleton as typTable,
-		computeFigureSkeleton as typFigure,
-		computeHr as typHr,
-		computeLink as typLink
-	} from '$lib/languages/typst/source/sourceInsert';
-	import { startImageUpload } from '$lib/editor/visual/extensions/image';
-	import { createLocalImageSettings } from '$lib/editor/visual/extensions/image/imageplugin.svelte';
 	import { hasVisualMode, isRawTextKind, formatOf, type FileKind } from '$lib/workspace/documentBuffer.svelte';
-	import { run, insertNode, activeCm, cmReplace, cmApply, editSelect, formatSelect } from './menuBarCommands';
-	import { checkForUpdate, updateModalOpen, updateState } from '$lib/updates';
-	import { whatsNewOpen, hasUnseenWhatsNew } from '$lib/whatsNew';
+	import { editSelect, formatSelect } from './menuBarCommands';
 	import { preferencesOpen, dictionaryOpen, shortcutsOpen } from '$lib/stores/dialogStore';
-	import { combo } from './shortcutText';
 	import { commandPalette } from '$lib/workspace/commandPalette.svelte';
 	import { attachNativeMenu, publishMenuState } from '$lib/workspace/nativeMenu';
 	import { titleBarLayout } from '$lib/chrome/titleBarLayout.svelte';
-	import { toaster } from '$lib/modals/toaster-svelte';
-	import type { Node as PMNode } from 'prosemirror-model';
+	import { whatsNewOpen } from '$lib/whatsNew';
+	import { triggerClass, contentClass } from './menubar/menuBarStyles';
+	import { makeInsertHandlers } from './menubar/menuBarInsert';
+	import { checkUpdates } from './menubar/menuBarUpdates';
+	import FileMenu from './menubar/FileMenu.svelte';
+	import EditMenu from './menubar/EditMenu.svelte';
+	import ViewMenu from './menubar/ViewMenu.svelte';
+	import InsertMenu from './menubar/InsertMenu.svelte';
+	import FormatMenu from './menubar/FormatMenu.svelte';
+	import SpellingMenu from './menubar/SpellingMenu.svelte';
+	import TerminalMenu from './menubar/TerminalMenu.svelte';
+	import HelpMenu from './menubar/HelpMenu.svelte';
+	import TextPrompt from './menubar/TextPrompt.svelte';
+	import SupportModal from './menubar/SupportModal.svelte';
+	import ImagePickerInput from './menubar/ImagePickerInput.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	type Props = {
@@ -148,85 +129,23 @@
 		return overflow ? i >= visible : i < visible;
 	}
 
+	let imagePicker: ImagePickerInput;
+	let textPrompt: TextPrompt;
+	let supportModal: SupportModal;
+
 	function viewSelect(value: string) {
 		if (value === 'zoom-in') onZoomIn?.();
 		else if (value === 'zoom-out') onZoomOut?.();
 		else if (value === 'zoom-reset') onZoomReset?.();
 	}
 
-	let imageInput: HTMLInputElement;
-	function pickImage() {
-		if (imageDir) imageInput?.click();
-	}
-	function onImagePicked(e: Event) {
-		const input = e.target as HTMLInputElement;
-		const file = input.files?.[0];
-		input.value = '';
-		const v = $editorViewStore;
-		if (!file || !imageDir || !v) return;
-		startImageUpload(v, file, m.menubar_image_alt_default(), createLocalImageSettings(imageDir), v.state.schema);
-		v.focus();
-	}
-
-	// Electron has no window.prompt(), so a small custom modal
-	let promptOpen = $state(false);
-	let promptTitle = $state('');
-	let promptValue = $state('');
-	let promptResolve: ((v: string | null) => void) | null = null;
-	let promptInput = $state<HTMLInputElement>();
-	function askText(title: string, initial = ''): Promise<string | null> {
-		promptTitle = title;
-		promptValue = initial;
-		promptOpen = true;
-		setTimeout(() => promptInput?.select(), 0);
-		return new Promise((resolve) => (promptResolve = resolve));
-	}
-	function closePrompt(ok: boolean) {
-		promptOpen = false;
-		promptResolve?.(ok ? promptValue : null);
-		promptResolve = null;
-	}
-
-	const SUPPORT_EMAIL = 'support@texpile.com';
-	let supportOpen = $state(false);
-	let copied = $state(false);
 	function helpSelect(value: string) {
 		if (value === 'shortcuts') shortcutsOpen.set(true);
 		else if (value === 'whatsnew') whatsNewOpen.set(true);
 		else if (value === 'docs') window.open('https://texpile.com/docs', '_blank', 'noopener,noreferrer');
 		else if (value === 'discord') window.open('https://discord.gg/7wanVzCBWf', '_blank', 'noopener,noreferrer');
-		else if (value === 'support') {
-			copied = false;
-			supportOpen = true;
-		} else if (value === 'updates') void checkUpdates();
-	}
-
-	async function checkUpdates() {
-		// a check while a download is in flight would reset the state; just reopen the modal
-		const phase = get(updateState).phase;
-		if (phase === 'downloading' || phase === 'downloaded') {
-			updateModalOpen.set(true);
-			return;
-		}
-		const status = await checkForUpdate(true);
-		if (status === 'update') updateModalOpen.set(true);
-		else if (status === 'none')
-			toaster.info({
-				title: m.menubar_update_none_title(),
-				description: m.menubar_update_none_description({ version: appVersion })
-			});
-		else if (status === 'error')
-			toaster.error({ title: m.menubar_update_error_title(), description: m.menubar_update_error_description() });
-		else toaster.info({ title: m.menubar_update_unavailable_title() });
-	}
-	async function copyEmail() {
-		try {
-			await navigator.clipboard.writeText(SUPPORT_EMAIL);
-			copied = true;
-			setTimeout(() => (copied = false), 1500);
-		} catch {
-			/* clipboard unavailable */
-		}
+		else if (value === 'support') supportModal?.show();
+		else if (value === 'updates') void checkUpdates();
 	}
 
 	function fileSelect(value: string) {
@@ -247,140 +166,11 @@
 		else onOpenFolder?.(value);
 	}
 
-	// display-math templates; block_math detects the environment from content (computeMathAttrs)
-	const MATH_ENVS: Record<string, string> = {
-		align: '\\begin{align}\na &= b \\\\\nc &= d\n\\end{align}',
-		aligned: '\\begin{aligned}\na &= b \\\\\nc &= d\n\\end{aligned}',
-		gather: '\\begin{gather}\na + b \\\\\nc + d\n\\end{gather}',
-		cases: 'f(x) = \\begin{cases}\nx & \\text{if } x \\geq 0 \\\\\n-x & \\text{otherwise}\n\\end{cases}',
-		multline: '\\begin{multline}\na + b + c \\\\\n+ d + e + f\n\\end{multline}',
-		split: '\\begin{split}\na &= b \\\\\n&= c\n\\end{split}',
-		bmatrix: '\\begin{bmatrix}\na & b \\\\\nc & d\n\\end{bmatrix}',
-		pmatrix: '\\begin{pmatrix}\na & b \\\\\nc & d\n\\end{pmatrix}'
-	};
-	function insertMathEnvironment(latex: string) {
-		const v = $editorViewStore;
-		if (!v) return;
-		const node = v.state.schema.nodes.block_math.create(computeMathAttrs(latex), v.state.schema.text(latex));
-		v.dispatch(v.state.tr.replaceSelectionWith(node));
-		v.focus();
-	}
-	function mathSelect(value: string) {
-		const cm = activeCm();
-		if (cm) {
-			// the env/matrix items only render for tex, so the non-tex branch is inline/display only
-			if (value === 'inline') cmReplace(cm, '$', '$');
-			else if (value === 'display') {
-				if (dialect === 'tex') cmReplace(cm, '\\[\n', '\n\\]');
-				else if (dialect === 'typ') cmReplace(cm, '$ ', ' $');
-				else cmReplace(cm, '$$\n', '\n$$');
-			} else if (dialect === 'tex' && MATH_ENVS[value]) cmReplace(cm, MATH_ENVS[value]);
-			return;
-		}
-		if (value === 'inline') run(createMathField());
-		else if (value === 'display') run(createMathField(true));
-		else if (dialect === 'tex' && MATH_ENVS[value]) insertMathEnvironment(MATH_ENVS[value]);
-	}
-
-	async function insertSelect(value: string) {
-		// Source mode dispatches the SAME compute*/skeleton edits the source toolbars use, so the
-		// menu and the toolbar cannot drift apart: links leave the URL placeholder selected instead
-		// of raising a prompt, fences grow past inner backticks with the caret on the info slot,
-		// tables and rules land on their own lines, and images insert the full dialect skeleton.
-		const cm = activeCm();
-		if (cm) {
-			const s = cm.state;
-			switch (value) {
-				case 'code':
-					if (dialect === 'tex') cmApply(cm, computeWrapBlock(s, '\\begin{verbatim}\n', '\n\\end{verbatim}'));
-					else cmApply(cm, dialect === 'typ' ? typFence(s) : mdFence(s));
-					break;
-				case 'table':
-					// the toolbar dropdowns' default shape (the dropdown itself is where sizes live)
-					if (dialect === 'tex') insertSnippetAtCursor(cm, tableLatex({ rows: 3, cols: 3, float: true, rules: true, header: true }));
-					else cmApply(cm, dialect === 'typ' ? typTable(s) : mdTable(s));
-					break;
-				case 'image':
-					if (dialect === 'tex') cmReplace(cm, '\\includegraphics{', '}');
-					else cmApply(cm, dialect === 'typ' ? typFigure(s) : mdImage(s));
-					break;
-				case 'hrule':
-					if (dialect === 'tex') cmApply(cm, computeWrapBlock(s, '\\rule{\\linewidth}{0.4pt}', ''));
-					else cmApply(cm, dialect === 'typ' ? typHr(s) : mdHr(s));
-					break;
-				case 'link':
-					if (dialect === 'tex') cmApply(cm, texLink(s));
-					else cmApply(cm, dialect === 'typ' ? typLink(s) : mdLink(s));
-					break;
-				case 'citation': {
-					const key = get(referenceStore)?.[0]?.key ?? 'key';
-					if (dialect === 'tex') cmReplace(cm, `\\autocite{${key}}`);
-					else if (dialect === 'typ') cmReplace(cm, `@${key}`);
-					break;
-				}
-				case 'environment': {
-					if (dialect !== 'tex') break; // tex-only item; unreachable elsewhere
-					const name = (await askText(m.menubar_prompt_environment_name(), 'center'))?.trim();
-					if (name) cmReplace(cm, `\\begin{${name}}\n`, `\n\\end{${name}}`);
-					break;
-				}
-				// rawlatex / inlinelatex are PM-only nodes; in CM you're already writing the raw syntax
-			}
-			return;
-		}
-		switch (value) {
-			case 'code':
-				// the schemas default md/typ code blocks to fences, so one command serves all three
-				run(createCodeBlock());
-				break;
-			case 'table':
-				// each dialect's own default table: md's createTableNode crashed here (its schema has
-				// no table_caption) and always numbered a table markdown cannot number
-				insertNode((state) =>
-					dialect === 'typ'
-						? typTableNode(state.schema)
-						: dialect === 'md'
-							? mdTableNode(state.schema)
-							: (createTableNode(state.schema, 3, 3) as unknown as PMNode)
-				);
-				break;
-			case 'image':
-				pickImage();
-				break;
-			case 'rawlatex':
-				insertNode((state) => state.schema.nodes.raw_latex.create(null, state.schema.text('\\textbf{LaTeX}')));
-				break;
-			case 'inlinelatex':
-				insertNode((state) => state.schema.nodes.inline_latex.create(null, state.schema.text('\\LaTeX')));
-				break;
-			case 'hrule':
-				insertNode((state) => state.schema.nodes.horizontal_rule.create());
-				break;
-			case 'link':
-				// the toolbars' link command: placeholder linked text with the caret inside, so the
-				// link tooltip opens for the URL edit - the same popup either way in, no modal prompt
-				run((state, dispatch) => {
-					const mark = state.schema.marks.link;
-					return mark ? toggleLinkCommand(mark)(state, dispatch) : false;
-				});
-				break;
-			case 'citation': {
-				const key = get(referenceStore)?.[0]?.key ?? 'key';
-				insertNode((state) =>
-					state.schema.nodes.typ_ref
-						? state.schema.nodes.typ_ref.create({ target: key })
-						: state.schema.nodes.citation.create({ variant: 'autocite' }, state.schema.text(key))
-				);
-				break;
-			}
-			case 'environment': {
-				const name = await askText(m.menubar_prompt_environment_name(), 'center');
-				if (name?.trim())
-					insertNode((state) => state.schema.nodes.environment.create({ name: name.trim() }, state.schema.nodes.paragraph.create()));
-				break;
-			}
-		}
-	}
+	const { mathSelect, insertSelect } = makeInsertHandlers({
+		dialect: () => dialect,
+		askText: (title, initial) => textPrompt.askText(title, initial),
+		pickImage: () => imagePicker?.pick()
+	});
 
 	const spellcheckOn = $derived($editorConfigStore?.spellcheck ?? false);
 	function spellcheckSelect(value: string) {
@@ -389,20 +179,10 @@
 	}
 
 	function terminalSelect(value: string) {
-		switch (value) {
-			case 'compile':
-				onCompile?.();
-				break;
-			case 'configure':
-				onConfigureCompile?.();
-				break;
-			case 'new':
-				onNewTerminal?.();
-				break;
-			case 'toggle':
-				onToggleTerminal?.();
-				break;
-		}
+		if (value === 'compile') onCompile?.();
+		else if (value === 'configure') onConfigureCompile?.();
+		else if (value === 'new') onNewTerminal?.();
+		else if (value === 'toggle') onToggleTerminal?.();
 	}
 
 	// On macOS the menus are drawn by the system menu bar, and a native selection arrives here as the
@@ -445,11 +225,6 @@
 			recentFolders: $recentFolders
 		})
 	);
-
-	const triggerClass = 'rounded-base px-2.5 py-1 text-sm hover:preset-tonal data-[disabled]:opacity-40';
-	const contentClass = 'card bg-surface-50-950 border-surface-200-800 z-[1200] flex min-w-48 flex-col gap-0 border p-1 shadow-xl';
-	const itemClass =
-		'flex cursor-pointer items-center justify-between gap-6 rounded-base px-2.5 py-1 text-sm hover:preset-tonal data-[disabled]:opacity-40';
 </script>
 
 <!-- Lives inside TitleBar's row, so the row owns the border and the height; this only lays out its
@@ -463,420 +238,81 @@
 	<!-- no left padding: the app icon before it already provides the gap, and doubling up pushed File
 	     away from the mark. The triggers carry their own px-2.5 for their hover targets. -->
 	<nav class="app-no-drag flex items-center gap-0.5 pr-1" data-keep-caret onmousedown={(e) => e.preventDefault()}>
-		{#if !nativeMenus}
-			{@render topMenus(false)}
-			{#if overflowing}
-				<!-- the leftovers, as submenus. A hamburger when it holds everything, an ellipsis when it
-				     is genuinely an overflow of a bar that still shows some menus. -->
-				<Menu>
-					<Menu.Trigger class={triggerClass} aria-label={m.menubar_all_menus()} title={m.menubar_all_menus()}>
-						{#if visible === 0}<MenuIcon class="size-4" />{:else}<MoreHorizontal class="size-4" />{/if}
-					</Menu.Trigger>
-					<Portal>
-						<Menu.Positioner>
-							<Menu.Content class={contentClass}>
-								{@render topMenus(true)}
-							</Menu.Content>
-						</Menu.Positioner>
-					</Portal>
-				</Menu>
-			{/if}
+		{@render topMenus(false)}
+		{#if overflowing}
+			<!-- the leftovers, as submenus. A hamburger when it holds everything, an ellipsis when it
+			     is genuinely an overflow of a bar that still shows some menus. -->
+			<Menu>
+				<Menu.Trigger class={triggerClass} aria-label={m.menubar_all_menus()} title={m.menubar_all_menus()}>
+					{#if visible === 0}<MenuIcon class="size-4" />{:else}<MoreHorizontal class="size-4" />{/if}
+				</Menu.Trigger>
+				<Portal>
+					<Menu.Positioner>
+						<Menu.Content class={contentClass}>
+							{@render topMenus(true)}
+						</Menu.Content>
+					</Menu.Positioner>
+				</Portal>
+			</Menu>
 		{/if}
 	</nav>
 {/if}
 
 <!--
 	The eight top-level menus, once. Rendered straight into the row normally, or into a single
-	dropdown when the window is too narrow for them (VS Code's compact menu bar).
-
-	Only the TRIGGER differs between the two layouts - Menu.Trigger as a button in the row, or
-	Menu.TriggerItem as a row in the parent menu - so topTrigger below switches that and everything
-	underneath is shared. Duplicating the item lists per layout would have guaranteed they drift.
+	dropdown when the window is too narrow for them (VS Code's compact menu bar). Each menu's
+	MenuBarTrigger switches between the two layouts, so everything underneath is shared -
+	duplicating the item lists per layout would have guaranteed they drift.
 -->
-{#snippet topTrigger(id: string, index: number, label: string, opts: { disabled?: boolean; title?: string; dot?: boolean } = {})}
-	{#if index >= visible}
-		<Menu.TriggerItem value={id} class={itemClass} disabled={opts.disabled} title={opts.title ?? ''}>
-			<Menu.ItemText>{label}</Menu.ItemText>
-			<span class="flex items-center gap-1.5">
-				{#if opts.dot}<span class="bg-primary-500 inline-block size-1.5 rounded-full"></span>{/if}
-				<ChevronRight class="size-4 opacity-60" />
-			</span>
-		</Menu.TriggerItem>
-	{:else}
-		<Menu.Trigger class={triggerClass} disabled={opts.disabled} title={opts.title ?? ''}>
-			{label}
-			{#if opts.dot}<span class="bg-primary-500 mb-1.5 ml-0.5 inline-block size-1.5 rounded-full"></span>{/if}
-		</Menu.Trigger>
-	{/if}
-{/snippet}
-
 {#snippet topMenus(overflow: boolean)}
 	{#if showAt(0, overflow)}
-		<Menu onSelect={(d) => fileSelect(d.value)}>
-			{@render topTrigger('file', 0, m.menubar_menu_file())}
-			<Portal>
-				<Menu.Positioner>
-					<Menu.Content class={contentClass}>
-						{#if onNewFile}
-							<Menu onSelect={(d) => newFileSelect(d.value)}>
-								<Menu.TriggerItem value="new" class={itemClass}>
-									<Menu.ItemText>{m.menubar_new_file_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
-								</Menu.TriggerItem>
-								<Portal>
-									<Menu.Positioner>
-										<!-- the compile target decides the document options: a Typst project is not
-										     served by .tex/.cls/.sty rows and vice versa. .bib works for both (Typst
-										     reads BibTeX directly) and markdown is format-neutral, so those stay. -->
-										<Menu.Content class={contentClass}>
-											{#if typstProject}
-												<Menu.Item value="typ" class={itemClass}><Menu.ItemText>{m.menubar_new_typ()}</Menu.ItemText></Menu.Item>
-											{:else}
-												<Menu.Item value="tex" class={itemClass}><Menu.ItemText>{m.menubar_new_tex()}</Menu.ItemText></Menu.Item>
-											{/if}
-											<Menu.Item value="bib" class={itemClass}><Menu.ItemText>{m.menubar_new_bib()}</Menu.ItemText></Menu.Item>
-											<Menu.Item value="md" class={itemClass}><Menu.ItemText>{m.menubar_new_md()}</Menu.ItemText></Menu.Item>
-											{#if !typstProject}
-												<Menu.Item value="cls" class={itemClass}><Menu.ItemText>{m.menubar_new_cls()}</Menu.ItemText></Menu.Item>
-												<Menu.Item value="sty" class={itemClass}><Menu.ItemText>{m.menubar_new_sty()}</Menu.ItemText></Menu.Item>
-											{/if}
-										</Menu.Content>
-									</Menu.Positioner>
-								</Portal>
-							</Menu>
-						{/if}
-						<!-- withheld from a guest: swapping the workspace out would abandon the session
-						     without leaving it, and nothing tears one down on a workspace change - the
-						     Leave button is the only path that calls collabGuest.leave() -->
-						{#if onOpenFolder}
-							<Menu onSelect={(d) => openFolderSelect(d.value)}>
-								<Menu.TriggerItem value="openfolder" class={itemClass}>
-									<Menu.ItemText>{m.menubar_open_folder_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
-								</Menu.TriggerItem>
-								<Portal>
-									<Menu.Positioner>
-										<Menu.Content class={contentClass}>
-											<Menu.Item value="newfolder" class={itemClass}><Menu.ItemText>{m.menubar_open_new_folder()}</Menu.ItemText></Menu.Item
-											>
-											{#if $recentFolders.length > 0}
-												<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-												<div class="text-surface-500 px-2.5 py-0.5 text-xs font-semibold tracking-wider uppercase">
-													{m.menubar_recent_heading()}
-												</div>
-												{#each $recentFolders as folder (folder)}
-													<Menu.Item value={folder} class={itemClass}>
-														<Menu.ItemText class="block max-w-64 truncate" title={folder}>{basename(folder)}</Menu.ItemText>
-													</Menu.Item>
-												{/each}
-											{/if}
-										</Menu.Content>
-									</Menu.Positioner>
-								</Portal>
-							</Menu>
-						{/if}
-						{#if isDesktop()}
-							<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-							<Menu.Item value="new-window" class={itemClass}>
-								<Menu.ItemText>{m.menubar_new_window()}</Menu.ItemText><span class="opacity-50">{combo('N', { shift: true })}</span>
-							</Menu.Item>
-							<Menu.Item value="open-folder-new-window" class={itemClass}>
-								<Menu.ItemText>{m.menubar_open_folder_new_window()}</Menu.ItemText>
-							</Menu.Item>
-						{/if}
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<Menu.Item value="save" class={itemClass}>
-							<Menu.ItemText>{m.menubar_save()}</Menu.ItemText><span class="opacity-50">{combo('S')}</span>
-						</Menu.Item>
-						{#if onCloseWorkspace}
-							<Menu.Item value="close-workspace" class={itemClass}><Menu.ItemText>{m.menubar_close_workspace()}</Menu.ItemText></Menu.Item>
-						{/if}
-						<!-- Windows and Linux only: this whole bar is `{#if !nativeMenus}`, and on macOS these
-						     two live in the application menu, which is where a mac user reaches for them.
-						     They sat in the app-icon dropdown for a while so both platforms would agree on
-						     placement, which was the wrong kind of agreement - macOS puts Preferences in the
-						     app menu because it HAS one, and Windows puts it in File. The title-bar icon is
-						     also where Windows draws the system menu, so it was a spot already spoken for.
-						     Last in the menu, after a rule, the way Word and VS Code order it. -->
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						{#if onShareSession}
-							<Menu.Item value="share-session" class={itemClass}><Menu.ItemText>{m.menubar_share_session()}</Menu.ItemText></Menu.Item>
-						{/if}
-						<Menu.Item value="preferences" class={itemClass}>
-							<Menu.ItemText>{m.menubar_preferences()}</Menu.ItemText><span class="opacity-50">{combo(',')}</span>
-						</Menu.Item>
-					</Menu.Content>
-				</Menu.Positioner>
-			</Portal>
-		</Menu>
+		<FileMenu
+			index={0}
+			select={fileSelect}
+			{newFileSelect}
+			{openFolderSelect}
+			canNewFile={!!onNewFile}
+			{typstProject}
+			canOpenFolder={!!onOpenFolder}
+			canCloseWorkspace={!!onCloseWorkspace}
+			canShareSession={!!onShareSession}
+		/>
 	{/if}
-
 	{#if showAt(1, overflow)}
-		<Menu onSelect={(d) => (d.value === 'palette' ? commandPalette.show() : editSelect(d.value))}>
-			{@render topTrigger('edit', 1, m.menubar_menu_edit(), { disabled: !editable })}
-			<Portal>
-				<Menu.Positioner>
-					<Menu.Content class={contentClass}>
-						<Menu.Item value="palette" class={itemClass}>
-							<Menu.ItemText>{m.palette_open()}</Menu.ItemText><span class="opacity-50">{combo('K')}</span>
-						</Menu.Item>
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<Menu.Item value="undo" class={itemClass}
-							><Menu.ItemText>{m.menubar_undo()}</Menu.ItemText><span class="opacity-50">{combo('Z')}</span></Menu.Item
-						>
-						<Menu.Item value="redo" class={itemClass}
-							><Menu.ItemText>{m.menubar_redo()}</Menu.ItemText><span class="opacity-50">{combo('Z', { shift: true })}</span></Menu.Item
-						>
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<Menu.Item value="find" class={itemClass}
-							><Menu.ItemText>{m.menubar_find()}</Menu.ItemText><span class="opacity-50">{combo('F')}</span></Menu.Item
-						>
-					</Menu.Content>
-				</Menu.Positioner>
-			</Portal>
-		</Menu>
+		<EditMenu index={1} select={(v) => (v === 'palette' ? commandPalette.show() : editSelect(v))} {editable} />
 	{/if}
-
 	{#if showAt(2, overflow)}
-		<Menu onSelect={(d) => viewSelect(d.value)}>
-			{@render topTrigger('view', 2, m.menubar_menu_view())}
-			<Portal>
-				<Menu.Positioner>
-					<Menu.Content class={contentClass}>
-						<div class="text-surface-500 px-2.5 py-1 text-xs">{m.menubar_interface_zoom({ percent: uiZoomPercent })}</div>
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<Menu.Item value="zoom-in" class={itemClass}>
-							<Menu.ItemText>{m.menubar_zoom_in()}</Menu.ItemText><span class="opacity-50">{isMac ? '⌘ +' : 'Ctrl +'}</span>
-						</Menu.Item>
-						<Menu.Item value="zoom-out" class={itemClass}>
-							<Menu.ItemText>{m.menubar_zoom_out()}</Menu.ItemText><span class="opacity-50">{isMac ? '⌘ −' : 'Ctrl −'}</span>
-						</Menu.Item>
-						<Menu.Item value="zoom-reset" class={itemClass}>
-							<Menu.ItemText>{m.menubar_zoom_reset()}</Menu.ItemText><span class="opacity-50">{isMac ? '⌘ 0' : 'Ctrl 0'}</span>
-						</Menu.Item>
-					</Menu.Content>
-				</Menu.Positioner>
-			</Portal>
-		</Menu>
+		<ViewMenu index={2} select={viewSelect} {uiZoomPercent} />
 	{/if}
-
 	{#if showAt(3, overflow)}
-		<Menu onSelect={(d) => void insertSelect(d.value)}>
-			{@render topTrigger('insert', 3, m.menubar_menu_insert(), {
-				disabled: !structured || $cursorInCm,
-				title: $cursorInCm ? m.menubar_cursor_in_cm_hint() : ''
-			})}
-			<Portal>
-				<Menu.Positioner>
-					<Menu.Content class={contentClass}>
-						<Menu onSelect={(d) => mathSelect(d.value)}>
-							<Menu.TriggerItem value="math" class={itemClass}>
-								<Menu.ItemText>{m.menubar_insert_math_menu()}</Menu.ItemText><ChevronRight class="size-4 opacity-60" />
-							</Menu.TriggerItem>
-							<Portal>
-								<Menu.Positioner>
-									<Menu.Content class={contentClass}>
-										<Menu.Item value="inline" class={itemClass}><Menu.ItemText>{m.menubar_inline_equation()}</Menu.ItemText></Menu.Item>
-										<Menu.Item value="display" class={itemClass}><Menu.ItemText>{m.menubar_display_equation()}</Menu.ItemText></Menu.Item>
-										<!-- LaTeX environments; a typst/markdown document has nowhere to put \begin{align} -->
-										{#if dialect === 'tex'}
-											<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-											<Menu.Item value="align" class={itemClass}><Menu.ItemText>Align</Menu.ItemText></Menu.Item>
-											<Menu.Item value="aligned" class={itemClass}><Menu.ItemText>Aligned</Menu.ItemText></Menu.Item>
-											<Menu.Item value="gather" class={itemClass}><Menu.ItemText>Gather</Menu.ItemText></Menu.Item>
-											<Menu.Item value="cases" class={itemClass}><Menu.ItemText>Cases</Menu.ItemText></Menu.Item>
-											<Menu.Item value="multline" class={itemClass}><Menu.ItemText>Multline</Menu.ItemText></Menu.Item>
-											<Menu.Item value="split" class={itemClass}><Menu.ItemText>Split</Menu.ItemText></Menu.Item>
-											<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-											<Menu.Item value="bmatrix" class={itemClass}
-												><Menu.ItemText>{m.menubar_math_matrix_square()}</Menu.ItemText></Menu.Item
-											>
-											<Menu.Item value="pmatrix" class={itemClass}><Menu.ItemText>{m.menubar_math_matrix_paren()}</Menu.ItemText></Menu.Item
-											>
-										{/if}
-									</Menu.Content>
-								</Menu.Positioner>
-							</Portal>
-						</Menu>
-						<!-- an image has to be written next to the document, so no imageDir means nowhere to
-						     put it: a guest's folder is the host's, and a .bib has no figure directory.
-						     pickImage() already no-ops without it; better not to offer the row at all. -->
-						{#if imageDir}
-							<Menu.Item value="image" class={itemClass}><Menu.ItemText>{m.menubar_insert_image()}</Menu.ItemText></Menu.Item>
-						{/if}
-						<Menu.Item value="table" class={itemClass}><Menu.ItemText>{m.menubar_insert_table()}</Menu.ItemText></Menu.Item>
-						<!-- markdown has no citation node; tex writes \autocite, typst an @ref chip -->
-						{#if dialect !== 'md'}
-							<Menu.Item value="citation" class={itemClass}><Menu.ItemText>{m.menubar_insert_citation()}</Menu.ItemText></Menu.Item>
-						{/if}
-						<Menu.Item value="link" class={itemClass}><Menu.ItemText>{m.menubar_insert_link()}</Menu.ItemText></Menu.Item>
-						<Menu.Item value="code" class={itemClass}><Menu.ItemText>{m.menubar_insert_code_block()}</Menu.ItemText></Menu.Item>
-						<Menu.Item value="hrule" class={itemClass}><Menu.ItemText>{m.menubar_insert_hrule()}</Menu.ItemText></Menu.Item>
-						{#if dialect === 'tex'}
-							<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-							<Menu.Item value="environment" class={itemClass}><Menu.ItemText>{m.menubar_insert_environment()}</Menu.ItemText></Menu.Item>
-							<Menu.Item value="rawlatex" class={itemClass}><Menu.ItemText>{m.menubar_insert_raw_latex()}</Menu.ItemText></Menu.Item>
-							<Menu.Item value="inlinelatex" class={itemClass}><Menu.ItemText>{m.menubar_insert_inline_latex()}</Menu.ItemText></Menu.Item>
-						{/if}
-					</Menu.Content>
-				</Menu.Positioner>
-			</Portal>
-		</Menu>
+		<InsertMenu index={3} select={(v) => void insertSelect(v)} {mathSelect} {structured} {dialect} canInsertImage={!!imageDir} />
 	{/if}
-
 	{#if showAt(4, overflow)}
-		<Menu onSelect={(d) => (d.value === 'format-document' ? onFormatDocument?.() : formatSelect(d.value, dialect))}>
-			{@render topTrigger('format', 4, m.menubar_menu_format(), {
-				disabled: !structured || $cursorInCm,
-				title: $cursorInCm ? m.menubar_cursor_in_cm_hint() : ''
-			})}
-			<Portal>
-				<Menu.Positioner>
-					<Menu.Content class={contentClass}>
-						<Menu.Item value="bold" class={itemClass}
-							><Menu.ItemText>{m.menubar_format_bold()}</Menu.ItemText><span class="opacity-50">{combo('B')}</span></Menu.Item
-						>
-						<Menu.Item value="italic" class={itemClass}
-							><Menu.ItemText>{m.menubar_format_italic()}</Menu.ItemText><span class="opacity-50">{combo('I')}</span></Menu.Item
-						>
-						<!-- markdown has no underline mark and no underline syntax -->
-						{#if dialect !== 'md'}
-							<Menu.Item value="underline" class={itemClass}
-								><Menu.ItemText>{m.menubar_format_underline()}</Menu.ItemText><span class="opacity-50">{combo('U')}</span></Menu.Item
-							>
-						{/if}
-						<Menu.Item value="code" class={itemClass}><Menu.ItemText>{m.menubar_format_inline_code()}</Menu.ItemText></Menu.Item>
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<Menu.Item value="h1" class={itemClass}><Menu.ItemText>{m.menubar_heading_1()}</Menu.ItemText></Menu.Item>
-						<Menu.Item value="h2" class={itemClass}><Menu.ItemText>{m.menubar_heading_2()}</Menu.ItemText></Menu.Item>
-						<Menu.Item value="h3" class={itemClass}><Menu.ItemText>{m.menubar_heading_3()}</Menu.ItemText></Menu.Item>
-						<Menu.Item value="quote" class={itemClass}><Menu.ItemText>{m.menubar_format_blockquote()}</Menu.ItemText></Menu.Item>
-						{#if onFormatDocument}
-							<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-							<Menu.Item value="format-document" class={itemClass}
-								><Menu.ItemText>{m.menubar_format_document({ tool: fileKind === 'typ' ? 'typstyle' : 'latexindent' })}</Menu.ItemText
-								></Menu.Item
-							>
-						{/if}
-					</Menu.Content>
-				</Menu.Positioner>
-			</Portal>
-		</Menu>
+		<FormatMenu
+			index={4}
+			select={(v) => (v === 'format-document' ? onFormatDocument?.() : formatSelect(v, dialect))}
+			{structured}
+			{dialect}
+			{fileKind}
+			canFormatDocument={!!onFormatDocument}
+		/>
 	{/if}
-
 	{#if showAt(5, overflow)}
-		<Menu onSelect={(d) => spellcheckSelect(d.value)}>
-			{@render topTrigger('spelling', 5, m.menubar_menu_spelling(), { disabled: !editable })}
-			<Portal>
-				<Menu.Positioner>
-					<Menu.Content class={contentClass}>
-						<Menu.Item value="toggle" class={itemClass}>
-							<Menu.ItemText>{m.menubar_check_spelling()}</Menu.ItemText>
-							{#if spellcheckOn}<Check class="size-4" />{/if}
-						</Menu.Item>
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<Menu.Item value="dictionary" class={itemClass}><Menu.ItemText>{m.menubar_edit_dictionary()}</Menu.ItemText></Menu.Item>
-					</Menu.Content>
-				</Menu.Positioner>
-			</Portal>
-		</Menu>
+		<SpellingMenu index={5} select={spellcheckSelect} {editable} {spellcheckOn} />
 	{/if}
-
-	{#if terminalAvailable}
-		{#if showAt(6, overflow)}
-			<Menu onSelect={(d) => terminalSelect(d.value)}>
-				{@render topTrigger('terminal', 6, m.menubar_menu_terminal())}
-				<Portal>
-					<Menu.Positioner>
-						<Menu.Content class={contentClass}>
-							<Menu.Item value="compile" class={itemClass}><Menu.ItemText>{m.menubar_terminal_compile()}</Menu.ItemText></Menu.Item>
-							<Menu.Item value="configure" class={itemClass}
-								><Menu.ItemText>{m.menubar_configure_compile_command()}</Menu.ItemText></Menu.Item
-							>
-							<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-							<Menu.Item value="new" class={itemClass}><Menu.ItemText>{m.menubar_new_terminal()}</Menu.ItemText></Menu.Item>
-							<Menu.Item value="toggle" class={itemClass}>
-								<Menu.ItemText>{m.menubar_show_terminal()}</Menu.ItemText>
-								{#if terminalVisible}<Check class="size-4" />{/if}
-							</Menu.Item>
-						</Menu.Content>
-					</Menu.Positioner>
-				</Portal>
-			</Menu>
-		{/if}
+	{#if terminalAvailable && showAt(6, overflow)}
+		<TerminalMenu index={6} select={terminalSelect} {terminalVisible} />
 	{/if}
-
 	{#if showAt(helpIndex, overflow)}
-		<Menu onSelect={(d) => (d.value === 'tutorial' ? onOpenTutorial?.() : helpSelect(d.value))}>
-			<!-- dot: an update finished downloading in the background, or there are release notes the
-				     user has not opened. Either way the badge points at an item inside this menu. -->
-			{@render topTrigger('help', helpIndex, m.menubar_menu_help(), {
-				dot: $updateState.phase === 'downloaded' || $hasUnseenWhatsNew
-			})}
-			<Portal>
-				<Menu.Positioner>
-					<Menu.Content class={contentClass}>
-						<Menu.Item value="shortcuts" class={itemClass}><Menu.ItemText>{m.menubar_keyboard_shortcuts()}</Menu.ItemText></Menu.Item>
-						{#if onOpenTutorial}
-							<Menu.Item value="tutorial" class={itemClass}><Menu.ItemText>{m.menubar_open_tutorial()}</Menu.ItemText></Menu.Item>
-						{/if}
-						<Menu.Item value="whatsnew" class={itemClass}>
-							<Menu.ItemText>{m.whatsnew_menu_label()}</Menu.ItemText>
-							{#if $hasUnseenWhatsNew}
-								<span class="bg-primary-500 inline-block size-1.5 rounded-full"></span>
-							{/if}
-						</Menu.Item>
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<Menu.Item value="docs" class={itemClass}><Menu.ItemText>{m.menubar_documentation()}</Menu.ItemText></Menu.Item>
-						<Menu.Item value="discord" class={itemClass}><Menu.ItemText>{m.menubar_join_discord()}</Menu.ItemText></Menu.Item>
-						<Menu.Item value="support" class={itemClass}><Menu.ItemText>{m.menubar_contact_support()}</Menu.ItemText></Menu.Item>
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<Menu.Item value="updates" class={itemClass}>
-							<Menu.ItemText>{m.menubar_check_for_updates()}</Menu.ItemText>
-							{#if $updateState.phase === 'downloaded'}
-								<span class="bg-primary-500 inline-block size-1.5 rounded-full"></span>
-							{/if}
-						</Menu.Item>
-						<Menu.Separator class="border-surface-200-800 my-1 border-t" />
-						<!-- Dev Tools used to ride this line; it lives in the command palette now (search
-						     "dev"), so the menu every writer opens carries no debugger furniture -->
-						<div class="text-surface-500 px-2.5 py-1 text-xs">{m.menubar_version_footer({ version: appVersion })}</div>
-					</Menu.Content>
-				</Menu.Positioner>
-			</Portal>
-		</Menu>
+		<HelpMenu index={helpIndex} select={(v) => (v === 'tutorial' ? onOpenTutorial?.() : helpSelect(v))} canTutorial={!!onOpenTutorial} />
 	{/if}
 {/snippet}
 
 <!-- outside the nav so it survives on macOS, where the nav is not rendered at all -->
-<input bind:this={imageInput} type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" onchange={onImagePicked} />
+<ImagePickerInput bind:this={imagePicker} {imageDir} />
 
 <!-- Preferences, the dictionary and the shortcut sheet are mounted by WindowDialogs, not here:
      a guest session renders no menu bar, and they are window features rather than menu features.
      This file still OPENS them, through dialogStore. -->
-
-<!-- text prompt dialog, Electron has no window.prompt() -->
-{#if promptOpen}
-	<Modal onClose={() => closePrompt(false)} card="max-h-full max-w-sm overflow-y-auto p-4">
-		<div class="mb-2 text-sm font-medium">{promptTitle}</div>
-		<input
-			bind:this={promptInput}
-			bind:value={promptValue}
-			class="input w-full"
-			onkeydown={(e) => {
-				if (e.key === 'Enter') closePrompt(true);
-			}}
-		/>
-		<div class="mt-4 flex justify-end gap-2">
-			<button class="btn btn-xs hover:preset-tonal" type="button" onclick={() => closePrompt(false)}>{m.menubar_prompt_cancel()}</button>
-			<button class="btn btn-xs preset-filled-primary-500" type="button" onclick={() => closePrompt(true)}>{m.menubar_prompt_ok()}</button>
-		</div>
-	</Modal>
-{/if}
-
-<!-- shows the email with a copy button, no mail client assumed -->
-<Modal bind:open={supportOpen} title={m.menubar_contact_support()} card="max-h-full max-w-sm overflow-y-auto p-5">
-	<p class="text-surface-600-400 mb-2 text-sm">{m.menubar_support_email_intro()}</p>
-	<div class="border-surface-300-700 bg-surface-100-900 flex items-center justify-between gap-3 rounded border px-3 py-2">
-		<code class="text-sm select-all">{SUPPORT_EMAIL}</code>
-		<button class="btn btn-xs preset-tonal-primary shrink-0" onclick={copyEmail}>{copied ? m.menubar_copied() : m.menubar_copy()}</button>
-	</div>
-</Modal>
+<TextPrompt bind:this={textPrompt} />
+<SupportModal bind:this={supportModal} />
