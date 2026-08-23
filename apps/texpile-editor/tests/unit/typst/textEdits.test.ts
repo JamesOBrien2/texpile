@@ -2,7 +2,7 @@
 // document, captured from a live LSP session - typstyle minimizes edits to the changed region, so
 // the range arithmetic here is what stands between "formatted" and "spliced garbage".
 import { describe, it, expect } from 'vitest';
-import { applyTextEdits } from '$lib/languages/typst/textEdits';
+import { applyTextEdits } from '$lib/languages/typst/intellisense/textEdits';
 
 describe('applyTextEdits', () => {
 	it('applies tinymist`s actual minimized formatting edit correctly', () => {

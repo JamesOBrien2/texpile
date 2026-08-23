@@ -37,8 +37,8 @@
 	import { bindModalKeymap, modalKeymapCompartment } from '$lib/editor/extensions/keybindings/modalKeymap';
 	import { bibtex } from '$lib/editor/extensions/bibtex/bibtex';
 	import { latex } from '$lib/editor/extensions/latex/latex';
-	import { releaseTypstLsp, typstLspExtension, typstServerGen } from '$lib/languages/typst/lspClient';
-	import { typstGuestLspExtension, releaseGuestTypstLsp } from '$lib/languages/typst/guestLspExtension';
+	import { releaseTypstLsp, typstLspExtension, typstServerGen } from '$lib/languages/typst/intellisense/lspClient';
+	import { typstGuestLspExtension, releaseGuestTypstLsp } from '$lib/languages/typst/intellisense/guestLspExtension';
 	import { collabGuest, guestSession } from '$lib/collab/guestStore.svelte';
 	import { guestRelPath } from '$lib/collab/sessionProvider';
 	import { workspaceRoot } from '$lib/workspace/workspaceStore';

@@ -16,7 +16,7 @@ import { joinPath, relativeTo } from '$lib/workspace/fileSystem';
 import { fileUri, pathFromUri } from './lspClient';
 import { sessionUri, relFromSessionUri, mapUris } from './sessionUri';
 import { normalizeFieldlessSnippets } from './completionNormalize';
-import { ProjectFileSet, PROJECT_FILE_RE, type ProjectFile } from './projectFiles';
+import { ProjectFileSet, PROJECT_FILE_RE, type ProjectFile } from '../projectFiles';
 
 export type LspRequest = Extract<ControlPayload, { kind: 'lsp-request' }>;
 export type LspResult = Extract<ControlPayload, { kind: 'lsp-result' }>;

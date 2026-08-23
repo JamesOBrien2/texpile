@@ -12,7 +12,7 @@ import { EditorState } from '@codemirror/state';
 import { LSPClient, languageServerSupport } from '@codemirror/lsp-client';
 import type { Transport } from '@codemirror/lsp-client';
 import { startCompletion, acceptCompletion, currentCompletions } from '@codemirror/autocomplete';
-import { normalizeCompletionJson } from '$lib/languages/typst/completionNormalize';
+import { normalizeCompletionJson } from '$lib/languages/typst/intellisense/completionNormalize';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

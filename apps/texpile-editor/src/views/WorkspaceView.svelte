@@ -61,7 +61,7 @@
 		exportTypstPdf,
 		typstServerGen,
 		type TypstDiagnostic
-	} from '$lib/languages/typst/lspClient';
+	} from '$lib/languages/typst/intellisense/lspClient';
 	import { noteFollowScroll } from '$lib/languages/typst/preview/followSignal';
 	import type { LogEntry } from '$lib/latex-log';
 	import {

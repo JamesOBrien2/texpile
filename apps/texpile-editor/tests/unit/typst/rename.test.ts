@@ -3,8 +3,8 @@
 // fixed is a DROPPED file - lsp-client's own command skips any file it has no editor view for -
 // so "every file in the reply comes back out" is the assertion that matters most here.
 import { describe, it, expect } from 'vitest';
-import { positionAt, editRange, applyTextEdits } from '$lib/languages/typst/textEdits';
-import { renameEditsFrom, pathFromUri } from '$lib/languages/typst/lspClient';
+import { positionAt, editRange, applyTextEdits } from '$lib/languages/typst/intellisense/textEdits';
+import { renameEditsFrom, pathFromUri } from '$lib/languages/typst/intellisense/lspClient';
 
 describe('positionAt', () => {
 	const doc = 'one\ntwo\n\nfour';

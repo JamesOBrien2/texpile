@@ -5,7 +5,7 @@
 	import { collabGuest } from '$lib/collab/guestStore.svelte';
 	import { guestSession } from '$lib/collab/guestStore.svelte';
 	import { sessionProvider, GUEST_ROOT } from '$lib/collab/sessionProvider';
-	import { dropGuestTypstLsp } from '$lib/languages/typst/guestLspExtension';
+	import { dropGuestTypstLsp } from '$lib/languages/typst/intellisense/guestLspExtension';
 	import SessionJoin from '$lib/collab/SessionJoin.svelte';
 	import WorkspaceView from './WorkspaceView.svelte';
 	import { workspaceRoot, activeFilePath, fileTree, texFiles } from '$lib/workspace/workspaceStore';
