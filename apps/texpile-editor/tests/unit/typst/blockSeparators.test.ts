@@ -11,7 +11,7 @@
 // (blockAssembly) is shared with LaTeX.
 import { describe, it, expect } from 'vitest';
 import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
-import { parseMarkdownFile, serializeMarkdownFile } from '$lib/markdown/roundtrip';
+import { parseMarkdownFile, serializeMarkdownFile } from '$lib/languages/markdown/visual/roundtrip';
 
 const FENCE = '```';
 
@@ -75,7 +75,7 @@ describe('no dialect schema drops the orig attr', () => {
 
 	it.each([
 		['latex', () => import('$lib/schema/latexPMSchema/latexPMSchema').then((m) => m.schema)],
-		['markdown', () => import('$lib/markdown/schema').then((m) => m.mdSchema)],
+		['markdown', () => import('$lib/languages/markdown/visual/schema').then((m) => m.mdSchema)],
 		['typst', () => import('$lib/languages/typst/visual/schema').then((m) => m.typSchema)]
 	])('%s', async (_name, get) => {
 		const schema = await get();

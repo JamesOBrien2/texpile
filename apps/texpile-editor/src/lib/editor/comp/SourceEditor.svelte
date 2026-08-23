@@ -19,9 +19,9 @@
 	import { texpileSearch } from '$lib/editor/extensions/search-panel/searchPanel';
 	import { latexAutocomplete, latexIntellisense } from '$lib/editor/extensions/intellisense/intellisense';
 	import { foldMarkerDOM, foldMarkerTheme } from '$lib/editor/extensions/intellisense/fold';
-	import { mdSourceShortcuts } from '$lib/markdown/sourceExtensions';
+	import { mdSourceShortcuts } from '$lib/languages/markdown/visual/sourceExtensions';
 	import { typSourceShortcuts } from '$lib/languages/typst/visual/sourceExtensions';
-	import { mdPathCompletion } from '$lib/markdown/pathCompletion';
+	import { mdPathCompletion } from '$lib/languages/markdown/pathCompletion';
 	import { cmSpellcheck } from '$lib/editor/extensions/spellcheck/cmSpellcheck';
 	import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint';
 	import {

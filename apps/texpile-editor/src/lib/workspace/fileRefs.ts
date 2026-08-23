@@ -4,7 +4,7 @@
 // "does this point at the moved file" is answered the same way everywhere.
 import { collectLatexFileRefs } from '$lib/latex-parser/filerefs';
 import { collectTypstFileRefs } from '$lib/languages/typst/filerefs';
-import { collectMarkdownFileRefs } from '$lib/markdown/filerefs';
+import { collectMarkdownFileRefs } from '$lib/languages/markdown/filerefs';
 
 /** a path literal in some source file: the span holding the path, and the path as written */
 export type FileRef = {

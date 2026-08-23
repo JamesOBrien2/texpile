@@ -15,7 +15,7 @@
 	import { computeBlockPatch, protectCaretBlock, syncOrigAttrs } from '$lib/editor/blockPatch';
 	import { setRemoteCursors, type RemotePeerSel } from '$lib/editor/extensions/remoteCursors';
 	import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/sourceMap';
-	import { stripFor } from '$lib/markdown/sourceMap';
+	import { stripFor } from '$lib/languages/markdown/visual/sourceMap';
 	import { bodyOffsetOf, type ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
 	import { spliceDiff, EDIT_ORIGIN, SEED_ORIGIN } from '$lib/collab/materialize';
 	import { editorViewStore } from '$lib/stores/editorStore';

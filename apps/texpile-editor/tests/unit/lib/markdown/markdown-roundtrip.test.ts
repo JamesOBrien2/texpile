@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { parseMarkdownFile, serializeMarkdownFile } from '$lib/markdown/roundtrip';
-import { serializeToMarkdown } from '$lib/markdown/serializer';
-import { markdownToProseMirror } from '$lib/markdown/converter';
+import { parseMarkdownFile, serializeMarkdownFile } from '$lib/languages/markdown/visual/roundtrip';
+import { serializeToMarkdown } from '$lib/languages/markdown/visual/serializer';
+import { markdownToProseMirror } from '$lib/languages/markdown/visual/converter';
 
 /** the no-edit save: parse then serialize, nothing touched. */
 function roundtrip(src: string): string {

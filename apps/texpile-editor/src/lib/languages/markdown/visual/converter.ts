@@ -9,7 +9,7 @@
 // stays all-or-nothing and an item edit regenerates the whole list.
 import type { Token } from 'markdown-it';
 import { el, txtNodes, collapseTextNodes, type PMNode, type PMMark, realMarks } from './builders';
-import { createMarkdownEngine } from './engine';
+import { createMarkdownEngine } from '../engine';
 
 type Cap = {
 	source: string;

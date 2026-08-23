@@ -16,9 +16,9 @@
 	import PDFViewer from './PDFViewer.svelte';
 	import PreambleFrontmatter from './PreambleFrontmatter.svelte';
 	import EditorView from '$lib/editor/EditorView.svelte';
-	import MarkdownEditorView from '$lib/markdown/MarkdownEditorView.svelte';
-	import MarkdownToolbar from '$lib/markdown/MarkdownToolbar.svelte';
-	import MarkdownSourceToolbar from '$lib/markdown/MarkdownSourceToolbar.svelte';
+	import MarkdownEditorView from '$lib/languages/markdown/visual/MarkdownEditorView.svelte';
+	import MarkdownToolbar from '$lib/languages/markdown/visual/MarkdownToolbar.svelte';
+	import MarkdownSourceToolbar from '$lib/languages/markdown/visual/MarkdownSourceToolbar.svelte';
 	import TypstEditorView from '$lib/languages/typst/visual/TypstEditorView.svelte';
 	import TypstToolbar from '$lib/languages/typst/visual/TypstToolbar.svelte';
 	import TypstSourceToolbar from '$lib/languages/typst/visual/TypstSourceToolbar.svelte';
@@ -32,7 +32,7 @@
 	import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import { restoreVisualPosition } from '$lib/workspace/visualPositions';
-	import { stripFor } from '$lib/markdown/sourceMap';
+	import { stripFor } from '$lib/languages/markdown/visual/sourceMap';
 	import { bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
 	import TabBar from './TabBar.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -369,7 +369,7 @@
 								<PreambleFrontmatter preamble={docMeta.preamble} onEdit={onEditFrontmatter} />
 							{/if}
 							{#if kind === 'md'}
-								<!-- an entirely separate ProseMirror over mdSchema; see lib/markdown -->
+								<!-- an entirely separate ProseMirror over mdSchema; see lib/languages/markdown -->
 								<MarkdownEditorView
 									localValue={visualDoc}
 									localReferences={allReferences}

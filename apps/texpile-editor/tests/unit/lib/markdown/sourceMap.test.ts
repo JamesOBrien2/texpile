@@ -6,8 +6,8 @@
 // (a link target, a reference definition) shifts every later caret onto the wrong repeat.
 import { describe, expect, it } from 'vitest';
 import type { Node as PMNode } from 'prosemirror-model';
-import { parseMarkdownFile } from '$lib/markdown/roundtrip';
-import { stripMarkdown, stripFor } from '$lib/markdown/sourceMap';
+import { parseMarkdownFile } from '$lib/languages/markdown/visual/roundtrip';
+import { stripMarkdown, stripFor } from '$lib/languages/markdown/visual/sourceMap';
 import { bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
 import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/sourceMap';
 

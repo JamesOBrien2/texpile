@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { mdSchema } from '$lib/markdown/schema';
+import { mdSchema } from '$lib/languages/markdown/visual/schema';
 import { schema as texSchema } from '$lib/schema/latexPMSchema/latexPMSchema';
-import { markdownToProseMirror } from '$lib/markdown/converter';
+import { markdownToProseMirror } from '$lib/languages/markdown/visual/converter';
 import { parseLatexFile } from '$lib/workspace/latexRoundtrip';
 
 describe('mdSchema separation', () => {

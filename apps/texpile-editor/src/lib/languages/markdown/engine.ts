@@ -2,7 +2,7 @@
 // load). The default preset already includes GFM tables and ~~strikethrough~~.
 import markdownit from 'markdown-it';
 import type { MarkdownIt } from 'markdown-it';
-import { mathPlugin } from './math';
+import { mathPlugin } from './visual/math';
 
 export function createMarkdownEngine(): MarkdownIt {
 	const md = markdownit({ html: true, linkify: false, typographer: false });

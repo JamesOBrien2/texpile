@@ -3,8 +3,8 @@
 // under the tex schema's doc - so `## Title` came off the clipboard as `\subsection{Title}`.
 import { describe, it, expect } from 'vitest';
 import { Slice, type Node } from 'prosemirror-model';
-import { mdSchema } from '$lib/markdown/schema';
-import { sliceToMarkdown } from '$lib/markdown/clipboard';
+import { mdSchema } from '$lib/languages/markdown/visual/schema';
+import { sliceToMarkdown } from '$lib/languages/markdown/visual/clipboard';
 import { sliceToLatex } from '$lib/editor/extensions/latexClipboard';
 
 const para = (text: string, attrs: Record<string, unknown> | null = null): Node => mdSchema.node('paragraph', attrs, [mdSchema.text(text)]);

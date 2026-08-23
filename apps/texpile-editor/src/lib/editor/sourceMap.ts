@@ -161,7 +161,7 @@ export function pmPosToSourceOffset(doc: Node, map: BlockSpan[], pmPos: number):
  *  source text before the offset survives into the rendered block.
  *
  *  `strip` removes the markup so the surviving words match the rendered text. It defaults to the
- *  LaTeX one; a markdown doc MUST pass its own (lib/markdown/sourceMap), because stripLatex eats
+ *  LaTeX one; a markdown doc MUST pass its own (lib/languages/markdown/sourceMap), because stripLatex eats
  *  `_ ^ $ { }` and would split snake_case and swallow $math$ — inflating the word-occurrence count
  *  the caret is placed by. Getting it wrong only costs accuracy: an unanchored offset falls back to
  *  proportional interpolation within the right block. */

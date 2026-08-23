@@ -15,7 +15,7 @@
 	import { createCodeBlock } from '$lib/editor/extensions/codemirrorbridge/cmcommands';
 	import { createTableNode } from '$lib/editor/utils/tableUtils';
 	import { typTableNode } from '$lib/languages/typst/visual/blockInsertItems';
-	import { mdTableNode } from '$lib/markdown/blockInsertItems';
+	import { mdTableNode } from '$lib/languages/markdown/visual/blockInsertItems';
 	import { toggleLinkCommand } from './toolbar/markState';
 	import { computeLink as texLink, computeWrapBlock } from '$lib/editor/extensions/intellisense/shortcuts';
 	import { tableLatex } from './toolbar/tableLatex';
@@ -26,7 +26,7 @@
 		computeImage as mdImage,
 		computeHr as mdHr,
 		computeLink as mdLink
-	} from '$lib/markdown/sourceInsert';
+	} from '$lib/languages/markdown/visual/sourceInsert';
 	import {
 		computeFence as typFence,
 		computeTableSkeleton as typTable,

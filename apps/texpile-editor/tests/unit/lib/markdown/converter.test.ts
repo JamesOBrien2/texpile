@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { markdownToProseMirror } from '$lib/markdown/converter';
+import { markdownToProseMirror } from '$lib/languages/markdown/visual/converter';
 
 const names = (doc: ReturnType<typeof markdownToProseMirror>['doc']) => {
 	const out: string[] = [];

@@ -2,7 +2,7 @@
 // terminates the worker after a wall-clock deadline to kill runaway parses. PM Nodes can't
 // structured-clone, so the doc crosses as toJSON() and the client rehydrates via nodeFromJSON.
 import { parseLatexFile } from './latexRoundtrip';
-import { parseMarkdownFile } from '$lib/markdown/roundtrip';
+import { parseMarkdownFile } from '$lib/languages/markdown/visual/roundtrip';
 
 type ParseRequest = {
 	id: number;

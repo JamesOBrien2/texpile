@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { CompletionContext } from '@codemirror/autocomplete';
-import { mdPathCompletionSource } from '$lib/markdown/pathCompletion';
+import { mdPathCompletionSource } from '$lib/languages/markdown/pathCompletion';
 import { filePathStore } from '$lib/stores/editorStore';
 
 const FILES = ['main.tex', 'notes.md', 'figures/plot.png', 'figures/diagram.svg', 'data/results.csv', 'output/main.log', 'refs.bib'];

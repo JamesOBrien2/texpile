@@ -1,4 +1,4 @@
-// Markdown source-mode CodeMirror extras, gathered here so everything md lives in lib/markdown
+// Markdown source-mode CodeMirror extras, gathered here so everything md lives in lib/languages/markdown
 // (SourceEditor itself stays dialect-neutral and just picks a list by file extension). The
 // chords mirror the visual editor's: Mod-b/i, Mod-Shift-x, Mod-`, Mod-Alt-0..6, Mod-m/Shift-m,
 // Mod-Shift-b, Mod-Shift-`, Mod-k.
