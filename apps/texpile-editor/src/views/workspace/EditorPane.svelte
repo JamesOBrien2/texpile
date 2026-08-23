@@ -2,117 +2,30 @@
 	// The editor column: the mode toolbar on top and, under it, whichever surface the open file
 	// needs (starter picker, diff, source, visual, bib, pdf, image). Chooses the surface; the
 	// state behind it all lives in WorkspaceView.
-	import type { Node as PMNode } from 'prosemirror-model';
-	import type { ComponentProps } from 'svelte';
 	import { Loader2, CircleAlert, Info } from '@lucide/svelte';
 	import { isTexpileManaged } from '$lib/comments/managed';
-	import LatexToolbar from '$lib/languages/latex/visual/LatexToolbar.svelte';
-	import LatexSourceToolbar from '$lib/languages/latex/source/LatexSourceToolbar.svelte';
 	import SearchBar from '$lib/editor/visual/SearchBar.svelte';
 	import StarterPicker from '$lib/workspace/StarterPicker.svelte';
 	import DiffPane from './DiffPane.svelte';
 	import SourceEditor from '$lib/editor/source/SourceEditor.svelte';
 	import BibManager from '$lib/editor/visual/bib/BibManager.svelte';
 	import PDFViewer from '$lib/preview/PDFViewer.svelte';
-	import PreambleFrontmatter from '$lib/editor/visual/PreambleFrontmatter.svelte';
-	import LatexEditorView from '$lib/languages/latex/visual/LatexEditorView.svelte';
-	import MarkdownEditorView from '$lib/languages/markdown/visual/MarkdownEditorView.svelte';
-	import MarkdownToolbar from '$lib/languages/markdown/visual/MarkdownToolbar.svelte';
-	import MarkdownSourceToolbar from '$lib/languages/markdown/source/MarkdownSourceToolbar.svelte';
-	import TypstEditorView from '$lib/languages/typst/visual/TypstEditorView.svelte';
-	import TypstToolbar from '$lib/languages/typst/visual/TypstToolbar.svelte';
-	import TypstSourceToolbar from '$lib/languages/typst/source/TypstSourceToolbar.svelte';
-	import type { EditSession } from '$lib/collab/editSession';
-	import type { ParsedLatexFile, ParsePhase } from '$lib/workspace/latexRoundtrip';
 	import VisualLoading from '$lib/editor/visual/VisualLoading.svelte';
-	import type { BiblatexReference } from '$lib/workspace/citations';
-	import type { Starter, ImportedFile } from '$lib/workspace/starters';
 	import { get } from 'svelte/store';
-	import { basename, dirname } from '$lib/workspace/fileSystem';
+	import { basename } from '$lib/workspace/fileSystem';
 	import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import { restoreVisualPosition } from '$lib/workspace/visualPositions';
+	import { openWorkspaceLink } from '$lib/workspace/openWorkspaceLink';
 	import { stripFor } from '$lib/languages/markdown/visual/sourceMap';
 	import { bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
 	import TabBar from './TabBar.svelte';
+	import EditorToolbarStrip from './EditorToolbarStrip.svelte';
+	import VisualEditorHost from './VisualEditorHost.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import { settings } from '$lib/settings';
 
-	import type { FileKind } from '$lib/workspace/documentBuffer.svelte';
+	import type { EditorPaneProps } from './editorPaneProps';
 
-	type Props = {
-		loadedPath: string | null;
-		openTabs: string[];
-		/** the unedited preview tab, if any (see TabsStore.preview) */
-		previewTab: string | null;
-		onActivateTab: (path: string) => void;
-		onCloseTab: (path: string) => void;
-		onKeepTab: (path: string) => void;
-		kind: FileKind;
-		/** a shared session serves this file by name only (no body): show a note, not an empty editor */
-		nameOnly?: boolean;
-		viewMode: 'visual' | 'source' | 'diff';
-		session: EditSession;
-		folderEmpty: boolean;
-		loadError: string | null;
-		applyingStarter: boolean;
-		texSource: string;
-		rawContent: string;
-		visualDoc: PMNode | null;
-		/** stage of the in-flight parse, for the visual-mode loading bar; null = idle */
-		parseProgress?: ParsePhase | null;
-		/** escape hatch offered once the parse looks slow */
-		onUseSource?: () => void;
-		docMeta: Pick<ParsedLatexFile, 'preamble' | 'postamble' | 'hadDocumentEnv'> | null;
-		allReferences: BiblatexReference[];
-		sourceGotoLine: { line: number; token: number; selectText?: string } | undefined;
-		sourceScrollAnchor: { scroll: number | null; cursor: number | null } | null;
-		sourceDiagnostics: NonNullable<ComponentProps<typeof SourceEditor>['diagnostics']>;
-		diffOriginal: string;
-		diffModified: string;
-		diffLayout: 'unified' | 'split';
-		diffLoading: boolean;
-		diffError: string | null;
-		diffHasHead: boolean;
-		/** the workspace provider's URL builder: guests resolve through the session, not disk */
-		fileUrl: (path: string) => string;
-		onPickStarter: (s: Starter) => void;
-		onBlankStarter: () => void;
-		onImportStarter: (files: ImportedFile[]) => void;
-		onTexInput: (v: string) => void;
-		onRawInput: (v: string) => void;
-		onVisualChange: (doc: PMNode) => void;
-		/** visual-editor caret movement (shared-session presence). */
-		onVisualSelection?: () => void;
-		onEditFrontmatter: (kind: string, inner: string) => void;
-		/** absent when no preview target can resolve the jump (WorkspaceMain's canSync gate) */
-		onSyncToPdf?: (line: number) => void;
-		onHistoryBoundary: (dir: 'undo' | 'redo') => boolean;
-		onJumpToFile: (name: string) => void;
-		onOpenFileAt: (file: string, line: number, selectText?: string) => void;
-		/** caret moved to this ZERO-based line/column in the source editor */
-		onCaretMove?: (line: number, character: number) => void;
-		/** review-comment ranges for the open file, and the hooks the editor raises; see lib/comments */
-		commentRanges?: import('$lib/editor/visual/extensions/comments').CommentRange[];
-		/** the same file's threads with their anchors: the visual editor re-resolves against its own
-		 * rendered text, because source offsets mean nothing there (see pmComments) */
-		commentThreads?: import('$lib/comments/log').CommentThread[];
-		selectedComment?: string | null;
-		onAddComment?: (from: number, to: number) => void;
-		/** pick citations from Zotero and insert them at the caret (host + desktop only) */
-		onInsertCitation?: () => void;
-		/** the visual editor's add: it hands a finished rendered-dialect anchor, not source offsets */
-		onAddCommentAnchored?: (anchor: import('$lib/comments/anchor').CommentAnchor | null) => void;
-		/** threads the visual editor could not draw, so the panel can label them "not in this view" */
-		onCommentsPlaced?: (lost: string[]) => void;
-		/** a comment composer is open; keeps the commented selection tinted in the visual editor */
-		commentPendingActive?: boolean;
-		onSelectComment?: (id: string, from: 'text' | 'gutter' | 'visual') => void;
-
-		onToggleDiffLayout: () => void;
-		onRefreshDiff: () => void;
-		onExitDiff: () => void;
-	};
 	let {
 		loadedPath,
 		openTabs,
@@ -169,7 +82,7 @@
 		onToggleDiffLayout,
 		onRefreshDiff,
 		onExitDiff
-	}: Props = $props();
+	}: EditorPaneProps = $props();
 
 	// remounts the source editor when the file or the session's view of it changes
 	const sourceKey = $derived(`${loadedPath}:${session.active}:${session.manifestRev}`);
@@ -203,19 +116,7 @@
 	/** md link tooltip Open: real schemes go to the browser, in-doc anchors are swallowed (no
 	 * anchor targets yet), anything path-like opens in the workspace. */
 	function onMdLink(href: string): boolean {
-		if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return false;
-		if (href.startsWith('#')) return true;
-		const path = href.split('#')[0];
-		// hrefs reach us already decoded (see `dest` in markdown/converter.ts); this only catches a
-		// target still holding escapes, and must not throw on a literal `%` that decodes to nothing
-		let target = path;
-		try {
-			target = decodeURIComponent(path);
-		} catch {
-			/* not valid escaping: the raw text IS the path */
-		}
-		onJumpToFile(target);
-		return true;
+		return openWorkspaceLink(href, onJumpToFile);
 	}
 	/** the visual editor is wanted, whether or not it has been built yet */
 	const visualPending = $derived(loadedPath && structured && viewMode === 'visual');
@@ -240,26 +141,8 @@
 		onClose={onCloseTab}
 		onKeep={onKeepTab}
 	/>
-	{#if visualDoc && loadedPath && structured && viewMode === 'visual'}
-		<div class="border-surface-200-800 @container relative z-20 flex min-h-10 items-center overflow-hidden border-b px-2">
-			{#if kind === 'md'}
-				<MarkdownToolbar />
-			{:else if kind === 'typ'}
-				<TypstToolbar />
-			{:else}
-				<LatexToolbar />
-			{/if}
-		</div>
-	{:else if loadedPath && structured && viewMode === 'source'}
-		<div class="border-surface-200-800 @container relative z-20 flex min-h-10 items-center overflow-hidden border-b px-2">
-			{#if kind === 'md'}
-				<MarkdownSourceToolbar />
-			{:else if kind === 'typ'}
-				<TypstSourceToolbar />
-			{:else}
-				<LatexSourceToolbar />
-			{/if}
-		</div>
+	{#if loadedPath && structured && viewMode !== 'diff' && (viewMode === 'source' || visualDoc)}
+		<EditorToolbarStrip {kind} mode={viewMode === 'visual' ? 'visual' : 'source'} />
 	{/if}
 	<!-- not in diff mode: DiffPane carries its own, and both rendered gave two stacked banners -->
 	{#if loadedPath && viewMode !== 'diff' && isTexpileManaged(loadedPath)}
@@ -355,89 +238,28 @@
 				{/key}
 			{:else if loadedPath && structured && visualDoc}
 				{#key loadedPath}
-					<!-- texpile-main-editor scopes the editor's right-click context menu (ContextMenu.svelte) -->
-					<!-- px-12 reserves room for the block-handle gutters (~48px left / ~30px right); on narrow
-				     windows the mx-auto centering margin collapses and this padding keeps them from clipping.
-				     The \noindent marker has to fit this 48px too, which is why it is abbreviated (app.css) -->
-					<div class="px-12 py-8">
-						<!-- the measure, from Preferences. Was a fixed max-w-3xl (768px), which is still the
-						     default; past it a wide window pads with empty space rather than stretching the
-						     line length, and how much of that is comfortable is a matter of taste -->
-						<div class="texpile-main-editor mx-auto w-full min-w-0" style="max-width: {$settings.visualMaxWidth ?? 768}px">
-							{#if docMeta?.hadDocumentEnv && kind === 'tex'}
-								<!-- \title/\author fields are LaTeX; md frontmatter is YAML, edited in source mode -->
-								<PreambleFrontmatter preamble={docMeta.preamble} onEdit={onEditFrontmatter} />
-							{/if}
-							{#if kind === 'md'}
-								<!-- an entirely separate ProseMirror over mdSchema; see lib/languages/markdown -->
-								<MarkdownEditorView
-									localValue={visualDoc}
-									localReferences={allReferences}
-									imageDir={dirname(loadedPath)}
-									onLocalChange={onVisualChange}
-									onSelectionChange={onVisualSelection}
-									placeholder={m.wsview_editor_placeholder()}
-									{onHistoryBoundary}
-									onReady={onVisualReady}
-									onOpenLink={onMdLink}
-									{commentThreads}
-									{selectedComment}
-									{onSelectComment}
-									onAddComment={onAddCommentAnchored}
-									{onCommentsPlaced}
-									{commentPendingActive}
-									addCommentLabel={m.comments_add()}
-								/>
-							{:else if kind === 'typ'}
-								<!-- an entirely separate ProseMirror over typSchema; see lib/languages/typst/visual -->
-								<TypstEditorView
-									localValue={visualDoc}
-									localReferences={allReferences}
-									docDir={dirname(loadedPath)}
-									onLocalChange={onVisualChange}
-									onSelectionChange={onVisualSelection}
-									placeholder={m.wsview_editor_placeholder()}
-									{onHistoryBoundary}
-									onReady={onVisualReady}
-									onOpenLink={onMdLink}
-									{commentThreads}
-									{selectedComment}
-									{onSelectComment}
-									onAddComment={onAddCommentAnchored}
-									{onInsertCitation}
-									{onCommentsPlaced}
-									{commentPendingActive}
-									addCommentLabel={m.comments_add()}
-								/>
-							{:else}
-								<LatexEditorView
-									localValue={visualDoc}
-									localReferences={allReferences}
-									imageDir={dirname(loadedPath)}
-									onLocalChange={onVisualChange}
-									onSelectionChange={onVisualSelection}
-									placeholder={m.wsview_editor_placeholder()}
-									{onHistoryBoundary}
-									onReady={onVisualReady}
-									{commentThreads}
-									{selectedComment}
-									{onSelectComment}
-									onAddComment={onAddCommentAnchored}
-									{onInsertCitation}
-									{onCommentsPlaced}
-									{commentPendingActive}
-									addCommentLabel={m.comments_add()}
-								/>
-							{/if}
-							{#if showRenderBar}
-								<!-- EditorView keeps its own root hidden until ProseMirror exists, so this sits in the
-								     space the editor will occupy rather than over it. It is on screen for the paint
-								     that happens while EditorView awaits its dynamic import, and stays there through
-								     the synchronous build that follows. -->
-								<VisualLoading mounting sizeBytes={texSource.length} />
-							{/if}
-						</div>
-					</div>
+					<VisualEditorHost
+						{kind}
+						{loadedPath}
+						{visualDoc}
+						{docMeta}
+						{texSource}
+						{allReferences}
+						{showRenderBar}
+						{onVisualChange}
+						{onVisualSelection}
+						{onHistoryBoundary}
+						{onVisualReady}
+						{onMdLink}
+						{onEditFrontmatter}
+						{commentThreads}
+						{selectedComment}
+						{onSelectComment}
+						{onAddCommentAnchored}
+						{onInsertCitation}
+						{onCommentsPlaced}
+						{commentPendingActive}
+					/>
 				{/key}
 			{:else if visualPending}
 				<!-- doc not here yet: the parse runs in a worker and fills this in when it lands -->

@@ -11,7 +11,6 @@
 	import { ChevronLeft } from '@lucide/svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { WorkspaceMainProps } from './workspaceMainProps';
-	import type { FileKind } from '$lib/workspace/documentBuffer.svelte';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the pipelines are structural here
 	type Any = any;
