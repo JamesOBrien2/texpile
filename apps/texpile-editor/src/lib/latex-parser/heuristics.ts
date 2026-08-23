@@ -52,12 +52,12 @@ export function heuristicMarkCommentedMacroCalls(nodes: Node[] | undefined, sour
 			if (nx.type === 'whitespace') continue;
 			if (nx.type === 'comment' && nx.sameline) {
 				sawComment = true;
-				if (nx.position?.end) lastEnd = nx.position.end.offset;
+				if (nx.position?.end?.offset != null) lastEnd = nx.position.end.offset;
 				continue;
 			}
 			if (nx.type === 'group') {
 				groups++;
-				if (nx.position?.end) lastEnd = nx.position.end.offset;
+				if (nx.position?.end?.offset != null) lastEnd = nx.position.end.offset;
 				continue;
 			}
 			break;
@@ -108,7 +108,7 @@ export function heuristicMarkTeXPrimitiveDefs(nodes: Node[] | undefined, source:
 			for (; j < nodes.length; j++) {
 				const nx = nodes[j] as LooseNode;
 				if (nx.type === 'parbreak') break;
-				if (nx.position?.end) lastEnd = nx.position.end.offset;
+				if (nx.position?.end?.offset != null) lastEnd = nx.position.end.offset;
 				if (nx.type === 'group') {
 					sawGroup = true;
 					j++;
@@ -153,17 +153,17 @@ export function heuristicMarkTeXPrimitiveDefs(nodes: Node[] | undefined, source:
 			while (j < nodes.length && units < 2) {
 				const nx = nodes[j] as LooseNode;
 				if (nx.type === 'string' && /^=+$/.test(String(nx.content ?? ''))) {
-					if (nx.position?.end) lastEnd = nx.position.end.offset;
+					if (nx.position?.end?.offset != null) lastEnd = nx.position.end.offset;
 					j++;
 					continue; // the optional `=` doesn't start or count as a unit
 				}
 				if (nx.type !== 'macro') break; // whitespace, group, parbreak: not a unit start
-				if (nx.position?.end) lastEnd = nx.position.end.offset;
+				if (nx.position?.end?.offset != null) lastEnd = nx.position.end.offset;
 				j++;
 				units++;
 				while (j < nodes.length && (nodes[j] as LooseNode).type === 'string') {
 					const strNode = nodes[j] as LooseNode;
-					if (strNode.position?.end) lastEnd = strNode.position.end.offset;
+					if (strNode.position?.end?.offset != null) lastEnd = strNode.position.end.offset;
 					j++;
 				}
 			}

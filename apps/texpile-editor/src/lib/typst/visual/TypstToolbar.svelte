@@ -63,7 +63,7 @@
 		};
 	});
 
-	type Cmd = (state: EditorState, dispatch: (tr: Transaction) => void) => boolean;
+	type Cmd = (state: EditorState, dispatch?: (tr: Transaction) => void) => boolean;
 	function keepEditorFocus(cmd: Cmd) {
 		return (e: MouseEvent) => {
 			e.preventDefault();
@@ -109,7 +109,7 @@
 	const orderedList = createWrapInListCommand({ kind: 'ordered' });
 
 	const insertHr: Cmd = (state, dispatch) => {
-		dispatch(state.tr.replaceSelectionWith(typSchema.nodes.horizontal_rule.create()).scrollIntoView());
+		dispatch?.(state.tr.replaceSelectionWith(typSchema.nodes.horizontal_rule.create()).scrollIntoView());
 		return true;
 	};
 </script>

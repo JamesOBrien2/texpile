@@ -52,7 +52,7 @@
 	let cursorY: number = $state(0);
 
 	function detectSelectionType(): 'cell' | 'column' | 'row' | null {
-		const { state } = $editorViewStore;
+		const { state } = $editorViewStore!;
 		const { selection } = state;
 
 		if (selection instanceof CellSelection) {
@@ -75,7 +75,7 @@
 			icon: Copy,
 			shortcut: 'Mod+C',
 			action: () => {
-				const { state } = $editorViewStore;
+				const { state } = $editorViewStore!;
 				const { from, to } = state.selection;
 				if (from === to) {
 					return;
@@ -127,14 +127,14 @@
 						if (item.types.includes('text/html')) {
 							const blob = await item.getType('text/html');
 							const text = await blob.text();
-							$editorViewStore.pasteHTML(text);
+							$editorViewStore!.pasteHTML(text);
 						} else if (item.types.includes('text/plain')) {
 							const blob = await item.getType('text/plain');
 							const text = await blob.text();
 							// LaTeX text pastes as rich nodes, same as the Ctrl+V path — but ONLY in the
 							// LaTeX editor: the parser emits tex-schema nodes, which must never land in
 							// a typst or markdown document (nor does either one's Ctrl+V do this)
-							if (dialect !== 'latex' || !pasteLatexText($editorViewStore, text)) $editorViewStore.pasteText(text);
+							if (dialect !== 'latex' || !pasteLatexText($editorViewStore!, text)) $editorViewStore!.pasteText(text);
 						} else {
 							toaster.warning({
 								title: m.ctxmenu_paste_images_hint_toast(),
@@ -162,12 +162,12 @@
 						if (item.types.includes('text/plain')) {
 							const blob = await item.getType('text/plain');
 							const text = await blob.text();
-							$editorViewStore.pasteText(text);
+							$editorViewStore!.pasteText(text);
 						} else if (item.types.includes('text/html')) {
 							const blob = await item.getType('text/html');
 							const text = await blob.text();
 							const plainText = text.replace(/<[^>]+>/g, '');
-							$editorViewStore.pasteText(plainText);
+							$editorViewStore!.pasteText(plainText);
 						}
 					}
 				} catch (_err) {
@@ -187,7 +187,7 @@
 			icon: Plus,
 			showFor: ['cell', 'column'],
 			action: () => {
-				const view = $editorViewStore;
+				const view = $editorViewStore!;
 				const { state, dispatch } = view;
 				addColumnBefore(state, dispatch);
 			}
@@ -198,7 +198,7 @@
 			icon: Plus,
 			showFor: ['cell', 'column'],
 			action: () => {
-				const view = $editorViewStore;
+				const view = $editorViewStore!;
 				const { state, dispatch } = view;
 				addColumnAfter(state, dispatch);
 			}
@@ -210,7 +210,7 @@
 			icon: Plus,
 			showFor: ['cell', 'row'],
 			action: () => {
-				const view = $editorViewStore;
+				const view = $editorViewStore!;
 				const { state, dispatch } = view;
 				addRowBefore(state, dispatch);
 			}
@@ -221,7 +221,7 @@
 			icon: Plus,
 			showFor: ['cell', 'row'],
 			action: () => {
-				const view = $editorViewStore;
+				const view = $editorViewStore!;
 				const { state, dispatch } = view;
 				addRowAfter(state, dispatch);
 			}
@@ -234,7 +234,7 @@
 			showFor: ['cell'],
 			showWhen: () => cellMerging && canMerge,
 			action: () => {
-				const view = $editorViewStore;
+				const view = $editorViewStore!;
 				const { state, dispatch } = view;
 				mergeCells(state, dispatch);
 			}
@@ -246,7 +246,7 @@
 			showFor: ['cell'],
 			showWhen: () => cellMerging && canSplit,
 			action: () => {
-				const view = $editorViewStore;
+				const view = $editorViewStore!;
 				const { state, dispatch } = view;
 				splitCell(state, dispatch);
 			}
@@ -258,7 +258,7 @@
 			icon: Trash2,
 			showFor: ['cell', 'column'],
 			action: () => {
-				const view = $editorViewStore;
+				const view = $editorViewStore!;
 				const { state, dispatch } = view;
 				deleteColumn(state, dispatch);
 			}
@@ -269,7 +269,7 @@
 			icon: Trash2,
 			showFor: ['cell', 'row'],
 			action: () => {
-				const view = $editorViewStore;
+				const view = $editorViewStore!;
 				const { state, dispatch } = view;
 				deleteRow(state, dispatch);
 			}
@@ -280,7 +280,7 @@
 			icon: Trash2,
 			showFor: ['cell', 'column', 'row'],
 			action: () => {
-				const view = $editorViewStore;
+				const view = $editorViewStore!;
 				const { state, dispatch } = view;
 				deleteTable(state, dispatch);
 			}
@@ -295,13 +295,14 @@
 				return true;
 			});
 		} else {
+			const sel = selectionType;
 			filtered = tableMenuItems.filter((item) => {
 				if (item.showWhen && !item.showWhen()) return false;
 
 				if (item.type === 'separator') {
-					return item.showFor?.includes(selectionType);
+					return item.showFor?.includes(sel);
 				}
-				return item.showFor?.includes(selectionType);
+				return item.showFor?.includes(sel);
 			});
 		}
 
@@ -335,10 +336,10 @@
 		event.preventDefault();
 
 		const coords = { left: event.clientX, top: event.clientY };
-		const pos = $editorViewStore.posAtCoords(coords);
+		const pos = $editorViewStore!.posAtCoords(coords);
 
 		if (pos) {
-			const Resolvedpos = $editorViewStore.state.doc.resolve(pos.pos);
+			const Resolvedpos = $editorViewStore!.state.doc.resolve(pos.pos);
 			isOnTable = false;
 			for (let i = Resolvedpos.depth; i > 0; i--) {
 				if (Resolvedpos.node(i).type.name === 'table') {
@@ -351,7 +352,7 @@
 		if (isOnTable) {
 			selectionType = detectSelectionType();
 			// calling the commands without dispatch just tests applicability
-			const { state } = $editorViewStore;
+			const { state } = $editorViewStore!;
 			canMerge = mergeCells(state);
 			canSplit = splitCell(state);
 		} else {
@@ -359,7 +360,7 @@
 			canMerge = false;
 			canSplit = false;
 		}
-		const sel = $editorViewStore.state.selection;
+		const sel = $editorViewStore!.state.selection;
 		hasTextSelection = sel instanceof TextSelection && !sel.empty;
 
 		isVisible = true;
@@ -368,7 +369,7 @@
 
 		// empty transaction keeps the selection visible while the editor is blurred
 		requestAnimationFrame(() => {
-			if ($editorViewStore && !$editorViewStore.hasFocus()) {
+			if ($editorViewStore && !$editorViewStore!.hasFocus()) {
 				const { state, dispatch } = $editorViewStore;
 				const tr = state.tr;
 				dispatch(tr);
@@ -385,7 +386,7 @@
 	function handleItemClick(action: () => void): void {
 		action();
 		isVisible = false;
-		$editorViewStore.focus();
+		$editorViewStore!.focus();
 	}
 
 	onMount(() => {
@@ -450,7 +451,7 @@
 							disabled={!hasTextSelection}
 							onclick={() =>
 								handleItemClick(() => {
-									const view = $editorViewStore;
+									const view = $editorViewStore!;
 									const sel = view.state.selection;
 									if (!(sel instanceof TextSelection) || sel.empty) return;
 									const anchor = buildPmAnchor(view.state.doc, sel.from, sel.to);
@@ -487,7 +488,7 @@
 								<button
 									type="button"
 									class="hover:preset-tonal-primary flex w-full items-center gap-3 px-4 py-2 text-left"
-									onclick={() => handleItemClick(item.action)}
+									onclick={() => item.action && handleItemClick(item.action)}
 									onmousedown={(e) => e.preventDefault()}
 								>
 									<item.icon class="h-4 w-4 flex-shrink-0" />

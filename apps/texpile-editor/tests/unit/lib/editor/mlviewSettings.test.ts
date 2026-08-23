@@ -5,6 +5,8 @@
 // popover still appears the moment the user reaches for it, by mouse or by keyboard.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
+import type { PluginKey } from 'prosemirror-state';
+import type { MathLivePluginState } from '$lib/editor/extensions/mathlivebridge/mlplugin';
 
 // A mathfield is a heavy web component with no layout in jsdom; none of these tests exercise it.
 // It still has to be a real element, since the node view appends it to its own DOM.
@@ -49,7 +51,7 @@ function makeView(isBlock: boolean) {
 		dispatch() {},
 		focus() {}
 	} as unknown as ProseMirrorView;
-	const view = new MathLiveView(node, pmView, () => 0, {}, isBlock);
+	const view = new MathLiveView(node, pmView, () => 0, {} as unknown as PluginKey<MathLivePluginState>, isBlock);
 	// jsdom attaches nothing by default; hover/focus events need the node in a document
 	document.body.appendChild(view.dom);
 	return view;
@@ -123,7 +125,7 @@ describe('block_math settings popover', () => {
 			dispatch() {},
 			focus() {}
 		} as unknown as ProseMirrorView;
-		const view = new MathLiveView(node, pmView, () => 0, {}, true);
+		const view = new MathLiveView(node, pmView, () => 0, {} as unknown as PluginKey<MathLivePluginState>, true);
 		document.body.appendChild(view.dom);
 		view.dom.dispatchEvent(new Event('pointerenter'));
 		expect(mountSpy).toHaveBeenCalledTimes(1);

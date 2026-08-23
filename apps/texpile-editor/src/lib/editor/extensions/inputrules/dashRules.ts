@@ -3,7 +3,7 @@ import { InputRule } from 'prosemirror-inputrules';
 import type { EditorState, Transaction } from 'prosemirror-state';
 
 function makeDashRule(pattern: RegExp, replacement: string) {
-	return new InputRule(pattern, (state: EditorState, _match: RegExpExecArray, start: number, end: number): Transaction | null => {
+	return new InputRule(pattern, (state: EditorState, _match: RegExpMatchArray, start: number, end: number): Transaction | null => {
 		const { $from } = state.selection;
 		if ($from.parent?.type?.name === 'code_block') return null;
 		const tr = state.tr.insertText(replacement, start, end);

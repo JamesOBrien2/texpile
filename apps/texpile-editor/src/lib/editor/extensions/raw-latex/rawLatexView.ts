@@ -1,4 +1,4 @@
-import { EditorView as CodeMirrorView, keymap as cmKeymap, drawSelection, type ViewUpdate } from '@codemirror/view';
+import { EditorView as CodeMirrorView, keymap as cmKeymap, drawSelection, type ViewUpdate, type KeyBinding } from '@codemirror/view';
 import { Compartment as CodeMirrorCompartment } from '@codemirror/state';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
@@ -24,7 +24,7 @@ class RawLatexView {
 	getPos: () => number;
 	cm: CodeMirrorView;
 	dom: HTMLElement;
-	updating: boolean;
+	updating = false;
 	languageConf = new CodeMirrorCompartment();
 
 	constructor(node: Node, view: ProseMirrorView, getPos: () => number) {
@@ -139,7 +139,7 @@ class RawLatexView {
 		this.updating = false;
 	}
 
-	codeMirrorKeymap(): Array<unknown> {
+	codeMirrorKeymap(): KeyBinding[] {
 		const view = this.view;
 		return [
 			{

@@ -3,18 +3,20 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { mount, unmount } from 'svelte';
 import CitationDisplay from './CitationDisplay.svelte';
 
+type CitationDisplayProps = {
+	node: PMNode;
+	view: EditorView;
+	getPos: () => number;
+	onUpdate: (attrs: { prenote?: string; postnote?: string; variant?: string }) => void;
+	onChangeKey: (key: string) => void;
+};
+
 export default class CitationView implements NodeView {
 	dom: HTMLElement;
 	private svelteComponent: ReturnType<typeof mount>;
 	// all props in one $state object: svelte 5 only tracks node changes when it lives
-	// in the same reactive object as the static props
-	private componentProps = $state<{
-		node: PMNode;
-		view: EditorView;
-		getPos: () => number;
-		onUpdate: (attrs: { prenote?: string; postnote?: string; variant?: string }) => void;
-		onChangeKey: (key: string) => void;
-	}>();
+	// in the same reactive object as the static props. cast: always assigned in the constructor
+	private componentProps = $state<CitationDisplayProps>() as CitationDisplayProps;
 	node: PMNode;
 	private view: EditorView;
 	private getPos: () => number;
@@ -52,6 +54,7 @@ export default class CitationView implements NodeView {
 		if (this.updating) return;
 
 		const pos = this.getPos();
+		if (pos == null) return;
 		const tr = this.view.state.tr;
 
 		this.updating = true;
@@ -73,6 +76,7 @@ export default class CitationView implements NodeView {
 	changeKey(newKey: string) {
 		if (this.updating) return;
 		const pos = this.getPos();
+		if (pos == null) return;
 		this.updating = true;
 		const text = newKey ? this.view.state.schema.text(newKey) : null;
 		const newNode = this.node.type.create(this.node.attrs, text);

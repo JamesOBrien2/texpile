@@ -19,7 +19,9 @@
 		"resolveJsonModule": true,
 		"skipLibCheck": true,
 		"sourceMap": true,
-		"strict": false
+		"strict": true,
+		"noImplicitOverride": true,
+		"noFallthroughCasesInSwitch": true
 	},
 	"include": [
 		"vite.config.ts",

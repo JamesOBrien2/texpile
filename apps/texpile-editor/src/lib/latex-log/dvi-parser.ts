@@ -35,7 +35,8 @@ export function parseDviLog(text: string): LogEntry[] {
 	for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
 		const cont = line.match(CONTINUED_WARN);
 		if (cont) {
-			if (current?.level === 'warning') append(cont[1].trim(), line);
+			// cast: `current` is assigned inside start/flush closures, which TS's narrowing cannot see
+			if ((current as LogEntry | null)?.level === 'warning') append(cont[1].trim(), line);
 			else start('warning', cont[1].trim(), line);
 			continue;
 		}

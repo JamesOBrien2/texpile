@@ -187,7 +187,7 @@
 			onRefreshDiff={actions.refreshDiff}
 			onExitDiff={actions.exitDiff}
 			commentRanges={panes.commentRanges}
-			commentThreads={panes.comments.filter((t) => t.file === panes.commentFile)}
+			commentThreads={panes.comments.filter((t: Any) => t.file === panes.commentFile)}
 			selectedComment={panes.commentSelected}
 			onAddComment={actions.beginComment}
 			commentPendingActive={!!panes.commentPending}

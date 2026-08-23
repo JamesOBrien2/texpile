@@ -57,7 +57,7 @@ export class IEEEAuthorView extends RawLatexView {
 		});
 	}
 
-	update(node: Node): boolean {
+	override update(node: Node): boolean {
 		const ok = super.update(node);
 		if (ok) this.renderPreview(node.textContent);
 		return ok;

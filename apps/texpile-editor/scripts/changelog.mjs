@@ -15,10 +15,12 @@ const ROOT_CHANGELOG = path.join(path.dirname(fileURLToPath(import.meta.url)), '
 
 /** @typedef {{ version: string, date?: string, notes: string[], released: boolean }} Entry */
 
-/** parse changelog text into entries, in file order (newest first by convention). */
+/** parse changelog text into entries, in file order (newest first by convention).
+ * @param {string} text */
 export function parse(text) {
 	/** @type {Entry[]} */
 	const entries = [];
+	/** @type {Entry | null} */
 	let cur = null;
 	for (const raw of text.split('\n')) {
 		const h = raw.match(/^##\s+\[?([^\]\s]+)\]?(?:\s*[-–]\s*(\d{4}-\d{2}-\d{2}))?/);

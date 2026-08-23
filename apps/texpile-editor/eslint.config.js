@@ -71,7 +71,23 @@ export default ts.config(
 			'no-param-reassign': ['warn', { props: true }],
 			'max-lines': ['warn', { max: 300, skipBlankLines: true, skipComments: true }],
 			'id-length': ['error', { min: 1, max: 50 }],
-			'id-denylist': ['warn', 'data', 'info', 'obj', 'tmp', 'temp', 'misc', 'thing', 'val', 'arr', 'foo', 'helper', 'helpers', 'util', 'utils'],
+			'id-denylist': [
+				'warn',
+				'data',
+				'info',
+				'obj',
+				'tmp',
+				'temp',
+				'misc',
+				'thing',
+				'val',
+				'arr',
+				'foo',
+				'helper',
+				'helpers',
+				'util',
+				'utils'
+			],
 			'@typescript-eslint/consistent-type-definitions': ['warn', 'type']
 		}
 	},

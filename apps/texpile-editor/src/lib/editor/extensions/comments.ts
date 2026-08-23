@@ -135,8 +135,8 @@ export function commentAt(state: EditorState, pos: number): CommentRange | null 
  * gutter cells instead, and the style is an inset shadow, so the indicator takes no layout at all.
  */
 class CommentLine extends GutterMarker {
-	elementClass = 'cm-comment-line';
-	eq() {
+	override elementClass = 'cm-comment-line';
+	override eq() {
 		// every marked line is marked the same way; resolved threads are not marked at all
 		return true;
 	}

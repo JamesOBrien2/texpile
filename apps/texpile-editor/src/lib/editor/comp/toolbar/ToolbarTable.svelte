@@ -16,7 +16,7 @@
 	let numberedState = $state(true); // user's preference while enabled
 	let numbered = $derived(tableCaptionEnabled ? numberedState : false);
 
-	function isCellHighlighted(row, col) {
+	function isCellHighlighted(row: number, col: number) {
 		return row <= hoveredCells.rows && col <= hoveredCells.cols;
 	}
 
@@ -31,7 +31,7 @@
 		}
 		return cells;
 	}
-	function handleMouseOver(row, col) {
+	function handleMouseOver(row: number, col: number) {
 		hoveredCells = { rows: row, cols: col };
 		highlightedCells = getHighlightedCells();
 	}
@@ -41,17 +41,18 @@
 	}
 
 	function insertTable() {
-		if (!$editorViewStore.state || !$editorViewStore.dispatch) {
-			console.error('Editor state or dispatch function is not available');
+		const view = $editorViewStore;
+		if (!view) {
+			console.error('Editor view is not available');
 			return;
 		}
-		const { state, dispatch } = $editorViewStore;
+		const { state, dispatch } = view;
 		let tr = state.tr;
 		const tableNode = createTableNode(state.schema, hoveredCells.rows, hoveredCells.cols, numbered);
 		const insertPos = tr.selection.from;
 		tr = tr.insert(insertPos, tableNode);
 		dispatch(tr);
-		$editorViewStore.focus();
+		view.focus();
 		open = false;
 	}
 </script>

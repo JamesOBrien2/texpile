@@ -26,3 +26,6 @@ project.inlang/*
 devtyp.html
 src/devtyp.ts
 public/tmp-fixture/
+tests/live/bert-*.mjs
+tests/live/matrix-bert*.mjs
+tests/live/results/

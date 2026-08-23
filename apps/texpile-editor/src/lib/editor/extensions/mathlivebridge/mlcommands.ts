@@ -1,7 +1,7 @@
 import { EditorState, NodeSelection, Transaction } from 'prosemirror-state';
 
 export function createMathField(createblock = false) {
-	return function (state: EditorState, dispatch: (tr: Transaction) => void): boolean {
+	return function (state: EditorState, dispatch?: (tr: Transaction) => void): boolean {
 		const { from, to } = state.selection;
 
 		if (createblock) {
@@ -16,19 +16,19 @@ export function createMathField(createblock = false) {
 				const tr = state.tr.replaceRangeWith($from.before(), $from.after(), newNode);
 				const nodeSelection = NodeSelection.create(tr.doc, $from.before());
 				tr.setSelection(nodeSelection);
-				dispatch(tr);
+				dispatch?.(tr);
 				return true;
 			} else if (parent.type.name === 'paragraph' && parent.content.size > 0) {
 				const tr = state.tr.insert($from.after(), newNode);
 				const nodeSelection = NodeSelection.create(tr.doc, $from.after());
 				tr.setSelection(nodeSelection);
-				dispatch(tr);
+				dispatch?.(tr);
 				return true;
 			} else {
 				const tr = state.tr.replaceRangeWith(from, to, newNode);
 				const nodeSelection = NodeSelection.create(tr.doc, from);
 				tr.setSelection(nodeSelection);
-				dispatch(tr);
+				dispatch?.(tr);
 				return true;
 			}
 		} else {
@@ -38,7 +38,7 @@ export function createMathField(createblock = false) {
 				const tr = state.tr.insert(from, newNode);
 				const nodeSelection = NodeSelection.create(tr.doc, from);
 				tr.setSelection(nodeSelection);
-				dispatch(tr);
+				dispatch?.(tr);
 				return true;
 			}
 		}

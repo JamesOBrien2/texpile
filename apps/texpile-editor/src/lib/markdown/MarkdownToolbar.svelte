@@ -60,7 +60,7 @@
 		};
 	});
 
-	type Cmd = (state: EditorState, dispatch: (tr: Transaction) => void) => boolean;
+	type Cmd = (state: EditorState, dispatch?: (tr: Transaction) => void) => boolean;
 	function keepEditorFocus(cmd: Cmd) {
 		return (e: MouseEvent) => {
 			e.preventDefault();
@@ -97,7 +97,7 @@
 	}
 
 	const insertHr: Cmd = (state, dispatch) => {
-		dispatch(state.tr.replaceSelectionWith(mdSchema.nodes.horizontal_rule.create()).scrollIntoView());
+		dispatch?.(state.tr.replaceSelectionWith(mdSchema.nodes.horizontal_rule.create()).scrollIntoView());
 		return true;
 	};
 

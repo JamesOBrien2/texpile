@@ -27,7 +27,7 @@
 
 	function setHighlight(color: string) {
 		const view = $editorViewStore;
-		if (view && view.state && view.dispatch) {
+		if (view) {
 			const { state, dispatch } = view;
 			const { from, to } = state.selection;
 

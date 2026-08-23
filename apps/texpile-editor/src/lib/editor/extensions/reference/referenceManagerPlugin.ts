@@ -445,6 +445,7 @@ function showDropdown(view: EditorView, pos: number, items: ReferenceItem[], sel
 
 	// wait a frame so the dropdown has real dimensions
 	requestAnimationFrame(() => {
+		if (!dropdownContainer) return;
 		const dropdownRect = dropdownContainer.getBoundingClientRect();
 		const dropdownHeight = dropdownRect.height;
 		const dropdownWidth = dropdownRect.width || 384; // fallback to 384px (w-96)

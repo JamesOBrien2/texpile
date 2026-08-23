@@ -1,4 +1,5 @@
-import { Selection, TextSelection } from 'prosemirror-state';
+import { Selection, TextSelection, type PluginKey } from 'prosemirror-state';
+import type { MathLivePluginState } from './mlplugin';
 import { MathfieldElement } from 'mathlive';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import type { Node } from 'prosemirror-model';
@@ -123,7 +124,7 @@ export default class MathLiveView implements NodeView {
 	updating: boolean;
 	/** static typeset standing in for the field until this node comes near the viewport */
 	private placeholder?: HTMLElement;
-	private mlpluginkey;
+	private mlpluginkey: PluginKey<MathLivePluginState>;
 	private origFocus?: (options?: FocusOptions) => void;
 	private settingsContainer?: HTMLElement;
 	private settingsComponent?: ReturnType<typeof mount>;
@@ -138,7 +139,7 @@ export default class MathLiveView implements NodeView {
 		node: Node,
 		private view: EditorView,
 		private getPos: () => number,
-		mlpluginkey,
+		mlpluginkey: PluginKey<MathLivePluginState>,
 		isblock: boolean = false
 	) {
 		this.mlpluginkey = mlpluginkey;
@@ -557,7 +558,7 @@ export default class MathLiveView implements NodeView {
 		return true;
 	}
 
-	mlkeymap(event) {
+	mlkeymap(event: CustomEvent<{ direction: string }>) {
 		event.preventDefault();
 		this.maybeEscape(event.detail.direction);
 	}

@@ -1,4 +1,12 @@
-import { EditorView as CodeMirrorView, keymap as cmKeymap, drawSelection, rectangularSelection, crosshairCursor } from '@codemirror/view';
+import {
+	EditorView as CodeMirrorView,
+	keymap as cmKeymap,
+	drawSelection,
+	rectangularSelection,
+	crosshairCursor,
+	type KeyBinding,
+	type ViewUpdate
+} from '@codemirror/view';
 import { Compartment as CodeMirrorCompartment, EditorState as CodeMirrorState } from '@codemirror/state';
 import { cmCommentHighlights, cmCommentClicks, syncCmCommentHighlights } from './cmComments';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
@@ -134,7 +142,7 @@ class CodeBlockView {
 				cmCommentClicks(this.view, () => this.getPos()),
 				// the card's own p-2 is the visual gap; drop CodeMirror's default 6px line inset
 				CodeMirrorView.theme({ '.cm-line': { padding: '0 2px' } }),
-				CodeMirrorView.updateListener.of((update) => this.forwardUpdate(update as never)),
+				CodeMirrorView.updateListener.of((update) => this.forwardUpdate(update)),
 				CodeMirrorView.contentAttributes.of({ spellcheck: 'false' }),
 				CodeMirrorView.contentAttributes.of({ 'data-gramm': 'false' }), // disable grammarly
 				CodeMirrorView.contentAttributes.of({ 'data-gramm_editor': 'false' }),
@@ -178,7 +186,7 @@ class CodeBlockView {
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	forwardUpdate(update: any): void {
+	forwardUpdate(update: ViewUpdate): void {
 		// only reached from CodeMirror's own update listener, so this is a type guard
 		if (!this.cm) return;
 		if (this.updating || !this.cm.hasFocus) return;
@@ -209,7 +217,7 @@ class CodeBlockView {
 		this.updating = false;
 	}
 
-	codeMirrorKeymap(): Array<unknown> {
+	codeMirrorKeymap(): KeyBinding[] {
 		const view = this.view;
 		return [
 			{

@@ -49,7 +49,7 @@ export class SyncTexNav {
 			const res = await collabGuest.syncForward(path, line);
 			if (!res) return;
 			d.setPdfPaneOpen(true);
-			d.scrollPdfTo(res.page, res.x, res.y, res.w, res.h);
+			d.scrollPdfTo(res.page, res.x, res.y, res.w ?? 0, res.h ?? 0);
 			return;
 		}
 		const live = get(compileConfig).latex.liveMode;

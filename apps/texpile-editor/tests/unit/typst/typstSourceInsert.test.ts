@@ -1,13 +1,13 @@
 // the typst source toolbar's newest helpers; the older ones are exercised through the
 // visual-roundtrip and toolbar paths
 import { describe, it, expect } from 'vitest';
-import { EditorState, EditorSelection } from '@codemirror/state';
+import { EditorState, EditorSelection, type TransactionSpec } from '@codemirror/state';
 import { computeWrap, computeHr } from '$lib/typst/visual/sourceInsert';
 
 function state(doc: string, anchor: number, head = anchor) {
 	return EditorState.create({ doc, selection: EditorSelection.range(anchor, head) });
 }
-function apply(s: EditorState, spec: Parameters<EditorState['update']>[0]) {
+function apply(s: EditorState, spec: TransactionSpec) {
 	return s.update(spec).state.doc.toString();
 }
 

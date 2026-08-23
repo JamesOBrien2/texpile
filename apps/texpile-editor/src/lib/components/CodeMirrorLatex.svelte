@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { EditorView, keymap, drawSelection, placeholder as cmPlaceholder } from '@codemirror/view';
-	import { EditorState, Compartment } from '@codemirror/state';
+	import { EditorView, keymap, drawSelection, placeholder as cmPlaceholder, type KeyBinding } from '@codemirror/view';
+	import { EditorState, Compartment, type Extension } from '@codemirror/state';
 	import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 	import { foldGutter, indentOnInput, bracketMatching, foldKeymap } from '@codemirror/language';
 	import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
@@ -38,7 +38,7 @@
 	const languageCompartment = new Compartment();
 
 	onMount(async () => {
-		let languageExtension = [];
+		let languageExtension: Extension[] = [];
 		try {
 			if (language === 'bibtex') {
 				// hand-written BibTeX StreamLanguage (same one source-mode CM uses for .bib files);
@@ -66,7 +66,7 @@
 			console.warn(`${language} language support not available, using plain text`);
 		}
 
-		const customKeymap = [];
+		const customKeymap: KeyBinding[] = [];
 
 		const scrollableTheme = EditorView.theme({
 			'&': {

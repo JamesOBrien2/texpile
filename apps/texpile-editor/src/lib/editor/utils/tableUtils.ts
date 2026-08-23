@@ -13,7 +13,7 @@ export function createTableNode(schema: Schema, rows: number, cols: number, isNu
 		for (let colIndex = 0; colIndex < cols; colIndex++) {
 			const emptyParagraph = createEmptyParagraph(schema);
 			const cell = schema.nodes.table_cell.createAndFill(null, emptyParagraph);
-			cells.push(cell);
+			if (cell) cells.push(cell);
 		}
 		const row = schema.nodes.table_row.create(null, cells);
 		rowsArray.push(row);

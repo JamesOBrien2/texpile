@@ -132,9 +132,9 @@
 		referenceStore.set(localReferences);
 	});
 
-	let editor: HTMLElement = $state(null);
-	let editorView: EditorView = $state(null);
-	let editorState: EditorState = $state(null);
+	let editor: HTMLElement | null = $state(null);
+	let editorView: EditorView | null = $state(null);
+	let editorState: EditorState | null = $state(null);
 
 	onMount(async () => {
 		const { mathlivePlugin, mlarrowHandlers } = await import('./extensions/mathlivebridge/mlplugin');
@@ -181,13 +181,13 @@
 				...(isMac ? {} : { 'Mod-Shift-1': toggleHeading(1), 'Mod-Shift-2': toggleHeading(2), 'Mod-Shift-3': toggleHeading(3) }),
 				'Mod-m': createMathField(),
 				'Mod-Shift-m': createMathField(true),
-				Tab: (state: EditorState, dispatch: (tr: Transaction) => void) => {
+				Tab: (state: EditorState, dispatch?: (tr: Transaction) => void) => {
 					// table: next cell, otherwise cycle paragraph indent. always consume Tab so focus stays in the editor.
 					if (goToNextCell(1)(state, dispatch)) return true;
 					cycleParagraphIndent(1)(state, dispatch);
 					return true;
 				},
-				'Shift-Tab': (state: EditorState, dispatch: (tr: Transaction) => void) => {
+				'Shift-Tab': (state: EditorState, dispatch?: (tr: Transaction) => void) => {
 					if (goToNextCell(-1)(state, dispatch)) return true;
 					cycleParagraphIndent(-1)(state, dispatch);
 					return true;
@@ -265,11 +265,11 @@
 				includedoc: (node, view, getPos) => new IncludeDocView(node, view, getPos as () => number, imageDir ?? ''),
 				environment: environmentView,
 				table_wrapper: tableWrapperView,
-				citation: (node, view, getPos) => new CitationView(node, view, getPos),
+				citation: (node, view, getPos) => new CitationView(node, view, getPos as () => number),
 				ref: (node, view) => new RefView(node, view)
 			},
 			editable: () => true,
-			dispatchTransaction(transaction) {
+			dispatchTransaction(this: EditorView, transaction: Transaction) {
 				// A plugin that finishes asynchronously can dispatch into a view that was destroyed while
 				// it was working - the spellchecker does exactly this when a tab switch tears the editor
 				// down mid-check. destroy() nulls docView, and updateState then throws reading

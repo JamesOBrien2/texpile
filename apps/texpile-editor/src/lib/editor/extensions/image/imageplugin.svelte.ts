@@ -170,7 +170,7 @@ export const createDefaultSettings = (firebaseUid: string): ImagePluginSettings 
 				return;
 			}
 
-			const docId = get(currentDocMetaStore).docref;
+			const docId = get(currentDocMetaStore)?.docref;
 			const fileExtension = file.name.split('.').pop();
 			const imageId = crypto.randomUUID() + '-' + Date.now();
 			const sanitizedFileName = `${imageId}.${fileExtension}`;

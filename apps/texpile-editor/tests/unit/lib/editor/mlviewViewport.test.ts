@@ -7,6 +7,8 @@
 // while it is still offscreen, and clicking it always ends in a live field.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
+import type { PluginKey } from 'prosemirror-state';
+import type { MathLivePluginState } from '$lib/editor/extensions/mathlivebridge/mlplugin';
 
 type Entry = { target: Element; isIntersecting: boolean };
 type Cb = (entries: Entry[], obs: unknown) => void;
@@ -82,7 +84,7 @@ function makeView(latex = 'x^2', isBlock = false) {
 		dispatch() {},
 		focus() {}
 	} as unknown as ProseMirrorView;
-	const view = new MathLiveView(node, pmView, () => 0, { getState: () => undefined }, isBlock);
+	const view = new MathLiveView(node, pmView, () => 0, { getState: () => undefined } as unknown as PluginKey<MathLivePluginState>, isBlock);
 	document.body.appendChild(view.dom);
 	return view;
 }

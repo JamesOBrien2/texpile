@@ -120,7 +120,7 @@
 	//
 </script>
 
-{#snippet symbolGroup(item)}
+{#snippet symbolGroup(item: { data?: unknown })}
 	{@const group = item.data as (typeof SYMBOL_GROUPS)[number]}
 	{@const Icon = group.icon}
 	<div>

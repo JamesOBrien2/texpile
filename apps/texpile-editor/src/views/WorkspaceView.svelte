@@ -210,7 +210,7 @@
 	const tryParseVisual = (text: string) => parser.parse(text, formatOf(kind));
 
 	// the open file's buffers and edit handlers live in lib/workspace/documentBuffer.svelte.ts
-	const doc = new DocumentBuffer({
+	const doc: DocumentBuffer = new DocumentBuffer({
 		scheduleSave: (path, content) => saver.schedule(path, content),
 		discardQueuedSave: () => saver.discard(),
 		writeNow: (path, content, force) => void saver.enqueue(path, content, true, force),
@@ -221,7 +221,7 @@
 	});
 
 	// view mode, scroll anchors and cross-mode history live in lib/workspace/viewModeSwitch.svelte.ts
-	const modes = new ViewModeSwitch({
+	const modes: ViewModeSwitch = new ViewModeSwitch({
 		getKind: () => kind,
 		getLoadedPath: () => doc.path,
 		getSource: () => doc.texSource,
@@ -380,7 +380,7 @@
 	// (tex/bib/text) is Y-bound and co-edits freely; BOTH visual dialects consume remote edits
 	// through the re-parse patcher (VisualCollab), so only bib held in BibManager still locks —
 	// BibManager isn't wired to the shared doc at all.
-	function hostHoldsExclusively(k: string, mode: string, path: string | null): boolean {
+	function hostHoldsExclusively(k: string | null, mode: string, path: string | null): boolean {
 		if (!path) return false;
 		// markdown was listed here only while it had no remote-patch path; VisualCollab now serves
 		// both visual dialects, so it co-edits exactly like tex does
@@ -1041,7 +1041,7 @@
 			if (rel) collabGuest.requestTypstScroll(rel, line, character);
 			return;
 		}
-		void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, line, character);
+		if (typstPreviewTask) void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, line, character);
 	};
 	const sendCaretScroll = trailingDebounce(150, ({ line, character }: { line: number; character: number }) => {
 		if (typstScrollTarget() === null) return;
@@ -1424,7 +1424,7 @@
 		if (!file || !cm) return;
 		const l = cm.state.doc.line(Math.min(Math.max(line1, 1), cm.state.doc.lines));
 		const character = l.text.replace(/\s+$/, '').length;
-		void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, l.number - 1, character);
+		if (typstPreviewTask) void scrollTypstPreview(get(workspaceRoot), typstPreviewTask, file, l.number - 1, character);
 	}
 	/** per-language routing for every "jump the output to line N" entry point */
 	const syncToLine = (line: number) => (kind === 'typ' ? syncTypstForwardLine(line) : syncForwardLine(line));

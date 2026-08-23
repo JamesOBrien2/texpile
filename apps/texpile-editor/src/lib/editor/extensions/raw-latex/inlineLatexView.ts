@@ -1,4 +1,4 @@
-import { EditorView as CodeMirrorView, keymap as cmKeymap, drawSelection, type ViewUpdate } from '@codemirror/view';
+import { EditorView as CodeMirrorView, keymap as cmKeymap, drawSelection, type ViewUpdate, type KeyBinding } from '@codemirror/view';
 import { Compartment as CodeMirrorCompartment, EditorState } from '@codemirror/state';
 import { cmSyntaxHighlight } from '$lib/editor/cmHighlight';
 import { exitCode } from 'prosemirror-commands';
@@ -163,7 +163,7 @@ class InlineLatexView {
 		this.updating = false;
 	}
 
-	codeMirrorKeymap(): Array<unknown> {
+	codeMirrorKeymap(): KeyBinding[] {
 		const view = this.view;
 		const exit = () => {
 			if (!exitCode(view.state, view.dispatch)) {

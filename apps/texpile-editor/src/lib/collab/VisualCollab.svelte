@@ -23,7 +23,8 @@
 
 	export interface VisualCollabApi {
 		texSource: string;
-		lastParsedSource: string;
+		/** null until the first parse completes */
+		lastParsedSource: string | null;
 		readonly docMeta: Pick<ParsedLatexFile, 'preamble' | 'postamble' | 'hadDocumentEnv'> | null;
 		/** parse in the worker; null on failure/timeout (the next change retries). */
 		parse(text: string): Promise<ParsedLatexFile | null>;
@@ -293,8 +294,9 @@
 			// the orig stamps describe lastParsedSource; carry the offsets across the local edits
 			// made since, so a caret inside the active edit lands at the splice end (exact while
 			// typing) and everything past it shifts by the edit's delta
-			if (api.texSource !== api.lastParsedSource) {
-				const d = spliceDiff(api.lastParsedSource, api.texSource);
+			const lastParsed = api.lastParsedSource;
+			if (lastParsed != null && api.texSource !== lastParsed) {
+				const d = spliceDiff(lastParsed, api.texSource);
 				if (d) {
 					const carry = (off: number | null): number | null =>
 						off == null
@@ -343,7 +345,8 @@
 		}
 		const doc = v.state.doc;
 		const map = buildBlockMap(doc, bodyOffset());
-		const d = api.texSource !== api.lastParsedSource ? spliceDiff(api.lastParsedSource, api.texSource) : null;
+		const lastParsed = api.lastParsedSource;
+		const d = lastParsed != null && api.texSource !== lastParsed ? spliceDiff(lastParsed, api.texSource) : null;
 		const carryBack = (off: number): number =>
 			!d ? off : off >= d.index + d.insert.length ? off - d.insert.length + d.remove : off > d.index ? d.index : off;
 		const peers: RemotePeerSel[] = [];

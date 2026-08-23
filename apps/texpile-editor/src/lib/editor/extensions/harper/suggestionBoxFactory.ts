@@ -1,5 +1,6 @@
 // mounts the svelte suggestion box for prosemirror-proofread
 import { mount, unmount } from 'svelte';
+import type { CreateSuggestionBox, Problem as ProofreadProblem } from 'prosemirror-proofread';
 import SuggestionBox from './SuggestionBox.svelte';
 
 // shapes match prosemirror-proofread
@@ -35,7 +36,12 @@ export interface SuggestionBoxOptions {
 
 let currentCleanup: (() => void) | null = null;
 
-export function createHarperSuggestionBox(options: SuggestionBoxOptions): { destroy: () => void } {
+// the lib allows { value } objects in replacements; harper hands us plain strings, normalize anyway
+function normalizeProblem(p: ProofreadProblem): Problem {
+	return { ...p, replacements: p.replacements.map((r) => (typeof r === 'string' ? r : r.value)) };
+}
+
+export function createHarperSuggestionBox(options: Parameters<CreateSuggestionBox>[0]): { destroy: () => void } {
 	if (currentCleanup) {
 		currentCleanup();
 		currentCleanup = null;
@@ -52,13 +58,13 @@ export function createHarperSuggestionBox(options: SuggestionBoxOptions): { dest
 	container.style.height = '100%';
 	document.body.appendChild(container);
 
-	let component;
+	let component: ReturnType<typeof mount> | null = null;
 	try {
 		component = mount(SuggestionBox, {
 			target: container,
 			props: {
-				error: options.error,
-				errors: options.errors || [options.error],
+				error: normalizeProblem(options.error),
+				errors: (options.errors || [options.error]).map(normalizeProblem),
 				position: options.position,
 				onReplace: (value: string) => {
 					options.onReplace(value);

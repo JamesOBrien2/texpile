@@ -157,6 +157,7 @@ export async function addWordToDocumentDictionary(word: string): Promise<void> {
 
 	console.log('[Harper] Adding word to dictionary:', normalizedWord);
 
+	if (!currentConfig) return;
 	const updatedConfig = {
 		...currentConfig,
 		dictionary: [...currentDictionary, normalizedWord]
@@ -182,6 +183,7 @@ export async function removeWordFromDocumentDictionary(word: string): Promise<vo
 
 	console.log('[Harper] Removing word from dictionary:', normalizedWord);
 
+	if (!currentConfig) return;
 	const updatedConfig = {
 		...currentConfig,
 		dictionary: currentDictionary.filter((w) => w !== normalizedWord)

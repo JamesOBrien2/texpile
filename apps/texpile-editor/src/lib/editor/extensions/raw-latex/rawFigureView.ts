@@ -77,7 +77,7 @@ export class RawFigureView extends RawLatexView {
 		return box;
 	}
 
-	update(node: Node): boolean {
+	override update(node: Node): boolean {
 		const ok = super.update(node);
 		if (ok) this.renderPreview(node.textContent);
 		return ok;

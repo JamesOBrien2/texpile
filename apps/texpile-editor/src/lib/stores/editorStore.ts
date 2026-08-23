@@ -4,7 +4,7 @@ import type { EditorView as CodeMirrorView } from '@codemirror/view';
 import type { BibLaTeXReference } from '$lib/biblatex';
 import type { EditorConfiguration } from '$lib/types/editorcfg';
 
-export const editorViewStore = writable<EditorView>(null);
+export const editorViewStore = writable<EditorView | null>(null);
 export const displaySearchBarStore = writable(false);
 // true while a raw-LaTeX CodeMirror block inside the visual editor has focus;
 // the toolbar swaps to a raw-LaTeX bar (see Toolbar.svelte)
@@ -18,12 +18,12 @@ export const sourceCmView = writable<CodeMirrorView | null>(null);
 // true when the PM selection is inside a CodeMirror-backed block; the menu bar disables
 // Insert/Format there (they would split/convert the block). maintained by createCursorPlugin.
 export const cursorInCm = writable<boolean>(false);
-export const referenceStore = writable<BibLaTeXReference[]>(null);
+export const referenceStore = writable<BibLaTeXReference[] | null>(null);
 // all \label{} keys in the current file, consumed by \ref/\eqref/\cref autocompletion
 export const labelStore = writable<string[]>([]);
 // workspace files as root-relative forward-slash paths, consumed by file-path autocompletion
 export const filePathStore = writable<string[]>([]);
-export const editorConfigStore = writable<EditorConfiguration>(null);
+export const editorConfigStore = writable<EditorConfiguration | null>(null);
 
 interface CitationVariant {
 	value: string; // e.g. "cite", "autocite", "parencite"

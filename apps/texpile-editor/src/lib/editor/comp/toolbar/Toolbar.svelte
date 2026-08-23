@@ -76,13 +76,13 @@
 		};
 	});
 
-	type Cmd = (state: EditorState, dispatch: (tr: Transaction) => void) => boolean;
+	type Cmd = (state: EditorState, dispatch?: (tr: Transaction) => void) => boolean;
 	function keepEditorFocus(cmd: Cmd) {
 		return (e: MouseEvent) => {
 			e.preventDefault();
 			if (!$editorViewStore) return;
-			cmd($editorViewStore.state, $editorViewStore.dispatch);
-			$editorViewStore.focus();
+			cmd($editorViewStore!.state, $editorViewStore!.dispatch);
+			$editorViewStore!.focus();
 		};
 	}
 	// preventDefault on mousedown anywhere in the toolbar so clicks never steal focus from
@@ -102,19 +102,19 @@
 	$effect(() => {
 		if ($editorViewStore) {
 			activeCommands = {
-				strong: markIsActive($editorViewStore.state, schema.marks.strong),
-				em: markIsActive($editorViewStore.state, schema.marks.em),
-				u: markIsActive($editorViewStore.state, schema.marks.u),
-				code: markIsActive($editorViewStore.state, schema.marks.code),
-				link: markIsActive($editorViewStore.state, schema.marks.link),
-				sup: markIsActive($editorViewStore.state, schema.marks.sup),
-				sub: markIsActive($editorViewStore.state, schema.marks.sub)
+				strong: markIsActive($editorViewStore!.state, schema.marks.strong),
+				em: markIsActive($editorViewStore!.state, schema.marks.em),
+				u: markIsActive($editorViewStore!.state, schema.marks.u),
+				code: markIsActive($editorViewStore!.state, schema.marks.code),
+				link: markIsActive($editorViewStore!.state, schema.marks.link),
+				sup: markIsActive($editorViewStore!.state, schema.marks.sup),
+				sub: markIsActive($editorViewStore!.state, schema.marks.sub)
 			};
 
-			activeTextColor = activeMarkColor($editorViewStore.state, schema.marks.textcolor);
-			activeHighlightColor = activeMarkColor($editorViewStore.state, schema.marks.highlight);
+			activeTextColor = activeMarkColor($editorViewStore!.state, schema.marks.textcolor);
+			activeHighlightColor = activeMarkColor($editorViewStore!.state, schema.marks.highlight);
 
-			const node = $editorViewStore.state.selection.$from.node($editorViewStore.state.selection.$from.depth);
+			const node = $editorViewStore!.state.selection.$from.node($editorViewStore!.state.selection.$from.depth);
 			const inHeading = node?.type?.name === 'heading';
 			currentHeadingLevel = inHeading ? node.attrs.level : 0;
 			currentHeadingNumbered = inHeading ? node.attrs.numbered !== false : true;
@@ -122,15 +122,15 @@
 	});
 
 	function applyHeading(level: number, numbered: boolean) {
-		setHeadingLevel(level, numbered)($editorViewStore.state, $editorViewStore.dispatch);
-		$editorViewStore.focus();
+		setHeadingLevel(level, numbered)($editorViewStore!.state, $editorViewStore!.dispatch);
+		$editorViewStore!.focus();
 	}
 
 	const bulletList = createWrapInListCommand({ kind: 'bullet' });
 	const orderedList = createWrapInListCommand({ kind: 'ordered' });
 
 	const insertHr: Cmd = (state, dispatch) => {
-		dispatch(state.tr.replaceSelectionWith(schema.nodes.horizontal_rule.create()).scrollIntoView());
+		dispatch?.(state.tr.replaceSelectionWith(schema.nodes.horizontal_rule.create()).scrollIntoView());
 		return true;
 	};
 </script>
@@ -220,8 +220,8 @@
 								sup={!!activeCommands.sup}
 								sub={!!activeCommands.sub}
 								onToggle={(which) => {
-									toggleMark(schema.marks[which])($editorViewStore.state, $editorViewStore.dispatch);
-									$editorViewStore.focus();
+									toggleMark(schema.marks[which])($editorViewStore!.state, $editorViewStore!.dispatch);
+									$editorViewStore!.focus();
 								}}
 							/>
 						</div>

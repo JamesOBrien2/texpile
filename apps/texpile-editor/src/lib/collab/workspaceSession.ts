@@ -40,7 +40,7 @@ export function visualCollabBridge(deps: VisualCollabBridgeDeps) {
 		get lastParsedSource() {
 			return parser.lastParsedSource;
 		},
-		set lastParsedSource(v: string) {
+		set lastParsedSource(v: string | null) {
 			parser.lastParsedSource = v;
 		},
 		get docMeta() {

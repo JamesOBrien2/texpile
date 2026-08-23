@@ -8,6 +8,7 @@
 	import WordCount from './WordCount.svelte';
 	import CompileButton, { COMPILE_TONE } from './CompileButton.svelte';
 	import type { ComponentProps } from 'svelte';
+	import type { FileKind } from '$lib/workspace/documentBuffer.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		ArrowRight,
@@ -28,7 +29,7 @@
 
 	interface Props {
 		loadedPath: string | null;
-		kind: string;
+		kind: FileKind;
 		viewMode: 'visual' | 'source' | 'diff';
 		guest: boolean;
 		terminalAvailable: boolean;

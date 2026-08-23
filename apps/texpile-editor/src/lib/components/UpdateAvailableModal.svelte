@@ -50,7 +50,7 @@
 			</div>
 
 			{#if u.phase === 'available'}
-				<p class="text-surface-600-300 mb-4 text-sm">{m.updatemodal_version_available({ version: u.version })}</p>
+				<p class="text-surface-600-300 mb-4 text-sm">{m.updatemodal_version_available({ version: u.version ?? '' })}</p>
 				{#if u.notes?.length}
 					<ul class="text-surface-600-300 mb-4 min-h-0 list-disc space-y-1 overflow-y-auto pl-5 text-sm">
 						{#each u.notes as note (note)}
@@ -94,7 +94,7 @@
 			{:else if u.phase === 'downloaded'}
 				{#if pkexec}
 					<p class="text-surface-600-300 mb-4 text-sm">
-						{m.updatemodal_downloaded_pkexec({ version: u.version })}
+						{m.updatemodal_downloaded_pkexec({ version: u.version ?? '' })}
 					</p>
 					<div class="flex justify-end gap-2">
 						<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.updatemodal_later()}</button>
@@ -104,7 +104,7 @@
 						</button>
 					</div>
 				{:else}
-					<p class="text-surface-600-300 mb-4 text-sm">{m.updatemodal_downloaded_ready({ version: u.version })}</p>
+					<p class="text-surface-600-300 mb-4 text-sm">{m.updatemodal_downloaded_ready({ version: u.version ?? '' })}</p>
 					<div class="flex justify-end gap-2">
 						<button class="btn btn-xs hover:preset-tonal" onclick={close}>{m.updatemodal_later()}</button>
 						<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={installNow}>

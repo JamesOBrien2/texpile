@@ -39,7 +39,7 @@ describe('InlineLatexView', () => {
 	it('mounts with a CodeMirror holding the node text, so the chip is highlighted on sight', () => {
 		const { view } = makeView();
 		expect(view.cm).toBeTruthy();
-		expect(view.cm.state.doc.toString()).toBe(LATEX);
+		expect(view.cm!.state.doc.toString()).toBe(LATEX);
 		expect(view.dom.querySelector('.cm-editor')).not.toBeNull();
 	});
 
@@ -52,14 +52,14 @@ describe('InlineLatexView', () => {
 		const before = view.cm;
 		expect(view.update(schema.nodes.inline_latex.create(null, schema.text('\\gamma^2')))).toBe(true);
 		expect(view.cm).toBe(before); // same instance: no remount, no lost selection
-		expect(view.cm.state.doc.toString()).toBe('\\gamma^2');
+		expect(view.cm!.state.doc.toString()).toBe('\\gamma^2');
 		expect(view.dom.querySelectorAll('.cm-editor').length).toBe(1);
 	});
 
 	it('leaves the document untouched when the text is unchanged', () => {
 		const { view } = makeView();
 		expect(view.update(schema.nodes.inline_latex.create(null, schema.text(LATEX)))).toBe(true);
-		expect(view.cm.state.doc.toString()).toBe(LATEX);
+		expect(view.cm!.state.doc.toString()).toBe(LATEX);
 	});
 
 	it('refuses a node of a different type, so ProseMirror rebuilds the view', () => {

@@ -107,7 +107,7 @@ describe('tracks resolve to pixels against a measured table', () => {
 	it('the total is spent exactly, so the table cannot overflow its container', () => {
 		// 1000 does not divide by 3; the residue has to land somewhere rather than be dropped
 		const w = widthsFor('(1fr, 1fr, 1fr)', 3, 1000);
-		expect(w.reduce((a, b) => a + (b ?? 0), 0)).toBe(1000);
+		expect(w.reduce((a: number, b) => a + (b ?? 0), 0)).toBe(1000);
 	});
 
 	it('absolute tracks take their own width and fr shares the rest', () => {

@@ -2,7 +2,7 @@ import { lift } from 'prosemirror-commands';
 import type { Command, EditorState, Transaction } from 'prosemirror-state';
 
 export function toggleHeading(level: number): Command {
-	return function (state: EditorState, dispatch: (tr: Transaction) => void): boolean {
+	return function (state: EditorState, dispatch?: (tr: Transaction) => void): boolean {
 		const { from, to } = state.selection;
 		let apply = false;
 
@@ -35,7 +35,7 @@ export function toggleHeading(level: number): Command {
 
 /** always sets the block to heading `level` (0 = paragraph), unlike toggleHeading. unnumbered serializes to \section*. */
 export function setHeadingLevel(level: number, numbered = true): Command {
-	return function (state: EditorState, dispatch: (tr: Transaction) => void): boolean {
+	return function (state: EditorState, dispatch?: (tr: Transaction) => void): boolean {
 		const { from, to } = state.selection;
 		let applied = false;
 		state.doc.nodesBetween(from, to, function (node, pos) {
@@ -55,7 +55,7 @@ export function setHeadingLevel(level: number, numbered = true): Command {
 }
 
 export function toggleBlockQuote() {
-	return (state: EditorState, dispatch: (tr: Transaction) => void) => {
+	return (state: EditorState, dispatch?: (tr: Transaction) => void) => {
 		// state.schema, not the tex import: the menu bar runs this against whichever editor is open
 		const blockquoteType = state.schema.nodes.blockquote;
 		// already inside a blockquote: lift back out, so the shared quote action (toolbars, Format

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EditorState, EditorSelection } from '@codemirror/state';
+import { EditorState, EditorSelection, type TransactionSpec } from '@codemirror/state';
 import {
 	computeToggleDelim,
 	computeHeadingLine,
@@ -16,7 +16,7 @@ import {
 function state(doc: string, anchor: number, head = anchor) {
 	return EditorState.create({ doc, selection: EditorSelection.range(anchor, head) });
 }
-function apply(s: EditorState, spec: Parameters<EditorState['update']>[0]) {
+function apply(s: EditorState, spec: TransactionSpec) {
 	return s.update(spec).state.doc.toString();
 }
 

@@ -211,7 +211,7 @@
 				inline_latex: (node, view, getPos) => new InlineLatexView(node, view, getPos as () => number)
 			},
 			editable: () => true,
-			dispatchTransaction(transaction: Transaction) {
+			dispatchTransaction(this: EditorView, transaction: Transaction) {
 				// async plugins (spellcheck) can dispatch into a destroyed view on tab switches
 				if (this.isDestroyed) return;
 				const newState = this.state.apply(transaction);

@@ -21,10 +21,10 @@ class StarterGhostWidget extends WidgetType {
 		return el;
 	}
 	// ghost text is not a click target; let clicks fall through to the editor
-	ignoreEvent(): boolean {
+	override ignoreEvent(): boolean {
 		return false;
 	}
-	eq(): boolean {
+	override eq(): boolean {
 		return true;
 	}
 }
