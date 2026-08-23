@@ -27,7 +27,9 @@ const packagePrivatePatterns = [
 // exceptions are the current shared document model (the latex base schema every dialect derives
 // from) and the per-dialect strip dispatch; both are extraction candidates, not an invitation.
 function languageBoundary(bans) {
-	return { 'no-restricted-imports': ['warn', { paths: restrictedImportPaths, patterns: [...packagePrivatePatterns, ...bans] }] };
+	return {
+		'no-restricted-imports': ['warn', { paths: restrictedImportPaths, patterns: [...packagePrivatePatterns, ...bans, banDesktopOnly] }]
+	};
 }
 // a negation cannot re-include a file whose parent directory another pattern excluded (gitignore
 // semantics), so subfolders are listed one by one and root files by name - a new root file or
@@ -65,6 +67,26 @@ const banAll = [
 	{ group: ['**/languages/typst/**'], message: 'bib is a dependency of the other languages, never the reverse' },
 	{ group: ['**/languages/markdown/**'], message: 'bib is a dependency of the other languages, never the reverse' }
 ];
+
+// The web guest client (planned, post-refactor): a browser guest mounts SessionRoute ->
+// WorkspaceView over a CRDT provider, so code on that path must not statically pull
+// desktop-only features. Violations are the burn-down list for the web build target.
+const banDesktopOnly = {
+	group: [
+		'**/draft/**',
+		'**/terminal/**',
+		'**/zotero/**',
+		'**/updates',
+		'**/workspace/git',
+		'**/workspace/gitStore',
+		'**/workspace/scmActions.svelte',
+		'**/workspace/treeOps',
+		'**/workspace/toolchainCatalog',
+		'**/workspace/mcpPublish',
+		'**/workspace/mcpCommands'
+	],
+	message: 'desktop-only feature; the web guest bundle must not import it statically (gate it behind isDesktop + a dynamic import)'
+};
 
 export default ts.config(
 	includeIgnoreFile(gitignorePath),
@@ -167,11 +189,31 @@ export default ts.config(
 			'no-restricted-imports': ['warn', { paths: restrictedImportPaths, patterns: packagePrivatePatterns }]
 		}
 	},
+	// the web-safe set: what a browser guest session mounts (see banDesktopOnly above)
+	{
+		files: [
+			'src/lib/collab/**',
+			'src/lib/editor/**',
+			'src/lib/comments/**',
+			'src/lib/pdf-view/**',
+			'src/lib/search/**',
+			'src/lib/palette/**',
+			'src/lib/modals/**',
+			'src/lib/components/**',
+			'src/views/SessionRoute.svelte'
+		],
+		rules: {
+			'no-restricted-imports': ['warn', { paths: restrictedImportPaths, patterns: [...packagePrivatePatterns, banDesktopOnly] }]
+		}
+	},
 	// cross-language boundaries (see languageBoundary above)
 	{ files: ['src/lib/languages/latex/**'], rules: languageBoundary([banTypst, banMarkdown]) },
 	{ files: ['src/lib/languages/typst/**'], rules: languageBoundary([banLatex, banMarkdown]) },
 	{ files: ['src/lib/languages/markdown/**'], rules: languageBoundary([banLatex, banTypst]) },
-	{ files: ['src/lib/languages/bib/**'], rules: { 'no-restricted-imports': ['warn', { paths: restrictedImportPaths, patterns: banAll }] } },
+	{
+		files: ['src/lib/languages/bib/**'],
+		rules: { 'no-restricted-imports': ['warn', { paths: restrictedImportPaths, patterns: [...banAll, banDesktopOnly] }] }
+	},
 	{
 		files: ['src/**/*.ts', 'src/**/*.svelte'],
 		rules: {

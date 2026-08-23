@@ -3,6 +3,7 @@
 	import { Switch } from '@skeletonlabs/skeleton-svelte';
 	import Modal from '../Modal.svelte';
 	import { settings, updateSettings } from '$lib/settings';
+	// eslint-disable-next-line no-restricted-imports -- this modal IS the desktop updater's UI; a web entry never mounts it
 	import { updateState, updateModalOpen, startDownload, installNow } from '$lib/updates';
 	import { m } from '$lib/paraglide/messages';
 

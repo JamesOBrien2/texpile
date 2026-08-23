@@ -8,6 +8,7 @@
 	import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 	import { setSpellcheckEnabled } from '$lib/editor/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
+	// eslint-disable-next-line no-restricted-imports -- only the catalog's names/groups; probing gates on the desktop bridge at runtime
 	import { toolsInGroup } from '$lib/workspace/toolchainCatalog';
 	import { preferencesTab } from '$lib/stores/dialogStore';
 	import McpSetupModal from './McpSetupModal.svelte';
