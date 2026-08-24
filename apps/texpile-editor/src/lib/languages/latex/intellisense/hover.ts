@@ -6,6 +6,7 @@ import { get } from 'svelte/store';
 import type { Extension } from '@codemirror/state';
 import { convertLatexToMarkup } from 'mathlive';
 import { referenceStore } from '$lib/stores/editorStore';
+import { citationRefsWithLibrary } from '$lib/library/libraryRefs';
 import { projectIntelStore } from '$lib/stores/projectIntel';
 import { mathMacrosFor } from '$lib/editor/source/extensions/math-preview/userMacros';
 import { docText } from '$lib/editor/source/docText';
@@ -169,7 +170,7 @@ export function latexHover(): Extension {
 			return { ...at, create: () => ({ dom: dom(parts.join('<br>')) }) };
 		}
 		if (token.kind === 'citekey') {
-			const ref = (get(referenceStore) ?? []).find((r) => r.key === token.value);
+			const ref = citationRefsWithLibrary(get(referenceStore) ?? []).find((r) => r.key === token.value);
 			if (!ref) return null;
 			const rows = CITE_FIELDS.map((f) => [f, ref[f]] as const)
 				.filter(([, v]) => typeof v === 'string' && v)

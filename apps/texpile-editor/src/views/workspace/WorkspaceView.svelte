@@ -30,6 +30,8 @@
 	import { createKeydownHandler } from '$lib/workspace/shortcuts';
 	import { workspaceRoot, texFiles } from '$lib/workspace/workspaceStore';
 	import ZoteroCitationDialog from '$lib/zotero/ZoteroCitationDialog.svelte';
+	import LibraryPickerDialog from '$lib/library/LibraryPickerDialog.svelte';
+	import LibraryManagerDialog from '$lib/library/LibraryManagerDialog.svelte';
 	import { settings } from '$lib/settings';
 	import { basename, dirname, isDesktop } from '$lib/workspace/fileSystem';
 	import { diskProvider } from '$lib/workspace/diskProvider';
@@ -285,7 +287,8 @@
 			hostMode,
 			canFormat: fmt.canFormatDoc(),
 			uiZoomPercent,
-			typstProject: cc.typstProject
+			typstProject: cc.typstProject,
+			libraryCite: integrations.canCiteFromLibrary()
 		}}
 		actions={chromeActions}
 		pendingCommand={projectConfig.pending}
@@ -333,7 +336,8 @@
 				commentSelected: commentsCtl.selected,
 				commentRanges: commentsCtl.ranges,
 				commentPending: commentsCtl.pending,
-				zoteroCite: integrations.canZoteroCite()
+				zoteroCite: integrations.canZoteroCite(),
+				libraryCite: integrations.canCiteFromLibrary()
 			}}
 			{actions}
 			bind:dockView
@@ -342,6 +346,8 @@
 	</WorkspaceChrome>
 
 	<ZoteroCitationDialog />
+	<LibraryPickerDialog />
+	<LibraryManagerDialog />
 
 	<WorkspaceModals
 		bind:mainPrompt={files.mainPrompt}

@@ -1,6 +1,7 @@
 import { EditorView } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
 import { referenceStore, templateFeaturesStore } from '$lib/stores/editorStore';
+import { citationRefsWithLibrary } from '$lib/library/libraryRefs';
 import { get } from 'svelte/store';
 import { mount, unmount } from 'svelte';
 import ReferencePickerDropdown from './ReferencePickerDropdown.svelte';
@@ -39,7 +40,7 @@ const suggestReference: TexpileSuggester = {
 		const features = get(templateFeaturesStore);
 		const citationsEnabled = features?.citations ?? true;
 
-		const citations = get(referenceStore) || [];
+		const citations = citationRefsWithLibrary(get(referenceStore) || []);
 		const bibliographyItems = citationsEnabled ? convertBibliographyToReferenceItems(citations) : [];
 		const tableItems = extractTableReferences(view);
 		const figureItems = extractFigureReferences(view);

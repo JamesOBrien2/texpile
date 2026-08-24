@@ -48,6 +48,8 @@
 		onAddComment?: (anchor: CommentAnchor | null) => void;
 		/** pick citations from Zotero, offered in the context menu when present */
 		onInsertCitation?: () => void;
+		/** pick citations from the personal library, offered in the context menu when present */
+		onInsertLibraryCitation?: () => void;
 		onCommentsPlaced?: (lost: string[]) => void;
 		addCommentLabel?: string;
 		/** a composer is open for a selection here; false clears the pending selection tint */
@@ -69,6 +71,7 @@
 		onSelectComment,
 		onAddComment,
 		onInsertCitation,
+		onInsertLibraryCitation,
 		onCommentsPlaced,
 		addCommentLabel = 'Comment',
 		commentPendingActive = false
@@ -176,7 +179,7 @@
 
 <main bind:this={editor} class="hidden"></main>
 
-<ContextMenu dialect="typst" {onAddComment} {onInsertCitation} />
+<ContextMenu dialect="typst" {onAddComment} {onInsertCitation} {onInsertLibraryCitation} />
 
 <style lang="postcss">
 	@reference "../../../../app.css";

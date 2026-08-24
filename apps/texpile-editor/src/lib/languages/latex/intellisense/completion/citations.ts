@@ -6,6 +6,7 @@ import { get } from 'svelte/store';
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 import { referenceStore } from '$lib/stores/editorStore';
+import { citationRefsWithLibrary } from '$lib/library/libraryRefs';
 import { lastListToken } from './shared';
 
 // the \cite family with natbib (pre)(post) groups, beamer <overlay>, optional [..] pre/postnotes,
@@ -54,7 +55,7 @@ function citationOption(r: BiblatexReference): Completion {
 export function citationCompletionSource(ctx: CompletionContext): CompletionResult | null {
 	const cite = ctx.matchBefore(CITE_BEFORE);
 	if (!cite) return null;
-	const refs = get(referenceStore) ?? [];
+	const refs = citationRefsWithLibrary(get(referenceStore) ?? []);
 	if (!refs.length) return null;
 	return lastListToken(cite, refs.map(citationOption));
 }

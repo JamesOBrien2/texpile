@@ -151,6 +151,7 @@
 			onAddComment={actions.beginComment}
 			commentPendingActive={!!panes.commentPending}
 			onInsertCitation={panes.zoteroCite ? actions.insertZoteroCitation : undefined}
+			onInsertLibraryCitation={panes.libraryCite ? actions.insertLibraryCitation : undefined}
 			onAddCommentAnchored={actions.beginCommentAnchored}
 			onCommentsPlaced={actions.visualCommentsPlaced}
 			onSelectComment={actions.selectComment}

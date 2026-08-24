@@ -14,6 +14,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { get } from 'svelte/store';
 import { referenceStore } from '$lib/stores/editorStore';
+import { citationRefsWithLibrary } from '$lib/library/libraryRefs';
 
 export class TypstRefView implements NodeView {
 	dom: HTMLElement;
@@ -56,7 +57,7 @@ export class TypstRefView implements NodeView {
 	private render(node: PMNode): void {
 		const target = String(node.attrs.target ?? '');
 		// the store starts as null (typed a lie) until a bibliography loads
-		const bib = (get(referenceStore) ?? []).find((r) => r.key === target);
+		const bib = citationRefsWithLibrary(get(referenceStore) ?? []).find((r) => r.key === target);
 		if (bib) {
 			const author = (Array.isArray(bib.author) ? bib.author.join(', ') : bib.author) || 'Unknown';
 			const year = bib.year ?? bib.date?.slice(0, 4) ?? 'n.d.';

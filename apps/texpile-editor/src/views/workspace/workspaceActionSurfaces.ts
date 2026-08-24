@@ -136,6 +136,8 @@ export function makeMainActions(d: ActionSurfaceDeps) {
 			d.setDockView('comments');
 		},
 		insertZoteroCitation: () => d.integrations.insertZoteroCitation(),
+		insertLibraryCitation: () => d.integrations.insertFromLibrary(),
+		openLibraryManager: () => d.integrations.openLibraryManager(),
 		save: () => d.wsdoc.save(),
 		activateTab: (p: string) => d.editFlow().activateTab(p),
 		closeTab: (p: string) => d.editFlow().closeTab(p),
@@ -200,6 +202,7 @@ export function makeChromeActions(d: ActionSurfaceDeps) {
 		toggleTerminal: () => d.termDock().toggle(),
 		openFormatModal: () => d.fmt.openFormatModal(),
 		openTutorial: () => d.setTutorialModalOpen(true),
+		insertLibraryCitation: () => d.integrations.insertFromLibrary(),
 		uiZoomIn,
 		uiZoomOut,
 		uiZoomReset,
@@ -252,6 +255,10 @@ export function makePaletteActions(d: ActionSurfaceDeps) {
 		openTypstPreview: () => d.typstPreview.enable(),
 		isTypstProject: () => d.cc.typstProject,
 		canZoteroCite: () => d.integrations.canZoteroCite(),
-		insertZoteroCitation: () => d.integrations.insertZoteroCitation()
+		insertZoteroCitation: () => d.integrations.insertZoteroCitation(),
+		canLibraryCite: () => d.integrations.canCiteFromLibrary(),
+		insertLibraryCitation: () => d.integrations.insertFromLibrary(),
+		canManageLibrary: () => d.integrations.canManageLibrary(),
+		openLibraryManager: () => d.integrations.openLibraryManager()
 	};
 }

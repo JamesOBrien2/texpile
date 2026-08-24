@@ -54,6 +54,8 @@
 		onAddComment?: (anchor: CommentAnchor | null) => void;
 		/** pick citations from Zotero, offered in the context menu when present */
 		onInsertCitation?: () => void;
+		/** pick citations from the personal library, offered in the context menu when present */
+		onInsertLibraryCitation?: () => void;
 		/** after each placement pass: the threads that could not be drawn in this view (every tier
 		 * failed), so the panel can say "not in this view" instead of implying they are gone */
 		onCommentsPlaced?: (lost: string[]) => void;
@@ -77,6 +79,7 @@
 		onSelectComment,
 		onAddComment,
 		onInsertCitation,
+		onInsertLibraryCitation,
 		onCommentsPlaced,
 		addCommentLabel = 'Comment',
 		commentPendingActive = false
@@ -216,7 +219,7 @@
 
 <main bind:this={editor} class="hidden"></main>
 
-<ContextMenu {onAddComment} {onInsertCitation} />
+<ContextMenu {onAddComment} {onInsertCitation} {onInsertLibraryCitation} />
 
 <style lang="postcss">
 	@reference "../../../../app.css";

@@ -21,6 +21,7 @@ import { registerUpdatesIpc } from './ipc/updatesIpc';
 import { registerMcpIpc, mcpHost } from './ipc/mcpIpc';
 import { registerWindowChrome } from './windowChrome';
 import { registerZotero } from './zotero';
+import { registerLibrary } from './library';
 import * as draftDaemon from './draft/draftDaemon';
 import * as mcp from './mcp/server';
 
@@ -40,6 +41,7 @@ registerWorkspaceWindowIpc();
 registerUpdatesIpc();
 registerMcpIpc();
 registerZotero();
+registerLibrary();
 
 // .tex handed over by the OS before any window exists; consumed at whenReady
 let initialOpenPath: string | null = null;
