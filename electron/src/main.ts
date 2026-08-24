@@ -4,7 +4,12 @@ import * as fs from 'node:fs';
 import { Readable } from 'node:stream';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import * as fsService from './fsService';
+import * as fsService from './fs/fsService';
+import { scan, tree, treeScan } from './fs/fsWalk';
+import { search } from './fs/fsSearch';
+import { synctex } from './fs/synctexCli';
+import { formatLatex } from './fs/formatLatex';
+import { backupForUndo } from './fs/undoBackup';
 import * as gitService from './gitService';
 import * as draftService from './draft/draftService';
 import * as draftDaemon from './draft/draftDaemon';
@@ -13,7 +18,7 @@ import * as typstPreviewPage from './typstPreviewPage';
 import * as previewRelay from './typstPreviewRelay';
 import * as toolchain from './toolchain';
 import * as updates from './updates';
-import { startWorkspaceWatch, stopWorkspaceWatch } from './fsWatch';
+import { startWorkspaceWatch, stopWorkspaceWatch } from './fs/fsWatch';
 import { isAllowedFontPath } from './fontT1Map';
 import * as mcp from './mcp/server';
 import { publishWindowState, forgetWindow, type WindowState } from './mcp/state';
@@ -554,16 +559,16 @@ function handleFsE(channel: string, fn: (e: Electron.IpcMainInvokeEvent, ...args
 		}
 	});
 }
-handleFs('fs:scan', fsService.scan);
+handleFs('fs:scan', scan);
 handleFs('fs:read', fsService.read);
 handleFs('fs:write', fsService.write);
 handleFs('fs:writeBinary', fsService.writeBinary);
-handleFs('fs:tree', fsService.tree);
-handleFs('fs:treeScan', fsService.treeScan);
+handleFs('fs:tree', tree);
+handleFs('fs:treeScan', treeScan);
 handleFs('fs:op', fsService.op);
-handleFs('fs:search', fsService.search);
+handleFs('fs:search', search);
 handleFs('fs:stat', fsService.statFile);
-handleFs('fs:formatLatex', fsService.formatLatex);
+handleFs('fs:formatLatex', formatLatex);
 // Reveal a file in the OS file manager. showItemInFolder SELECTS the item in a browser window and
 // nothing more - deliberately not shell.openPath, which hands the path to the OS to open with
 // whatever is registered for it, and so would turn a tree row into an execution surface.
@@ -590,7 +595,7 @@ const UNDO_MAX_BYTES = 64 * 1024 * 1024;
 // the editor is still recoverable by the user from their file manager. A null `backup` is how the
 // renderer learns not to offer undo for this one.
 handleFs('fs:trash', async (body: { path: string; root: string }) => {
-	const backup = await fsService.backupForUndo(body.path, undoDir(body.root), UNDO_MAX_BYTES);
+	const backup = await backupForUndo(body.path, undoDir(body.root), UNDO_MAX_BYTES);
 	let recycled = true;
 	try {
 		await shell.trashItem(body.path);
@@ -611,7 +616,7 @@ handleFs('fs:purgeUndo', async (root: string) => {
 	await fsService.op({ action: 'delete', path: undoDir(root) });
 	return { ok: true };
 });
-handleFs('synctex:call', fsService.synctex);
+handleFs('synctex:call', synctex);
 // One live preview at a time: the warm engine (and its reconcile compiles) belong to one
 // window. A second window asking gets a clean 'engine-busy' value instead of silently
 // thrashing the daemon between roots; its DraftView offers an explicit takeover.
