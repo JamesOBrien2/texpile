@@ -77,7 +77,9 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 		}
 		run.child = null;
 	}
-	const superseded = () => gen !== run.gen;
+	function superseded(): boolean {
+		return gen !== run.gen;
+	}
 	fs.mkdirSync(outAbs, { recursive: true });
 	// self-ignoring build dir: users' projects are usually git repos, and the preview's
 	// artifacts must never end up staged in them
@@ -109,8 +111,8 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 	// for docs that never touch it (only defines what isn't there). See PDF_SHIM in draft-daemon.
 	const pdfShim = `\\ifdefined\\pdfoutput\\else\\newcount\\pdfoutput\\fi`;
 	const job = `${setup}${hooks}${pdfShim}\\input{${mainRel}}`;
-	const enginePass = () =>
-		new Promise<void>((resolve) => {
+	function enginePass(): Promise<void> {
+		return new Promise<void>((resolve) => {
 			if (superseded()) {
 				resolve();
 				return;
@@ -131,6 +133,7 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 				resolve();
 			}); // engine not on PATH etc -> handled by the manifest check below
 		});
+	}
 
 	const t0 = Date.now();
 	const auxExisted = fs.existsSync(path.join(outAbs, 'draft.aux'));

@@ -12,14 +12,14 @@
 // Kept free of electron imports so it can be unit tested as plain string work.
 
 /** how the prepared page should look and what it should talk to */
-export interface PreparePageOptions {
+export type PreparePageOptions = {
 	/** `host:port` of tinymist's data plane, e.g. `127.0.0.1:52145` */
 	dataPlaneHost: string;
 	/** page background, behind and around the paper */
 	background: string;
 	/** text colour for anything the page draws itself */
 	foreground: string;
-}
+};
 
 /**
  * The page derives its websocket address from its own URL:

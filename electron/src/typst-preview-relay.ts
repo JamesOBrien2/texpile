@@ -17,12 +17,12 @@ import type { WebContents } from 'electron';
 // out sockets without limit
 const MAX_CONNS = 16;
 
-export interface RelayEvent {
+export type RelayEvent = {
 	id: number;
 	ev: 'open' | 'data' | 'close';
 	/** for 'data': a text frame arrives as string, a binary one as ArrayBuffer */
 	data?: string | ArrayBuffer;
-}
+};
 
 const relays = new Map<number, Map<number, WebSocket>>();
 const cleanupHooked = new Set<number>();

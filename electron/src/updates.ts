@@ -55,9 +55,9 @@ function wire(): void {
 	autoUpdater.on('download-progress', (p) => {
 		send('update:progress', { percent: p.percent, transferred: p.transferred, total: p.total });
 	});
-	autoUpdater.on('update-downloaded', (info) => {
+	autoUpdater.on('update-downloaded', (downloaded) => {
 		op = null;
-		send('update:downloaded', { version: info.version });
+		send('update:downloaded', { version: downloaded.version });
 	});
 	autoUpdater.on('error', (err) => {
 		if (!op) return;
@@ -80,11 +80,11 @@ export async function check(manual: boolean): Promise<CheckResult> {
 		// isUpdateAvailable is the library's own semver compare (prerelease-safe) + staged-rollout
 		// + minimum-system-version gate; a hand-rolled numeric compare here broke prereleases
 		if (!res || !res.isUpdateAvailable || !res.updateInfo) return { status: 'none' };
-		const info = res.updateInfo;
+		const found = res.updateInfo;
 		return {
 			status: 'update',
-			version: info.version,
-			notes: typeof info.releaseNotes === 'string' && info.releaseNotes.trim() ? info.releaseNotes : null,
+			version: found.version,
+			notes: typeof found.releaseNotes === 'string' && found.releaseNotes.trim() ? found.releaseNotes : null,
 			installMode: installMode()
 		};
 	} catch (err) {

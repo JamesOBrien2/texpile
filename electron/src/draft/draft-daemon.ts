@@ -174,6 +174,7 @@ async function ensureDaemon(root: string, engineDir: string, preamble: string): 
 	return daemon;
 }
 
+/* eslint-disable no-param-reassign -- a request runs BY rewiring the daemon handle's callback slots */
 function typesetOn(state: Daemon, text: string, hsize: number): Promise<{ records: Rec[]; stats: Rec | null; timedOut?: boolean }> {
 	return new Promise((resolve) => {
 		state.glyphs = [];
@@ -207,6 +208,7 @@ function typesetOn(state: Daemon, text: string, hsize: number): Promise<{ record
 		state.child.stdin!.write(`HSIZE ${hsize}\nGLYPHS\nTEXT ${nLines} ${Buffer.byteLength(payload, 'utf8')}\n${payload}\nEND\n`);
 	});
 }
+/* eslint-enable no-param-reassign */
 
 export type ParagraphResult =
 	{ ok: true; records: Rec[]; stats: Rec | null; hsize: number; textheight: number } | { ok: false; error: string };
@@ -231,7 +233,7 @@ export async function typesetParagraph(body: {
 			const r = await typesetOn(state, body.text, hsize);
 			if (r.timedOut) return { ok: false, error: 'paragraph typeset timed out (daemon reset)' };
 			// Type1: attach { pfb, enc }; async -- kpsewhich spawns must not block the main process
-			await Promise.all(r.records.filter((rec) => (rec as any).t === 'font').map((rec) => resolveType1(rec)));
+			await Promise.all(r.records.filter((rec) => rec.t === 'font').map((rec) => resolveType1(rec)));
 			return { ok: true, records: r.records, stats: r.stats, hsize, textheight: state.textheight };
 		} catch (e) {
 			return { ok: false, error: e instanceof Error ? e.message : String(e) };

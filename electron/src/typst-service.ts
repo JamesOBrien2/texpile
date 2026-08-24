@@ -8,7 +8,7 @@ import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-export interface TinymistInfo {
+export type TinymistInfo = {
 	/** the command to spawn: an absolute path, or the bare name when it came from PATH */
 	command: string;
 	/** tinymist's own version, e.g. "0.15.2" */
@@ -17,7 +17,7 @@ export interface TinymistInfo {
 	typstVersion: string;
 	/** which candidate answered; see resolveTinymist for why there is no configured path */
 	source: 'path' | 'managed';
-}
+};
 
 const EXE = process.platform === 'win32' ? '.exe' : '';
 
@@ -124,10 +124,10 @@ export function frame(json: string): Buffer {
 	return Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`, 'ascii'), body]);
 }
 
-export interface LspHandle {
+export type LspHandle = {
 	send(json: string): void;
 	stop(): void;
-}
+};
 
 /**
  * Start `tinymist lsp` and pipe it to the given callbacks.

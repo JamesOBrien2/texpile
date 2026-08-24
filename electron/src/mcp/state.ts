@@ -9,14 +9,14 @@
 // never need a round trip at all. Only the per-window detail below does.
 import type { BrowserWindow } from 'electron';
 
-export interface TabState {
+export type TabState = {
 	/** workspace-relative */
 	path: string;
 	dirty: boolean;
 	active: boolean;
-}
+};
 
-export interface WindowState {
+export type WindowState = {
 	mainFile: string | null;
 	activeFile: string | null;
 	viewMode: 'visual' | 'source' | 'diff' | null;
@@ -28,13 +28,13 @@ export interface WindowState {
 	livePreview: boolean;
 	/** when the renderer last pushed; exposed so a stale window is visible rather than silently old */
 	updatedAt: number;
-}
+};
 
-export interface WorkspaceSnapshot extends WindowState {
+export type WorkspaceSnapshot = WindowState & {
 	/** absolute; null for a window with no folder open */
 	root: string | null;
 	focused: boolean;
-}
+};
 
 const byWebContents = new Map<number, WindowState>();
 

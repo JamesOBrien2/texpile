@@ -9,24 +9,24 @@ let gitBinaryMissing = false;
 // repo membership doesn't change while a folder is open, except git init, which clears this
 const repoRootCache = new Map<string, string | null>();
 
-export interface GitStatusEntry {
+export type GitStatusEntry = {
 	/** absolute path, built to match the file-tree's own path strings (fs-service join()). */
 	path: string;
 	/** index (staged) status char, e.g. 'M'/'A'/'D'/'R'; ' ' if not staged, '?' if untracked. */
 	x: string;
 	/** working-dir (unstaged) status char; ' ' if clean, '?' if untracked. */
 	y: string;
-}
+};
 
-export interface GitStatusResult {
+export type GitStatusResult = {
 	ok: boolean;
 	reason?: 'not-a-repo' | 'no-git';
 	error?: string;
 	branch?: string | null;
 	entries?: GitStatusEntry[];
-}
+};
 
-export interface GitShowResult {
+export type GitShowResult = {
 	ok: boolean;
 	reason?: 'not-a-repo' | 'no-git';
 	error?: string;
@@ -34,13 +34,13 @@ export interface GitShowResult {
 	 *  the caller diffs against empty content. */
 	hasHead: boolean;
 	content?: string;
-}
+};
 
-export interface GitOpResult {
+export type GitOpResult = {
 	ok: boolean;
 	reason?: 'not-a-repo' | 'no-git';
 	error?: string;
-}
+};
 
 function git(baseDir: string): SimpleGit {
 	return simpleGit({ baseDir, binary: 'git', maxConcurrentProcesses: 4, timeout: { block: 20000 } });
@@ -52,7 +52,9 @@ function isMissingGit(e: unknown): boolean {
 	return /ENOENT|not recognized as|command not found|is not recognized/i.test(msg);
 }
 
-const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+function errMsg(e: unknown): string {
+	return e instanceof Error ? e.message : String(e);
+}
 
 /** resolves the enclosing repo's root, cached. Flat shape (root|null + optional reason), not a
  *  discriminated union: the union form tripped svelte-check's cross-config narrowing. */

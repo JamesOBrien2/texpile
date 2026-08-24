@@ -8,14 +8,14 @@
 // modifies anything.
 import { execFile } from 'node:child_process';
 
-export interface ToolProbe {
+export type ToolProbe = {
 	id: string;
 	found: boolean;
 	/** first informative line of the tool's own version output, when it gave one */
 	detail?: string;
 	/** the command probed, as spawned (a bare name means it came from PATH) */
 	command: string;
-}
+};
 
 /**
  * The line worth showing a user.

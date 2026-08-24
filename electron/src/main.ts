@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell, protocol } from 'electron';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { Readable } from 'node:stream';
-import { execFile, execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fsService from './fs-service';
 import * as gitService from './git-service';

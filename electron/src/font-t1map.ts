@@ -9,7 +9,7 @@ import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any -- font records are schemaless engine JSON */
 
 // Font files live OUTSIDE every workspace root (TeX trees, system fonts), so the
 // texfile:// claimed-root confinement would 403 the renderer's fetches and every
@@ -18,10 +18,10 @@ import * as path from 'node:path';
 // only path-prefix rule.
 const FONT_EXT = /\.(pfb|enc|otf|ttf|ttc)$/i;
 const allowedFonts = new Set<string>();
-const fontKey = (p: string) => {
+function fontKey(p: string): string {
 	const n = path.normalize(p);
 	return process.platform === 'win32' ? n.toLowerCase() : n;
-};
+}
 function registerFontPath(p: string | null | undefined): void {
 	if (p && FONT_EXT.test(p)) allowedFonts.add(fontKey(p));
 }
@@ -74,6 +74,7 @@ function loadMap(): Promise<Map<string, MapEntry> | null> {
 
 const DRAWABLE = /\.(otf|ttf|ttc)$/i;
 
+/* eslint-disable no-param-reassign -- attaching t1 to the handed record IS this function's job */
 /** Adds `t1` ({ pfb, enc } abs paths) to a font record the renderer can't parse directly. */
 export async function resolveType1(rec: any): Promise<void> {
 	if (!rec || rec.t !== 'font') return;
@@ -91,6 +92,7 @@ export async function resolveType1(rec: any): Promise<void> {
 	registerFontPath(rec.t1.pfb);
 	registerFontPath(rec.t1.enc);
 }
+/* eslint-enable no-param-reassign */
 
 /** Line-wise variant for the page-record strings the compile service returns. */
 export async function resolveType1Line(line: string): Promise<string> {

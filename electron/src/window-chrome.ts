@@ -16,7 +16,7 @@ import { app, BrowserWindow, Menu, MenuItemConstructorOptions, ipcMain } from 'e
 
 /** what the renderer tells us about its menus. Everything optional: a window on the start screen
  *  has no file open and reports almost nothing. */
-export interface MenuState {
+export type MenuState = {
 	/** no file open: the menus that act on a document are greyed out */
 	disabled: boolean;
 	/** the open file has a text buffer for Edit/Spelling (false for pdf/image/binary). Optional so
@@ -46,7 +46,7 @@ export interface MenuState {
 	recentFolders: string[];
 	/** already-localized labels, so this module never has to know about locales */
 	labels: Record<string, string>;
-}
+};
 
 const isMac = process.platform === 'darwin';
 
@@ -331,12 +331,12 @@ function rebuild(): void {
 }
 
 /** what the renderer last reported about its chrome, for seeding the next window's first paint. */
-export interface ChromeColors {
+export type ChromeColors = {
 	height?: number;
 	color?: string;
 	symbolColor?: string;
 	background?: string;
-}
+};
 
 /**
  * @param onChrome called whenever the renderer reports its title bar colours, so main can persist
@@ -418,15 +418,15 @@ export function forgetWindowChrome(wcId: number): void {
 
 /** tell a renderer its maximise state changed, so the title bar can swap the restore icon */
 export function watchWindowState(win: BrowserWindow): void {
-	const push = () => {
+	function push(): void {
 		if (win.isDestroyed()) return;
 		win.webContents.send('main:window-state', { maximized: win.isMaximized(), fullScreen: win.isFullScreen() });
-	};
+	}
 	// the View item reads Enter or Exit off the current state, so the bar has to follow the transition
-	const pushAndRebuild = () => {
+	function pushAndRebuild(): void {
 		push();
 		rebuild();
-	};
+	}
 	win.on('maximize', push);
 	win.on('unmaximize', push);
 	win.on('enter-full-screen', pushAndRebuild);

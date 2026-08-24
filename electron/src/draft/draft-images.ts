@@ -21,21 +21,24 @@ export function readImageUses(outAbs: string): ImageUse[] {
 	return uses;
 }
 
+/* eslint-disable no-param-reassign -- rewrites the handed lines (and marks uses spent) in place, per the doc comment */
 /** Rewrites {"t":"image"} lines in place, adding the resolved absolute file path. */
 export function attachImageFiles(lines: string[], uses: ImageUse[], root: string): void {
 	if (!uses.length) return;
-	const resolve = (w: number, h: number): string | null => {
-		const near = (f: { w: number; h: number }) => Math.abs(f.w - w) < 0.1 && Math.abs(f.h - h) < 0.1;
+	function resolveUse(w: number, h: number): string | null {
+		function near(f: { w: number; h: number }): boolean {
+			return Math.abs(f.w - w) < 0.1 && Math.abs(f.h - h) < 0.1;
+		}
 		const hit = uses.find((f) => !f.used && near(f)) ?? uses.find(near);
 		if (!hit) return null;
 		hit.used = true;
 		return (path.isAbsolute(hit.file) ? hit.file : path.join(root, hit.file)).replace(/\\/g, '/');
-	};
+	}
 	for (let i = 0; i < lines.length; i++) {
 		if (!lines[i].startsWith('{"t":"image"')) continue;
 		try {
 			const r = JSON.parse(lines[i]);
-			const file = resolve(r.w, (r.h || 0) + (r.d || 0));
+			const file = resolveUse(r.w, (r.h || 0) + (r.d || 0));
 			if (file) {
 				r.file = file;
 				lines[i] = JSON.stringify(r);

@@ -73,7 +73,9 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	windowSetOverlay: (o: { height?: number; color?: string; symbolColor?: string }) => ipcRenderer.send('window:overlay', o),
 	/** subscribe to maximize / full-screen changes, so the title bar can swap its restore icon. */
 	onWindowState: (cb: (s: { maximized: boolean; fullScreen: boolean }) => void) => {
-		const h = (_e: unknown, s: { maximized: boolean; fullScreen: boolean }) => cb(s);
+		function h(_e: unknown, s: { maximized: boolean; fullScreen: boolean }) {
+			cb(s);
+		}
 		ipcRenderer.on('main:window-state', h);
 		return () => ipcRenderer.removeListener('main:window-state', h);
 	},
@@ -83,7 +85,9 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	/** subscribe to a native menu selection; the payload is the same `menu:value` string the
 	 *  in-app menu bar produces. */
 	onMenuAction: (cb: (action: string) => void) => {
-		const h = (_e: unknown, action: string) => cb(String(action));
+		function h(_e: unknown, action: string) {
+			cb(String(action));
+		}
 		ipcRenderer.on('main:menu-action', h);
 		return () => ipcRenderer.removeListener('main:menu-action', h);
 	},
@@ -93,7 +97,9 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	claimStartupTasks: () => ipcRenderer.invoke('session:claimStartupTasks'),
 	/** subscribe to "this window is about to close" (main holds the close until closeDecision). */
 	onBeforeClose: (cb: () => void) => {
-		const h = () => cb();
+		function h() {
+			cb();
+		}
 		ipcRenderer.on('app:before-close', h);
 		return () => ipcRenderer.removeListener('app:before-close', h);
 	},
@@ -102,14 +108,18 @@ contextBridge.exposeInMainWorld('texpileNative', {
 
 	/** subscribe to "something in the claimed workspace changed on disk" (debounced in main). */
 	onWorkspaceFsChanged: (cb: () => void) => {
-		const h = () => cb();
+		function h() {
+			cb();
+		}
 		ipcRenderer.on('workspace:fs-changed', h);
 		return () => ipcRenderer.removeListener('workspace:fs-changed', h);
 	},
 
 	/** an MCP tool asking this window for something main cannot answer from its cache. */
 	onMcpRequest: (cb: (req: { id: number; kind: string }) => void) => {
-		const h = (_e: unknown, req: { id: number; kind: string }) => cb(req);
+		function h(_e: unknown, req: { id: number; kind: string }) {
+			cb(req);
+		}
 		ipcRenderer.on('mcp:request', h);
 		return () => ipcRenderer.removeListener('mcp:request', h);
 	},
@@ -117,7 +127,9 @@ contextBridge.exposeInMainWorld('texpileNative', {
 
 	/** an MCP tool steering this window (open a file, show a diff, change view mode). */
 	onMcpCommand: (cb: (cmd: Record<string, unknown>) => void) => {
-		const h = (_e: unknown, cmd: Record<string, unknown>) => cb(cmd);
+		function h(_e: unknown, cmd: Record<string, unknown>) {
+			cb(cmd);
+		}
 		ipcRenderer.on('mcp:command', h);
 		return () => ipcRenderer.removeListener('mcp:command', h);
 	},
@@ -159,8 +171,10 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	/** Steal the warm engine from the window that currently owns it (explicit user action). */
 	draftTakeover: (body: { root: string }) => invokeFs('draft:takeover', body),
 	/** subscribe to "another window took the engine" pushes; returns an unsubscribe fn. */
-	onDraftPreempted: (cb: (info: { root: string }) => void) => {
-		const h = (_e: unknown, info: { root: string }) => cb(info);
+	onDraftPreempted: (cb: (ev: { root: string }) => void) => {
+		function h(_e: unknown, ev: { root: string }) {
+			cb(ev);
+		}
 		ipcRenderer.on('draft:preempted', h);
 		return () => ipcRenderer.removeListener('draft:preempted', h);
 	},
@@ -198,17 +212,23 @@ contextBridge.exposeInMainWorld('texpileUpdates', {
 	/** quit and install the downloaded update (relaunches). */
 	install: () => ipcRenderer.invoke('update:install'),
 	onProgress: (cb: (p: { percent: number; transferred: number; total: number }) => void) => {
-		const h = (_e: unknown, p: { percent: number; transferred: number; total: number }) => cb(p);
+		function h(_e: unknown, p: { percent: number; transferred: number; total: number }) {
+			cb(p);
+		}
 		ipcRenderer.on('update:progress', h);
 		return () => ipcRenderer.removeListener('update:progress', h);
 	},
-	onDownloaded: (cb: (info: { version: string }) => void) => {
-		const h = (_e: unknown, info: { version: string }) => cb(info);
+	onDownloaded: (cb: (update: { version: string }) => void) => {
+		function h(_e: unknown, update: { version: string }) {
+			cb(update);
+		}
 		ipcRenderer.on('update:downloaded', h);
 		return () => ipcRenderer.removeListener('update:downloaded', h);
 	},
 	onError: (cb: (err: { message: string }) => void) => {
-		const h = (_e: unknown, err: { message: string }) => cb(err);
+		function h(_e: unknown, err: { message: string }) {
+			cb(err);
+		}
 		ipcRenderer.on('update:error', h);
 		return () => ipcRenderer.removeListener('update:error', h);
 	}
@@ -239,7 +259,9 @@ contextBridge.exposeInMainWorld('texpileTypst', {
 	relayClose: (id: number) => ipcRenderer.send('typst:relay:close', { id }),
 	/** subscribe to relay socket events ({ id, ev, data? }); returns an unsubscribe fn. */
 	onRelayEvent: (cb: (e: { id: number; ev: 'open' | 'data' | 'close'; data?: string | ArrayBuffer }) => void) => {
-		const h = (_e: unknown, ev: { id: number; ev: 'open' | 'data' | 'close'; data?: string | ArrayBuffer }) => cb(ev);
+		function h(_e: unknown, ev: { id: number; ev: 'open' | 'data' | 'close'; data?: string | ArrayBuffer }) {
+			cb(ev);
+		}
 		ipcRenderer.on('typst:relay:event', h);
 		return () => ipcRenderer.removeListener('typst:relay:event', h);
 	},
@@ -249,13 +271,17 @@ contextBridge.exposeInMainWorld('texpileTypst', {
 	stopLsp: () => ipcRenderer.send('typst:lsp:stop'),
 	/** subscribe to server->client messages. Returns an unsubscribe fn. */
 	onMessage: (cb: (json: string) => void) => {
-		const h = (_e: unknown, json: string) => cb(json);
+		function h(_e: unknown, json: string) {
+			cb(json);
+		}
 		ipcRenderer.on('typst:lsp:message', h);
 		return () => ipcRenderer.removeListener('typst:lsp:message', h);
 	},
 	/** subscribe to server exit. Returns an unsubscribe fn. */
 	onExit: (cb: (code: number | null) => void) => {
-		const h = (_e: unknown, code: number | null) => cb(code);
+		function h(_e: unknown, code: number | null) {
+			cb(code);
+		}
 		ipcRenderer.on('typst:lsp:exit', h);
 		return () => ipcRenderer.removeListener('typst:lsp:exit', h);
 	}
@@ -283,13 +309,17 @@ contextBridge.exposeInMainWorld('texpileTerminal', {
 	kill: (id: string) => ipcRenderer.send('terminal:kill', { id }),
 	/** subscribe to output; cb gets { id, data }. Returns an unsubscribe fn. */
 	onData: (cb: (msg: { id: string; data: string }) => void) => {
-		const h = (_e: unknown, msg: { id: string; data: string }) => cb(msg);
+		function h(_e: unknown, msg: { id: string; data: string }) {
+			cb(msg);
+		}
 		ipcRenderer.on('terminal:data', h);
 		return () => ipcRenderer.removeListener('terminal:data', h);
 	},
 	/** subscribe to shell exit; cb gets { id, code }. Returns an unsubscribe fn. */
 	onExit: (cb: (msg: { id: string; code: number }) => void) => {
-		const h = (_e: unknown, msg: { id: string; code: number }) => cb(msg);
+		function h(_e: unknown, msg: { id: string; code: number }) {
+			cb(msg);
+		}
 		ipcRenderer.on('terminal:exit', h);
 		return () => ipcRenderer.removeListener('terminal:exit', h);
 	}
