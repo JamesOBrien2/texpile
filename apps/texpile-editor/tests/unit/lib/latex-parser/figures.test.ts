@@ -189,6 +189,41 @@ BERT & 86.7 & 72.1 & 82.1 \\\\
 		expect(out).not.toContain('\\begin{center}');
 	});
 
+	// the other BERT shape: the tabular inside a {\small ...} group inside center, and the
+	// \label embedded in the caption argument
+	const maskSrc = `\\begin{table}[ht]
+\\begin{center}
+{\\small \\begin{tabular}{@{}rrrccc@{}}\\toprule \\multicolumn{3}{c}{Masking Rates} & \\multicolumn{3}{c}{Dev Set Results} \\\\
+80\\% & 10\\% & 10\\% & 84.2 & 95.4 & 94.9 \\\\
+\\bottomrule\\end{tabular} }
+\\end{center}
+\\caption{\\label{tab:mask_ablation} Ablation over different masking strategies.}
+\\end{table}`;
+
+	it('sees through a {\\small ...} group holding the tabular; the switch survives in preBody', () => {
+		const { doc } = latexToProseMirror(maskSrc, {});
+		expect(doc.childCount).toBe(1);
+		const wrapper = doc.child(0);
+		expect(wrapper.type.name).toBe('table_wrapper');
+		expect(String(wrapper.attrs.preBody)).toContain('\\small');
+	});
+
+	it('the group-wrapped shape round-trips byte-identically on an untouched save', () => {
+		const file = `\\documentclass{article}\n\\begin{document}\n${maskSrc}\n\\end{document}\n`;
+		const parsed = parseLatexFile(file);
+		expect(serializeLatexFile(parsed, parsed.doc)).toBe(file);
+	});
+
+	it('regenerates with the caption text, its embedded label, and the size switch', () => {
+		const { doc } = latexToProseMirror(maskSrc, {});
+		const out = serializeToLatex(doc);
+		expect(out).toContain('Ablation over different masking strategies.');
+		expect(out).toContain('\\label{tab:mask_ablation}');
+		expect(out).toContain('\\small');
+		expect(out).toContain('\\multicolumn{3}'); // the span survives; its col spec is style-derived
+		expect(out).not.toContain('\\begin{center}');
+	});
+
 	it('leaves a center env that does not hold the tabular wrapped (setup stays intact)', () => {
 		const src = `\\begin{table}[h]
 \\begin{center}

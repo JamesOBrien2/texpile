@@ -32,21 +32,14 @@ function extractTableComponents(content: Node[], ctx: ConversionContext) {
 	let noteNodes: Node[] = [];
 	let sawTabular = false;
 
-	// see through \begin{center}: many papers center the tabular with the environment instead of
-	// \centering (BERT-era arXiv especially), which parked the whole float on the generic-
-	// environment path - no caption chrome, no scroll container. the wrapper serializer re-emits
-	// \centering, which is what the environment means inside a float, so unwrapping loses
-	// nothing - but only a center that actually holds the tabular; any other stays setup/notes.
-	const flat: Node[] = [];
-	for (const node of content) {
-		if (node.type === 'environment' && (node as Environment).env === 'center' && containsTabular([node])) {
-			flat.push(...(((node as Environment).content ?? []) as Node[]));
-		} else {
-			flat.push(node);
-		}
-	}
-
-	for (const node of flat) {
+	// see through the wrappers papers put around the tabular - \begin{center} instead of
+	// \centering, and {\small ...} groups scoping a size switch (BERT-era arXiv especially).
+	// either parked the whole float on the generic-environment path: no caption chrome, no
+	// scroll container. nothing is lost unwrapping: the wrapper serializer re-emits \centering,
+	// and an unwrapped size switch lands in preBody, where the float's own group bounds it just
+	// as the braces did. only wrappers that actually hold the tabular unwrap; a macro ARG holding
+	// one (\resizebox{...}{tabular}) is untouched, since containsTabular never enters args.
+	for (const node of flattenTabularWrappers(content)) {
 		if (node.type === 'macro' && node.content === 'caption') {
 			const arg = getMacroFirstArg(node as Macro);
 			const captionText = convertNodesToInline(arg, ctx);
@@ -130,6 +123,18 @@ function extractTableComponents(content: Node[], ctx: ConversionContext) {
 	const extraLabels = labels.length > 1 ? labels.slice(0, -1) : null;
 
 	return { caption, label, extraLabels, tables, notes, preBody, postBody };
+}
+
+function flattenTabularWrappers(content: Node[]): Node[] {
+	const flat: Node[] = [];
+	for (const node of content) {
+		const unwrap =
+			(node.type === 'environment' && (node as Environment).env === 'center' && containsTabular([node])) ||
+			(node.type === 'group' && containsTabular(node.content ?? []));
+		if (unwrap) flat.push(...flattenTabularWrappers(((node as { content?: Node[] }).content ?? []) as Node[]));
+		else flat.push(node);
+	}
+	return flat;
 }
 
 /** Whether a tabular/tabularx/longtable appears anywhere (possibly nested) in these nodes. */
