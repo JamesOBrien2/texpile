@@ -3,6 +3,7 @@
 import { schema } from '$lib/languages/latex/schema/latexPMSchema';
 import { mdSchema } from '$lib/languages/markdown/visual/schema';
 import type { Node as PMNode } from 'prosemirror-model';
+import { latexParserWorker, resetLatexParserWorker } from './latexParserWorker';
 import type { ParsedLatexFile, ParsePhase } from './latexRoundtrip';
 
 type PendingRequest = {
@@ -49,13 +50,14 @@ export const PARSE_TIMEOUT = 'parse-timeout';
 /** the doc parsed fine but is too big for the view layer to render; message is `too-complex:<n>`. */
 export const PARSE_TOO_COMPLEX = 'too-complex';
 
-let worker: Worker | null = null;
 const pending = new Map<number, PendingRequest>();
 let nextId = 1;
+let wired = false;
 
 function ensureWorker(): Worker {
-	if (worker) return worker;
-	const w = new Worker(new URL('./latexParser.worker.ts', import.meta.url), { type: 'module' });
+	const w = latexParserWorker();
+	if (wired) return w;
+	wired = true;
 	w.onmessage = (event: MessageEvent<WorkerMessage>) => {
 		const msg = event.data;
 		const pend = pending.get(msg.id);
@@ -97,11 +99,14 @@ function ensureWorker(): Worker {
 			pend.reject(new Error(message));
 		}
 		pending.clear();
-		worker?.terminate();
-		worker = null;
+		dropWorker();
 	};
-	worker = w;
 	return w;
+}
+
+function dropWorker(): void {
+	wired = false;
+	resetLatexParserWorker();
 }
 
 /** off-main-thread parse; settles by timeoutMs, terminating the worker on overrun so a runaway parse can't keep chewing CPU. */
@@ -120,8 +125,7 @@ export function parseLatexFileAsync(
 			if (!pending.has(id)) return;
 			pending.delete(id);
 			// terminate the runaway worker; a new one boots on the next call
-			worker?.terminate();
-			worker = null;
+			dropWorker();
 			reject(new Error(PARSE_TIMEOUT));
 		}, timeoutMs);
 		pending.set(id, { resolve, reject, timeoutId, onProgress, format });

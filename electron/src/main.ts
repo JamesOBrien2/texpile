@@ -9,6 +9,7 @@ import { registerPrivilegedSchemes, registerProtocolHandlers } from './appProtoc
 import { readSettings, writeSettings, registerSettingsIpc } from './appSettings';
 import { createWindow, startUrl } from './windows/createWindow';
 import { windowRoots, pendingOpens, normRoot, windowFor, focusWindow, beginQuit } from './windows/windowRegistry';
+import { registerBootstrapIpc } from './ipc/bootstrapIpc';
 import { registerFsIpc } from './ipc/fsIpc';
 import { registerGitIpc } from './ipc/gitIpc';
 import { registerDraftIpc } from './ipc/draftIpc';
@@ -29,6 +30,8 @@ fixShellPath();
 registerPrivilegedSchemes();
 
 registerSettingsIpc();
+// before every other surface: preload calls it synchronously while the window is still loading
+registerBootstrapIpc();
 registerFsIpc();
 registerGitIpc();
 registerDraftIpc();

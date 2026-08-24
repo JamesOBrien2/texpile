@@ -117,6 +117,8 @@ const DEFAULTS: AppSettings = {
 const LS_KEY = 'texpile:settings';
 
 type NativeSettings = {
+	/** the settings main already had when it made this window; saves a round trip before mount */
+	bootstrap?: { settings?: Record<string, unknown> };
 	getSettings?: () => Promise<Partial<AppSettings>>;
 	setSettings?: (partial: Partial<AppSettings>) => Promise<AppSettings>;
 	replaceSettings?: (full: Record<string, unknown>) => Promise<void>;
@@ -139,7 +141,10 @@ export function loadSettings(): Promise<AppSettings> {
 	loadPromise = (async () => {
 		let raw: Record<string, unknown> = {};
 		const n = nativeBridge();
-		if (n?.getSettings) {
+		const snapshot = n?.bootstrap?.settings;
+		if (snapshot && Object.keys(snapshot).length) {
+			raw = snapshot;
+		} else if (n?.getSettings) {
 			try {
 				raw = (await n.getSettings()) as Record<string, unknown>;
 			} catch {

@@ -29,7 +29,22 @@ function bufferedChannel<T>(channel: string, map: (...args: unknown[]) => T) {
 const onOpenPathBuffered = bufferedChannel('main:open-path', (p) => String(p));
 const onOpenFolderBuffered = bufferedChannel('main:open-folder', (r) => String(r));
 
+// The one deliberate sendSync in the app. Preload runs before any page code, so what it returns
+// here the renderer has before its first render: a restored window can go straight to the
+// workspace instead of painting the start screen and swapping, and settings need no round trip
+// before mount. One blocking call of well under a millisecond buys both.
+type Bootstrap = { open: { kind: 'file' | 'folder'; path: string } | null; settings: Record<string, unknown> };
+const bootstrap: Bootstrap = (() => {
+	try {
+		return ipcRenderer.sendSync('window:bootstrap') as Bootstrap;
+	} catch {
+		return { open: null, settings: {} };
+	}
+})();
+
 contextBridge.exposeInMainWorld('texpileNative', {
+	/** what this window is opening and the settings to open it with, known before the first render. */
+	bootstrap,
 	/** native folder picker; resolves to the chosen absolute path or null. */
 	openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
 	getSettings: () => ipcRenderer.invoke('settings:get'),
