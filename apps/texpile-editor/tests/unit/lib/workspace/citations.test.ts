@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeReferences, parseBibItems } from '../../../../src/lib/workspace/citations';
+import { mergeReferences, parseBibItems, bblToReferences, loadReferences, references } from '../../../../src/lib/workspace/citations';
 
 const bibA = `@book{smith2020, author = {Smith, J.}, title = {Alpha}, year = {2020}}`;
 const bibB = `@book{jones2019, author = {Jones, K.}, title = {Beta}, year = {2019}}`;
@@ -80,5 +80,53 @@ describe('parseBibItems (embedded thebibliography)', () => {
 		].join('\n');
 		const keys = parseBibItems(tex).map((r) => r.key);
 		expect(keys).toEqual(['real']);
+	});
+});
+
+const bibtexBbl = `\\begin{thebibliography}{9}
+\\bibitem{eason55} G. Eason, \`\`On certain integrals,'' 1955.
+\\end{thebibliography}`;
+
+const biberBbl = `\\entry{knuth1984}{article}{}
+\\field{title}{Literate Programming}
+\\field{year}{1984}
+\\endentry`;
+
+describe('bblToReferences (dialect dispatch)', () => {
+	it('routes a biber .bbl through the \\entry parser', () => {
+		const [ref] = bblToReferences(biberBbl);
+		expect(ref.key).toBe('knuth1984');
+		expect(ref.title).toBe('Literate Programming');
+		expect(ref.fromBbl).toBe(true);
+	});
+
+	it('routes a classic bibtex .bbl through the \\bibitem heuristics', () => {
+		const [ref] = bblToReferences(bibtexBbl);
+		expect(ref.key).toBe('eason55');
+		expect(ref.title).toBe('On certain integrals');
+		expect(ref.year).toBe('1955');
+		expect(ref.fromBibitem).toBe(true);
+	});
+});
+
+describe('loadReferences (.bib beats .bbl on key clashes)', () => {
+	const clashBbl = `\\begin{thebibliography}{9}
+\\bibitem{smith2020} S. Smith, stale generated text, 2020.
+\\bibitem{bblonly} B. Only, \`\`Shipped without a bib,'' 2021.
+\\end{thebibliography}`;
+
+	it('keeps the .bib entry for a shared key and adds .bbl-only keys', async () => {
+		const files = [
+			{ name: 'main.bbl', path: '/p/main.bbl', relPath: 'main.bbl' },
+			{ name: 'main.bib', path: '/p/main.bib', relPath: 'main.bib' }
+		];
+		await loadReferences('/p', {
+			scan: async () => files,
+			read: async (p) => (p.endsWith('.bib') ? bibA : clashBbl)
+		});
+		const refs = references.current;
+		expect(refs.map((r) => r.key)).toEqual(['smith2020', 'bblonly']);
+		expect(refs[0].title).toBe('Alpha'); // the .bib's entry, despite the .bbl being scanned first
+		expect(refs[1].fromBibitem).toBe(true);
 	});
 });

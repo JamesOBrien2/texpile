@@ -92,11 +92,13 @@ export function buildSourceExtensions(deps: SourceSetupDeps): Extension[] {
 		cmSyntaxHighlight(),
 		// guests included: the sources read stores fed through the workspace provider, so a
 		// session serves them from the shared doc
-		...(!fileFor || /\.tex$/i.test(fileFor)
+		// .bbl rides the LaTeX lane (its entries are LaTeX text) minus the starter ghost, which
+		// offers a fresh-document skeleton a bibliography must never get
+		...(!fileFor || /\.(tex|bbl)$/i.test(fileFor)
 			? [
 					latexIntellisense({ onJumpToFile: deps.onJumpToFile, onOpenFileAt: deps.onOpenFileAt }),
 					mathPreview(),
-					starterGhost(),
+					...(!fileFor || /\.tex$/i.test(fileFor) ? [starterGhost()] : []),
 					cmSpellcheck()
 				]
 			: /\.(md|markdown)$/i.test(fileFor)
@@ -139,7 +141,7 @@ export function buildSourceExtensions(deps: SourceSetupDeps): Extension[] {
 }
 
 // language-data ships no .bib mode, and its LaTeX descriptor matches only .tex/.ltx, so
-// .cls/.sty are routed by hand rather than through matchFilename. an accessor, not the view:
+// .cls/.sty/.bbl are routed by hand rather than through matchFilename. an accessor, not the view:
 // the async loads must not dispatch into an editor destroyed while they resolved
 export function applySourceLanguage(getView: () => EditorView | null, fileFor: string, langConf: Compartment): void {
 	if (fileFor && /\.bib$/i.test(fileFor)) {
@@ -149,7 +151,7 @@ export function applySourceLanguage(getView: () => EditorView | null, fileFor: s
 		void import('$lib/languages/typst/source/typstLanguage').then(({ typstLanguage }) =>
 			getView()?.dispatch({ effects: langConf.reconfigure(typstLanguage()) })
 		);
-	} else if (!fileFor || /\.(tex|cls|sty)$/i.test(fileFor)) {
+	} else if (!fileFor || /\.(tex|cls|sty|bbl)$/i.test(fileFor)) {
 		// ours, not language-data's stex, which files nearly everything under a tag the shared
 		// style leaves uncoloured
 		getView()?.dispatch({ effects: langConf.reconfigure(latex()) });
