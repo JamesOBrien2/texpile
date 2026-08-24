@@ -6,8 +6,8 @@
 	import AppFrame from '$lib/chrome/AppFrame.svelte';
 	import RecentFoldersModal from '$lib/modals/start/RecentFoldersModal.svelte';
 	// dark wordmark for light backgrounds, white one for dark mode
-	import logoOnLight from '$lib/assets/logo/Logo-dark.svg';
-	import logoOnDark from '$lib/assets/logo/Logo-light.svg';
+	import logoOnLight from '$branding/Logo-dark.svg';
+	import logoOnDark from '$branding/Logo-light.svg';
 	import {
 		pickFolder,
 		claimWorkspace,

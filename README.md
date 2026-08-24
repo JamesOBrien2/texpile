@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="apps/texpile-editor/src/lib/assets/logo/Logo-light.svg" />
-  <img alt="Texpile" src="apps/texpile-editor/src/lib/assets/logo/Logo-dark.svg" width="320" />
+  <source media="(prefers-color-scheme: dark)" srcset="branding/Logo-light.svg" />
+  <img alt="Texpile" src="branding/Logo-dark.svg" width="320" />
 </picture>
 
 &nbsp;
@@ -67,3 +67,6 @@ Beyond its package dependencies, Texpile vendors or derives from the following p
 ## License
 
 [AGPL-3.0](LICENSE)
+
+The Texpile name and logo are trademarks of the Texpile project and are not covered by the code
+license; see [TRADEMARK.md](TRADEMARK.md).

@@ -13,8 +13,8 @@
 	import { preferencesTab } from '$lib/stores/dialogStore';
 	import McpSetupModal from './McpSetupModal.svelte';
 	// dark wordmark for light backgrounds, white one for dark mode - the pair StartView uses
-	import logoOnLight from '$lib/assets/logo/Logo-dark.svg';
-	import logoOnDark from '$lib/assets/logo/Logo-light.svg';
+	import logoOnLight from '$branding/Logo-dark.svg';
+	import logoOnDark from '$branding/Logo-light.svg';
 	import { m } from '$lib/paraglide/messages';
 
 	// autosave is forced on (shown disabled) while live mode or a hosted session is active

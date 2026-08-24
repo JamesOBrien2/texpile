@@ -2,7 +2,8 @@
 	"compilerOptions": {
 		"paths": {
 			"$lib": ["./src/lib"],
-			"$lib/*": ["./src/lib/*"]
+			"$lib/*": ["./src/lib/*"],
+			"$branding/*": ["../../branding/*"]
 		},
 		"verbatimModuleSyntax": true,
 		"isolatedModules": true,
