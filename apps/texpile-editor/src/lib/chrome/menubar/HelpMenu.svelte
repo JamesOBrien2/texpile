@@ -14,7 +14,12 @@
 <Menu onSelect={(d) => select(d.value)}>
 	<!-- dot: an update finished downloading in the background, or there are release notes the
 	     user has not opened. Either way the badge points at an item inside this menu. -->
-	<MenuBarTrigger id="help" {index} label={m.menubar_menu_help()} dot={$updateState.phase === 'downloaded' || $hasUnseenWhatsNew} />
+	<MenuBarTrigger
+		id="help"
+		{index}
+		label={m.menubar_menu_help()}
+		dot={updateState.current.phase === 'downloaded' || hasUnseenWhatsNew.current}
+	/>
 	<Portal>
 		<Menu.Positioner>
 			<Menu.Content class={contentClass}>
@@ -24,7 +29,7 @@
 				{/if}
 				<Menu.Item value="whatsnew" class={itemClass}>
 					<Menu.ItemText>{m.whatsnew_menu_label()}</Menu.ItemText>
-					{#if $hasUnseenWhatsNew}
+					{#if hasUnseenWhatsNew.current}
 						<span class="bg-primary-500 inline-block size-1.5 rounded-full"></span>
 					{/if}
 				</Menu.Item>
@@ -35,7 +40,7 @@
 				<Menu.Separator class={separatorClass} />
 				<Menu.Item value="updates" class={itemClass}>
 					<Menu.ItemText>{m.menubar_check_for_updates()}</Menu.ItemText>
-					{#if $updateState.phase === 'downloaded'}
+					{#if updateState.current.phase === 'downloaded'}
 						<span class="bg-primary-500 inline-block size-1.5 rounded-full"></span>
 					{/if}
 				</Menu.Item>

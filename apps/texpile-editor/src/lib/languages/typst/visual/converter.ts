@@ -11,7 +11,7 @@
 // expression it introduces), so block grouping is synthesized here.
 import type { SyntaxNode, Tree } from '@lezer/common';
 import { TypstParser } from 'texpile-typst-syntax-wasm';
-import { el, txtNodes, type PmNode } from './builders';
+import { buildNode, textNodes, type PmNode } from './builders';
 import { mergeAdjacentRawBlocks } from '$lib/editor/visual/mergeRawBlocks';
 import {
 	children,
@@ -44,7 +44,7 @@ export type Seg = {
 };
 
 export function ensureBlocks(blocks: PmNode[]): PmNode[] {
-	return blocks.length > 0 ? blocks : [el('paragraph')];
+	return blocks.length > 0 ? blocks : [buildNode('paragraph')];
 }
 
 /** true when nothing but whitespace remains before the paragraph ends. */
@@ -77,7 +77,7 @@ export function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 		const content = convertInline(buf, src, []);
 		if (content.length > 0) {
 			segs.push({
-				blocks: [el('paragraph', { indent: 'auto' }, content)],
+				blocks: [buildNode('paragraph', { indent: 'auto' }, content)],
 				from: buf[0].from,
 				to: buf[buf.length - 1].to
 			});
@@ -125,7 +125,7 @@ export function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 					const infoString = lang ? src.slice(lang.from, lang.to) : '';
 					segs.push({
 						// no infoString string means NO language recorded: plain text, no settings chip
-						blocks: [el('code_block', { lang: infoString, env: 'fence', args: infoString }, txtNodes(content))],
+						blocks: [buildNode('code_block', { lang: infoString, env: 'fence', args: infoString }, textNodes(content))],
 						from: k.from,
 						to: k.to
 					});
@@ -150,7 +150,7 @@ export function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 						// the canonical full-width divider, byte-exact; any other #line stays raw. A
 						// LABELLED one stays raw too - horizontal_rule has nowhere to keep the label,
 						// so swallowing it here would delete it on the next save
-						segs.push({ blocks: [el('horizontal_rule')], from: k.from, to: next.to });
+						segs.push({ blocks: [buildNode('horizontal_rule')], from: k.from, to: next.to });
 						i++;
 					} else if (alone && !linkParts(next, src) && !markCallParts(next, src)) {
 						// a call standing alone in its paragraph (#lorem, unmodeled #figure): raw block,
@@ -190,7 +190,7 @@ export function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 					if (latex != null) {
 						segs.push({
 							blocks: [
-								el(
+								buildNode(
 									'block_math',
 									{
 										label: labelNode ? src.slice(labelNode.from + 1, labelNode.to - 1) : null,
@@ -200,7 +200,7 @@ export function convertMarkup(kids: SyntaxNode[], src: string): Seg[] {
 										typst: equationInner(k, src).trim(),
 										latexOrig: latex
 									},
-									txtNodes(latex)
+									textNodes(latex)
 								)
 							],
 							from: k.from,
@@ -231,7 +231,7 @@ function includeOrRaw(hash: SyntaxNode, stmt: SyntaxNode, src: string): PmNode {
 		const real = children(stmt).filter((c) => !['Include', 'Space'].includes(c.name));
 		if (real.length === 1 && real[0].name === 'Str') {
 			const path = unquote(src.slice(real[0].from, real[0].to));
-			if (/\.typ$/i.test(path)) return el('includedoc', { path, command: 'typst' });
+			if (/\.typ$/i.test(path)) return buildNode('includedoc', { path, command: 'typst' });
 		}
 	}
 	return rawBlock(src.slice(hash.from, stmt.to));
@@ -284,10 +284,10 @@ export function typstToProseMirror(source: string): TypstParseResult {
 	// bytes ride along as the paragraph's protected leading gap, so even "\r\n" round-trips
 	if (result.length === 0) {
 		const orig = { latex: '', pre: source, seq: 0, norm: null, start: source.length };
-		return { doc: el('doc', { docTail: { text: '', afterSeq: 0 } }, [withOrig(el('paragraph', { indent: 'auto' }), orig)]) };
+		return { doc: buildNode('doc', { docTail: { text: '', afterSeq: 0 } }, [withOrig(buildNode('paragraph', { indent: 'auto' }), orig)]) };
 	}
 
 	// trailing bytes past the last block belong to no node; stash them so a pristine save
 	// reproduces the file's exact tail (an EMPTY tail protects a missing final newline too)
-	return { doc: mergeAdjacentRawBlocks(el('doc', { docTail: { text: source.slice(prevEnd), afterSeq: seq - 1 } }, result)) };
+	return { doc: mergeAdjacentRawBlocks(buildNode('doc', { docTail: { text: source.slice(prevEnd), afterSeq: seq - 1 } }, result)) };
 }

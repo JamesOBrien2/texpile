@@ -9,7 +9,7 @@ import { Compartment, type Extension } from '@codemirror/state';
 import { EditorView, ViewPlugin } from '@codemirror/view';
 import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { tags, type Tag } from '@lezer/highlight';
-import { get } from 'svelte/store';
+import { observe } from '$lib/runes/observe.svelte';
 import { resolvedMode } from '$lib/theme';
 
 type Role = {
@@ -108,11 +108,14 @@ const tracker = ViewPlugin.define((view) => {
 	views.add(view);
 	return { destroy: () => views.delete(view) };
 });
-resolvedMode.subscribe((mode) => {
-	for (const v of views) v.dispatch({ effects: compartment.reconfigure(styleFor(mode)) });
-});
+observe(
+	() => resolvedMode.current,
+	(mode) => {
+		for (const v of views) v.dispatch({ effects: compartment.reconfigure(styleFor(mode)) });
+	}
+);
 
 /** syntax highlighting that follows the app's light/dark mode; use instead of syntaxHighlighting(defaultHighlightStyle). */
 export function cmSyntaxHighlight(): Extension {
-	return [compartment.of(styleFor(get(resolvedMode))), tracker];
+	return [compartment.of(styleFor(resolvedMode.current)), tracker];
 }

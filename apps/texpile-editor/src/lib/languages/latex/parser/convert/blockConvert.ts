@@ -3,7 +3,7 @@
 import type { Node, Macro, Environment } from '@unified-latex/unified-latex-types';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
 import { getTextContent, isMathEnvironment, type RawStamped } from '../ast-utils';
-import { el, txt, nodeToLatexString, type PmNode, type ConversionContext, type ConversionOptions } from '../builders';
+import { buildNode, textNode, nodeToLatexString, type PmNode, type ConversionContext, type ConversionOptions } from '../builders';
 import { ignoredMacros } from '../macros';
 import { convertNodesToBlocks } from '../converter';
 import { macroHandlers } from './macroHandlers';
@@ -26,7 +26,7 @@ export function convertNodeToBlock(node: Node, ctx: ConversionContext, options: 
 			const envHandler = envHandlers[env.env];
 			if (envHandler) return envHandler(env, ctx, options);
 			const latexSource = nodeRawSource(node) ?? nodeToLatexString(node);
-			return [el('raw_latex', null, [txt(latexSource)])];
+			return [buildNode('raw_latex', null, [textNode(latexSource)])];
 		}
 		case 'environment': {
 			const env = node as Environment;
@@ -39,7 +39,7 @@ export function convertNodeToBlock(node: Node, ctx: ConversionContext, options: 
 			// verbatim-like / structural environments stay raw, byte-sliced when possible
 			if (VERBATIM_ENVS.has(env.env)) {
 				const latexSource = nodeRawSource(node) ?? nodeToLatexString(node);
-				return [el('raw_latex', null, [txt(latexSource)])];
+				return [buildNode('raw_latex', null, [textNode(latexSource)])];
 			}
 			if (options.unknownHandling === 'ignore') return null;
 
@@ -47,7 +47,7 @@ export function convertNodeToBlock(node: Node, ctx: ConversionContext, options: 
 			// verbatim so e.g. minipage keeps its {width}.
 			const envArgs = (env as Environment).args && (env as Environment).args!.length ? printRaw((env as Environment).args!) : '';
 			const envInner = convertNodesToBlocks(env.content, options);
-			return [el('environment', { name: env.env, args: envArgs }, envInner.length > 0 ? envInner : [el('paragraph')])];
+			return [buildNode('environment', { name: env.env, args: envArgs }, envInner.length > 0 ? envInner : [buildNode('paragraph')])];
 		}
 		case 'mathenv': {
 			// the declared type says `env: string`, but some math envs hand back a nested node
@@ -107,14 +107,16 @@ export function convertNodeToBlock(node: Node, ctx: ConversionContext, options: 
 			}
 
 			const label = lineLabels.length > 0 ? lineLabels[0] : null;
-			return [el('block_math', { label, numbered: !starred, environment, lineLabels }, [txt(String(mathContent || '').trim())])];
+			return [
+				buildNode('block_math', { label, numbered: !starred, environment, lineLabels }, [textNode(String(mathContent || '').trim())])
+			];
 		}
 		case 'displaymath': {
 			// slice the exact source between the delimiters; printRaw fallback
 			const displayMathContent = mathBodyRawSource(node, ['\\[', '$$'], ['\\]', '$$']) ?? printRaw(node.content || []);
 			return [
-				el('block_math', { label: null, numbered: false, environment: null, lineLabels: [] }, [
-					txt(String(displayMathContent || '').trim())
+				buildNode('block_math', { label: null, numbered: false, environment: null, lineLabels: [] }, [
+					textNode(String(displayMathContent || '').trim())
 				])
 			];
 		}
@@ -123,7 +125,7 @@ export function convertNodeToBlock(node: Node, ctx: ConversionContext, options: 
 			const macro = node as Macro;
 			// a commented call captured verbatim by the heuristics: emit as-is
 			const rawMacro = macro as RawStamped<Macro>;
-			if (rawMacro._raw != null) return [el('raw_latex', null, [txt(String(rawMacro._raw))])];
+			if (rawMacro._raw != null) return [buildNode('raw_latex', null, [textNode(String(rawMacro._raw))])];
 			if (ignoredMacros.has(macro.content)) return null;
 
 			const handler = macroHandlers[macro.content];
@@ -142,7 +144,7 @@ export function convertNodeToBlock(node: Node, ctx: ConversionContext, options: 
 			const handling = options.unknownHandling ?? 'raw_latex';
 			if (handling === 'raw_latex') {
 				const latexSource = nodeRawSource(node) ?? nodeToLatexString(node);
-				if (String(latexSource || '').trim()) return [el('raw_latex', null, [txt(latexSource)])];
+				if (String(latexSource || '').trim()) return [buildNode('raw_latex', null, [textNode(latexSource)])];
 			}
 			return null;
 		}

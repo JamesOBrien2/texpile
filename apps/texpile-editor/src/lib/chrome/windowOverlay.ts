@@ -8,9 +8,9 @@
 // Colours are read off the live element rather than named, so a theme change - or a new theme -
 // carries without anyone remembering this file exists.
 
-import { get } from 'svelte/store';
 import { settings } from '$lib/settings';
-import { native } from '$lib/workspace/fileSystem';
+import { observe } from '$lib/runes/observe.svelte';
+import { nativeBridge } from '$lib/workspace/fileSystem';
 import { isMac } from '$lib/platform';
 
 type OverlayApi = {
@@ -74,7 +74,7 @@ function scrimLayers(): string[] {
  * Returns a teardown. A no-op on macOS and in the browser build, where there is no overlay.
  */
 export function syncWindowOverlay(el: HTMLElement): () => void {
-	const api = native() as OverlayApi | undefined;
+	const api = nativeBridge() as OverlayApi | undefined;
 	if (isMac || !api?.windowSetOverlay) return () => {};
 
 	// last values sent: the observers below fire on plenty of changes that move neither, and an IPC
@@ -86,7 +86,7 @@ export function syncWindowOverlay(el: HTMLElement): () => void {
 		// The overlay is sized in DEVICE pixels and does not scale with webContents.setZoomFactor,
 		// but the bar it sits in is CSS pixels and does. At zoom 1.5 a 32px bar is 48 real pixels,
 		// and an overlay left at 32 would leave the buttons floating above the bar's bottom edge.
-		const zoom = Number(get(settings).uiZoom) || 1;
+		const zoom = Number(settings.current.uiZoom) || 1;
 		// Content box, NOT the border box. The bar's border-b is the divider drawn UNDER it, and an
 		// overlay tall enough to include it covers that line on the right-hand side only - which does
 		// not read as a 1px error, it reads as the bar being thicker at one end than the other.
@@ -123,7 +123,7 @@ export function syncWindowOverlay(el: HTMLElement): () => void {
 	mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-mode'] });
 	// uiZoom resizes nothing the observer can see: setZoomFactor scales the whole renderer, so the
 	// bar's CSS height is unchanged and only the device-pixel height it maps to moves
-	const unsub = settings.subscribe(push);
+	const unsub = observe(() => settings.current, push);
 	// maximise / restore / full screen all change the overlay's geometry, and full screen removes it
 	// entirely; re-reporting keeps the strip and the window fill correct across each of those
 	const offState = api.onWindowState?.(push);

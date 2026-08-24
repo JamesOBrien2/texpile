@@ -3,7 +3,6 @@
 // The ordering here is load-bearing. The claim and the unsaved-edit guard both run BEFORE any
 // store flips, so a folder already open in another window never prompts the user to discard, and
 // a cancelled switch really cancels: no effect can record the old folder's file under the new root.
-import { get } from 'svelte/store';
 import { navigate } from '$lib/router.svelte';
 import { tabs } from '$lib/workspace/tabs.svelte';
 import { docPositions } from '$lib/workspace/docPositions';
@@ -53,7 +52,7 @@ export class FolderLifecycle {
 		const d = this.deps;
 		const root = path ?? (await pickFolder());
 		if (!root) return;
-		const prevRoot = get(workspaceRoot);
+		const prevRoot = workspaceRoot.current;
 		try {
 			// already open in another window: that window was focused, this one stays put.
 			// claim BEFORE the unsaved prompt so a doomed switch never asks the user to discard.
@@ -67,18 +66,18 @@ export class FolderLifecycle {
 			if (d.sessionActive() && root !== prevRoot) await d.endSession();
 			d.resolveMainConfirm(root); // before the stores flip, so the modal effect can't see a stale state
 			d.flushSaves(); // autosave-on: persist the outgoing folder's queued edit before the swap
-			activeFilePath.set(null); // detach the old file so nothing re-tabs it under the new root
+			activeFilePath.current = null; // detach the old file so nothing re-tabs it under the new root
 			// Flip the shell NOW, before the scan: the new workspace renders immediately (empty
 			// explorer, its saved tabs) and the slow parts backfill below. On a big folder the scan
 			// takes seconds, and it used to run first, freezing the OLD workspace on screen.
-			workspaceRoot.set(root);
+			workspaceRoot.current = root;
 			// the OLD main must not survive into the scan window: effects keyed on it (the existing-log
 			// loader, lane detection) would compute the previous folder's paths under the new root
-			mainFile.set(null);
+			mainFile.current = null;
 			tabs.bind(root, d.hostMode()); // rebind before refreshTree's prune, so tabs persist under the NEW root
 			docPositions.bind(root, d.hostMode());
-			texFiles.set([]);
-			fileTree.set([]);
+			texFiles.current = [];
+			fileTree.current = [];
 			addRecentFolder(root);
 			// old-folder shells and references must not serve the new root while the scan runs;
 			// both do their own (fast, superseding) work against the new root right away
@@ -86,11 +85,11 @@ export class FolderLifecycle {
 			d.loadRefs(root);
 			// (no lastFolder write: the MAIN process maintains settings.openFolders for session restore)
 			const { files } = await d.scanTexFiles(root);
-			if (get(workspaceRoot) !== root) return; // a newer switch took over mid-scan
-			texFiles.set(files);
+			if (workspaceRoot.current !== root) return; // a newer switch took over mid-scan
+			texFiles.current = files;
 			await d.refreshTree();
 			await this.initProject(root);
-			if (get(workspaceRoot) === root && !get(activeFilePath)) activeFilePath.set(files[0]?.path ?? null);
+			if (workspaceRoot.current === root && !activeFilePath.current) activeFilePath.current = files[0]?.path ?? null;
 		} catch (e) {
 			console.error('Failed to open folder:', e);
 		}
@@ -105,12 +104,12 @@ export class FolderLifecycle {
 		await d.flushSavesAndWait();
 		d.resolveMainConfirm(null);
 		releaseWorkspace(); // frees the folder so another window may open it
-		workspaceRoot.set(null);
-		texFiles.set([]);
-		fileTree.set([]);
-		activeFilePath.set(null);
-		mainFile.set(null);
-		isDirty.set(false);
+		workspaceRoot.current = null;
+		texFiles.current = [];
+		fileTree.current = [];
+		activeFilePath.current = null;
+		mainFile.current = null;
+		isDirty.current = false;
 		tabs.bind(null, false); // never leave the store bound persistable to a released root
 		docPositions.bind(null, false);
 		navigate('/');
@@ -123,7 +122,7 @@ export class FolderLifecycle {
 			await this.open(root);
 			setMainFile(root, main);
 			this.deps.setMainConfirmed(true); // the starter picked the main; no first-compile question
-			activeFilePath.set(main); // open() opens files[0] (alphabetical), not the main file
+			activeFilePath.current = main; // open() opens files[0] (alphabetical), not the main file
 		} catch (e) {
 			toaster.error({ title: m.wsview_toast_tutorial_failed_title(), description: e instanceof Error ? e.message : String(e) });
 		}
@@ -157,11 +156,11 @@ export class FolderLifecycle {
 		const saved = savedMainFile(root);
 		const savedExists = !!(saved && files.some((f) => samePath(f.path, saved)));
 		const main = savedExists ? saved : files.length === 1 ? files[0].path : null;
-		if (get(workspaceRoot) !== root) return; // folder changed under us
+		if (workspaceRoot.current !== root) return; // folder changed under us
 		// a folder whose main file was never explicitly chosen asks once before the first compile
 		// (single-file folders have nothing to choose)
 		d.setMainConfirmed(savedExists || files.length <= 1);
-		mainFile.set(main);
+		mainFile.current = main;
 		d.loadExistingPdf(); // show an already-compiled PDF for this folder without a recompile
 		d.setProjectMacros(main ? await gatherProjectMacros(main, root) : '');
 	}

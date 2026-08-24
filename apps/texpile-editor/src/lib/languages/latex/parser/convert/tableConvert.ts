@@ -3,7 +3,15 @@
 import type { Node, Macro, Environment } from '@unified-latex/unified-latex-types';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
 import { getTextContent, getMacroFirstArg } from '../ast-utils';
-import { el, txt, nodeToLatexString, createDefaultContext, type PmNode, type ConversionContext, type ConversionOptions } from '../builders';
+import {
+	buildNode,
+	textNode,
+	nodeToLatexString,
+	createDefaultContext,
+	type PmNode,
+	type ConversionContext,
+	type ConversionOptions
+} from '../builders';
 import { SCOPED_SWITCHES, FONT_SIZE_SWITCHES } from '../macros';
 import { convertNodesToBlocks } from '../converter';
 import { convertNodesToInline } from './inlineConvert';
@@ -28,7 +36,7 @@ function extractTableComponents(content: Node[], ctx: ConversionContext) {
 		if (node.type === 'macro' && node.content === 'caption') {
 			const arg = getMacroFirstArg(node as Macro);
 			const captionText = convertNodesToInline(arg, ctx);
-			caption = el('table_caption', null, captionText);
+			caption = buildNode('table_caption', null, captionText);
 		} else if (node.type === 'macro' && node.content === 'label') {
 			const text = getTextContent(getMacroFirstArg(node as Macro));
 			if (text) labels.push(text);
@@ -100,7 +108,7 @@ function extractTableComponents(content: Node[], ctx: ConversionContext) {
 	if (noteNodes.length > 0) {
 		const convertedNotes = convertNodesToInline(noteNodes, ctx);
 		if (convertedNotes.length > 0) {
-			notes.push(el('table_notes', null, convertedNotes));
+			notes.push(buildNode('table_notes', null, convertedNotes));
 		}
 	}
 
@@ -130,11 +138,11 @@ export function createTableWrapper(env: Environment, ctx: ConversionContext, opt
 		if (containsTabular(env.content)) {
 			const envArgs = (env as Environment).args && (env as Environment).args!.length ? printRaw((env as Environment).args!) : '';
 			const inner = convertNodesToBlocks(env.content, options);
-			return [el('environment', { name: env.env, args: envArgs }, inner.length > 0 ? inner : [el('paragraph')])];
+			return [buildNode('environment', { name: env.env, args: envArgs }, inner.length > 0 ? inner : [buildNode('paragraph')])];
 		}
 		// genuinely unmodellable (tabulary, tabu, ...): block-parsing would inject an illegal
 		// \par and mangle the column spec, so preserve the whole float verbatim.
-		return [el('raw_latex', null, [txt(nodeRawSource(env) ?? nodeToLatexString(env))])];
+		return [buildNode('raw_latex', null, [textNode(nodeRawSource(env) ?? nodeToLatexString(env))])];
 	}
 
 	// the float's own placement specifier ([t], [H], or '' when the source had none), round-
@@ -143,7 +151,7 @@ export function createTableWrapper(env: Environment, ctx: ConversionContext, opt
 	const placement = env.args && env.args.length ? printRaw(env.args) : '';
 
 	return [
-		el(
+		buildNode(
 			'table_wrapper',
 			{
 				label: label,
@@ -158,7 +166,7 @@ export function createTableWrapper(env: Environment, ctx: ConversionContext, opt
 				// synthesized from this attr, without it a table* loses its two-column span.
 				spanning: env.env === 'table*'
 			},
-			[caption || el('table_caption'), tableNode, ...notes]
+			[caption || buildNode('table_caption'), tableNode, ...notes]
 		)
 	];
 }
@@ -216,7 +224,7 @@ export function createTable(env: Environment): PmNode[] {
 		}
 	}
 	function flushRow(cells: PmNode[]) {
-		rows.push(el('table_row', { topRules: rowTop }, cells.length > 0 ? cells : [createTableCell([])]));
+		rows.push(buildNode('table_row', { topRules: rowTop }, cells.length > 0 ? cells : [createTableCell([])]));
 		rowTop = '';
 		rowStarted = false;
 	}
@@ -265,10 +273,10 @@ export function createTable(env: Environment): PmNode[] {
 	const bottomRules = pendingRules; // rules after the final row
 
 	if (rows.length === 0) {
-		rows.push(el('table_row', null, [createTableCell([])]));
+		rows.push(buildNode('table_row', null, [createTableCell([])]));
 	}
 
-	return [el('table', { env: env.env, colspec, tabularxWidth, bottomRules }, resolveSpans(rows))];
+	return [buildNode('table', { env: env.env, colspec, tabularxWidth, bottomRules }, resolveSpans(rows))];
 }
 
 // a node that contributes no cell content (whitespace / comments / empty strings)
@@ -331,7 +339,7 @@ export function createTableCell(content: Node[]): PmNode {
 	const ctx = createDefaultContext();
 	const inlineContent = convertNodesToInline(inner.slice(start, end), ctx);
 
-	return el('table_cell', { colspan, rowspan, colwidth: null }, [el('paragraph', null, inlineContent)]);
+	return buildNode('table_cell', { colspan, rowspan, colwidth: null }, [buildNode('paragraph', null, inlineContent)]);
 }
 
 // drop the placeholder cells LaTeX writes UNDER a \multirow so the prosemirror-tables covered-
@@ -357,7 +365,7 @@ export function resolveSpans(rows: PmNode[]): PmNode[] {
 			if (rs > 1) for (let rr = r + 1; rr < r + rs; rr++) for (let cc = col; cc < col + cs; cc++) mark(rr, cc);
 			col += cs;
 		});
-		return el('table_row', { topRules: row.attrs.topRules ?? '' }, kept.length ? kept : [createTableCell([])]);
+		return buildNode('table_row', { topRules: row.attrs.topRules ?? '' }, kept.length ? kept : [createTableCell([])]);
 	});
 }
 

@@ -5,27 +5,60 @@
 // moved out entirely - commands/outputs/toggles are the project's own, in .texpile/config.json,
 // adopted per open through compileConfig - so what remains here is exactly what cannot travel:
 // session memory and this machine's approvals.
-import { writable, derived } from 'svelte/store';
+import { untrack } from 'svelte';
+import { box } from '$lib/runes/box.svelte';
 import { getFolder, updateFolder } from '$lib/storage/workspaces';
-import { users } from '$lib/storage/users';
+import { userData } from '$lib/storage/userData';
 import type { TexFile, TreeEntry } from './fileSystem';
 
-export const workspaceRoot = writable<string | null>(null);
+export const workspaceRoot = box<string | null>(null);
 
-export const texFiles = writable<TexFile[]>([]);
+export const texFiles = box<TexFile[]>([]);
 
-export const fileTree = writable<TreeEntry[]>([]);
+export const fileTree = box<TreeEntry[]>([]);
 
-export const activeFilePath = writable<string | null>(null);
+/**
+ * The open file's path, with a synchronous write hook on top of the plain box.
+ *
+ * The hook is the runes stand-in for the store subscription the caret save relied on: it fires
+ * INSIDE the assignment, before whatever the writer does next. A deferred $effect is not
+ * equivalent - folder switches rebind docPositions, deletes forget() the entry, and openDiff
+ * flips the mode, all synchronously after the write, and a save that flushes later reads that
+ * mutated world (wrong root, resurrected entry, failed mode guard).
+ */
+type ActiveFileWriteHook = () => void;
+const activeFileWriteHooks = new Set<ActiveFileWriteHook>();
+const activeFileBox = box<string | null>(null);
+export const activeFilePath = {
+	get current(): string | null {
+		return activeFileBox.current;
+	},
+	set current(next: string | null) {
+		// untracked for the same reason as box's setter: the changed-check reads the box, and a
+		// writer inside an effect must not adopt it as a dependency
+		const changed = untrack(() => next !== activeFileBox.current);
+		activeFileBox.current = next;
+		if (changed) for (const hook of activeFileWriteHooks) hook();
+	},
+	/** fires synchronously inside every value-changing write; returns an unregister. */
+	onWrite(hook: ActiveFileWriteHook): () => void {
+		activeFileWriteHooks.add(hook);
+		return () => activeFileWriteHooks.delete(hook);
+	}
+};
 
 /** the main entry .tex, anchors cross-file macro resolution. auto-detected, user-overridable, persisted per folder. */
-export const mainFile = writable<string | null>(null);
+export const mainFile = box<string | null>(null);
 
-export const isDirty = writable<boolean>(false);
+export const isDirty = box<boolean>(false);
 
 /** most-recent first; lives in texpile:users (an MRU is the user's history, not folder config). */
-export const recentFolders = derived(users, (u) => u.recentFolders);
-export { addRecentFolder } from '$lib/storage/users';
+export const recentFolders = {
+	get current(): string[] {
+		return userData.current.recentFolders;
+	}
+};
+export { addRecentFolder } from '$lib/storage/userData';
 
 function norm(p: string) {
 	return p.replace(/\\/g, '/').replace(/\/+$/, '');
@@ -76,7 +109,7 @@ export function savedMainFileRel(root: string): string | null {
 
 /** remembers (or clears) the chosen main file for a folder, and updates the live store. */
 export function setMainFile(root: string, path: string | null): void {
-	mainFile.set(path);
+	mainFile.current = path;
 	updateFolder(root, (draft) => {
 		if (path) draft.main = relInRoot(root, path);
 		else delete draft.main;

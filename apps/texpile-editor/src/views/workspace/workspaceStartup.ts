@@ -1,6 +1,5 @@
 // The workspace's mount sequence: folder claim, per-folder state binds, layout restores, the
 // window listeners and the before-close guard. Returns the teardown for onMount.
-import { get } from 'svelte/store';
 import { navigate } from '$lib/router.svelte';
 import { tabs } from '$lib/workspace/tabs.svelte';
 import { docPositions } from '$lib/workspace/docPositions';
@@ -38,7 +37,7 @@ export function startWorkspace(d: StartupDeps): (() => void) | undefined {
 	const { wsdoc, editFlow, files, layout, termDock, hostMode, guest } = d;
 	const { doc, modes, diff } = wsdoc;
 	const { saver, unsaved } = editFlow;
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	if (!root) {
 		navigate('/');
 		return;
@@ -48,8 +47,8 @@ export function startWorkspace(d: StartupDeps): (() => void) | undefined {
 	// a guest session owns no folder, so it neither claims nor sets up a terminal/main file.
 	if (hostMode) {
 		void claimWorkspace(root).then((c) => {
-			if (!c.ok && get(workspaceRoot) === root) {
-				workspaceRoot.set(null);
+			if (!c.ok && workspaceRoot.current === root) {
+				workspaceRoot.current = null;
 				navigate('/');
 			}
 		});
@@ -74,7 +73,7 @@ export function startWorkspace(d: StartupDeps): (() => void) | undefined {
 	diff.restoreLayout();
 
 	function reloadReferences() {
-		const r = get(workspaceRoot);
+		const r = workspaceRoot.current;
 		if (r) void files.loadRefs(r);
 	}
 	const detachListeners = attachWindowListeners({
@@ -87,7 +86,7 @@ export function startWorkspace(d: StartupDeps): (() => void) | undefined {
 		reloadProjectState: () => {
 			// both live in .texpile/ and both are committed, so both arrive by pull
 			void d.commentsCtl.refresh();
-			void projectConfig.refresh(guest ? null : get(workspaceRoot)).then(() => {
+			void projectConfig.refresh(guest ? null : workspaceRoot.current).then(() => {
 				d.cc.resolveNow();
 			});
 		}

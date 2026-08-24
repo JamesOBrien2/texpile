@@ -3,7 +3,8 @@
 // process (vim, a REPL, ssh) is reading input, so the command gets a shell of its own.
 import { m } from '$lib/paraglide/messages';
 
-type TermRef = { run(cmd: string, onDone?: (output: string) => void): void; interrupt(): void; refit(): void; focus(): void } | undefined;
+type TermRef =
+	{ runCommand(cmd: string, onDone?: (output: string) => void): void; interrupt(): void; refit(): void; focus(): void } | undefined;
 
 export class TerminalShells {
 	terminals = $state<{ id: number; title: string }[]>([]);
@@ -85,7 +86,7 @@ export class TerminalShells {
 		}
 		const ref = this.refs[id];
 		if (ref) {
-			ref.run(cmd, onDone);
+			ref.runCommand(cmd, onDone);
 			return;
 		}
 		if (tries < 40) setTimeout(() => this.runCommand(cmd, onDone, tries + 1), 25); // ~1s for first mount

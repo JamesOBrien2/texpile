@@ -75,7 +75,7 @@
 	});
 	const commentsCtl = commentsW.ctl;
 
-	const folderEmpty = $derived($texFiles.length === 0);
+	const folderEmpty = $derived(texFiles.current.length === 0);
 
 	const kind = $derived(doc.kind);
 	// a guest opening a text-looking file the host shares as name only (too large / extension the
@@ -85,7 +85,7 @@
 	// live/draft mode isn't supported in a shared session: guests can't run the incremental engine,
 	// they see the host's compiled PDF. Force it off while hosting (the toggle is disabled there too).
 	$effect(() => {
-		if (session.active && !guest && $compileConfig.latex.liveMode) projectConfig.setLiveMode($workspaceRoot, false);
+		if (session.active && !guest && compileConfig.current.latex.liveMode) projectConfig.setLiveMode(workspaceRoot.current, false);
 	});
 	// tree ops, starters, folder lifecycle, main-file choice and rename repointing live in
 	// ./workspaceFiles.svelte.ts
@@ -241,7 +241,7 @@
 		return () => setPaletteActions(null);
 	});
 
-	const uiZoomPercent = $derived(Math.round(($settings.uiZoom ?? 1) * 100));
+	const uiZoomPercent = $derived(Math.round((settings.current.uiZoom ?? 1) * 100));
 	// shortcut table + UI zoom live in lib/workspace/shortcuts.ts
 	const onKeydown = createKeydownHandler({
 		getLoadedPath: () => doc.path,
@@ -259,7 +259,10 @@
 <svelte:window onkeydown={onKeydown} />
 <!-- file - folder - app (VS Code's order); the folder segment tells windows apart in the taskbar -->
 <svelte:head
-	><title>{$workspaceRoot ? `${doc.path ? `${basename(doc.path)} - ` : ''}${basename($workspaceRoot)} - Texpile` : 'Texpile'}</title
+	><title
+		>{workspaceRoot.current
+			? `${doc.path ? `${basename(doc.path)} - ` : ''}${basename(workspaceRoot.current)} - Texpile`
+			: 'Texpile'}</title
 	></svelte:head
 >
 
@@ -323,7 +326,7 @@
 				sourceGotoLine: nav.sourceGotoLine,
 				sourceDiagnostics: cc.sourceDiagnostics,
 				fileUrl: (p: string) => provider.fileUrl(p),
-				cwd: $workspaceRoot ?? '',
+				cwd: workspaceRoot.current ?? '',
 				comments: commentsCtl.threads,
 				commentFile: commentsCtl.activeFile,
 				commandPending: !!projectConfig.pending,
@@ -364,7 +367,7 @@
 
 <TutorialConfirmModal bind:open={tutorialModalOpen} onConfirm={(root) => void files.folder.openTutorial(root)} />
 {#if !guest}
-	<SessionShareModal bind:open={shareModalOpen} root={$workspaceRoot} onBeforeStart={() => saver.flushAndWait()} />
+	<SessionShareModal bind:open={shareModalOpen} root={workspaceRoot.current} onBeforeStart={() => saver.flushAndWait()} />
 {/if}
 {#if session.active}
 	<VisualCollab bind:this={visualCollab} {session} path={doc.path} {kind} viewMode={modes.mode} api={visualCollabApi} />

@@ -1,6 +1,6 @@
 // client-side git access over Electron IPC. never throws: a non-repo folder, a missing
 // git binary, or a missing bridge comes back as { ok: false }
-import { native } from './fileSystem';
+import { nativeBridge } from './fileSystem';
 
 /** single-letter tree badge (VS Code convention). */
 export type GitBadge = 'M' | 'A' | 'D' | 'U' | 'R';
@@ -40,7 +40,7 @@ function errMsg(e: unknown) {
 }
 
 export async function gitStatus(root: string): Promise<GitStatusResult> {
-	const n = native();
+	const n = nativeBridge();
 	if (!n) return { ok: false, error: NO_BRIDGE };
 	try {
 		return await n.gitStatus(root);
@@ -51,7 +51,7 @@ export async function gitStatus(root: string): Promise<GitStatusResult> {
 
 /** committed (HEAD) contents of a file, for diffing against the working copy. */
 export async function gitShowHead(path: string): Promise<GitShowResult> {
-	const n = native();
+	const n = nativeBridge();
 	if (!n) return { ok: false, hasHead: false, error: NO_BRIDGE };
 	try {
 		return await n.gitShow(path);
@@ -61,7 +61,7 @@ export async function gitShowHead(path: string): Promise<GitShowResult> {
 }
 
 export async function gitInit(dir: string): Promise<GitOpResult> {
-	const n = native();
+	const n = nativeBridge();
 	if (!n) return { ok: false, error: NO_BRIDGE };
 	try {
 		return await n.gitInit(dir);
@@ -72,7 +72,7 @@ export async function gitInit(dir: string): Promise<GitOpResult> {
 
 /** stages files (empty = all). */
 export async function gitStage(root: string, paths: string[] = []): Promise<GitOpResult> {
-	const n = native();
+	const n = nativeBridge();
 	if (!n) return { ok: false, error: NO_BRIDGE };
 	try {
 		return await n.gitStage(root, paths);
@@ -83,7 +83,7 @@ export async function gitStage(root: string, paths: string[] = []): Promise<GitO
 
 /** unstages files (empty = all). */
 export async function gitUnstage(root: string, paths: string[] = []): Promise<GitOpResult> {
-	const n = native();
+	const n = nativeBridge();
 	if (!n) return { ok: false, error: NO_BRIDGE };
 	try {
 		return await n.gitUnstage(root, paths);
@@ -94,7 +94,7 @@ export async function gitUnstage(root: string, paths: string[] = []): Promise<Gi
 
 /** discards unstaged working-tree changes to tracked files. */
 export async function gitDiscard(root: string, paths: string[]): Promise<GitOpResult> {
-	const n = native();
+	const n = nativeBridge();
 	if (!n) return { ok: false, error: NO_BRIDGE };
 	try {
 		return await n.gitDiscard(root, paths);
@@ -104,7 +104,7 @@ export async function gitDiscard(root: string, paths: string[]): Promise<GitOpRe
 }
 
 export async function gitCommit(root: string, message: string): Promise<GitOpResult> {
-	const n = native();
+	const n = nativeBridge();
 	if (!n) return { ok: false, error: NO_BRIDGE };
 	try {
 		return await n.gitCommit(root, message);

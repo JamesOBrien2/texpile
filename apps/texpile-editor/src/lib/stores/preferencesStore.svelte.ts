@@ -3,9 +3,8 @@
 // looks), the dismissal and onboarding flags in texpile:users (the user's own memory). The
 // EditorPreferences shape survives as a facade so the editors keep one object to read and write.
 import { browser } from '$lib/runtime';
-import { get } from 'svelte/store';
 import { layout, updateLayout } from '$lib/storage/layout';
-import { users, updateUsers } from '$lib/storage/users';
+import { userData, updateUserData } from '$lib/storage/userData';
 
 export type EditorPreferences = {
 	/** editor zoom level (1 = 100%). */
@@ -20,8 +19,8 @@ export type EditorPreferences = {
 };
 
 function snapshot(): EditorPreferences {
-	const l = get(layout);
-	const u = get(users);
+	const l = layout.current;
+	const u = userData.current;
 	return {
 		zoom: l.editorZoom,
 		pageView: l.pageView,
@@ -64,7 +63,7 @@ $effect.root(() => {
 		if (saveTimeout) clearTimeout(saveTimeout);
 		saveTimeout = setTimeout(() => {
 			updateLayout({ editorZoom: snap.zoom, pageView: snap.pageView, previewVisible: snap.previewVisible, sidebarOpen: snap.sidebarOpen });
-			updateUsers({
+			updateUserData({
 				advancedWarningDismissed: snap.advancedWarningDismissed,
 				onboardingCompleted: snap.onboardingCompleted,
 				tourCompleted: snap.tourCompleted

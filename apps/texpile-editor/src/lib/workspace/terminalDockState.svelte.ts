@@ -2,7 +2,6 @@
 // resizing. The dock stays MOUNTED once opened so shells persist across toggles; only its
 // visibility flips. A guest has no shells of its own, so its toggles are never persisted.
 import { browser } from '$lib/runtime';
-import { get } from 'svelte/store';
 import { layout, updateLayout } from '$lib/storage/layout';
 import { startDrag, nudgeOnKey, clampTo, SNAP_SLACK } from '$lib/workspace/paneResize';
 
@@ -37,7 +36,7 @@ export class TerminalDockState {
 
 	/** restore persisted height/visibility/shrink (texpile:layout); call once at mount */
 	restore() {
-		const s = get(layout);
+		const s = layout.current;
 		if (s.terminalHeight >= MIN_HEIGHT && s.terminalHeight <= MAX_HEIGHT) this.height = s.terminalHeight;
 		if (this.available && s.terminalVisible) {
 			this.mounted = true;

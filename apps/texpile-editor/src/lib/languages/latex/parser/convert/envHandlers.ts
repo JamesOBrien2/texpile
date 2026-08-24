@@ -2,7 +2,7 @@
 // mutually recursive with the walkers in converter.ts; ESM live bindings make the circular import safe
 import type { Node, Macro, Environment } from '@unified-latex/unified-latex-types';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
-import { el, txt, nodeToLatexString, type PmNode } from '../builders';
+import { buildNode, textNode, nodeToLatexString, type PmNode } from '../builders';
 import { listingLanguage } from '../listingLanguage';
 import { convertNodesToBlocks } from '../converter';
 import { type EnvHandler } from './macroHandlers';
@@ -30,7 +30,7 @@ export function codeBlockFromVerbatimEnv(env: Environment): PmNode {
 	const args = env.args && env.args.length ? printRaw(env.args) : '';
 	// the language the source already declares, so a listing opens highlighted instead of as plain
 	// text with a dropdown that has to be set by hand every time (and forgot the answer on reload)
-	return el('code_block', { lang: listingLanguage(env.env, args) ?? 'text', env: env.env, args }, [txt(body)]);
+	return buildNode('code_block', { lang: listingLanguage(env.env, args) ?? 'text', env: env.env, args }, [textNode(body)]);
 }
 
 export const envHandlers: Record<string, EnvHandler> = {
@@ -38,10 +38,10 @@ export const envHandlers: Record<string, EnvHandler> = {
 	itemize: (env, _ctx, options) => createList(env, 'bullet', options),
 	enumerate: (env, _ctx, options) => createList(env, 'ordered', options),
 	description: (env, _ctx, options) => createList(env, 'bullet', options),
-	quote: (env, _ctx, options) => [el('blockquote', null, convertNodesToBlocks(env.content, options))],
-	quotation: (env, _ctx, options) => [el('blockquote', null, convertNodesToBlocks(env.content, options))],
+	quote: (env, _ctx, options) => [buildNode('blockquote', null, convertNodesToBlocks(env.content, options))],
+	quotation: (env, _ctx, options) => [buildNode('blockquote', null, convertNodesToBlocks(env.content, options))],
 	// sourceForm:'env' so it round-trips to the env form (the command form stamps 'macro')
-	abstract: (env, _ctx, options) => [el('abstract', { sourceForm: 'env' }, convertNodesToBlocks(env.content, options))],
+	abstract: (env, _ctx, options) => [buildNode('abstract', { sourceForm: 'env' }, convertNodesToBlocks(env.content, options))],
 	// losing lstlisting's [language=...] silently drops \lstset styling keyed off it
 	verbatim: (env) => [codeBlockFromVerbatimEnv(env)],
 	lstlisting: (env) => [codeBlockFromVerbatimEnv(env)],
@@ -69,7 +69,7 @@ export const envHandlers: Record<string, EnvHandler> = {
 	longtable: (env) => {
 		const LT_MARKERS = new Set(['endfirsthead', 'endhead', 'endfoot', 'endlastfoot']);
 		const hasMarkers = (env.content as Node[]).some((n) => n.type === 'macro' && LT_MARKERS.has((n as Macro).content));
-		if (hasMarkers) return [el('raw_latex', null, [txt(nodeRawSource(env) ?? nodeToLatexString(env))])];
+		if (hasMarkers) return [buildNode('raw_latex', null, [textNode(nodeRawSource(env) ?? nodeToLatexString(env))])];
 		return createTable(env);
 	},
 	equation: (env) => createBlockMath(env, false),

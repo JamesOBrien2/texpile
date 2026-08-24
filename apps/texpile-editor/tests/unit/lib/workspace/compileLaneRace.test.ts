@@ -55,8 +55,8 @@ let compiler: InstanceType<typeof CompilePipeline>;
 
 beforeEach(() => {
 	localStorage.clear();
-	workspaceRoot.set(ROOT);
-	mainFile.set(`${ROOT}/FOO/book.typ`);
+	workspaceRoot.current = ROOT;
+	mainFile.current = `${ROOT}/FOO/book.typ`;
 	projectConfigSync.reset();
 });
 
@@ -86,7 +86,7 @@ describe('runCompile with a stale cached command (the main-confirm re-entry)', (
 	});
 
 	it('a .tex main still compiles with LaTeX - the fresh resolve changes nothing there', async () => {
-		mainFile.set(`${ROOT}/main.tex`);
+		mainFile.current = `${ROOT}/main.tex`;
 		const record = { previewOpens: 0, ran: [] as string[] };
 		// stale cache pointing the OTHER way round, for symmetry
 		compiler = new CompilePipeline(staleDeps(record, { getCompileCommand: () => 'tinymist compile {main}' }));

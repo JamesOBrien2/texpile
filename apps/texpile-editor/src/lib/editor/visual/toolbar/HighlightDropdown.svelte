@@ -12,7 +12,7 @@
 
 	let open = $state(false);
 
-	const highlightDisabled = $derived($templateFeaturesStore?.highlight === false);
+	const highlightDisabled = $derived(templateFeaturesStore.current?.highlight === false);
 
 	const highlightColors = [
 		{ name: m.tbar_color_yellow(), value: 'yellow' },
@@ -26,7 +26,7 @@
 	] as const;
 
 	function setHighlight(color: string) {
-		const view = $editorViewStore;
+		const view = editorViewStore.current;
 		if (view) {
 			const { state, dispatch } = view;
 			const { from, to } = state.selection;

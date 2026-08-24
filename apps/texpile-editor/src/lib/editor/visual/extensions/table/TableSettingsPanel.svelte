@@ -87,8 +87,8 @@
 	}
 
 	// notes and table* are LaTeX constructs; the typst serializer has nowhere to put them
-	const tableNotesEnabled = $derived(dialect === 'latex' && ($templateFeaturesStore?.tableNotes ?? true));
-	const columnSpanningEnabled = $derived(dialect === 'latex' && ($templateFeaturesStore?.columnSpanningFigures ?? false));
+	const tableNotesEnabled = $derived(dialect === 'latex' && (templateFeaturesStore.current?.tableNotes ?? true));
+	const columnSpanningEnabled = $derived(dialect === 'latex' && (templateFeaturesStore.current?.columnSpanningFigures ?? false));
 
 	let showAdvanced = $state(false);
 

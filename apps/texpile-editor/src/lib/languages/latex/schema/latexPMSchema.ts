@@ -7,7 +7,7 @@ import { marks } from './pmSchemaMarks';
 
 export { nodes, marks };
 
-// built by hand instead of createDefaultSettings (which pulls in the DOM, fatal for the worker).
+// built by hand instead of the imageplugin.svelte settings creators (which pull in the DOM, fatal for the worker).
 // must stay in sync with the runtime plugin settings: omitting isBlock once silently flipped the
 // image node to inline while the converter emitted block figures, freezing the editor on edit
 const schemaImageSettings: SchemaImageSettings = {

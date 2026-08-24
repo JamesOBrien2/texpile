@@ -1,7 +1,6 @@
 // user \newcommand-family definitions as a MathLive macro dictionary, so the math preview and
 // \ref hover render custom macros instead of erroring on them. bodies keep LaTeX's native #1
 // placeholders, which is exactly MathLive's MacroDefinition format.
-import { get } from 'svelte/store';
 import { projectIntelStore } from '$lib/stores/projectIntel';
 
 export type MacroDef = {
@@ -55,7 +54,7 @@ let cache: { text: string; intel: unknown; macros: Record<string, MacroDef> } | 
 
 /** buffer definitions merged over cross-file ones (buffer wins), cached per doc text. */
 export function mathMacrosFor(docText: string): Record<string, MacroDef> {
-	const intel = get(projectIntelStore);
+	const intel = projectIntelStore.current;
 	if (cache && cache.text === docText && cache.intel === intel) return cache.macros;
 	const macros: Record<string, MacroDef> = {};
 	for (const m of intel.macros) {

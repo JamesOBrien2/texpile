@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import { readSettings } from '../appSettings';
 import { isDev } from '../appIdentity';
 import { stopWorkspaceWatch } from '../fs/fsWatch';
-import { forgetWindow } from '../mcp/state';
+import { forgetWindow } from '../mcp/windowState';
 import { forgetWindowChrome, watchWindowState } from '../windowChrome';
 import { releaseDraftOwnerFor } from '../ipc/draftIpc';
 import { windowRoots, pendingOpens, pendingCloses, isQuitting, cancelQuit, persistOpenFolders, type PendingOpen } from './windowRegistry';
@@ -98,6 +98,8 @@ export function createWindow(url: string, pending?: PendingOpen): BrowserWindow 
 	if (pending) pendingOpens.set(wcId, pending);
 	win.loadURL(url);
 	win.webContents.on('did-finish-load', () => {
+		// escape hatch for a wedged renderer, where the in-app View menu can no longer answer
+		if (isDev && process.env.TEXPILE_OPEN_DEVTOOLS) win.webContents.openDevTools();
 		// restore the saved whole-window zoom before the first paint the user sees
 		const z = Number(readSettings().uiZoom);
 		if (Number.isFinite(z) && z > 0) win.webContents.setZoomFactor(z);

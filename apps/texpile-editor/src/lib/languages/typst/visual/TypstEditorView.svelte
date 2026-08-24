@@ -75,7 +75,7 @@
 	}: Props = $props();
 
 	$effect(() => {
-		referenceStore.set(localReferences);
+		referenceStore.current = localReferences;
 	});
 
 	let editor: HTMLElement = $state(null!);
@@ -123,7 +123,7 @@
 			}
 		});
 
-		$editorViewStore = editorView;
+		editorViewStore.current = editorView;
 		editor?.classList?.remove('hidden');
 		editorView.focus();
 		onReady?.();
@@ -170,7 +170,7 @@
 
 	onDestroy(() => {
 		editorView?.destroy();
-		editorViewStore.set(null);
+		editorViewStore.current = null;
 	});
 </script>
 

@@ -12,8 +12,8 @@
 // round-trip safe whichever of typst's two meanings it has.
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
-import { get } from 'svelte/store';
 import { referenceStore } from '$lib/stores/editorStore';
+import { observe } from '$lib/runes/observe.svelte';
 
 export class TypstRefView implements NodeView {
 	dom: HTMLElement;
@@ -28,8 +28,11 @@ export class TypstRefView implements NodeView {
 		this.dom = document.createElement('span');
 		this.dom.contentEditable = 'false';
 		// the bibliography loads after the doc first renders; chips upgrade from @key when it
-		// lands (subscribe fires once immediately, which is the initial render)
-		this.unsubscribe = referenceStore.subscribe(() => this.render(this.node));
+		// lands (observe fires once immediately, which is the initial render)
+		this.unsubscribe = observe(
+			() => referenceStore.current,
+			() => this.render(this.node)
+		);
 	}
 
 	/** what the label names in the doc, with the editor's own (approximate) running number.
@@ -56,7 +59,7 @@ export class TypstRefView implements NodeView {
 	private render(node: PMNode): void {
 		const target = String(node.attrs.target ?? '');
 		// the store starts as null (typed a lie) until a bibliography loads
-		const bib = (get(referenceStore) ?? []).find((r) => r.key === target);
+		const bib = (referenceStore.current ?? []).find((r) => r.key === target);
 		if (bib) {
 			const author = (Array.isArray(bib.author) ? bib.author.join(', ') : bib.author) || 'Unknown';
 			const year = bib.year ?? bib.date?.slice(0, 4) ?? 'n.d.';

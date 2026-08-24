@@ -1,6 +1,5 @@
 // the visual editor's right-click menu entries: clipboard actions for every dialect, and the
 // table block set with its selection-dependent visibility
-import { get } from 'svelte/store';
 import type { Component } from 'svelte';
 import { DOMSerializer } from 'prosemirror-model';
 import {
@@ -41,7 +40,7 @@ export type TableMenuDeps = {
 };
 
 function editorView() {
-	return get(editorViewStore);
+	return editorViewStore.current;
 }
 
 export function buildMenuItems(dialect: Dialect) {

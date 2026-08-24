@@ -2,7 +2,6 @@
 // description, \ref target preview (rendered math when the label sits in a math environment,
 // with the resolved number from the .aux), and an inline image preview for \includegraphics.
 import { hoverTooltip, type Tooltip } from '@codemirror/view';
-import { get } from 'svelte/store';
 import type { Extension } from '@codemirror/state';
 import { convertLatexToMarkup } from 'mathlive';
 import { referenceStore } from '$lib/stores/editorStore';
@@ -101,7 +100,7 @@ function enclosingMathEnv(text: string, idx: number): string | null {
 }
 
 function labelPreview(name: string, sourceText: string): { html: string; from?: string } | null {
-	const intel = get(projectIntelStore);
+	const intel = projectIntelStore.current;
 	const number = intel.auxNumbers[name];
 	const heading = number ? `<div class="text-xs opacity-70">(${escapeHtml(number)})</div>` : '';
 
@@ -169,7 +168,7 @@ export function latexHover(): Extension {
 			return { ...at, create: () => ({ dom: dom(parts.join('<br>')) }) };
 		}
 		if (token.kind === 'citekey') {
-			const ref = (get(referenceStore) ?? []).find((r) => r.key === token.value);
+			const ref = (referenceStore.current ?? []).find((r) => r.key === token.value);
 			if (!ref) return null;
 			const rows = CITE_FIELDS.map((f) => [f, ref[f]] as const)
 				.filter(([, v]) => typeof v === 'string' && v)
@@ -178,7 +177,7 @@ export function latexHover(): Extension {
 			return { ...at, create: () => ({ dom: dom(`<b>${escapeHtml(ref.key)}</b>${rows.join('')}`) }) };
 		}
 		if (token.kind === 'glosskey') {
-			const entry = get(projectIntelStore).glossary.find((g) => g.key === token.value);
+			const entry = projectIntelStore.current.glossary.find((g) => g.key === token.value);
 			if (!entry?.description) return null;
 			return { ...at, create: () => ({ dom: dom(escapeHtml(entry.description)) }) };
 		}

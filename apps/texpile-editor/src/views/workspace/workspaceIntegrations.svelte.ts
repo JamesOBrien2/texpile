@@ -1,7 +1,7 @@
 // The workspace's outward integrations: the MCP command surface and window-state cache,
 // shared-session handlers, cross-file project intel, the label/bibitem registries, editor
 // file access + graphics resolution, Zotero citations, and source-control actions.
-import { fromStore, get } from 'svelte/store';
+import { untrack } from 'svelte';
 import { publishWindowState } from '$lib/workspace/mcpPublish';
 import { attachMcpCommands } from '$lib/workspace/mcpCommands';
 import { attachSessionHandlers } from '$lib/collab/workspaceSession';
@@ -55,17 +55,9 @@ export class WorkspaceIntegrations {
 	// source control ops live in lib/workspace/scmActions.svelte.ts; the panel is presentational.
 	readonly scm: ScmActions;
 
-	#root = fromStore(workspaceRoot);
-	#main = fromStore(mainFile);
-	#texFiles = fromStore(texFiles);
-	#tree = fromStore(fileTree);
-	#active = fromStore(activeFilePath);
-	#dirty = fromStore(isDirty);
-	#settings = fromStore(settings);
-	#references = fromStore(references);
-
 	constructor(private d: IntegrationDeps) {
-		const { doc, modes } = d.wsdoc;
+		const { wsdoc } = d;
+		const { doc, modes } = wsdoc;
 		this.registries = new DocRegistries({
 			getSource: () => doc.texSource,
 			captureHistory: (text) => modes.history.capture(text)
@@ -82,15 +74,15 @@ export class WorkspaceIntegrations {
 		});
 
 		// Keep main's cache of what this window shows current, for the MCP get_editor_state tool.
-		// The dependencies have to be named HERE. buildWindowState reads every one of them with
-		// get(), the deliberately non-reactive store read. Tracking modes.mode alone froze the
-		// cache: set_main_file left mainFile null for the rest of the session, and `dirty` went
-		// stale after an edit. publishWindowState de-dupes identical payloads, so this costs nothing.
+		// The dependencies have to be named HERE: buildWindowState reads everything untracked,
+		// deliberately. Tracking modes.mode alone froze the cache: set_main_file left mainFile null
+		// for the rest of the session, and `dirty` went stale after an edit. publishWindowState
+		// de-dupes identical payloads, so this costs nothing.
 		$effect(() => {
-			void this.#main.current;
-			void this.#active.current;
-			void this.#dirty.current;
-			void this.#settings.current;
+			void mainFile.current;
+			void activeFilePath.current;
+			void isDirty.current;
+			void settings.current;
 			void tabs.list;
 			publishWindowState(modes.mode);
 		});
@@ -100,7 +92,9 @@ export class WorkspaceIntegrations {
 			attachMcpCommands({
 				getLoadedPath: () => doc.path,
 				getBuffer: () => doc.buffer,
-				openFile: (abs) => activeFilePath.set(abs),
+				openFile: (abs) => {
+					activeFilePath.current = abs;
+				},
 				openFileAtLine: (abs, line) => d.nav().openFileAtLine(abs, line),
 				showDiff: () => modes.set('diff'),
 				setViewMode: (mode) => modes.set(mode),
@@ -134,47 +128,50 @@ export class WorkspaceIntegrations {
 		});
 		$effect(() => this.registries.publish(this.allReferences));
 		$effect(() => {
-			const tree = this.#tree.current;
-			const root = this.#root.current;
-			filePathStore.set(root ? flattenPaths(tree, root) : []);
+			const tree = fileTree.current;
+			const root = workspaceRoot.current;
+			filePathStore.current = root ? flattenPaths(tree, root) : [];
 		});
 		// remember the open file per folder so reopening the workspace restores it (StartView's
 		// initialFile); recorded on every switch, kept when the file later disappears (existence is
 		// checked at restore time)
 		$effect(() => {
-			const root = this.#root.current;
-			const path = this.#active.current;
+			const root = workspaceRoot.current;
+			const path = activeFilePath.current;
 			if (root && path) setLastFile(root, path);
 		});
 		// a new folder starts blank: the previous folder's log, PDF and macros are meaningless here
 		// (the switch now flips the root before its scan, so these would otherwise linger on screen)
 		$effect(() => {
-			void this.#root.current; // dependency: re-run per folder
-			compileLog.set(null);
-			pdfStore.set(null); // initProject's loadExistingPdf refills it for the new folder
-			d.wsdoc.projectMacros = '';
-			d.setDockView('terminal');
-			d.compiler().resetForFolder(); // any pollers still watching the previous folder's paths stand down
-			d.cc().resolveNow();
+			void workspaceRoot.current; // dependency: re-run per folder
+			// untracked: resolveNow reads mainFile/compileConfig, and tracking those would replay
+			// this whole reset (blank PDF, dock steal) on a mere main-file or live-mode change
+			untrack(() => {
+				compileLog.current = null;
+				pdfStore.current = null; // initProject's loadExistingPdf refills it for the new folder
+				wsdoc.projectMacros = '';
+				d.setDockView('terminal');
+				d.compiler().resetForFolder(); // any pollers still watching the previous folder's paths stand down
+				d.cc().resolveNow();
+			});
 		});
 		// cross-file intel (labels/defs/glossary/outlines/aux numbers from the OTHER project files):
 		// rescan when the file list, main file, or active file changes - those are the only times the
 		// non-active files' on-disk state can have moved under us (a switch flushes the previous save)
 		$effect(() => {
-			const texList = this.#texFiles.current;
-			const main = this.#main.current;
-			const active = this.#active.current;
-			const tree = this.#tree.current;
-			const root = this.#root.current;
+			const texList = texFiles.current;
+			const main = mainFile.current;
+			const active = activeFilePath.current;
+			const tree = fileTree.current;
+			const root = workspaceRoot.current;
 			const session = d.session();
 			const guest = d.guest();
 			const bibs = root ? bibPathsFrom(flattenPaths(tree, root), root) : [];
-			// the .aux sits next to the log (output/aux dirs included); fall back to a main-sibling .aux
+			// the .aux sits next to the log (output/aux dirs included); fall back to a main-sibling .aux.
+			// untracked: expectedLogPath reads compileConfig, and a config edit alone (output dir,
+			// live-mode toggle) must not trigger a full intel rescan - the deps named above cover it
 			const aux =
-				d
-					.compiler()
-					.expectedLogPath()
-					?.replace(/\.log$/i, '.aux') ?? (main ? main.replace(/\.tex$/i, '.aux') : null);
+				untrack(() => d.compiler().expectedLogPath())?.replace(/\.log$/i, '.aux') ?? (main ? main.replace(/\.tex$/i, '.aux') : null);
 			// a guest has no aux on disk; the host's shared parse fills the numbers in (and re-runs
 			// this when a fresh compile lands). Reading session.active also seeds the host's share
 			// when a session starts against an already-compiled project.
@@ -195,7 +192,7 @@ export class WorkspaceIntegrations {
 			);
 			setGraphicResolver((rel) =>
 				graphicCandidateUrls(rel, {
-					root: get(workspaceRoot),
+					root: workspaceRoot.current,
 					loadedPath: doc.path,
 					source: doc.texSource,
 					fileUrl: (p) => d.provider.fileUrl(p)
@@ -209,7 +206,7 @@ export class WorkspaceIntegrations {
 	}
 
 	get allReferences() {
-		void this.#references.current; // re-derive when the folder's .bib entries change
+		void references.current; // re-derive when the folder's .bib entries change
 		return this.registries.merged;
 	}
 
@@ -221,10 +218,10 @@ export class WorkspaceIntegrations {
 	canZoteroCite(): boolean {
 		const kind = this.d.wsdoc.doc.kind;
 		return (
-			this.#settings.current.zoteroEnabled !== false &&
+			settings.current.zoteroEnabled !== false &&
 			!this.d.guest() &&
 			zoteroAvailable() &&
-			!!this.#main.current &&
+			!!mainFile.current &&
 			(this.d.typstPreview().mainIsTypst ? kind === 'typ' : kind === 'tex')
 		);
 	}
@@ -234,7 +231,7 @@ export class WorkspaceIntegrations {
 		const { doc } = this.d.wsdoc;
 		void insertCitationFromZotero({
 			kind: doc.kind as 'tex' | 'typ',
-			root: get(workspaceRoot) ?? '',
+			root: workspaceRoot.current ?? '',
 			openDoc: () => ({ path: doc.path, text: doc.buffer })
 		});
 	}

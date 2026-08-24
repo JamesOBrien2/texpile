@@ -1,7 +1,6 @@
 // wrapper around the harper.js WorkerLinter singleton
 import type { Lint, LintConfig, LintOptions, WorkerLinter } from 'harper.js';
 import { editorConfigStore } from '$lib/stores/editorStore';
-import { get } from 'svelte/store';
 
 let linterPromise: Promise<WorkerLinter> | null = null;
 
@@ -118,7 +117,7 @@ export async function exportDictionary(): Promise<string[]> {
 /** loads custom words from editorConfigStore into harper's dictionary. */
 export async function syncDocumentDictionary(): Promise<void> {
 	const linter = await getHarperLinter();
-	const currentConfig = get(editorConfigStore);
+	const currentConfig = editorConfigStore.current;
 	const documentDictionary = currentConfig?.dictionary || [];
 
 	const dictionaryChanged =
@@ -140,7 +139,7 @@ export async function syncDocumentDictionary(): Promise<void> {
 }
 
 export async function addWordToDocumentDictionary(word: string): Promise<void> {
-	const currentConfig = get(editorConfigStore);
+	const currentConfig = editorConfigStore.current;
 	const currentDictionary = currentConfig?.dictionary || [];
 
 	const normalizedWord = word.trim().toLowerCase();
@@ -162,7 +161,7 @@ export async function addWordToDocumentDictionary(word: string): Promise<void> {
 		...currentConfig,
 		dictionary: [...currentDictionary, normalizedWord]
 	};
-	editorConfigStore.set(updatedConfig);
+	editorConfigStore.current = updatedConfig;
 
 	const linter = await getHarperLinter();
 	await linter.importWords([normalizedWord]);
@@ -171,7 +170,7 @@ export async function addWordToDocumentDictionary(word: string): Promise<void> {
 }
 
 export async function removeWordFromDocumentDictionary(word: string): Promise<void> {
-	const currentConfig = get(editorConfigStore);
+	const currentConfig = editorConfigStore.current;
 	const currentDictionary = currentConfig?.dictionary || [];
 
 	const normalizedWord = word.trim().toLowerCase();
@@ -188,7 +187,7 @@ export async function removeWordFromDocumentDictionary(word: string): Promise<vo
 		...currentConfig,
 		dictionary: currentDictionary.filter((w) => w !== normalizedWord)
 	};
-	editorConfigStore.set(updatedConfig);
+	editorConfigStore.current = updatedConfig;
 
 	await syncDocumentDictionary();
 }

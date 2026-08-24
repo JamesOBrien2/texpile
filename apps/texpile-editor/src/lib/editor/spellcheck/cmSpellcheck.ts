@@ -6,6 +6,7 @@ import { Facet, RangeSetBuilder } from '@codemirror/state';
 import { lintText } from '$lib/editor/spellcheck/linter';
 import { createHarperSuggestionBox, type Problem } from '$lib/editor/spellcheck/suggestionBoxFactory';
 import { editorConfigStore } from '$lib/stores/editorStore';
+import { observe } from '$lib/runes/observe.svelte';
 import { docText } from '$lib/editor/source/docText';
 import { maskTex, overlapsMask, type TexMask } from './texMask';
 import './suggestion.css';
@@ -82,17 +83,20 @@ class SpellPlugin {
 	private masked: TexMask | null = null;
 
 	constructor(private view: EditorView) {
-		this.unsubscribe = editorConfigStore.subscribe((c) => {
-			const on = c?.spellcheck ?? false;
-			if (on === this.enabled) return;
-			this.enabled = on;
-			if (on) this.schedule(0);
-			else {
-				this.gen++;
-				this.decorations = Decoration.none;
-				this.view.dispatch({});
+		this.unsubscribe = observe(
+			() => editorConfigStore.current,
+			(c) => {
+				const on = c?.spellcheck ?? false;
+				if (on === this.enabled) return;
+				this.enabled = on;
+				if (on) this.schedule(0);
+				else {
+					this.gen++;
+					this.decorations = Decoration.none;
+					this.view.dispatch({});
+				}
 			}
-		});
+		);
 	}
 
 	update(u: ViewUpdate) {

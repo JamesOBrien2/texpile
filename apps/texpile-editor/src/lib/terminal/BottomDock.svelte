@@ -149,10 +149,10 @@
 			onclick={() => (view = 'problems')}
 		>
 			{m.wsview_problems_label()}
-			{#if $compileLog && $compileLog.errors.length > 0}
-				<span class="text-error-500 font-semibold">{$compileLog.errors.length}</span>
-			{:else if $compileLog && $compileLog.warnings.length > 0}
-				<span class="text-warning-600-400 font-semibold">{$compileLog.warnings.length}</span>
+			{#if compileLog.current && compileLog.current.errors.length > 0}
+				<span class="text-error-500 font-semibold">{compileLog.current.errors.length}</span>
+			{:else if compileLog.current && compileLog.current.warnings.length > 0}
+				<span class="text-warning-600-400 font-semibold">{compileLog.current.warnings.length}</span>
 			{/if}
 		</button>
 		<!-- always present, not only once a thread exists: a tab that appears when there is something

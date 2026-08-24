@@ -2,7 +2,6 @@
 // \cite-family completion, sourced from the parsed .bib entries already loaded into referenceStore.
 // options match on key+author+title+year (LW's filterText idea) while showing and inserting just
 // the key, so typing an author surname or a title word surfaces the entry.
-import { get } from 'svelte/store';
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 import { referenceStore } from '$lib/stores/editorStore';
@@ -54,7 +53,7 @@ function citationOption(r: BiblatexReference): Completion {
 export function citationCompletionSource(ctx: CompletionContext): CompletionResult | null {
 	const cite = ctx.matchBefore(CITE_BEFORE);
 	if (!cite) return null;
-	const refs = get(referenceStore) ?? [];
+	const refs = referenceStore.current ?? [];
 	if (!refs.length) return null;
 	return lastListToken(cite, refs.map(citationOption));
 }

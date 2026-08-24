@@ -11,8 +11,8 @@
 // for free. Nothing here re-searches the document.
 import { EditorView, Decoration, type DecorationSet, ViewPlugin, gutterLineClass, GutterMarker, type BlockInfo } from '@codemirror/view';
 import { StateEffect, StateField, RangeSet, type Extension, type EditorState } from '@codemirror/state';
-import { get } from 'svelte/store';
 import { settings, updateSettings } from '$lib/settings';
+import { observe } from '$lib/runes/observe.svelte';
 import { m } from '$lib/paraglide/messages';
 
 export type CommentRange = {
@@ -259,7 +259,10 @@ function addButton(onAdd: (from: number, to: number) => void, label: string): Ex
 				this.resize = new ResizeObserver(this.schedule);
 				this.resize.observe(view.scrollDOM);
 				// the toggle has to bite without waiting for the next selection change, both ways
-				this.unsub = settings.subscribe(() => this.schedule());
+				this.unsub = observe(
+					() => settings.current,
+					() => this.schedule()
+				);
 				this.schedule();
 			}
 
@@ -289,7 +292,7 @@ function addButton(onAdd: (from: number, to: number) => void, label: string): Ex
 					read: (view) => {
 						const sel = view.state.selection.main;
 						// turned off in Preferences: the pill never appears
-						if (get(settings).commentPill === false || sel.empty) return null;
+						if (settings.current.commentPill === false || sel.empty) return null;
 						const coords = view.coordsAtPos(sel.head);
 						if (!coords) return null;
 						const scroller = view.scrollDOM.getBoundingClientRect();

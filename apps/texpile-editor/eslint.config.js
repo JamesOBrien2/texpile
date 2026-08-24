@@ -107,17 +107,22 @@ export default ts.config(
 		},
 		rules: {
 			'no-undef': 'off',
-			// Arrived with eslint 10 / eslint-plugin-svelte 3, all firing on code that predates
-			// them: 73 hits across the app. Warnings rather than errors, so the upgrade does not
-			// hide behind a mass rewrite - prefer-svelte-reactivity in particular swaps plain
-			// Map/Set for reactive ones, which is a runtime change and wants its own pass.
-			'svelte/prefer-svelte-reactivity': 'warn',
-			'svelte/require-each-key': 'warn',
-			'svelte/no-unused-props': 'warn',
-			'svelte/no-useless-mustaches': 'warn',
-			'svelte/no-dom-manipulating': 'warn',
-			'no-useless-assignment': 'warn',
-			'preserve-caught-error': 'warn',
+			// Off after a full audit of every hit (44 sites, runes migration): this codebase's
+			// discipline is copy-on-write - collections are built fresh and REASSIGNED to $state
+			// fields, never mutated under a tracked reader - plus private caches, function-local
+			// temps, and Dates read once for toISOString(). Under that discipline a plain Map/Set is
+			// the correct, cheaper choice everywhere, and the rule flags every construction anyway
+			// because it cannot see how the instance is used. What must stay out of the code is
+			// in-place mutation of a collection a template/$derived/$effect reads.
+			'svelte/prefer-svelte-reactivity': 'off',
+			// Arrived with eslint 10 / eslint-plugin-svelte 3 as warnings so the upgrade did not
+			// hide behind a mass rewrite; their cleanup passes have landed and they hold at zero.
+			'svelte/require-each-key': 'error',
+			'svelte/no-unused-props': 'error',
+			'svelte/no-useless-mustaches': 'error',
+			'svelte/no-dom-manipulating': 'error',
+			'no-useless-assignment': 'error',
+			'preserve-caught-error': 'error',
 			// underscore prefix = intentionally unused
 			'@typescript-eslint/no-unused-vars': [
 				'error',

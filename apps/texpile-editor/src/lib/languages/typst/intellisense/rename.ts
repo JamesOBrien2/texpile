@@ -9,7 +9,6 @@
 import { showDialog, getDialog, keymap, type EditorView } from '@codemirror/view';
 import { Prec, type Extension } from '@codemirror/state';
 import { LSPPlugin } from '@codemirror/lsp-client';
-import { get } from 'svelte/store';
 import { workspaceRoot } from '$lib/workspace/workspaceStore';
 import { readTextFile, writeTextFile, samePath } from '$lib/workspace/fileSystem';
 import { toaster } from '$lib/modals/toaster-svelte';
@@ -45,7 +44,7 @@ async function doRename(view: EditorView, newName: string): Promise<void> {
 		// the server computes against ITS copy of the document; flush pending changes first or the
 		// position we send points into a document it has not seen yet
 		plugin.client.sync();
-		const targets = await renameTypstSymbol(get(workspaceRoot), here, positionAt(view.state.doc.toString(), word.from), newName);
+		const targets = await renameTypstSymbol(workspaceRoot.current, here, positionAt(view.state.doc.toString(), word.from), newName);
 		if (!targets.length) {
 			toaster.info({ title: m.typst_rename_nothing(), duration: 3000 });
 			return;

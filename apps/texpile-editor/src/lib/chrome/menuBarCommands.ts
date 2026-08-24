@@ -4,7 +4,6 @@
 // Dialect-aware on both paths: the CM wraps write the open file's own syntax, and the PM commands
 // read the mark/node off the view's OWN schema - the tex, md and typ editors are three different
 // Schema objects, and a MarkType from one must never be dispatched into another.
-import { get } from 'svelte/store';
 import { EditorView as CMView } from '@codemirror/view';
 import { undo as cmUndo, redo as cmRedo } from '@codemirror/commands';
 import { openSearchPanel } from '@codemirror/search';
@@ -30,8 +29,8 @@ import type { Node as PMNode } from 'prosemirror-model';
 export type MenuDialect = 'tex' | 'md' | 'typ';
 
 /** runs a PM command against the main editor, then refocuses it. */
-export function run(cmd: Command) {
-	const v = get(editorViewStore);
+export function runVisualCommand(cmd: Command) {
+	const v = editorViewStore.current;
 	if (!v) return;
 	cmd(v.state, v.dispatch);
 	v.focus();
@@ -39,7 +38,7 @@ export function run(cmd: Command) {
 
 /** toggles a mark by name, skipping silently when the open editor's schema lacks it. */
 export function runMark(name: string, attrs?: Record<string, unknown>) {
-	const v = get(editorViewStore);
+	const v = editorViewStore.current;
 	if (!v) return;
 	const mark = v.state.schema.marks[name];
 	if (!mark) return;
@@ -49,7 +48,7 @@ export function runMark(name: string, attrs?: Record<string, unknown>) {
 
 /** replaces the selection in the main editor with a freshly built node. */
 export function insertNode(make: (state: EditorState) => PMNode | null) {
-	const v = get(editorViewStore);
+	const v = editorViewStore.current;
 	if (!v) return;
 	const node = make(v.state);
 	if (node) {
@@ -60,8 +59,8 @@ export function insertNode(make: (state: EditorState) => PMNode | null) {
 
 /** the CM view the menu should target: source mode only, null in visual mode. */
 export function activeCm(): CMView | null {
-	if (get(viewMode) !== 'source') return null;
-	const cm = get(sourceCmView);
+	if (viewMode.current !== 'source') return null;
+	const cm = sourceCmView.current;
 	return cm && cm.dom.isConnected ? cm : null;
 }
 
@@ -97,9 +96,9 @@ export function editSelect(value: string) {
 		cm.focus();
 		return;
 	}
-	if (value === 'undo') run(undo);
-	else if (value === 'redo') run(redo);
-	else if (value === 'find') displaySearchBarStore.update((v) => !v);
+	if (value === 'undo') runVisualCommand(undo);
+	else if (value === 'redo') runVisualCommand(redo);
+	else if (value === 'find') displaySearchBarStore.current = !displaySearchBarStore.current;
 }
 
 export function formatSelect(value: string, dialect: MenuDialect = 'tex') {
@@ -147,16 +146,16 @@ export function formatSelect(value: string, dialect: MenuDialect = 'tex') {
 			runMark('code');
 			break;
 		case 'h1':
-			run(toggleHeading(1));
+			runVisualCommand(toggleHeading(1));
 			break;
 		case 'h2':
-			run(toggleHeading(2));
+			runVisualCommand(toggleHeading(2));
 			break;
 		case 'h3':
-			run(toggleHeading(3));
+			runVisualCommand(toggleHeading(3));
 			break;
 		case 'quote':
-			run(toggleBlockQuote());
+			runVisualCommand(toggleBlockQuote());
 			break;
 	}
 }

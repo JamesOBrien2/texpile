@@ -4,21 +4,11 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import type { ImagePluginAction, ImagePluginSettings } from './types';
 import { imagePluginKey } from './imagepluginutils';
-import { currentDocMetaStore } from '$lib/stores/metaStore';
-import { get } from 'svelte/store';
 import { mount } from 'svelte';
 import ImageOverlay from './ImageOverlay.svelte';
-// the library no longer exports ToastSettings
-type ToastSettings = { message: string; timeout?: number };
-
-import { getStorageUrl, uploadImage } from '$lib/editor/visual/extensions/image/request';
 import { joinPath, isRemoteSrc } from '$lib/workspace/fileSystem';
 import { editorFileUrl, editorWriteBinary } from '$lib/editor/visual/fileAccess';
 import imageNotFoundPng from '$lib/assets/compile/image_not_found_placeholder.png';
-
-export function defaultDeleteSrc() {
-	return Promise.resolve();
-}
 
 export const defaultExtraAttributes = {
 	width: null,
@@ -111,145 +101,37 @@ function defaultCreateState() {
 	};
 }
 
+// settings shared by every editor mode; each creator supplies its own uploadFile/deleteSrc/downloadImage
+const sharedImageSettings = {
+	hasTitle: true,
+	extraAttributes: defaultExtraAttributes,
+	createOverlay: defaultCreateOverlay,
+	updateOverlay: defaultUpdateOverlay,
+	defaultTitle: 'Image title',
+	defaultAlt: 'Image',
+	enableResize: true,
+	isBlock: true,
+	resizeCallback: defaultResizeCallback,
+	imageMargin: 15,
+	minSize: 50,
+	maxSize: 2000,
+	scaleImage: true,
+	createState: defaultCreateState,
+	createDecorations: defaultCreateDecorations,
+	findPlaceholder: defaultFindPlaceholder
+};
+
 // templates only get example content, never user images
 const TEMPLATE_PLACEHOLDER_IMAGE = 'public/texpile/example_images/example_gradient_blue.png';
 
 /** image settings for template editor mode: static placeholder, no uploads. */
 export function createTemplateEditorSettings(): ImagePluginSettings {
-	async function uploadFile(_file: File): Promise<string> {
-		return TEMPLATE_PLACEHOLDER_IMAGE;
-	}
-
-	async function deleteSrc(_filePath: string) {
-		return;
-	}
-
-	// offline build: no remote storage, use the bundled placeholder
-	async function downloadImage(_src: string): Promise<string> {
-		return imageNotFoundPng;
-	}
-
 	return {
-		uploadFile,
-		hasTitle: true,
-		deleteSrc,
-		extraAttributes: defaultExtraAttributes,
-		createOverlay: defaultCreateOverlay,
-		updateOverlay: defaultUpdateOverlay,
-		defaultTitle: 'Image title',
-		defaultAlt: 'Image',
-		enableResize: true,
-		isBlock: true,
-		resizeCallback: defaultResizeCallback,
-		imageMargin: 15,
-		minSize: 50,
-		maxSize: 2000,
-		scaleImage: true,
-		createState: defaultCreateState,
-		createDecorations: defaultCreateDecorations,
-		findPlaceholder: defaultFindPlaceholder,
-		downloadImage
-	} as ImagePluginSettings;
-}
-
-export function createDefaultSettings(firebaseUid: string): ImagePluginSettings {
-	function defaultUploadFile(file: File): Promise<string> {
-		return new Promise((resolve, reject) => {
-			console.log('Uploading image:', file.name, 'size:', file.size, 'type:', file.type);
-			if (file.type !== 'image/png' && file.type !== 'image/jpeg') {
-				const t: ToastSettings = {
-					message: 'Only PNG and JPEG images are allowed. Please upload the correct file type.',
-					timeout: 3000
-				};
-				dispatchEvent(new CustomEvent('toast', { detail: t }));
-				reject(new Error('Only PNG and JPEG images are allowed. Please upload the correct file type.'));
-				return;
-			}
-
-			if (file.size > 1.5 * 1024 * 1024) {
-				const t: ToastSettings = {
-					message: 'File size exceeds 1.5 MB. Please resize your image and try again.',
-					timeout: 3000
-				};
-				dispatchEvent(new CustomEvent('toast', { detail: t }));
-				reject(new Error('File size exceeds 1.5 MB. Please resize your image and try again.'));
-				return;
-			}
-
-			const docId = get(currentDocMetaStore)?.docref;
-			const fileExtension = file.name.split('.').pop();
-			const imageId = crypto.randomUUID() + '-' + Date.now();
-			const sanitizedFileName = `${imageId}.${fileExtension}`;
-
-			const filePath = `users/${firebaseUid}/documents/${docId}/images/${sanitizedFileName}`;
-			console.log('Uploading image to path:', filePath);
-			uploadImage(filePath, file)
-				.then(() => {
-					resolve(filePath);
-				})
-				.catch((error) => {
-					reject(error);
-				});
-		});
-	}
-
-	async function deleteSrc(_filePath: string) {
-		return;
-	}
-
-	async function downloadImage(src: string): Promise<string> {
-		console.log('Downloading image from src:', src);
-		// offline build: images resolve to local paths/URLs via getStorageUrl below
-
-		const retries = 3;
-		const delayInterval = 1000;
-
-		const filePath = src;
-
-		function attemptDownload(attempt: number): Promise<string> {
-			return getStorageUrl(filePath)
-				.then((url) => url)
-				.catch(async (error) => {
-					console.log(error);
-					if (attempt < retries - 1) {
-						return new Promise((resolve) => {
-							setTimeout(() => resolve(attemptDownload(attempt + 1)), delayInterval);
-						});
-					} else {
-						const t = {
-							message: 'Error downloading image',
-							timeout: 3000
-						};
-						dispatchEvent(new CustomEvent('toast', { detail: t }));
-						// fall back to the bundled image-not-found placeholder
-						return imageNotFoundPng;
-					}
-				});
-		}
-
-		return attemptDownload(0);
-	}
-
-	return {
-		uploadFile: defaultUploadFile,
-		hasTitle: true,
-		deleteSrc,
-		extraAttributes: defaultExtraAttributes,
-		createOverlay: defaultCreateOverlay,
-		updateOverlay: defaultUpdateOverlay,
-		defaultTitle: 'Image title',
-		defaultAlt: 'Image',
-		enableResize: true,
-		isBlock: true,
-		resizeCallback: defaultResizeCallback,
-		imageMargin: 15,
-		minSize: 50,
-		maxSize: 2000,
-		scaleImage: true,
-		createState: defaultCreateState,
-		createDecorations: defaultCreateDecorations,
-		findPlaceholder: defaultFindPlaceholder,
-		downloadImage
+		...sharedImageSettings,
+		uploadFile: async (_file: File) => TEMPLATE_PLACEHOLDER_IMAGE,
+		deleteSrc: async () => {},
+		// offline build: no remote storage, use the bundled placeholder
+		downloadImage: async (_src: string) => imageNotFoundPng
 	} as ImagePluginSettings;
 }
 
@@ -298,9 +180,8 @@ const REMOTE_IMAGE_BLOCKED =
 
 /** image settings for the local folder editor: images land in images/ next to the document. */
 export function createLocalImageSettings(imageDir: string): ImagePluginSettings {
-	const base = createDefaultSettings('local');
 	return {
-		...base,
+		...sharedImageSettings,
 		uploadFile: (file: File) => uploadLocalImage(file, imageDir),
 		// resolve the relative path to a served URL; pass through already-resolved LOCAL srcs
 		downloadImage: async (src: string) => {
@@ -309,5 +190,5 @@ export function createLocalImageSettings(imageDir: string): ImagePluginSettings 
 			return editorFileUrl(joinPath(imageDir, src));
 		},
 		deleteSrc: async () => {}
-	};
+	} as ImagePluginSettings;
 }

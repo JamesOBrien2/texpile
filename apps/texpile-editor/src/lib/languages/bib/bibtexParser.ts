@@ -355,7 +355,7 @@ export function parseBibtexRaw(bibtexContent: string): ParsedBibtexEntry[] {
 	return parser.getEntries();
 }
 
-/** parses BibTeX into the file-order token stream used by the round-trip in parser.new.ts. */
+/** parses BibTeX into the file-order token stream used by the round-trip in bibtexRoundtrip.ts. */
 export function parseBibtexTokens(bibtexContent: string): BibToken[] {
 	const parser = new BibtexParser();
 	parser.setInput(bibtexContent);

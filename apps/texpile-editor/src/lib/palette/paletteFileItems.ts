@@ -1,7 +1,6 @@
 import { FilePlus2, FolderOpen, Play, RefreshCw, RotateCw, Save, Settings, Users, Wrench } from '@lucide/svelte';
-import { get } from 'svelte/store';
 import { isDirty } from '$lib/workspace/workspaceStore';
-import { native } from '$lib/workspace/fileSystem';
+import { nativeBridge } from '$lib/workspace/fileSystem';
 import { confirmAsk } from '$lib/modals/confirm.svelte';
 import { collabHost } from '$lib/collab/hostStore.svelte';
 import { combo } from '$lib/chrome/shortcutText';
@@ -90,7 +89,7 @@ export function fileItems(a: PaletteActions): PaletteItem[] {
 	// reload forgets the folder and lands on Start - main re-queues the folder push instead, the
 	// same path session restore uses, which also reopens the last file. Hosts only: a guest's
 	// "workspace" is the live session, and reloading is just disconnecting.
-	if (a.canManageTree() && native()?.reloadWorkspace)
+	if (a.canManageTree() && nativeBridge()?.reloadWorkspace)
 		items.push({
 			id: 'window.reload',
 			label: m.palette_reload_workspace(),
@@ -102,14 +101,14 @@ export function fileItems(a: PaletteActions): PaletteItem[] {
 				// memory-only), and that is the surprise worth one dialog. Never both dialogs.
 				if (collabHost.active) {
 					if (!(await confirmAsk(m.palette_reload_sharing_confirm(), { danger: true }))) return;
-				} else if (get(isDirty) && !(await confirmAsk(m.palette_reload_unsaved_confirm(), { danger: true }))) return;
-				native()?.reloadWorkspace?.();
+				} else if (isDirty.current && !(await confirmAsk(m.palette_reload_unsaved_confirm(), { danger: true }))) return;
+				nativeBridge()?.reloadWorkspace?.();
 			}
 		});
 	// searchOnly, and deliberately untranslated: it is a diagnostic, and English is what a support
 	// note or a web search will name, so a localized label would make it harder to talk someone to.
 	// The palette is its ONLY way in - no menu item, no shortcut (see electron windowChrome.ts).
-	if (native()?.toggleDevTools)
+	if (nativeBridge()?.toggleDevTools)
 		items.push({
 			id: 'window.devtools',
 			label: 'Toggle Developer Tools',
@@ -117,7 +116,7 @@ export function fileItems(a: PaletteActions): PaletteItem[] {
 			keywords: 'devtools debug console inspect diagnostics',
 			icon: Wrench,
 			searchOnly: true,
-			run: () => native()?.toggleDevTools?.()
+			run: () => nativeBridge()?.toggleDevTools?.()
 		});
 	items.push({
 		id: 'file.preferences',

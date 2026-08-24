@@ -2,7 +2,6 @@
 // as texSource offsets, resolved positionally via the parse-time orig.start stamps (content
 // matching fails wholesale against an edited buffer; positions only drift). scroll = the
 // viewport-top block, cursor = the caret mapped proportionally within its block's orig.latex slice.
-import { get } from 'svelte/store';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
@@ -35,7 +34,7 @@ function findScrollParent(el: HTMLElement | null): HTMLElement | null {
  * `bodyOffset` is where the body begins in the FILE (orig.start stamps are body-relative).
  */
 export function captureVisualAnchor(bodyOffset: number): VisualAnchor | null {
-	const v = get(editorViewStore);
+	const v = editorViewStore.current;
 	if (!v) return null;
 	const doc = v.state.doc;
 	const map = buildBlockMap(doc, bodyOffset);
@@ -71,7 +70,7 @@ export function captureVisualAnchor(bodyOffset: number): VisualAnchor | null {
 
 /** leaving source mode: viewport-top texSource offset (scroll) + the CM caret offset (cursor). */
 export function captureSourceAnchor(): SourceAnchor | null {
-	const cm = get(sourceCmView);
+	const cm = sourceCmView.current;
 	if (!cm) return null;
 	const rect = cm.scrollDOM.getBoundingClientRect();
 	return {

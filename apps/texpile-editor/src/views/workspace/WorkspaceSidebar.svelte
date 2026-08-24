@@ -112,8 +112,8 @@
 	     it out of this row - and a title bar that changes height as you switch views reads as the
 	     whole layout twitching. -->
 	<div class="border-surface-200-800 flex h-12 shrink-0 items-center justify-between gap-2 border-b px-3">
-		<span class="truncate text-sm font-semibold" title={$workspaceRoot ?? ''}>
-			{$workspaceRoot ? basename($workspaceRoot) : m.wsview_no_folder()}
+		<span class="truncate text-sm font-semibold" title={workspaceRoot.current ?? ''}>
+			{workspaceRoot.current ? basename(workspaceRoot.current) : m.wsview_no_folder()}
 		</span>
 		<div class="flex items-center gap-1">
 			<button
@@ -154,14 +154,14 @@
 		</div>
 	</div>
 	{#if view === 'search'}
-		<GlobalSearch bind:this={globalSearchRef} root={$workspaceRoot ?? ''} onOpen={onOpenFileAt} onClose={onCloseGlobalSearch} />
+		<GlobalSearch bind:this={globalSearchRef} root={workspaceRoot.current ?? ''} onOpen={onOpenFileAt} onClose={onCloseGlobalSearch} />
 	{:else if view === 'scm'}
 		<div class="scroll-inset-r min-h-0 flex-1 overflow-y-auto">
 			<SourceControlPanel
-				root={$workspaceRoot ?? ''}
-				isRepo={$isGitRepo}
-				branch={$gitBranch}
-				changes={$gitChanges}
+				root={workspaceRoot.current ?? ''}
+				isRepo={isGitRepo.current}
+				branch={gitBranch.current}
+				changes={gitChanges.current}
 				busy={scmBusy}
 				onInit={scmInit}
 				onStage={scmStage}
@@ -177,11 +177,11 @@
 			<div class="scroll-inset-r min-h-0 overflow-y-auto p-1.5" style={showToc ? `flex: ${1 - tocFraction} 1 0%` : 'flex: 1 1 0%'}>
 				<FileTree
 					bind:this={fileTreeRef}
-					tree={$fileTree}
-					rootPath={$workspaceRoot ?? ''}
-					activePath={$activeFilePath}
-					mainPath={$mainFile}
-					gitStatus={$gitStatusMap}
+					tree={fileTree.current}
+					rootPath={workspaceRoot.current ?? ''}
+					activePath={activeFilePath.current}
+					mainPath={mainFile.current}
+					gitStatus={gitStatusMap.current}
 					onOpen={onOpenEntry}
 					{onCreate}
 					{typstProject}

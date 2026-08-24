@@ -76,8 +76,8 @@ describe('tree undo/redo', () => {
 	let ops: TreeOps;
 
 	beforeEach(() => {
-		workspaceRoot.set('/proj');
-		activeFilePath.set(null);
+		workspaceRoot.current = '/proj';
+		activeFilePath.current = null;
 		fs = makeFs();
 		ops = new TreeOps(fs.deps);
 	});
@@ -238,11 +238,9 @@ describe('tree undo/redo', () => {
 
 	it('closing the file being deleted clears the open path', async () => {
 		fs.files.add('/proj/sec/a.tex');
-		activeFilePath.set('/proj/sec/a.tex');
+		activeFilePath.current = '/proj/sec/a.tex';
 		await ops.deleteMany([dirEntry('/proj/sec')]);
 		// the buffer has to let go: an autosave firing after this would recreate the deleted file
-		let active: string | null = 'unset';
-		activeFilePath.subscribe((v) => (active = v))();
-		expect(active).toBeNull();
+		expect(activeFilePath.current).toBeNull();
 	});
 });

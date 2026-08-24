@@ -20,7 +20,10 @@
      setting in Preferences, and this is faster than it.) -->
 <div class="mb-1 flex items-center justify-between gap-4">
 	<span class="text-sm">{m.wsview_preview_label()}</span>
-	<Switch checked={$compileConfig.typst.preview} onCheckedChange={(d) => projectConfigSync.setTypstPreview($workspaceRoot, d.checked)}>
+	<Switch
+		checked={compileConfig.current.typst.preview}
+		onCheckedChange={(d) => projectConfigSync.setTypstPreview(workspaceRoot.current, d.checked)}
+	>
 		<Switch.Control><Switch.Thumb /></Switch.Control>
 		<Switch.HiddenInput />
 	</Switch>

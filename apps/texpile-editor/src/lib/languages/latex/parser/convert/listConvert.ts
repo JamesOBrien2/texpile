@@ -2,7 +2,7 @@
 // mutually recursive with the walkers in converter.ts; ESM live bindings make the circular import safe
 import type { Node, Macro, Environment } from '@unified-latex/unified-latex-types';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
-import { el, type PmNode, type ConversionOptions } from '../builders';
+import { buildNode, type PmNode, type ConversionOptions } from '../builders';
 import { convertNodesToBlocks } from '../converter';
 import { isBlankCellNode } from './tableConvert';
 
@@ -33,7 +33,7 @@ export function createList(env: Environment, kind: 'bullet' | 'ordered', options
 			if (foundFirstItem && currentItemContent.length > 0) {
 				const itemBlocks = createListItem(currentItemContent, options);
 				if (itemBlocks.length > 0) {
-					result.push(el('list', listAttrs(), itemBlocks));
+					result.push(buildNode('list', listAttrs(), itemBlocks));
 				}
 			}
 			currentItemContent = [];
@@ -70,13 +70,13 @@ export function createList(env: Environment, kind: 'bullet' | 'ordered', options
 	if (foundFirstItem && currentItemContent.length > 0) {
 		const itemBlocks = createListItem(currentItemContent, options);
 		if (itemBlocks.length > 0) {
-			result.push(el('list', listAttrs(), itemBlocks));
+			result.push(buildNode('list', listAttrs(), itemBlocks));
 		}
 	}
 
 	// at least one empty list, for valid structure
 	if (result.length === 0) {
-		result.push(el('list', listAttrs(), [el('paragraph')]));
+		result.push(buildNode('list', listAttrs(), [buildNode('paragraph')]));
 	}
 
 	return result;
@@ -92,9 +92,9 @@ export function createListItem(content: Node[], options: ConversionOptions): PmN
 	});
 
 	if (filteredContent.length === 0) {
-		return [el('paragraph')];
+		return [buildNode('paragraph')];
 	}
 
 	const blocks = convertNodesToBlocks(filteredContent, options);
-	return blocks.length > 0 ? blocks : [el('paragraph')];
+	return blocks.length > 0 ? blocks : [buildNode('paragraph')];
 }

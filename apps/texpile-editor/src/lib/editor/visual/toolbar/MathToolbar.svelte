@@ -41,7 +41,7 @@
 	});
 
 	function selectBlockMath() {
-		const view = $editorViewStore;
+		const view = editorViewStore.current;
 		if (!view || !activeMathfieldRef) return;
 
 		const container = activeMathfieldRef.closest('.block-math-container');

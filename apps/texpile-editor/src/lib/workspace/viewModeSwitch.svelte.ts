@@ -7,7 +7,6 @@
 //
 // Diff is a read-only third view and is deliberately NOT persisted: a reload restores the last
 // visual/source choice, never diff.
-import { get } from 'svelte/store';
 import { browser } from '$lib/runtime';
 import { layout, updateLayout } from '$lib/storage/layout';
 import { isGitRepo } from '$lib/workspace/gitStore';
@@ -56,7 +55,7 @@ export class ViewModeSwitch {
 
 	/** restore the persisted choice; call once at mount */
 	restore() {
-		if (browser && get(layout).viewMode === 'source') {
+		if (browser && layout.current.viewMode === 'source') {
 			this.mode = 'source';
 			this.lastEditMode = 'source';
 		}
@@ -73,7 +72,7 @@ export class ViewModeSwitch {
 	 * current source. On the edited path the editor first mounts with the STALE doc while the
 	 * worker re-parse runs; consuming then would resolve against the wrong document. */
 	tryResolvePendingAnchor(): void {
-		const v = get(editorViewStore);
+		const v = editorViewStore.current;
 		const anchor = this.pendingVisualAnchor;
 		if (!v || anchor == null || this.mode !== 'visual') return;
 		if (this.deps.getSource() !== this.deps.getLastParsedSource()) return; // parse in flight
@@ -83,14 +82,14 @@ export class ViewModeSwitch {
 
 	/** mirror into the store the editors read; diff presents as source to them */
 	syncStore(): void {
-		viewModeStore.set(this.mode === 'diff' ? 'source' : this.mode);
+		viewModeStore.current = this.mode === 'diff' ? 'source' : this.mode;
 	}
 
 	set(mode: ViewMode): void {
 		const d = this.deps;
 		if (mode === this.mode) return;
 		if (mode === 'diff') {
-			if (!d.getLoadedPath() || !get(isGitRepo)) return;
+			if (!d.getLoadedPath() || !isGitRepo.current) return;
 			this.mode = 'diff';
 			// a pending source->visual anchor must not survive a diff detour (exitDiff re-enters
 			// visual without coming back through here, so nothing else would clear it)
@@ -131,7 +130,7 @@ export class ViewModeSwitch {
 		const target = this.history.step(dir, d.getSource());
 		if (target == null) return false;
 		d.setSource(target);
-		isDirty.set(true);
+		isDirty.current = true;
 		d.scheduleSave(path, target);
 		// source mode: the editor's value-sync effect replaces the doc. visual mode: re-parse.
 		if (this.mode === 'visual') d.rebuildVisual();

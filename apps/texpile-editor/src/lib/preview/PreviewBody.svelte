@@ -16,7 +16,7 @@
 	// DraftView drags in opentype.js; draft mode is opt-in, so it loads only when first shown
 	let DraftViewComp = $state<typeof DraftView | null>(null);
 	$effect(() => {
-		if (!guest && $compileConfig.latex.liveMode && !DraftViewComp) {
+		if (!guest && compileConfig.current.latex.liveMode && !DraftViewComp) {
 			import('$lib/draft/DraftView.svelte').then(
 				(mod) => (DraftViewComp = mod.default),
 				(e) => console.error('Failed to load draft view chunk:', e)
@@ -124,7 +124,7 @@
 			class="bg-surface-100-900 text-surface-600-300 border-surface-200-800 flex h-9 shrink-0 items-center justify-between border-b px-3 text-xs"
 		>
 			<span class="font-medium">
-				{#if !guest && $compileConfig.latex.liveMode}
+				{#if !guest && compileConfig.current.latex.liveMode}
 					{m.wsview_live_preview_label()}
 				{:else}
 					{m.wsview_pdf_preview_label()}
@@ -182,7 +182,7 @@
 			{#if TypstPreviewComp}
 				<TypstPreviewComp host={typstPreviewHost} {paneDragging} {onSaveTypstPdf} {onPopout} />
 			{/if}
-		{:else if $compileConfig.latex.liveMode}
+		{:else if compileConfig.current.latex.liveMode}
 			{#if DraftViewComp}
 				<DraftViewComp
 					bind:this={draftView}

@@ -3,7 +3,6 @@
 // placeholder selected instead of raising a prompt, fences grow past inner backticks with the
 // caret on the info slot, tables and rules land on their own lines, and images insert the
 // full dialect skeleton.
-import { get } from 'svelte/store';
 import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
 import { createMathField } from '$lib/editor/visual/extensions/mathlivebridge/mlcommands';
 import { computeMathAttrs } from '$lib/editor/visual/extensions/mathlivebridge/mathEnvironments';
@@ -29,7 +28,7 @@ import {
 	computeHr as typHr,
 	computeLink as typLink
 } from '$lib/languages/typst/source/sourceInsert';
-import { run, insertNode, activeCm, cmReplace, cmApply } from '$lib/chrome/menuBarCommands';
+import { runVisualCommand, insertNode, activeCm, cmReplace, cmApply } from '$lib/chrome/menuBarCommands';
 import type { formatOf } from '$lib/workspace/documentBuffer.svelte';
 import type { Node as PMNode } from 'prosemirror-model';
 import { m } from '$lib/paraglide/messages';
@@ -53,7 +52,7 @@ const MATH_ENVS: Record<string, string> = {
 };
 
 function insertMathEnvironment(latex: string) {
-	const v = get(editorViewStore);
+	const v = editorViewStore.current;
 	if (!v) return;
 	const node = v.state.schema.nodes.block_math.create(computeMathAttrs(latex), v.state.schema.text(latex));
 	v.dispatch(v.state.tr.replaceSelectionWith(node));
@@ -77,8 +76,8 @@ export function makeInsertHandlers(deps: InsertDeps): {
 			} else if (dialect === 'tex' && MATH_ENVS[value]) cmReplace(cm, MATH_ENVS[value]);
 			return;
 		}
-		if (value === 'inline') run(createMathField());
-		else if (value === 'display') run(createMathField(true));
+		if (value === 'inline') runVisualCommand(createMathField());
+		else if (value === 'display') runVisualCommand(createMathField(true));
 		else if (dialect === 'tex' && MATH_ENVS[value]) insertMathEnvironment(MATH_ENVS[value]);
 	}
 
@@ -110,7 +109,7 @@ export function makeInsertHandlers(deps: InsertDeps): {
 					else cmApply(cm, dialect === 'typ' ? typLink(s) : mdLink(s));
 					break;
 				case 'citation': {
-					const key = get(referenceStore)?.[0]?.key ?? 'key';
+					const key = referenceStore.current?.[0]?.key ?? 'key';
 					if (dialect === 'tex') cmReplace(cm, `\\autocite{${key}}`);
 					else if (dialect === 'typ') cmReplace(cm, `@${key}`);
 					break;
@@ -128,7 +127,7 @@ export function makeInsertHandlers(deps: InsertDeps): {
 		switch (value) {
 			case 'code':
 				// the schemas default md/typ code blocks to fences, so one command serves all three
-				run(createCodeBlock());
+				runVisualCommand(createCodeBlock());
 				break;
 			case 'table':
 				// each dialect's own default table: md's createTableNode crashed here (its schema has
@@ -156,13 +155,13 @@ export function makeInsertHandlers(deps: InsertDeps): {
 			case 'link':
 				// the toolbars' link command: placeholder linked text with the caret inside, so the
 				// link tooltip opens for the URL edit - the same popup either way in, no modal prompt
-				run((state, dispatch) => {
+				runVisualCommand((state, dispatch) => {
 					const mark = state.schema.marks.link;
 					return mark ? toggleLinkCommand(mark)(state, dispatch) : false;
 				});
 				break;
 			case 'citation': {
-				const key = get(referenceStore)?.[0]?.key ?? 'key';
+				const key = referenceStore.current?.[0]?.key ?? 'key';
 				insertNode((state) =>
 					state.schema.nodes.typ_ref
 						? state.schema.nodes.typ_ref.create({ target: key })

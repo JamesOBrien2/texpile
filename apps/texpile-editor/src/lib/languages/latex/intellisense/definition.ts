@@ -3,7 +3,6 @@
 // buffer when possible, else in the project file projectIntel located it in.
 import { keymap, EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
-import { get } from 'svelte/store';
 import { flashLineEffect } from '$lib/languages/latex/source/synctexFlash';
 import { projectIntelStore } from '$lib/stores/projectIntel';
 import { tokenAt, findLabelOffset } from './hover';
@@ -59,7 +58,7 @@ function definitionAt(view: EditorView, pos: number, hooks: DefinitionHooks): bo
 
 	const token = tokenAt(line.text, line.from, pos);
 	if (!token) return false;
-	const intel = get(projectIntelStore);
+	const intel = projectIntelStore.current;
 	function openAt(file: string, targetLine: number): boolean {
 		hooks.onOpenFileAt?.(file, targetLine);
 		return !!hooks.onOpenFileAt;

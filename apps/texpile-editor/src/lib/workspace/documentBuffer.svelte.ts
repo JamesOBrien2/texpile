@@ -4,7 +4,6 @@
 // visual editor is a VIEW over it - entry parses into `visualDoc` + `docMeta`, every visual edit
 // serializes straight back into `texSource`, and source mode binds to it directly. No rival copy
 // can drift. Non-.tex text files bypass all that and edit `rawContent` directly.
-import { get } from 'svelte/store';
 import { isDirty } from '$lib/workspace/workspaceStore';
 import { serializeLatexFile, type ParsedLatexFile } from '$lib/workspace/latexRoundtrip';
 import { serializeMarkdownFile } from '$lib/languages/markdown/visual/roundtrip';
@@ -157,11 +156,11 @@ export class DocumentBuffer {
 		// transaction that serializes right back to disk: that isn't an unsaved change, so don't
 		// flag the pristine file dirty or queue a no-op save that would nag on the next switch
 		if (this.texSource === this.diskBaseline) {
-			if (get(isDirty)) isDirty.set(false);
+			if (isDirty.current) isDirty.current = false;
 			this.deps.discardQueuedSave();
 			return;
 		}
-		isDirty.set(true);
+		isDirty.current = true;
 		this.deps.scheduleSave(this.path, this.texSource);
 		this.deps.noteLocalEdit();
 		this.deps.clearPendingAnchor();
@@ -173,20 +172,20 @@ export class DocumentBuffer {
 		if (!this.docMeta || !this.lastDoc || this.kind !== 'tex') return; // \title/\author is LaTeX-only
 		this.docMeta = { ...this.docMeta, preamble: replacePreambleFrontmatter(this.docMeta.preamble, kind, inner) };
 		this.texSource = serializeLatexFile(this.docMeta, this.lastDoc);
-		isDirty.set(true);
+		isDirty.current = true;
 		this.deps.scheduleSave(this.path, this.texSource);
 	}
 
 	/** a source edit IS texSource, write it verbatim */
 	onTexInput(v: string): void {
 		this.texSource = v;
-		isDirty.set(true);
+		isDirty.current = true;
 		this.deps.scheduleSave(this.path, v);
 	}
 
 	onRawInput(v: string): void {
 		this.rawContent = v;
-		isDirty.set(true);
+		isDirty.current = true;
 		this.deps.scheduleSave(this.path, v);
 	}
 
@@ -194,7 +193,7 @@ export class DocumentBuffer {
 	replaceSource(text: string, opts: { dirty: boolean }): void {
 		this.texSource = text;
 		if (opts.dirty) {
-			isDirty.set(true);
+			isDirty.current = true;
 			this.deps.scheduleSave(this.path, text);
 		}
 		if (this.deps.isVisualMode()) this.deps.rebuildVisual();

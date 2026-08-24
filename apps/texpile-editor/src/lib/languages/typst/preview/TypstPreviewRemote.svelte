@@ -54,7 +54,7 @@
 		}
 	});
 
-	const dark = $derived($resolvedMode === 'dark');
+	const dark = $derived(resolvedMode.current === 'dark');
 	const background = $derived(dark ? themeColour('--color-surface-800', '#27272a') : themeColour('--color-surface-300', '#d4d4d8'));
 	const foreground = $derived(dark ? themeColour('--color-surface-200', '#e4e4e7') : themeColour('--color-surface-700', '#3f3f46'));
 
@@ -227,7 +227,7 @@
 
 	// same courtesy as the host pane: follow jumps are ambient, so the frame swallows the ripple
 	$effect(() => {
-		if ($followScrollTick === 0) return;
+		if (followScrollTick.current === 0) return;
 		frame?.contentWindow?.postMessage({ channel: CHANNEL, type: 'quiet', value: 500 }, '*');
 	});
 </script>
@@ -268,13 +268,13 @@
 		     it, and the relay hands the resulting jump to only this viewer -->
 		<button
 			class="hover:preset-tonal rounded p-1 disabled:opacity-40"
-			class:preset-tonal={$settings.typstPreviewFollow === true}
-			class:text-primary-500={$settings.typstPreviewFollow === true}
-			onclick={() => updateSettings({ typstPreviewFollow: $settings.typstPreviewFollow !== true })}
+			class:preset-tonal={settings.current.typstPreviewFollow === true}
+			class:text-primary-500={settings.current.typstPreviewFollow === true}
+			onclick={() => updateSettings({ typstPreviewFollow: settings.current.typstPreviewFollow !== true })}
 			disabled={!frameUrl}
-			title={$settings.typstPreviewFollow === true ? m.typst_preview_follow_on() : m.typst_preview_follow_off()}
+			title={settings.current.typstPreviewFollow === true ? m.typst_preview_follow_on() : m.typst_preview_follow_off()}
 			aria-label={m.typst_preview_follow_aria()}
-			aria-pressed={$settings.typstPreviewFollow === true}
+			aria-pressed={settings.current.typstPreviewFollow === true}
 		>
 			<Crosshair class="size-4" />
 		</button>

@@ -1,8 +1,8 @@
-import { writable } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 
 // counter bumped to make every ref display recalculate
-export const refUpdateTrigger = writable(0);
+export const refUpdateTrigger = box(0);
 
 export function triggerRefUpdate() {
-	refUpdateTrigger.update((n) => n + 1);
+	refUpdateTrigger.current += 1;
 }

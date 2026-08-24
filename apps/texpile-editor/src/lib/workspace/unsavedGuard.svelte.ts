@@ -9,7 +9,6 @@
 // The distinction is carried by `prompt.resolve` being set; loadFile's effect keys off it to park
 // ALL file switches while a workspace-level prompt is up, otherwise a Ctrl+Tab under the modal
 // would reattach the pending edit against the wrong file.
-import { get } from 'svelte/store';
 import { activeFilePath } from '$lib/workspace/workspaceStore';
 import { tabs } from '$lib/workspace/tabs.svelte';
 import { basename, type Eol } from '$lib/workspace/fileSystem';
@@ -65,7 +64,7 @@ export class UnsavedGuard {
 		const eol = this.deps.getEol(); // the outgoing file's EOL, before the switch changes it
 		const outgoing = this.saver.detach()!; // so the new file's queue can't touch it
 		this.held = { target };
-		activeFilePath.set(loaded);
+		activeFilePath.current = loaded;
 		this.prompt = { name: basename(loaded), outgoing, eol };
 	}
 
@@ -113,6 +112,6 @@ export class UnsavedGuard {
 		if (closing) tabs.close(closing);
 		const target = this.held?.target ?? null;
 		this.held = null;
-		if (target !== get(activeFilePath)) activeFilePath.set(target);
+		if (target !== activeFilePath.current) activeFilePath.current = target;
 	}
 }

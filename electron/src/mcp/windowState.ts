@@ -65,7 +65,7 @@ const EMPTY: WindowState = {
  * "one window, nothing open" and "no windows at all" are different situations and an agent should
  * be able to tell them apart.
  */
-export function snapshot(windows: BrowserWindow[], rootFor: (wcId: number) => string | null): WorkspaceSnapshot[] {
+export function snapshotWindows(windows: BrowserWindow[], rootFor: (wcId: number) => string | null): WorkspaceSnapshot[] {
 	return windows.map((w) => {
 		const id = w.webContents.id;
 		return {

@@ -4,7 +4,6 @@
 // guests never get the action - and desktop-only by the bridge check. The pure text decisions
 // (which bib, which translator, how to append) live in bibTarget.ts; this file is the glue
 // between picker, disk and editor.
-import { get } from 'svelte/store';
 import type { Node as PMNode } from 'prosemirror-model';
 import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
 import { typSchema } from '$lib/languages/typst/visual/schema';
@@ -32,7 +31,7 @@ export type ZoteroInsertDeps = {
 /** entry point: check Zotero is reachable, then hand off to the in-app picker dialog */
 export async function insertCitationFromZotero(deps: ZoteroInsertDeps): Promise<void> {
 	const bridge = window.texpileZotero;
-	if (!bridge || !get(mainFile)) return;
+	if (!bridge || !mainFile.current) return;
 	const probe = await bridge.probe();
 	if (!probe.running) {
 		toaster.error({ title: m.zotero_not_running_title(), description: m.zotero_not_running_desc() });
@@ -48,7 +47,7 @@ export async function insertCitationFromZotero(deps: ZoteroInsertDeps): Promise<
 /** the dialog confirmed a selection: entries into the bib, citation at the caret, toasts out */
 export async function applyPickedCitations(keys: string[], deps: ZoteroInsertDeps): Promise<void> {
 	const bridge = window.texpileZotero;
-	const main = get(mainFile);
+	const main = mainFile.current;
 	if (!bridge || !main || !keys.length) return;
 	try {
 		// the main file as the user sees it: the open buffer when the main IS the open file
@@ -105,7 +104,7 @@ export async function applyPickedCitations(keys: string[], deps: ZoteroInsertDep
 
 /** citation at the caret: a node in the visual editor when its schema has one, text in source */
 function insertCitation(keys: string[], kind: 'tex' | 'typ'): void {
-	const v = get(editorViewStore);
+	const v = editorViewStore.current;
 	if (v?.dom.isConnected) {
 		// branch off the MOUNTED schema, never the file extension (see referenceManagerPlugin)
 		if (kind === 'typ' && v.state.schema === typSchema) {
@@ -127,7 +126,7 @@ function insertCitation(keys: string[], kind: 'tex' | 'typ'): void {
 			return;
 		}
 	}
-	const cm = get(sourceCmView);
+	const cm = sourceCmView.current;
 	if (!cm || !cm.dom.isConnected) return;
 	const insert = citationTextFor(keys, kind);
 	const { from, to } = cm.state.selection.main;

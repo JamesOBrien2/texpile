@@ -4,7 +4,6 @@
 	// block range), re-stamps orig after local typing lulls, publishes our caret to awareness,
 	// and renders peers' carets through the remote-cursors plugin. Renderless; WorkspaceView
 	// mounts it and hands over doc-state access through `api`.
-	import { get } from 'svelte/store';
 	import { untrack } from 'svelte';
 	import * as Y from 'yjs';
 	import type { Node as PMNode } from 'prosemirror-model';
@@ -92,7 +91,7 @@
 	async function runRemotePatch(): Promise<void> {
 		const p = path;
 		const binding = session.collabFor(p);
-		const v = get(editorViewStore);
+		const v = editorViewStore.current;
 		if (!binding || !v || !p || !active()) return;
 		if (v.composing) return scheduleRemotePatch(250); // never patch under an IME composition
 		const snapshot = binding.ytext.toString();
@@ -101,7 +100,7 @@
 		const parsed = await api.parse(snapshot);
 		remoteParseMs = performance.now() - t0;
 		// superseded: the file/mode/view moved on, or more edits landed while parsing
-		if (path !== p || !active() || get(editorViewStore) !== v) return;
+		if (path !== p || !active() || editorViewStore.current !== v) return;
 		if (session.collabFor(p)?.ytext !== binding.ytext) return;
 		if (binding.ytext.toString() !== snapshot) return scheduleRemotePatch();
 		if (!parsed) return; // unparsable mid-edit state; the next change retries
@@ -166,7 +165,7 @@
 	// for "clicked out of the editor" wherever the focus sat. The timeout lets focus settle first,
 	// so a hop between two islands (out of one, into the next) does not read as a blur.
 	$effect(() => {
-		const v = $editorViewStore;
+		const v = editorViewStore.current;
 		if (!v) return;
 		const dom = v.dom;
 		const pmView = v;
@@ -196,7 +195,7 @@
 		visualCursorTimer = setTimeout(() => {
 			visualCursorTimer = null;
 			const binding = session.collabFor(path);
-			const v = get(editorViewStore);
+			const v = editorViewStore.current;
 			if (!binding || !v || !active()) return;
 			// the held self-restamp applies once the caret leaves its block (see runRemotePatch)
 			if (deferredRestamp) {
@@ -256,7 +255,7 @@
 	// remote-cursors plugin: relative position -> ytext index -> (carried back to the stamps'
 	// coordinates while local edits await re-stamping) -> PM position via the sourceMap
 	function renderRemoteCursors() {
-		const v = get(editorViewStore);
+		const v = editorViewStore.current;
 		if (!v || v.isDestroyed) return;
 		const binding = session.collabFor(path);
 		if (!binding || !active()) {
@@ -318,7 +317,7 @@
 	// blinks our published cursor on every peer's screen
 	$effect(() => {
 		void session.manifestRev;
-		const v = $editorViewStore; // re-fires when the view mounts, so carets render on entry
+		const v = editorViewStore.current; // re-fires when the view mounts, so carets render on entry
 		const binding = active() ? session.collabFor(path) : null;
 		if (!binding || !v) return;
 		function onAwareness() {

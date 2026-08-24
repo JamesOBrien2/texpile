@@ -1,7 +1,6 @@
 // compile / terminal / PDF-watch orchestration: resolve the command, run it in the terminal dock,
 // poll the log + PDF until the run settles, publish parsed diagnostics and the fresh PDF.
 // WorkspaceView wires the deps.
-import { get } from 'svelte/store';
 import { compileLog, rebaseLogFile } from '$lib/stores/compileLogStore';
 import { parseCompileDiagnosticsInWorker } from '$lib/compileLog/parseInWorker';
 import { pdfStore } from '$lib/stores/pdfStore';
@@ -71,7 +70,7 @@ export class CompilePipeline {
 
 	// expand {main} to the project's main file (relative to the folder root), else the open file
 	private resolvedCompileCommand(cmd: string): string {
-		return expandMain(cmd, get(workspaceRoot), get(mainFile) ?? this.deps.getLoadedPath());
+		return expandMain(cmd, workspaceRoot.current, mainFile.current ?? this.deps.getLoadedPath());
 	}
 
 	// show the terminal, wait for mount, then run (the shell queues the command until it has
@@ -110,7 +109,7 @@ export class CompilePipeline {
 			return;
 		}
 		// first compile in a folder with no explicitly chosen main file: confirm it first
-		if (this.deps.mainConfirmed() !== true && get(texFiles).length > 1) {
+		if (this.deps.mainConfirmed() !== true && texFiles.current.length > 1) {
 			this.deps.openMainConfirm(() => void this.runCompile());
 			return;
 		}
@@ -120,20 +119,20 @@ export class CompilePipeline {
 		// draft path used to land in the compile-command modal instead of compiling). Guarded on a
 		// main actually existing afterwards: a dismissed prompt in a folder where detection came up
 		// empty must close, not reopen itself forever.
-		if (!get(mainFile) && get(texFiles).length > 0) {
+		if (!mainFile.current && texFiles.current.length > 0) {
 			this.deps.openMainConfirm(() => {
-				if (get(mainFile)) void this.runCompile();
+				if (mainFile.current) void this.runCompile();
 			});
 			return;
 		}
 		// Resolved fresh, not read from the cached deps command: the main-confirm dialog above
 		// re-enters this synchronously after setMainFile, before the $effect refreshing the cache
 		// runs - the stale cache once ran latexmk on a freshly chosen .typ main.
-		const cmd = resolveCompileCommand(get(mainFile)).trim();
+		const cmd = resolveCompileCommand(mainFile.current).trim();
 		// Live mode IS the incremental lualatex pipeline, so it cannot serve a Typst project. The
 		// setting is global and the user may arrive here with it left on from a LaTeX folder, so
 		// ignore it rather than trapping them - the terminal command below is the correct build.
-		if (get(compileConfig).latex.liveMode && !isTypstCommand(cmd)) {
+		if (compileConfig.current.latex.liveMode && !isTypstCommand(cmd)) {
 			await this.deps.runDraftCompile();
 			return;
 		}
@@ -143,7 +142,7 @@ export class CompilePipeline {
 		//
 		// In a shared session too: the preview's data plane is relayed to guests (previewRelay), so
 		// opening it here is answering a guest's compile request, not ignoring it.
-		if (get(compileConfig).typst.preview && isTypstCommand(cmd)) {
+		if (compileConfig.current.typst.preview && isTypstCommand(cmd)) {
 			this.deps.openTypstPreview();
 			return;
 		}
@@ -155,7 +154,7 @@ export class CompilePipeline {
 		}
 		// {main} with no main file: only reachable in a folder with nothing to pick (the mainless
 		// gate above prompts otherwise), and a truly empty folder has nothing to compile
-		if (cmd.includes('{main}') && !get(mainFile)) {
+		if (cmd.includes('{main}') && !mainFile.current) {
 			toaster.error({ title: m.wsview_toast_nothing_to_compile_title(), description: m.wsview_toast_nothing_to_compile_desc() });
 			return;
 		}
@@ -186,10 +185,10 @@ export class CompilePipeline {
 		this.deps.refreshTree(); // the output/ folder may have just been created
 		// opt-out ergonomics: with the dock closed by choice, a compile should not reopen it. The
 		// button's own running state is the progress indicator then (see openDockOnCompile).
-		if (get(settings).openDockOnCompile) this.deps.showTerminal();
+		if (settings.current.openDockOnCompile) this.deps.showTerminal();
 		// marker off = no end signal from the shell; leave the button as Compile instead of a
 		// Stop that would linger until the log/PDF pollers time out
-		const track = get(compileConfig).completionMarker;
+		const track = compileConfig.current.completionMarker;
 		this.compiling = track;
 		this.busy = true; // set even without the marker: the overlap guard must not depend on it
 		const gen = ++this.compileGen;
@@ -219,9 +218,9 @@ export class CompilePipeline {
 	// compile-command parsing/generation lives in compileCommand.ts; these thin wrappers supply the
 	// reactive root / main-file / per-folder overrides the pure functions take as arguments
 	expectedPdfPath = (cmd = this.deps.getCompileCommand()): string | null => {
-		const root = get(workspaceRoot);
-		const main = get(mainFile) ?? this.deps.getLoadedPath();
-		return cc.expectedPdfPath(cmd, root, main, get(compileConfig)[effectiveCompileFormat(main)].outputs.pdf);
+		const root = workspaceRoot.current;
+		const main = mainFile.current ?? this.deps.getLoadedPath();
+		return cc.expectedPdfPath(cmd, root, main, compileConfig.current[effectiveCompileFormat(main)].outputs.pdf);
 	};
 
 	// A zero-byte log means "the engine never really ran" for TeX, so it is ignored — but for Typst
@@ -231,14 +230,14 @@ export class CompilePipeline {
 	private logMayBeEmpty = (cmd = this.deps.getCompileCommand()): boolean => drivesTypst(cmd);
 
 	expectedLogPath = (cmd = this.deps.getCompileCommand()): string | null => {
-		const root = get(workspaceRoot);
-		const main = get(mainFile) ?? this.deps.getLoadedPath();
-		return cc.expectedLogPath(cmd, root, main, get(compileConfig)[effectiveCompileFormat(main)].outputs);
+		const root = workspaceRoot.current;
+		const main = mainFile.current ?? this.deps.getLoadedPath();
+		return cc.expectedLogPath(cmd, root, main, compileConfig.current[effectiveCompileFormat(main)].outputs);
 	};
 
 	// the directory the command runs in; differs from the root only under latexmk -cd
 	private compileBaseDir = (cmd = this.deps.getCompileCommand()): string | null =>
-		cc.compileBaseDir(cmd, get(workspaceRoot), get(mainFile) ?? this.deps.getLoadedPath());
+		cc.compileBaseDir(cmd, workspaceRoot.current, mainFile.current ?? this.deps.getLoadedPath());
 
 	// read the .log plus the sibling .blg (it reflects the LAST bib run, which stays valid
 	// even on compiles where latexmk skips bibtex) and publish the parsed problems
@@ -252,14 +251,14 @@ export class CompilePipeline {
 		// under -cd the engine printed its paths relative to the main file's folder; make them
 		// root-relative, the shape every consumer below resolves against. Skipped when the base IS
 		// the root, so the ordinary case is byte-identical to before.
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		const base = this.compileBaseDir();
 		if (root && base && !samePath(base, root)) {
 			for (const e of parsed.entries) if (e.file) e.file = rebaseLogFile(e.file, base, root);
 		}
 		// bib warnings name a key ("empty journal in Smith2020"); projectIntel knows every
 		// entry's exact line, so point the row at it (LW resolves these via its citation cache)
-		const bibEntries = get(projectIntelStore).bibEntries;
+		const bibEntries = projectIntelStore.current.bibEntries;
 		for (const e of parsed.entries) {
 			if (e.source !== 'bib' || e.line !== undefined) continue;
 			const key = e.message.match(/\bin ['"]?([\w:.-]+)['"]?$/) ?? e.message.match(/\bentry '([^']+)'/);
@@ -269,14 +268,14 @@ export class CompilePipeline {
 				e.line = hit.line;
 			}
 		}
-		compileLog.set({ ...parsed, logPath, updatedAt: mtimeMs });
+		compileLog.current = { ...parsed, logPath, updatedAt: mtimeMs };
 		this.deps.shareCompileState(); // guests get the fresh diagnostics without waiting for the intel rescan
 		// a failed build produces no fresh PDF, so nothing else tells the user: surface the
 		// Problems list. clean/warning-only results never steal the dock. (quiet = a baseline share
 		// on session start, which shouldn't yank the host's dock open.) openDockOnCompile off
 		// silences this too - a chronically-erroring LaTeX doc that still builds would otherwise
 		// have the dock stolen every run; the topbar badge carries the signal instead.
-		if (!quiet && parsed.errors.length > 0 && get(settings).openDockOnCompile) {
+		if (!quiet && parsed.errors.length > 0 && settings.current.openDockOnCompile) {
 			this.deps.setDockView('problems');
 			this.deps.showTerminal();
 		}
@@ -318,7 +317,7 @@ export class CompilePipeline {
 			// would stay silent while the user reads that as "compiled ok". An up-to-date rebuild is
 			// exempt: its PDF exists. Say where we looked and point at the output overrides.
 			if (!toolMissing && pdfPath && !pdfExists && !logAdvanced) {
-				const root = get(workspaceRoot);
+				const root = workspaceRoot.current;
 				toaster.warning({
 					title: m.compile_no_output_title(),
 					description: m.compile_no_output({ path: root ? relFromRoot(pdfPath, root) : pdfPath }),
@@ -350,9 +349,9 @@ export class CompilePipeline {
 	private showCompiledPdf(pdfPath: string, mtimeMs: number) {
 		void this.deps.getSession().pushPdf(pdfPath); // shared session: guests get the fresh bytes
 		const url = this.deps.fileUrl(pdfPath) + '&t=' + Math.round(mtimeMs); // cache-bust so it reloads
-		if (get(pdfStore) === url) return;
+		if (pdfStore.current === url) return;
 		this.pdfFilename = basename(pdfPath);
-		pdfStore.set(url);
+		pdfStore.current = url;
 		this.deps.setPdfPaneOpen(true);
 		this.deps.refreshTree(); // the compiled output landed; reload the file explorer
 	}
@@ -383,19 +382,19 @@ export class CompilePipeline {
 		// the persisted main file, so a folder resolves its real format even before the
 		// reactive mainFile store hydrates. The command comes from the adopted config, which
 		// projectConfigSync.adopt() fills before this runs (initProject sequences them).
-		const bootRoot = get(workspaceRoot);
+		const bootRoot = workspaceRoot.current;
 		const pdfPath = this.expectedPdfPath(resolveCompileCommand(bootRoot ? savedMainFile(bootRoot) : null));
 		if (!pdfPath) {
-			pdfStore.set(null);
+			pdfStore.current = null;
 			return;
 		}
 		const s = await this.deps.stat(pdfPath);
 		if (s.exists && s.size > 0) {
 			this.pdfFilename = basename(pdfPath);
-			pdfStore.set(this.deps.fileUrl(pdfPath) + '&t=' + Math.round(s.mtimeMs)); // mtime cache-busts a stale load
+			pdfStore.current = this.deps.fileUrl(pdfPath) + '&t=' + Math.round(s.mtimeMs); // mtime cache-busts a stale load
 			this.deps.setPdfPaneOpen(true); // a compiled PDF is ready; open the preview so a reload shows it
 		} else {
-			pdfStore.set(null);
+			pdfStore.current = null;
 		}
 	};
 }

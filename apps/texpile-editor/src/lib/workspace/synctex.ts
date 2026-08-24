@@ -1,5 +1,5 @@
 // source <-> PDF sync via the synctex binary over Electron IPC; needs a -synctex=1 compile
-import { native } from './fileSystem';
+import { nativeBridge } from './fileSystem';
 
 // flat shapes (not discriminated unions) so callers can read fields without narrowing;
 // on failure ok is false and the position fields are absent
@@ -24,7 +24,7 @@ export type InverseResult = {
 };
 
 async function call<T>(body: Record<string, unknown>): Promise<T> {
-	const n = native();
+	const n = nativeBridge();
 	if (!n) return { ok: false, error: 'SyncTeX requires the Texpile desktop app.' } as T;
 	try {
 		return (await n.synctex(body)) as T;

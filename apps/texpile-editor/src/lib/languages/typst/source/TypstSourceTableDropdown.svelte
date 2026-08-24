@@ -28,7 +28,7 @@
 	}
 
 	function insert(r: number, c: number) {
-		const view = $sourceCmView;
+		const view = sourceCmView.current;
 		if (!view) return;
 		open = false;
 		view.dispatch(computeTableSkeleton(view.state, { rows: r, cols: c, header, figure }));

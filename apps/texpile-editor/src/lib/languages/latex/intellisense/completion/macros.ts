@@ -3,7 +3,6 @@
 // vendored default set (data/lwMacros.ts), and the user's OWN \newcommand/\NewDocumentCommand
 // definitions scanned from the buffer in userMacros.worker.ts (LaTeX Workshop calls this
 // "user-defined macros"; the scan itself lives in userMacroScan.ts, not a bespoke scanner here).
-import { get } from 'svelte/store';
 import { snippetCompletion, type Completion } from '@codemirror/autocomplete';
 import { macroInfo } from '@unified-latex/unified-latex-ctan';
 import { projectIntelStore, type ProjectIntel } from '$lib/stores/projectIntel';
@@ -151,7 +150,7 @@ let intelCache: { intel: ProjectIntel; options: Completion[] } | null = null;
 
 // \newcommand-family definitions from OTHER project files (the buffer's own come from the worker scan)
 function projectMacroOptions(): Completion[] {
-	const intel = get(projectIntelStore);
+	const intel = projectIntelStore.current;
 	if (intelCache?.intel !== intel) {
 		const seen = new Set<string>();
 		const options: Completion[] = [];

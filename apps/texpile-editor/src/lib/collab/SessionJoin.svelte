@@ -6,18 +6,17 @@
 	import { formatShareCode, isValidShareCode, normalizeShareCode } from '$lib/collab/e2e/shareCode';
 	import AppFrame from '$lib/chrome/AppFrame.svelte';
 	import { settings, updateSettings, DEFAULT_COLLAB_RELAY_URL } from '$lib/settings';
-	import { get } from 'svelte/store';
-	import { users, updateUsers } from '$lib/storage/users';
+	import { userData, updateUserData } from '$lib/storage/userData';
 	import { m } from '$lib/paraglide/messages';
 	import { RotateCcw, ShieldCheck, ChevronDown } from '@lucide/svelte';
 
 	let codeInput = $state('');
 	let nameInput = $state(loadName());
-	let relayDraft = $state($settings.collabRelayUrl);
+	let relayDraft = $state(settings.current.collabRelayUrl);
 	let relayTouched = $state(false);
 	let advancedOpen = $state(false);
 	$effect(() => {
-		const url = $settings.collabRelayUrl;
+		const url = settings.current.collabRelayUrl;
 		// reveal the relay field unprompted only when it isn't the default one
 		if (!relayTouched) {
 			relayDraft = url;
@@ -26,13 +25,13 @@
 	});
 
 	function loadName(): string {
-		return get(users).collabName;
+		return userData.current.collabName;
 	}
 
 	async function join() {
 		const trimmedRelay = relayDraft.trim();
-		if (trimmedRelay && trimmedRelay !== $settings.collabRelayUrl) updateSettings({ collabRelayUrl: trimmedRelay });
-		updateUsers({ collabName: nameInput.trim() });
+		if (trimmedRelay && trimmedRelay !== settings.current.collabRelayUrl) updateSettings({ collabRelayUrl: trimmedRelay });
+		updateUserData({ collabName: nameInput.trim() });
 		await collabGuest.join(codeInput, nameInput);
 	}
 

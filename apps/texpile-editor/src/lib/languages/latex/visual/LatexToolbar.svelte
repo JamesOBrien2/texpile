@@ -80,9 +80,9 @@
 	function keepEditorFocus(cmd: Cmd) {
 		return (e: MouseEvent) => {
 			e.preventDefault();
-			if (!$editorViewStore) return;
-			cmd($editorViewStore!.state, $editorViewStore!.dispatch);
-			$editorViewStore!.focus();
+			if (!editorViewStore.current) return;
+			cmd(editorViewStore.current!.state, editorViewStore.current!.dispatch);
+			editorViewStore.current!.focus();
 		};
 	}
 	// preventDefault on mousedown anywhere in the toolbar so clicks never steal focus from
@@ -100,21 +100,21 @@
 	let currentHeadingNumbered = $state(true);
 
 	$effect(() => {
-		if ($editorViewStore) {
+		if (editorViewStore.current) {
 			activeCommands = {
-				strong: markIsActive($editorViewStore!.state, schema.marks.strong),
-				em: markIsActive($editorViewStore!.state, schema.marks.em),
-				u: markIsActive($editorViewStore!.state, schema.marks.u),
-				code: markIsActive($editorViewStore!.state, schema.marks.code),
-				link: markIsActive($editorViewStore!.state, schema.marks.link),
-				sup: markIsActive($editorViewStore!.state, schema.marks.sup),
-				sub: markIsActive($editorViewStore!.state, schema.marks.sub)
+				strong: markIsActive(editorViewStore.current!.state, schema.marks.strong),
+				em: markIsActive(editorViewStore.current!.state, schema.marks.em),
+				u: markIsActive(editorViewStore.current!.state, schema.marks.u),
+				code: markIsActive(editorViewStore.current!.state, schema.marks.code),
+				link: markIsActive(editorViewStore.current!.state, schema.marks.link),
+				sup: markIsActive(editorViewStore.current!.state, schema.marks.sup),
+				sub: markIsActive(editorViewStore.current!.state, schema.marks.sub)
 			};
 
-			activeTextColor = activeMarkColor($editorViewStore!.state, schema.marks.textcolor);
-			activeHighlightColor = activeMarkColor($editorViewStore!.state, schema.marks.highlight);
+			activeTextColor = activeMarkColor(editorViewStore.current!.state, schema.marks.textcolor);
+			activeHighlightColor = activeMarkColor(editorViewStore.current!.state, schema.marks.highlight);
 
-			const node = $editorViewStore!.state.selection.$from.node($editorViewStore!.state.selection.$from.depth);
+			const node = editorViewStore.current!.state.selection.$from.node(editorViewStore.current!.state.selection.$from.depth);
 			const inHeading = node?.type?.name === 'heading';
 			currentHeadingLevel = inHeading ? node.attrs.level : 0;
 			currentHeadingNumbered = inHeading ? node.attrs.numbered !== false : true;
@@ -122,8 +122,8 @@
 	});
 
 	function applyHeading(level: number, numbered: boolean) {
-		setHeadingLevel(level, numbered)($editorViewStore!.state, $editorViewStore!.dispatch);
-		$editorViewStore!.focus();
+		setHeadingLevel(level, numbered)(editorViewStore.current!.state, editorViewStore.current!.dispatch);
+		editorViewStore.current!.focus();
 	}
 
 	const bulletList = createWrapInListCommand({ kind: 'bullet' });
@@ -151,7 +151,7 @@
 				<li class="toolbarButton hover:preset-tonal">
 					<button
 						onclick={() => {
-							displaySearchBarStore.set(!$displaySearchBarStore);
+							displaySearchBarStore.current = !displaySearchBarStore.current;
 						}}
 						class="flex items-center p-1"
 					>
@@ -160,7 +160,7 @@
 				</li>
 			</ul>
 
-			{#if $isReadOnly}
+			{#if isReadOnly.current}
 				<div class="text-surface-500 flex items-center gap-1.5">
 					<Eye class="size-4" />
 					<span class="text-sm font-medium">{m.toolbar_read_only()}</span>
@@ -179,7 +179,7 @@
 					</li>
 				</ul>
 
-				{#if $rawEditorActiveStore}
+				{#if rawEditorActiveStore.current}
 					<!-- a raw-LaTeX CM block is focused: prose formatting doesn't apply, show a minimal bar -->
 					<!-- Sheds the hint first, then the whole indicator - icon included. A bare icon left
 					     behind reads as a button you can press, and this is a status label, not a control.
@@ -220,8 +220,8 @@
 								sup={!!activeCommands.sup}
 								sub={!!activeCommands.sub}
 								onToggle={(which) => {
-									toggleMark(schema.marks[which])($editorViewStore!.state, $editorViewStore!.dispatch);
-									$editorViewStore!.focus();
+									toggleMark(schema.marks[which])(editorViewStore.current!.state, editorViewStore.current!.dispatch);
+									editorViewStore.current!.focus();
 								}}
 							/>
 						</div>

@@ -9,7 +9,7 @@ import { LSPClient, languageServerExtensions, languageServerSupport } from '@cod
 import type { Transport } from '@codemirror/lsp-client';
 import type { Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { writable } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 import { applyTextEdits, type LspTextEdit } from './textEdits';
 import { normalizeCompletionJson } from './completionNormalize';
 
@@ -110,7 +110,7 @@ let session: Session | null = null;
  * task died with the server, and each open .typ editor rebuilds its LSP extension - both were
  * otherwise left holding a corpse, the pane dialing a dead port forever.
  */
-export const typstServerGen = writable(0);
+export const typstServerGen = box(0);
 
 let exitHooked = false;
 function hookExit(): void {
@@ -128,7 +128,7 @@ function hookExit(): void {
 		} catch {
 			/* transport already gone */
 		}
-		typstServerGen.update((n) => n + 1);
+		typstServerGen.current += 1;
 	});
 }
 

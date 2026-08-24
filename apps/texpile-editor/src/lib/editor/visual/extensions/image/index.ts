@@ -1,4 +1,3 @@
-import { createDefaultSettings } from './imageplugin.svelte';
 import { imagePlugin } from './plugin/index';
 
 import type { ImagePluginSettings, RemoveImagePlaceholder, InsertImagePlaceholder, ImagePluginAction, ImagePluginState } from './types';
@@ -26,7 +25,6 @@ export {
 	startImageUpload,
 	startImageUploadFn,
 	type ImageUploadReturn,
-	createDefaultSettings,
 	imagePluginKey,
 	fetchImageAsBase64,
 	type Store,

@@ -1,29 +1,29 @@
-import { writable } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 import type { EditorView } from 'prosemirror-view';
 import type { EditorView as CodeMirrorView } from '@codemirror/view';
 import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 import type { EditorConfiguration } from '$lib/types/editorcfg';
 
-export const editorViewStore = writable<EditorView | null>(null);
-export const displaySearchBarStore = writable(false);
+export const editorViewStore = box<EditorView | null>(null);
+export const displaySearchBarStore = box(false);
 // true while a raw-LaTeX CodeMirror block inside the visual editor has focus;
 // the toolbar swaps to a raw-LaTeX bar (see Toolbar.svelte)
-export const rawEditorActiveStore = writable(false);
+export const rawEditorActiveStore = box(false);
 // routes Insert/Format in menuBarCommands. visual mode always targets the PM doc (a raw CM block
 // is still a PM node, inserting LaTeX text into it would get re-parsed away); only source mode
 // targets a CodeMirror editor.
-export const viewMode = writable<'visual' | 'source'>('visual');
+export const viewMode = box<'visual' | 'source'>('visual');
 // the SourceEditor's CodeMirror view while source mode is active; used by Insert/Format
-export const sourceCmView = writable<CodeMirrorView | null>(null);
+export const sourceCmView = box<CodeMirrorView | null>(null);
 // true when the PM selection is inside a CodeMirror-backed block; the menu bar disables
 // Insert/Format there (they would split/convert the block). maintained by createCursorPlugin.
-export const cursorInCm = writable<boolean>(false);
-export const referenceStore = writable<BiblatexReference[] | null>(null);
+export const cursorInCm = box<boolean>(false);
+export const referenceStore = box<BiblatexReference[] | null>(null);
 // all \label{} keys in the current file, consumed by \ref/\eqref/\cref autocompletion
-export const labelStore = writable<string[]>([]);
+export const labelStore = box<string[]>([]);
 // workspace files as root-relative forward-slash paths, consumed by file-path autocompletion
-export const filePathStore = writable<string[]>([]);
-export const editorConfigStore = writable<EditorConfiguration | null>(null);
+export const filePathStore = box<string[]>([]);
+export const editorConfigStore = box<EditorConfiguration | null>(null);
 
 type CitationVariant = {
 	value: string; // e.g. "cite", "autocite", "parencite"
@@ -55,4 +55,4 @@ const DEFAULT_TEMPLATE_FEATURES: TemplateFeatures = {
 	// citationVariants omitted = default biblatex options
 };
 
-export const templateFeaturesStore = writable<TemplateFeatures>(DEFAULT_TEMPLATE_FEATURES);
+export const templateFeaturesStore = box<TemplateFeatures>(DEFAULT_TEMPLATE_FEATURES);

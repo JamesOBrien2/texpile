@@ -140,8 +140,8 @@
 	}
 
 	function helpSelect(value: string) {
-		if (value === 'shortcuts') shortcutsOpen.set(true);
-		else if (value === 'whatsnew') whatsNewOpen.set(true);
+		if (value === 'shortcuts') shortcutsOpen.current = true;
+		else if (value === 'whatsnew') whatsNewOpen.current = true;
 		else if (value === 'docs') window.open('https://texpile.com/docs', '_blank', 'noopener,noreferrer');
 		else if (value === 'discord') window.open('https://discord.gg/7wanVzCBWf', '_blank', 'noopener,noreferrer');
 		else if (value === 'support') supportModal?.show();
@@ -154,7 +154,7 @@
 		else if (value === 'open-folder-new-window') openFolderInNewWindow();
 		else if (value === 'share-session') onShareSession?.();
 		else if (value === 'close-workspace') onCloseWorkspace?.();
-		else if (value === 'preferences') preferencesOpen.set(true);
+		else if (value === 'preferences') preferencesOpen.current = true;
 	}
 	function newFileSelect(ext: string) {
 		onNewFile?.(ext);
@@ -172,10 +172,10 @@
 		pickImage: () => imagePicker?.pick()
 	});
 
-	const spellcheckOn = $derived($editorConfigStore?.spellcheck ?? false);
+	const spellcheckOn = $derived(editorConfigStore.current?.spellcheck ?? false);
 	function spellcheckSelect(value: string) {
 		if (value === 'toggle') setSpellcheckEnabled(!spellcheckOn);
-		else if (value === 'dictionary') dictionaryOpen.set(true);
+		else if (value === 'dictionary') dictionaryOpen.current = true;
 	}
 
 	function terminalSelect(value: string) {
@@ -210,7 +210,7 @@
 			editable,
 			structured,
 			dialect,
-			cursorInCm: $cursorInCm,
+			cursorInCm: cursorInCm.current,
 			spellcheck: spellcheckOn,
 			terminalAvailable,
 			terminalVisible,
@@ -222,7 +222,7 @@
 			canInsertImage: !!imageDir,
 			canOpenFolder: !!onOpenFolder,
 			canTutorial: !!onOpenTutorial,
-			recentFolders: $recentFolders
+			recentFolders: recentFolders.current
 		})
 	);
 </script>

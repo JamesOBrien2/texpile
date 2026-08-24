@@ -2,7 +2,6 @@
 // retarget, crash recovery), caret follow and one-shot forward sync, the preview's click-to-jump,
 // the guest stream relay, and the LSP diagnostics that feed the Problems panel while Preview is
 // on. WorkspaceView instantiates one and hands the pane its state.
-import { fromStore, get } from 'svelte/store';
 import { workspaceRoot, mainFile } from '$lib/workspace/workspaceStore';
 import { compileLog } from '$lib/stores/compileLogStore';
 import { sourceCmView } from '$lib/stores/editorStore';
@@ -70,7 +69,7 @@ export class TypstPreviewController {
 
 	/** the previewed document: the main file, always (`wanted` holds otherwise) */
 	get file(): string | null {
-		return get(mainFile);
+		return mainFile.current;
 	}
 
 	get mainIsTypst(): boolean {
@@ -96,12 +95,12 @@ export class TypstPreviewController {
 	 * the demand effect noticed.
 	 */
 	enable(): void {
-		this.hooks.setPreviewSwitch(get(workspaceRoot), true);
+		this.hooks.setPreviewSwitch(workspaceRoot.current, true);
 		this.hooks.setPaneOpen(true);
 	}
 
 	private async open(): Promise<void> {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		const file = this.file;
 		if (!root || !file) return;
 		try {
@@ -142,7 +141,7 @@ export class TypstPreviewController {
 	 * leaves it there and says nothing - it is exactly what Compile would have produced.
 	 */
 	async savePdf(): Promise<void> {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		const file = this.file;
 		if (!root || !file) return;
 		try {
@@ -173,7 +172,7 @@ export class TypstPreviewController {
 		this.attachedFile = null;
 		const task = this.task;
 		this.task = null;
-		if (task) void killTypstPreview(get(workspaceRoot), task);
+		if (task) void killTypstPreview(workspaceRoot.current, task);
 	}
 
 	/** Where a follow/sync can go: the local task, or - as a guest - the host's streamed preview. */
@@ -189,7 +188,7 @@ export class TypstPreviewController {
 	 *  the session's to ask about. */
 	private guestScrollRel(file: string): string | null {
 		const norm = file.replace(/\\/g, '/');
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (root && norm.startsWith(root.replace(/\\/g, '/') + '/')) return norm.slice(root.length + 1);
 		return /^([A-Za-z]:|\/)/.test(norm) ? null : norm;
 	}
@@ -200,7 +199,7 @@ export class TypstPreviewController {
 			if (rel) collabGuest.requestTypstScroll(rel, line, character);
 			return;
 		}
-		if (this.task) void scrollTypstPreview(get(workspaceRoot), this.task, file, line, character);
+		if (this.task) void scrollTypstPreview(workspaceRoot.current, this.task, file, line, character);
 	}
 
 	/**
@@ -272,7 +271,7 @@ export class TypstPreviewController {
 		if (this.syncUnavailable()) return;
 		const file = this.hooks.getDocPath();
 		if (!file) return;
-		const cm = get(sourceCmView);
+		const cm = sourceCmView.current;
 		if (cm && cm.dom.isConnected) {
 			const head = cm.state.selection.main.head;
 			const docLine = cm.state.doc.lineAt(head);
@@ -300,7 +299,7 @@ export class TypstPreviewController {
 	 */
 	/** a guest's follow/sync request, relayed by the session: resolve it against the local task */
 	scrollForGuest(rel: string, line: number, character: number): void {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root || !this.task) return;
 		void scrollTypstPreview(root, this.task, joinPath(root, rel), line, character);
 	}
@@ -318,11 +317,11 @@ export class TypstPreviewController {
 	syncToLine(line1: number): void {
 		if (this.syncUnavailable()) return;
 		const file = this.hooks.getDocPath();
-		const cm = get(sourceCmView);
+		const cm = sourceCmView.current;
 		if (!file || !cm) return;
 		const l = cm.state.doc.line(Math.min(Math.max(line1, 1), cm.state.doc.lines));
 		const character = l.text.replace(/\s+$/, '').length;
-		if (this.task) void scrollTypstPreview(get(workspaceRoot), this.task, file, l.number - 1, character);
+		if (this.task) void scrollTypstPreview(workspaceRoot.current, this.task, file, l.number - 1, character);
 	}
 
 	// With Preview on, Compile never shell-runs, so the log watcher that normally fills the
@@ -332,7 +331,7 @@ export class TypstPreviewController {
 	private readonly liveDiags = new Map<string, TypstDiagnostic[]>();
 
 	private publishProblems(): void {
-		compileLog.set(typstProblemsLog(this.liveDiags));
+		compileLog.current = typstProblemsLog(this.liveDiags);
 	}
 
 	// tinymist can deliver ONE preview click through two channels (the scrollSource notification
@@ -349,9 +348,8 @@ export class TypstPreviewController {
 	private seenServerGen = 0;
 
 	private attachEffects(): void {
-		const serverGen = fromStore(typstServerGen);
 		$effect(() => {
-			const gen = serverGen.current;
+			const gen = typstServerGen.current;
 			if (gen === this.seenServerGen) return;
 			this.seenServerGen = gen;
 			if (this.host === null) return;
@@ -377,7 +375,7 @@ export class TypstPreviewController {
 				// guest that clicked, not to this editor - hand it back over the session instead.
 				const clicker = previewRelay.claimSrcClick();
 				if (clicker !== null) {
-					const root = get(workspaceRoot);
+					const root = workspaceRoot.current;
 					const rel = root ? relFromRoot(jump.filepath, root) : '';
 					if (rel && rel !== jump.filepath.replace(/\\/g, '/')) {
 						collabHost.replyControl({ kind: 'typst-jump', file: rel, line: jump.start[0] }, clicker);

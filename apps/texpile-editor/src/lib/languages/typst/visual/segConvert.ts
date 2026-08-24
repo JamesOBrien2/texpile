@@ -2,7 +2,7 @@
 // markup walker in converter.ts are mutually recursive; ESM live bindings make the circular
 // import safe (nothing runs at module init).
 import type { SyntaxNode } from '@lezer/common';
-import { el } from './builders';
+import { buildNode } from './builders';
 import { children, childOf, convertInline } from './inlineConvert';
 import { convertMarkup, ensureBlocks, restOnlySpace, type Seg } from './converter';
 import { ARG_PUNCT } from './tableConvert';
@@ -20,7 +20,7 @@ export function headingSeg(k: SyntaxNode, src: string): Seg {
 	const level = Math.min(6, Math.max(1, marker ? marker.to - marker.from : 1));
 	const markup = childOf(k, 'Markup');
 	const content = markup ? convertInline(children(markup), src, []) : [];
-	return { blocks: [el('heading', { level, numbered: true }, content)], from: k.from, to: k.to };
+	return { blocks: [buildNode('heading', { level, numbered: true }, content)], from: k.from, to: k.to };
 }
 
 /** consecutive same-kind items separated by plain whitespace form ONE list. */
@@ -46,7 +46,7 @@ export function listSeg(kids: SyntaxNode[], i: number, src: string): { seg: Seg;
 	const blocks = items.map((item, idx) => {
 		const markup = childOf(item, 'Markup');
 		const inner = markup ? convertMarkup(children(markup), src).flatMap((s) => s.blocks) : [];
-		return el(
+		return buildNode(
 			'list',
 			{
 				kind,
@@ -78,9 +78,9 @@ export function termSeg(kids: SyntaxNode[], i: number, src: string): { seg: Seg;
 	}
 	const blocks = items.map((item) => {
 		const markups = children(item).filter((c) => c.name === 'Markup');
-		const title = el('term_title', null, markups[0] ? convertInline(children(markups[0]), src, []) : []);
+		const title = buildNode('term_title', null, markups[0] ? convertInline(children(markups[0]), src, []) : []);
 		const desc = markups[1] ? convertMarkup(children(markups[1]), src).flatMap((s) => s.blocks) : [];
-		return el('term_item', null, [title, ...ensureBlocks(desc)]);
+		return buildNode('term_item', null, [title, ...ensureBlocks(desc)]);
 	});
 	return { seg: { blocks, from: items[0].from, to: items[items.length - 1].to }, next: j };
 }
@@ -106,7 +106,7 @@ export function quoteSeg(kids: SyntaxNode[], i: number, src: string): { seg: Seg
 	if (!bool || src.slice(bool.from, bool.to) !== 'true') return null;
 	const markup = childOf(real[1], 'Markup');
 	const blocks = markup ? convertMarkup(children(markup), src).flatMap((s) => s.blocks) : [];
-	return { seg: { blocks: [el('blockquote', null, ensureBlocks(blocks))], from: hash.from, to: call.to }, next: i + 2 };
+	return { seg: { blocks: [buildNode('blockquote', null, ensureBlocks(blocks))], from: hash.from, to: call.to }, next: i + 2 };
 }
 
 /**

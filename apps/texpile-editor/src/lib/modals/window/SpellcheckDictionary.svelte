@@ -9,7 +9,7 @@
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
 	let newWord = $state('');
-	const words = $derived([...($editorConfigStore?.dictionary ?? [])].sort((a, b) => a.localeCompare(b)));
+	const words = $derived([...(editorConfigStore.current?.dictionary ?? [])].sort((a, b) => a.localeCompare(b)));
 
 	async function add() {
 		const w = newWord.trim();

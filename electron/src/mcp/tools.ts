@@ -2,8 +2,8 @@
 // Nothing here mutates a document, deliberately - see server.ts for the hosting story.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { snapshot, type WorkspaceSnapshot } from './state';
-import { request, sendCommand } from './bridge';
+import { snapshotWindows, type WorkspaceSnapshot } from './windowState';
+import { askRenderer, sendCommand } from './bridge';
 import type { McpHost } from './server';
 
 /**
@@ -57,7 +57,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 		async () => {
 			const h = currentHost();
 			if (!h) return { content: [{ type: 'text' as const, text: '{"error":"server not running"}' }] };
-			const workspaces: WorkspaceSnapshot[] = snapshot(h.windowObjects(), (id) => h.rootFor(id));
+			const workspaces: WorkspaceSnapshot[] = snapshotWindows(h.windowObjects(), (id) => h.rootFor(id));
 			const focused = workspaces.find((w) => w.focused)?.root ?? null;
 			return {
 				content: [{ type: 'text' as const, text: JSON.stringify({ focused, workspaces }, null, 2) }]
@@ -92,7 +92,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 			const t = target(root);
 			if (!t) return fail('no matching Texpile window');
 			// pulled rather than pushed: a dirty 2 MB paper is not worth sending on every keystroke
-			const data = await request(t.win, 'unsaved');
+			const data = await askRenderer(t.win, 'unsaved');
 			if (data === null) return fail('the editor did not respond in time (it may be busy loading a large document)');
 			return ok(data);
 		}
@@ -119,7 +119,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 		async ({ root }) => {
 			const t = target(root);
 			if (!t) return fail('no matching Texpile window');
-			const data = await request(t.win, 'diagnostics');
+			const data = await askRenderer(t.win, 'diagnostics');
 			if (data === null) return fail('the editor did not respond in time');
 			return ok(data);
 		}
@@ -169,7 +169,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 			if (!t) return fail('no matching Texpile window');
 			// a request, not a command: entering diff is refused outright when the folder is not a git
 			// repo, and reporting success we never confirmed is how a caller gets misled
-			const r = (await request(t.win, 'show_diff', { path: p })) as { ok?: boolean; reason?: string } | null;
+			const r = (await askRenderer(t.win, 'show_diff', { path: p })) as { ok?: boolean; reason?: string } | null;
 			if (r === null) return fail('the editor did not respond in time');
 			if (!r.ok) return fail(r.reason ?? 'the editor refused to show a diff');
 			return ok(r);
@@ -192,7 +192,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 		async ({ mode, root }) => {
 			const t = target(root);
 			if (!t) return fail('no matching Texpile window');
-			const r = (await request(t.win, 'view_mode', { mode })) as { ok?: boolean; reason?: string; viewMode?: string } | null;
+			const r = (await askRenderer(t.win, 'view_mode', { mode })) as { ok?: boolean; reason?: string; viewMode?: string } | null;
 			if (r === null) return fail('the editor did not respond in time');
 			if (!r.ok) return fail(`${r.reason ?? 'refused'} (still in ${r.viewMode ?? 'unknown'} mode)`);
 			return ok(r);
@@ -217,7 +217,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 		async ({ line, root }) => {
 			const t = target(root);
 			if (!t) return fail('no matching Texpile window');
-			const r = (await request(t.win, 'synctex', { line })) as { ok?: boolean; reason?: string } | null;
+			const r = (await askRenderer(t.win, 'synctex', { line })) as { ok?: boolean; reason?: string } | null;
 			if (r === null) return fail('the editor did not respond in time');
 			if (!r.ok) return fail(r.reason ?? 'could not sync to that line');
 			return ok(r);
@@ -247,7 +247,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 			if (!t) return fail('no matching Texpile window');
 			// a request, not a command: a path outside the workspace or one that is not a .tex/.typ is
 			// refused, and a caller told it succeeded would compile the wrong thing and never learn why
-			const r = (await request(t.win, 'main_file', { path: p })) as { ok?: boolean; reason?: string } | null;
+			const r = (await askRenderer(t.win, 'main_file', { path: p })) as { ok?: boolean; reason?: string } | null;
 			if (r === null) return fail('the editor did not respond in time');
 			if (!r.ok) return fail(r.reason ?? 'the editor refused to set the main file');
 			return ok(r);
@@ -274,7 +274,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 		async ({ root }) => {
 			const t = target(root);
 			if (!t) return fail('no matching Texpile window');
-			const r = (await request(t.win, 'compile')) as { ok?: boolean; mode?: string; note?: string } | null;
+			const r = (await askRenderer(t.win, 'compile')) as { ok?: boolean; mode?: string; note?: string } | null;
 			if (r === null) return fail('the editor did not respond in time');
 			// pass the renderer's own mode and guidance through rather than restating it here, so the
 			// two cannot drift apart
@@ -297,7 +297,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 		async ({ root }) => {
 			const t = target(root);
 			if (!t) return fail('no matching Texpile window');
-			const data = await request(t.win, 'compile_config');
+			const data = await askRenderer(t.win, 'compile_config');
 			if (data === null) return fail('the editor did not respond in time');
 			return ok(data);
 		}
@@ -325,7 +325,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 		async ({ outputDir, pdf, log, root }) => {
 			const t = target(root);
 			if (!t) return fail('no matching Texpile window');
-			const r = (await request(t.win, 'set_output_paths', { outputDir, pdf, log })) as { ok?: boolean; reason?: string } | null;
+			const r = (await askRenderer(t.win, 'set_output_paths', { outputDir, pdf, log })) as { ok?: boolean; reason?: string } | null;
 			if (r === null) return fail('the editor did not respond in time');
 			if (!r.ok) return fail(r.reason ?? 'the editor refused the change');
 			return ok(r);
@@ -353,7 +353,7 @@ export function buildServer(currentHost: () => McpHost | null): McpServer {
 			if (!t) return fail('no matching Texpile window');
 			// the gate lives in the renderer, with the settings store, so it cannot be bypassed by
 			// reaching this server directly
-			const r = (await request(t.win, 'set_compile_command', { command })) as { ok?: boolean; reason?: string } | null;
+			const r = (await askRenderer(t.win, 'set_compile_command', { command })) as { ok?: boolean; reason?: string } | null;
 			if (r === null) return fail('the editor did not respond in time');
 			if (!r.ok) return fail(r.reason ?? 'the editor refused to set the compile command');
 			return ok(r);

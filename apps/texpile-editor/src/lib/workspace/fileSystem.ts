@@ -109,33 +109,33 @@ type TexpileNative = {
 	gitUserName: (root: string) => Promise<{ ok: true; name: string | null }>;
 };
 
-export function native(): TexpileNative | undefined {
+export function nativeBridge(): TexpileNative | undefined {
 	if (!browser) return undefined;
 	return (window as unknown as { texpileNative?: TexpileNative }).texpileNative;
 }
 
 /** the Electron bridge, or a clear error outside the desktop shell (the message can reach a toast). */
 function requireNative(): TexpileNative {
-	const n = native();
+	const n = nativeBridge();
 	if (!n) throw new Error('File access requires the Texpile desktop app.');
 	return n;
 }
 
 /** whether we're running inside the Electron shell. */
 export function isDesktop(): boolean {
-	return !!native()?.openFolder;
+	return !!nativeBridge()?.openFolder;
 }
 
 /** opens the native folder picker; null when cancelled or outside the desktop shell. */
 export async function pickFolder(): Promise<string | null> {
-	const n = native();
+	const n = nativeBridge();
 	return n ? n.openFolder() : null;
 }
 
 /** registers this window as the folder's owner. { ok:false } means another window already
  *  has it open (that window was focused); the caller should abort its own open. */
 export async function claimWorkspace(root: string): Promise<{ ok: boolean; reason?: string }> {
-	const n = native();
+	const n = nativeBridge();
 	if (!n?.claimWorkspace) return { ok: true }; // browser dev: single window, nothing to claim
 	try {
 		return await n.claimWorkspace(root);
@@ -146,19 +146,19 @@ export async function claimWorkspace(root: string): Promise<{ ok: boolean; reaso
 
 /** marks this window as back on the start screen (frees the folder for other windows). */
 export function releaseWorkspace(): void {
-	void native()
+	void nativeBridge()
 		?.releaseWorkspace?.()
 		.catch(() => {});
 }
 
 /** opens an empty new window. */
 export function openNewWindow(): void {
-	void native()?.newWindow?.();
+	void nativeBridge()?.newWindow?.();
 }
 
 /** folder picker + new window in one step; dedupes against windows that already have it. */
 export function openFolderInNewWindow(): void {
-	void native()?.openFolderNewWindow?.();
+	void nativeBridge()?.openFolderNewWindow?.();
 }
 
 // an IPC rejection reads "Error invoking remote method 'fs:x': Error: <msg>"; surface
@@ -236,7 +236,7 @@ export async function purgeUndoBackups(root: string): Promise<void> {
 
 /** select the file in the OS file manager. A no-op outside the desktop shell. */
 export async function revealItem(path: string): Promise<void> {
-	await native()?.revealItem?.(path);
+	await nativeBridge()?.revealItem?.(path);
 }
 
 /**
@@ -244,7 +244,7 @@ export async function revealItem(path: string): Promise<void> {
  * a cancelled dialog and a non-desktop shell, so callers treat them the same: say nothing.
  */
 export async function savePdfAs(src: string, defaultPath: string): Promise<{ saved: boolean; path?: string }> {
-	return (await native()?.savePdfAs?.({ src, defaultPath })) ?? { saved: false };
+	return (await nativeBridge()?.savePdfAs?.({ src, defaultPath })) ?? { saved: false };
 }
 
 /**
@@ -253,7 +253,7 @@ export async function savePdfAs(src: string, defaultPath: string): Promise<{ sav
  * `{saved: false}` again covers both a cancelled dialog and a non-desktop shell.
  */
 export async function savePdfBytes(bytes: Uint8Array, defaultName: string): Promise<{ saved: boolean; path?: string }> {
-	return (await native()?.savePdfBytes?.({ bytes, defaultName })) ?? { saved: false };
+	return (await nativeBridge()?.savePdfBytes?.({ bytes, defaultName })) ?? { saved: false };
 }
 
 export async function readTextFile(path: string): Promise<string> {

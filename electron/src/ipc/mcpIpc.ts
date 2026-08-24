@@ -3,7 +3,7 @@
 // documents. See mcp/server.ts for why it is hosted in-process rather than spawned.
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as mcp from '../mcp/server';
-import { publishWindowState, type WindowState } from '../mcp/state';
+import { publishWindowState, type WindowState } from '../mcp/windowState';
 import { deliverResponse } from '../mcp/bridge';
 import { readSettings, writeSettings } from '../appSettings';
 import { devChannel } from '../appIdentity';
@@ -42,7 +42,7 @@ export function registerMcpIpc(): void {
 		else await mcp.stop();
 		return { ...mcp.status(), enabled: !!enabled };
 	});
-	// renderers push what they are showing; see mcp/state.ts for why this is a push and not a pull
+	// renderers push what they are showing; see mcp/windowState.ts for why this is a push and not a pull
 	// a renderer answering an mcp:request (get_unsaved, get_diagnostics)
 	ipcMain.on('mcp:response', (_e, payload: { id: number; data: unknown }) => {
 		if (payload && typeof payload.id === 'number') deliverResponse(payload.id, payload.data);

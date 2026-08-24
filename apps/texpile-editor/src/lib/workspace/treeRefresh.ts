@@ -3,7 +3,6 @@
 // The tree is a snapshot rather than a live view, so this runs on window focus, on our own
 // fs-changed events, and on the provider's watch hook. Keeping the session manifest sync and the
 // git refresh here means every trigger gets them for free from a single call site.
-import { get } from 'svelte/store';
 import { workspaceRoot, fileTree, texFiles } from '$lib/workspace/workspaceStore';
 import { tabs } from '$lib/workspace/tabs.svelte';
 import { refreshGitStatus, takeNoGitHint } from '$lib/workspace/gitStore';
@@ -28,7 +27,7 @@ export type TreeRefreshDeps = {
 
 export async function refreshTree(deps: TreeRefreshDeps): Promise<void> {
 	const { provider, session } = deps;
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	if (!root) return;
 	if (deps.isEditingTree()) return;
 
@@ -36,14 +35,14 @@ export async function refreshTree(deps: TreeRefreshDeps): Promise<void> {
 		// one traversal when the provider can (disk); guests fall back to the two reads
 		if (provider.scanTreeAndFiles) {
 			const { children, files } = await provider.scanTreeAndFiles(root);
-			fileTree.set(children);
+			fileTree.current = children;
 			tabs.prune(flatFiles(children)); // tabs for files that vanished (remote deletes, external rm)
-			texFiles.set(files);
+			texFiles.current = files;
 		} else {
 			const children = await provider.scanTree(root);
-			fileTree.set(children);
+			fileTree.current = children;
 			tabs.prune(flatFiles(children));
-			texFiles.set(await provider.scanTexFiles(root));
+			texFiles.current = await provider.scanTexFiles(root);
 		}
 	} catch (e) {
 		console.error('Failed to read folder tree:', e);

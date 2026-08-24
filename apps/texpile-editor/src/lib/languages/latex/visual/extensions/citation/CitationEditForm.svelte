@@ -20,7 +20,7 @@
 
 	const key = $derived(node.textContent);
 	const keys = $derived(splitCitationKeys(node.textContent));
-	const reference = $derived($referenceStore?.find((ref) => ref.key === key));
+	const reference = $derived(referenceStore.current?.find((ref) => ref.key === key));
 
 	// dropdown label, capped so long titles don't blow out the select
 	function refLabel(ref: { author?: string | string[]; year?: string; title?: string; key?: string }): string {
@@ -56,7 +56,7 @@
 	];
 
 	const variantOptions = $derived(
-		$templateFeaturesStore?.citationVariants?.length ? $templateFeaturesStore.citationVariants : defaultVariantOptions
+		templateFeaturesStore.current?.citationVariants?.length ? templateFeaturesStore.current.citationVariants : defaultVariantOptions
 	);
 
 	const showCitationStyleSelector = $derived(variantOptions.length > 1);
@@ -92,17 +92,17 @@
 			     to one key, so the group is listed read-only; the shared notes below stay editable -->
 			<span class="text-surface-900-100 text-sm font-medium">{m.citation_reference_label()}</span>
 			{#each keys as k (k)}
-				{@const ref = $referenceStore?.find((r) => r.key === k)}
+				{@const ref = referenceStore.current?.find((r) => r.key === k)}
 				<div class="mt-1.5">
 					<span class="text-surface-900-100 text-sm font-semibold">{ref?.author || k}</span>
 					<span class="text-surface-600-400 text-sm">{ref ? ref.year || ref.date?.slice(0, 4) || '' : m.citation_key_missing()}</span>
 				</div>
 			{/each}
-		{:else if onChangeKey && $referenceStore?.length}
+		{:else if onChangeKey && referenceStore.current?.length}
 			<span class="text-surface-900-100 text-sm font-medium">{m.citation_reference_label()}</span>
 			<select class="input mt-1.5 w-full text-sm" value={key} onchange={(e) => onChangeKey?.((e.currentTarget as HTMLSelectElement).value)}>
 				{#if !reference}<option value={key}>{m.citation_ref_not_found({ key })}</option>{/if}
-				{#each $referenceStore as ref (ref.key)}
+				{#each referenceStore.current as ref (ref.key)}
 					<option value={ref.key} title={ref.title || ref.key}>{refLabel(ref)}</option>
 				{/each}
 			</select>

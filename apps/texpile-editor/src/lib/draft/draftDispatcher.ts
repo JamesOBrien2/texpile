@@ -8,7 +8,6 @@
 //
 // The decision layer and paragraph splitter themselves live in $lib/draft/dispatch, shared with
 // the headless edit-class matrix (tests/live).
-import { get } from 'svelte/store';
 import { decideEdit } from '$lib/draft/dispatch';
 import { workspaceRoot } from '$lib/workspace/workspaceStore';
 import { relFromRoot } from '$lib/workspace/compilePipeline.svelte';
@@ -95,7 +94,7 @@ export class DraftDispatcher {
 		}
 
 		const d = decideEdit(this.lastSrc, src);
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		const file = root && path ? relFromRoot(path, root) : null;
 		const target = this.deps.getTarget();
 

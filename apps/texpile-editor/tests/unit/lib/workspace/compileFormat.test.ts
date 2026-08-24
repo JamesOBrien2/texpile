@@ -17,14 +17,13 @@ vi.mock('$lib/workspace/fileSystem', () => ({
 const { effectiveCompileFormat, setMainFile, mainFile, workspaceRoot } = await import('$lib/workspace/workspaceStore');
 const { compileConfig, projectConfigSync } = await import('$lib/workspace/projectConfigSync.svelte');
 const { resolveFormatCommand, resolveCompileCommand } = await import('$lib/workspace/compilePipeline.svelte');
-const { get } = await import('svelte/store');
 
 const ROOT = 'C:/proj';
 
 beforeEach(() => {
 	localStorage.clear();
-	workspaceRoot.set(ROOT);
-	mainFile.set(null);
+	workspaceRoot.current = ROOT;
+	mainFile.current = null;
 	projectConfigSync.reset();
 });
 
@@ -59,8 +58,8 @@ describe('the two command lanes (adopted state)', () => {
 		expect(resolveCompileCommand('C:/proj/main.tex')).toBe('latexmk -pdf {main}');
 		expect(resolveCompileCommand('C:/proj/main.typ')).toBe('typst compile {main} --root .');
 		// neither was consumed by reading the other
-		expect(get(compileConfig).latex.command).toBe('latexmk -pdf {main}');
-		expect(get(compileConfig).typst.command).toBe('typst compile {main} --root .');
+		expect(compileConfig.current.latex.command).toBe('latexmk -pdf {main}');
+		expect(compileConfig.current.typst.command).toBe('typst compile {main} --root .');
 	});
 
 	it('generates the typst default rather than handing a .typ project a latexmk line', () => {
@@ -84,7 +83,7 @@ describe('the two command lanes (adopted state)', () => {
 		projectConfigSync.setCommand(ROOT, 'typst', 'typst compile {main}');
 		projectConfigSync.setCommand(ROOT, 'latex', null);
 		expect(resolveFormatCommand('latex')).toMatch(/^latexmk /);
-		expect(get(compileConfig).typst.command).toBe('typst compile {main}');
+		expect(compileConfig.current.typst.command).toBe('typst compile {main}');
 	});
 });
 

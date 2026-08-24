@@ -6,7 +6,7 @@
 // See ./migrate.ts for the full input inventory and the phase split.
 
 import { updateLayout } from '$lib/storage/layout';
-import { updateUsers } from '$lib/storage/users';
+import { updateUserData } from '$lib/storage/userData';
 import { readMigrationStash, writeMigrationStash, type MigrationStash } from './migrate';
 
 /** the fields a v1 settings.json may hold; everything else is dropped or relocated */
@@ -54,7 +54,7 @@ export function migrateSettingsObject(raw: Record<string, unknown>): Record<stri
 	const usersPatch: Record<string, unknown> = {};
 	if (Array.isArray(raw.dictionary)) usersPatch.dictionary = raw.dictionary.filter((w): w is string => typeof w === 'string');
 	if (typeof raw.commentAuthor === 'string' && raw.commentAuthor) usersPatch.commentAuthor = raw.commentAuthor;
-	if (Object.keys(usersPatch).length) updateUsers(usersPatch);
+	if (Object.keys(usersPatch).length) updateUserData(usersPatch);
 
 	// the global compile toggles seed each folder's .texpile/config.json as it is first opened;
 	// existing stash values win (they were captured first and may already be partially consumed)

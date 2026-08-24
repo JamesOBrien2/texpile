@@ -24,8 +24,8 @@
 		id="format"
 		{index}
 		label={m.menubar_menu_format()}
-		disabled={!structured || $cursorInCm}
-		title={$cursorInCm ? m.menubar_cursor_in_cm_hint() : ''}
+		disabled={!structured || cursorInCm.current}
+		title={cursorInCm.current ? m.menubar_cursor_in_cm_hint() : ''}
 	/>
 	<Portal>
 		<Menu.Positioner>

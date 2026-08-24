@@ -1,5 +1,4 @@
 import { FileText } from '@lucide/svelte';
-import { get } from 'svelte/store';
 import { fileTree, workspaceRoot } from '$lib/workspace/workspaceStore';
 import { relativeTo, type TreeEntry } from '$lib/workspace/fileSystem';
 import type { PaletteActions } from '$lib/workspace/commandPalette.svelte';
@@ -11,8 +10,8 @@ export const MAX_FILE_RESULTS = 40;
 
 /** every file in the open tree, flattened, as "go to file" entries */
 export function goToFileItems(a: PaletteActions): PaletteItem[] {
-	const root = get(workspaceRoot);
-	const tree = get(fileTree);
+	const root = workspaceRoot.current;
+	const tree = fileTree.current;
 	if (!root || !tree.length) return [];
 	const rootDir = root;
 	const out: PaletteItem[] = [];

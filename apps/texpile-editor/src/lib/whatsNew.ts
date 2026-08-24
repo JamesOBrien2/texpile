@@ -1,4 +1,4 @@
-import { derived, writable } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 import { settings } from '$lib/settings';
 
 export type ChangelogEntry = {
@@ -8,10 +8,14 @@ export type ChangelogEntry = {
 };
 
 /** open signal for the panel; set from the Help menu and the start screen. */
-export const whatsNewOpen = writable(false);
+export const whatsNewOpen = box(false);
 
 /** drives the unread dot on the Help menu and the start screen row. */
-export const hasUnseenWhatsNew = derived(settings, ($s) => unseenEntries(__WHATS_NEW__, $s.whatsNewSeen).length > 0);
+export const hasUnseenWhatsNew = {
+	get current(): boolean {
+		return unseenEntries(__WHATS_NEW__, settings.current.whatsNewSeen).length > 0;
+	}
+};
 
 function isNewer(a: string, b: string): boolean {
 	const x = a.split('.').map(Number);

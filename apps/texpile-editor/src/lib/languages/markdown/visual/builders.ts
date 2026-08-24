@@ -22,13 +22,13 @@ export function realMarks(marks?: PmMark[] | null): readonly PMMarkT[] {
 }
 
 /** Build a real text node, or null for the empty string (PM forbids empty text). */
-export function txt(text: string, marks?: PmMark[] | null): PMNodeT | null {
+export function textNode(text: string, marks?: PmMark[] | null): PMNodeT | null {
 	return text.length > 0 ? mdSchema.text(text, realMarks(marks)) : null;
 }
 
 /** Like `txt`, but returns a (possibly empty) array for handlers that return PmNode[]. */
-export function txtNodes(text: string, marks?: PmMark[] | null): PMNodeT[] {
-	const t = txt(text, marks);
+export function textNodes(text: string, marks?: PmMark[] | null): PMNodeT[] {
+	const t = textNode(text, marks);
 	return t ? [t] : [];
 }
 
@@ -38,7 +38,7 @@ export function txtNodes(text: string, marks?: PmMark[] | null): PMNodeT[] {
 const STRICT_NODES = import.meta.env.DEV || import.meta.env.MODE === 'test';
 
 /** Build an element node; null/undefined children dropped. Checked in dev/tests (STRICT_NODES). */
-export function el(
+export function buildNode(
 	type: string,
 	attrs?: Record<string, unknown> | null,
 	content?: ReadonlyArray<PMNodeT | null | undefined> | null
@@ -50,7 +50,7 @@ export function el(
 			return nodeType.createChecked(attrs ?? null, kids.length > 0 ? kids : undefined);
 		} catch (e) {
 			const shape = kids.map((k) => k.type.name).join(', ');
-			throw new Error(`el('${type}') built invalid content [${shape}]: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+			throw new Error(`buildNode('${type}') built invalid content [${shape}]: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
 		}
 	}
 	return nodeType.create(attrs ?? null, kids.length > 0 ? kids : undefined);

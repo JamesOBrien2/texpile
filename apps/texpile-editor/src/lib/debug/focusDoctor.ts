@@ -3,7 +3,6 @@
 // It answers the two questions that distinguish the likely causes: WHO holds focus (a thief
 // re-stealing it), and WHAT sits on top of the editor (an invisible click-eating overlay).
 
-import { get } from 'svelte/store';
 import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
 
 function describe(el: Element | null): string {
@@ -20,8 +19,8 @@ function ancestry(el: Element | null, depth = 5): string[] {
 }
 
 export function focusDoctor(): Record<string, unknown> {
-	const pm = get(editorViewStore);
-	const cm = get(sourceCmView);
+	const pm = editorViewStore.current;
+	const cm = sourceCmView.current;
 	const editorDom = cm?.dom.isConnected ? cm.dom : (pm?.dom ?? null);
 
 	// what a click in the middle of the editor would actually hit, top of stack first

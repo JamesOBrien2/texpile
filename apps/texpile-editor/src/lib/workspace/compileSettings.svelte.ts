@@ -6,7 +6,6 @@
 // Everything persists through projectConfigSync into .texpile/config.json - the compile surface
 // has ONE home now. There is no global default command to update any more: the stock command is a
 // constant, and a lane's slot is either the project's own command or that constant.
-import { get } from 'svelte/store';
 import { workspaceRoot, mainFile, effectiveCompileFormat } from '$lib/workspace/workspaceStore';
 import { compileConfig, projectConfigSync } from '$lib/workspace/projectConfigSync.svelte';
 import { resolveFormatCommand } from '$lib/workspace/compilePipeline.svelte';
@@ -27,24 +26,24 @@ export class CompileSettings {
 
 	/** the typesetter this folder builds with, from its main file */
 	lane(): 'latex' | 'typst' {
-		return effectiveCompileFormat(get(mainFile));
+		return effectiveCompileFormat(mainFile.current);
 	}
 
 	/** what the command field shows: this lane's adopted command, else its default. */
 	commandFor(): string {
-		return resolveFormatCommand(this.lane(), get(mainFile));
+		return resolveFormatCommand(this.lane(), mainFile.current);
 	}
 
 	open() {
 		this.draft = this.commandFor();
-		const ov = get(compileConfig)[this.lane()].outputs;
+		const ov = compileConfig.current[this.lane()].outputs;
 		this.outputsDraft = { pdf: ov.pdf ?? '', log: ov.log ?? '' };
 		this.advancedOpen = !!(ov.pdf || ov.log); // start expanded only if overrides exist
 		this.modalOpen = true;
 	}
 
 	save(thenRun: boolean) {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		const lane = this.lane();
 		const command = this.draft.trim();
 		// into the lane the main file selects, which is the only lane anything reads. Clearing the
@@ -66,7 +65,7 @@ export class CompileSettings {
 	 * file fails out loud upstream instead, which is findable.
 	 */
 	applyCommand(command?: string, outputs?: { pdf?: string; log?: string }) {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		const lane = this.lane();
 		if (command !== undefined) {
 			const c = command.trim();
@@ -75,7 +74,7 @@ export class CompileSettings {
 		}
 		if (outputs) {
 			// merge, so setting only the PDF does not silently clear a log override the user set
-			const cur = get(compileConfig)[lane].outputs;
+			const cur = compileConfig.current[lane].outputs;
 			projectConfigSync.setOutputs(root, lane, { pdf: outputs.pdf ?? cur.pdf ?? '', log: outputs.log ?? cur.log ?? '' });
 		}
 		// keep an open dialog showing what was just applied under it
@@ -90,7 +89,7 @@ export class CompileSettings {
 	 * pin was the only thing making that coherent, and it was coherently wrong.
 	 */
 	useDefault() {
-		this.draft = this.lane() === 'typst' ? buildTypstCommand(get(mainFile)) : DEFAULT_COMPILE_COMMAND;
+		this.draft = this.lane() === 'typst' ? buildTypstCommand(mainFile.current) : DEFAULT_COMPILE_COMMAND;
 		this.save(true);
 	}
 }

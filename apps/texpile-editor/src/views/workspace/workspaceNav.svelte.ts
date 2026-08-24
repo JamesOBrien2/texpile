@@ -1,6 +1,5 @@
 // Every "jump somewhere" route in the workspace: SyncTeX forward/inverse, the visual-caret
 // source position, include targets, and the PDF pane scroll plumbing.
-import { get } from 'svelte/store';
 import { editorViewStore } from '$lib/stores/editorStore';
 import { activeFilePath } from '$lib/workspace/workspaceStore';
 import { docPositions } from '$lib/workspace/docPositions';
@@ -65,7 +64,7 @@ export class WorkspaceNav {
 	 *  dialect-agnostic (the stamps carry absolute file offsets once bodyOffset is applied).
 	 *  Never returns column 0: it resolves to the line's first word end instead, or null. */
 	visualCaretSourcePos(): { line: number; character: number } | null {
-		const v = get(editorViewStore);
+		const v = editorViewStore.current;
 		if (!v) return null;
 		const pmDoc = v.state.doc;
 		const off = pmPosToSourceOffset(pmDoc, buildBlockMap(pmDoc, this.visBodyOffset()), v.state.selection.head);
@@ -93,10 +92,10 @@ export class WorkspaceNav {
 			const target = sessionRelativeTarget(file, this.d.guest());
 			docPositions.set(target, { row: line - 1, column: 0, firstVisibleLine: line });
 			if (target === doc.path) {
-				const v = get(editorViewStore);
+				const v = editorViewStore.current;
 				if (v) restoreVisualPosition(v, target, doc.texSource, this.visBodyOffset(), this.d.kind() === 'typ' ? stripTypst : undefined);
 			} else if (needsActivate(target)) {
-				activeFilePath.set(target);
+				activeFilePath.current = target;
 			}
 			return;
 		}
@@ -118,7 +117,7 @@ export class WorkspaceNav {
 		this.d.modes.mode = 'source';
 		updateLayout({ viewMode: 'source' });
 		this.sourceGotoLine = { line, token: ++this.gotoToken, selectText, path: target };
-		if (needsActivate(target)) activeFilePath.set(target);
+		if (needsActivate(target)) activeFilePath.current = target;
 	}
 
 	/** a jump asked for THIS file survives a file switch; an older one must not, or every later

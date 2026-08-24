@@ -33,7 +33,7 @@ export function deliverResponse(id: number, data: unknown): void {
  * rejection: "the editor was too busy to say" is a normal answer for a tool call, and an agent can
  * act on it (fall back to reading disk) far more usefully than on an error.
  */
-export function request(win: BrowserWindow, kind: string, args?: Record<string, unknown>, timeoutMs = 2000): Promise<unknown> {
+export function askRenderer(win: BrowserWindow, kind: string, args?: Record<string, unknown>, timeoutMs = 2000): Promise<unknown> {
 	const id = nextId++;
 	return new Promise((resolve) => {
 		const timer = setTimeout(() => {

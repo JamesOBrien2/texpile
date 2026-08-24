@@ -1,6 +1,6 @@
 // CST helpers and the inline walker: text, marks, links, shorthands, inline math
 import type { SyntaxNode } from '@lezer/common';
-import { el, txtNodes, collapseTextNodes, realMarks, type PmNode, type PmMark } from './builders';
+import { buildNode, textNodes, collapseTextNodes, realMarks, type PmNode, type PmMark } from './builders';
 import { typstMathToLatex } from './mathTranslate';
 
 export function children(node: SyntaxNode): SyntaxNode[] {
@@ -58,11 +58,11 @@ export function withMarks(node: PmNode, marks: PmMark[]): PmNode {
 
 /** an inline raw-source chip; the escape hatch every unknown inline construct falls into. */
 export function chip(text: string, marks: PmMark[]): PmNode[] {
-	return text ? [withMarks(el('inline_latex', { lang: 'typst' }, txtNodes(text)), marks)] : [];
+	return text ? [withMarks(buildNode('inline_latex', { lang: 'typst' }, textNodes(text)), marks)] : [];
 }
 
 export function rawBlock(text: string): PmNode {
-	return el('raw_latex', { lang: 'typst' }, txtNodes(text));
+	return buildNode('raw_latex', { lang: 'typst' }, textNodes(text));
 }
 
 /** the source between an Equation's dollar delimiters, exactly as written. */
@@ -193,11 +193,11 @@ export function convertInline(nodes: SyntaxNode[], src: string, marks: PmMark[])
 		const slice = src.slice(k.from, k.to);
 		switch (k.name) {
 			case 'Text':
-				out.push(...txtNodes(slice, marks));
+				out.push(...textNodes(slice, marks));
 				break;
 			case 'Space':
 			case 'Parbreak': // only reachable in odd nests; a wrap is semantically a space
-				out.push(...txtNodes(' ', marks));
+				out.push(...textNodes(' ', marks));
 				break;
 			case 'Strong':
 			case 'Emph': {
@@ -215,24 +215,24 @@ export function convertInline(nodes: SyntaxNode[], src: string, marks: PmMark[])
 					// unterminated, or a block fence stuck mid-line: keep it literal
 					out.push(...chip(slice, marks));
 				} else {
-					out.push(...txtNodes(src.slice(delims[0].to, delims[delims.length - 1].from), [...marks, { type: 'code' }]));
+					out.push(...textNodes(src.slice(delims[0].to, delims[delims.length - 1].from), [...marks, { type: 'code' }]));
 				}
 				break;
 			}
 			case 'Linebreak':
-				out.push(el('hard_break', { lineBreak: true }));
+				out.push(buildNode('hard_break', { lineBreak: true }));
 				// the newline ending the broken line is part of the break, not a leading space
 				// on the continuation
 				if (nodes[i + 1]?.name === 'Space') i++;
 				break;
 			case 'Escape':
-				out.push(...txtNodes(unescape(slice), marks));
+				out.push(...textNodes(unescape(slice), marks));
 				break;
 			case 'SmartQuote':
-				out.push(...txtNodes(slice, marks));
+				out.push(...textNodes(slice, marks));
 				break;
 			case 'Shorthand':
-				out.push(...txtNodes(SHORTHANDS[slice] ?? slice, marks));
+				out.push(...textNodes(SHORTHANDS[slice] ?? slice, marks));
 				break;
 			case 'Hash': {
 				const next = nodes[i + 1];
@@ -258,7 +258,7 @@ export function convertInline(nodes: SyntaxNode[], src: string, marks: PmMark[])
 				// original typst; anything the translator can't prove stays a raw chip
 				const latex = typstMathToLatex(k, src);
 				if (latex != null) {
-					out.push(withMarks(el('inline_math', { typst: equationInner(k, src), latexOrig: latex }, txtNodes(latex)), marks));
+					out.push(withMarks(buildNode('inline_math', { typst: equationInner(k, src), latexOrig: latex }, textNodes(latex)), marks));
 				} else {
 					out.push(...chip(slice, marks));
 				}
@@ -269,7 +269,7 @@ export function convertInline(nodes: SyntaxNode[], src: string, marks: PmMark[])
 				// a chip - the atom's serializer has no slot for it
 				const refKids = children(k);
 				if (refKids.length === 1 && refKids[0].name === 'RefMarker') {
-					out.push(withMarks(el('typ_ref', { target: slice.slice(1) }), marks));
+					out.push(withMarks(buildNode('typ_ref', { target: slice.slice(1) }), marks));
 				} else {
 					out.push(...chip(slice, marks));
 				}

@@ -12,7 +12,7 @@ import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as syncProtocol from 'y-protocols/sync';
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness';
-import { seal, open } from './e2e/seal';
+import { seal, unseal } from './e2e/seal';
 import { gzip, gunzip } from './compress';
 import {
 	FrameType,
@@ -274,7 +274,7 @@ export class CollabSession {
 		if (this.destroyed) return;
 		let frame: Frame;
 		try {
-			frame = decodeFrame(await unpack(await open(this.key, sealed)));
+			frame = decodeFrame(await unpack(await unseal(this.key, sealed)));
 		} catch {
 			return; // tampered or foreign frame: drop silently
 		}

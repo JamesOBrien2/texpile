@@ -1,6 +1,5 @@
 // source control ops: call the git client, refresh status, toast on failure. the panel is
 // presentational; WorkspaceView wires the deps.
-import { get } from 'svelte/store';
 import { workspaceRoot, activeFilePath } from './workspaceStore';
 import { refreshGitStatus, isGitRepo, gitChanges } from './gitStore';
 import { gitInit, gitStage, gitUnstage, gitDiscard, gitCommit, type GitStatusEntry } from './git';
@@ -28,7 +27,7 @@ export class ScmActions {
 	constructor(private deps: ScmDeps) {}
 
 	init = async () => {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root) return;
 		this.busy = true;
 		const res = await gitInit(root);
@@ -42,7 +41,7 @@ export class ScmActions {
 	};
 
 	stage = async (paths: string[]) => {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root) return;
 		this.busy = true;
 		const res = await gitStage(root, paths);
@@ -52,7 +51,7 @@ export class ScmActions {
 	};
 
 	unstage = async (paths: string[]) => {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root) return;
 		this.busy = true;
 		const res = await gitUnstage(root, paths);
@@ -62,7 +61,7 @@ export class ScmActions {
 	};
 
 	discard = async (changes: GitStatusEntry[]) => {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root || !changes.length) return;
 		const confirmMsg =
 			changes.length === 1
@@ -98,11 +97,11 @@ export class ScmActions {
 	};
 
 	commit = async (message: string): Promise<boolean> => {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root) return false;
 		this.busy = true;
 		// if nothing is staged, stage everything first (the "Commit All" affordance)
-		const hasStaged = get(gitChanges).some((c) => c.x !== ' ' && c.x !== '?');
+		const hasStaged = gitChanges.current.some((c) => c.x !== ' ' && c.x !== '?');
 		if (!hasStaged) {
 			const s = await gitStage(root, []);
 			if (!s.ok) {
@@ -125,9 +124,9 @@ export class ScmActions {
 
 	// open a changed file's diff from the Source Control panel (keeps the SC sidebar open)
 	openDiff = (path: string) => {
-		if (!get(isGitRepo)) return;
+		if (!isGitRepo.current) return;
 		const already = this.deps.getLoadedPath() === path;
-		activeFilePath.set(path);
+		activeFilePath.current = path;
 		this.deps.enterDiffMode();
 		if (already) this.deps.captureDiffSnapshot();
 	};

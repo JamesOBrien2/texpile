@@ -1,5 +1,4 @@
 import { AlignLeft, BookMarked, Keyboard } from '@lucide/svelte';
-import { get } from 'svelte/store';
 import { settings, updateSettings, type AppSettings } from '$lib/settings';
 import type { PaletteActions } from '$lib/workspace/commandPalette.svelte';
 import type { PaletteItem } from './paletteCommands';
@@ -28,7 +27,7 @@ export function editorItems(a: PaletteActions): PaletteItem[] {
 		});
 	// keybindings are switched from here rather than only in Preferences: a vim user who lands in a
 	// fresh install wants one keystroke to fix it, not a dialog
-	const current = get(settings).editorKeymap ?? 'default';
+	const current = settings.current.editorKeymap ?? 'default';
 	const keymapLabel: Record<AppSettings['editorKeymap'], string> = {
 		default: m.prefs_keybindings_default(),
 		vim: 'Vim',

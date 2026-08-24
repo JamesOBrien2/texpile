@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { formatShareCode, generateShareCode, normalizeShareCode, isValidShareCode } from '$lib/collab/e2e/shareCode';
 import { deriveSessionKeys, sha256Hex } from '$lib/collab/e2e/keys';
-import { seal, open } from '$lib/collab/e2e/seal';
+import { seal, unseal } from '$lib/collab/e2e/seal';
 
 describe('collab crypto', () => {
 	it('generates valid, distinct share codes', () => {
@@ -77,17 +77,17 @@ describe('collab crypto', () => {
 		expect(await sha256Hex(k1.joinProof)).toHaveLength(64);
 	});
 
-	it('seal/open round-trips and rejects tampering and foreign keys', async () => {
+	it('seal/unseal round-trips and rejects tampering and foreign keys', async () => {
 		const { contentKey } = await deriveSessionKeys(generateShareCode());
 		const msg = new TextEncoder().encode('hello \\LaTeX{} world');
 		const sealed = await seal(contentKey, msg);
-		expect(new Uint8Array(await open(contentKey, sealed))).toEqual(msg);
+		expect(new Uint8Array(await unseal(contentKey, sealed))).toEqual(msg);
 		// distinct nonces: sealing twice never yields the same bytes
 		expect(await seal(contentKey, msg)).not.toEqual(sealed);
 		const flipped = sealed.slice();
 		flipped[flipped.length - 1] ^= 0xff;
-		await expect(open(contentKey, flipped)).rejects.toThrow();
+		await expect(unseal(contentKey, flipped)).rejects.toThrow();
 		const other = await deriveSessionKeys(generateShareCode());
-		await expect(open(other.contentKey, sealed)).rejects.toThrow();
+		await expect(unseal(other.contentKey, sealed)).rejects.toThrow();
 	});
 });

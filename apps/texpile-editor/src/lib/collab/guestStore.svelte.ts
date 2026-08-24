@@ -3,7 +3,6 @@
 // blob channel.
 
 import * as Y from 'yjs';
-import { get } from 'svelte/store';
 import { deriveSessionKeys } from './e2e/keys';
 import { isValidShareCode } from './e2e/shareCode';
 import { CollabSession, manifestOf, locksOf, metaOf, textOf, type PeerInfo, type ManifestEntry } from './session';
@@ -97,7 +96,7 @@ class GuestCollabController {
 		this.selfName = name.trim() || 'Guest';
 		try {
 			const keys = await deriveSessionKeys(code);
-			const relayUrl = get(settings).collabRelayUrl.trim();
+			const relayUrl = settings.current.collabRelayUrl.trim();
 			const doc = new Y.Doc();
 			const transport = new RelayTransport(relayUrl, keys.roomId, keys.joinProof);
 			const session = new CollabSession({

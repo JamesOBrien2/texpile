@@ -1,6 +1,5 @@
 // Constructs the compile-side pipeline stack in one place: the compile-command state, draft
 // mode's controller, the Typst live preview, the compile pipeline, and the jump/sync router.
-import { fromStore } from 'svelte/store';
 import { DraftController } from '$lib/draft/draftController.svelte';
 import { TypstPreviewController } from '$lib/languages/typst/preview/previewController.svelte';
 import { CompilePipeline } from '$lib/workspace/compilePipeline.svelte';
@@ -31,12 +30,10 @@ type PipelineDeps = {
 };
 
 export function createWorkspacePipelines(d: PipelineDeps) {
-	const cfg = fromStore(compileConfig);
-	const main = fromStore(mainFile);
-	const texList = fromStore(texFiles);
-	const prefs = fromStore(settings);
 	const { doc, modes } = d.wsdoc;
-	const statFile = (p: string) => d.provider.stat(p);
+	function statFile(p: string) {
+		return d.provider.stat(p);
+	}
 
 	// the resolved compile command and its follower effects live in ./workspaceCompileState.svelte.ts
 	const cc: WorkspaceCompileState = new WorkspaceCompileState({
@@ -66,14 +63,14 @@ export function createWorkspacePipelines(d: PipelineDeps) {
 	// plane is relayed to guests over the session - see collab/previewRelay.svelte.ts.)
 	const typstPreview: TypstPreviewController = new TypstPreviewController({
 		getGuest: d.guest,
-		getMainFile: () => main.current,
-		getPreviewSwitchOn: () => cfg.current.typst.preview,
-		getTexFileCount: () => texList.current.length,
+		getMainFile: () => mainFile.current,
+		getPreviewSwitchOn: () => compileConfig.current.typst.preview,
+		getTexFileCount: () => texFiles.current.length,
 		getPaneOpen: () => d.layout().pdfPaneOpen,
 		setPaneOpen: (open) => d.layout().setPdfPaneOpen(open),
 		setPreviewSwitch: (root, on) => projectConfig.setTypstPreview(root, on),
 		getDocPath: () => doc.path,
-		getFollow: () => prefs.current.typstPreviewFollow === true,
+		getFollow: () => settings.current.typstPreviewFollow === true,
 		getCompileCommand: () => cc.command,
 		getVisualCaretSourcePos: (): { line: number; character: number } | null => nav.visualCaretSourcePos(),
 		flushSaves: () => d.editFlow().saver.flushAndWait(),

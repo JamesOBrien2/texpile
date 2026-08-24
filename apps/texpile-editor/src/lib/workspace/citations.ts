@@ -1,5 +1,5 @@
-// parses the folder's .bib files into the shared references store; read-only
-import { writable } from 'svelte/store';
+// parses the folder's .bib files into the shared references list; read-only
+import { box } from '$lib/runes/box.svelte';
 import { parseBibtex, type BiblatexReference } from '$lib/languages/bib/biblatex';
 import { extractDocRefs, type BibItemSlice } from '$lib/languages/latex/parser/labels';
 import { scanFiles, readTextFile, type TexFile } from './fileSystem';
@@ -7,7 +7,7 @@ import { scanFiles, readTextFile, type TexFile } from './fileSystem';
 export type { BiblatexReference };
 
 /** references from the folder's .bib files, also fed to the editor for @-cites. */
-export const references = writable<BiblatexReference[]>([]);
+export const references = box<BiblatexReference[]>([]);
 
 /** parses several .bib texts into one list, de-duplicated by key (first occurrence wins). */
 export function mergeReferences(texts: string[]): BiblatexReference[] {
@@ -97,7 +97,7 @@ export async function loadReferences(root: string, fs: ReferencesFs = nativeFs):
 		const files = await fs.scan(root, ['bib']);
 		if (my !== loadSeq) return;
 		if (!files.length) {
-			references.set([]);
+			references.current = [];
 			return;
 		}
 		// read references.bib first so its entries take precedence in the de-dupe
@@ -113,9 +113,9 @@ export async function loadReferences(root: string, fs: ReferencesFs = nativeFs):
 			}
 		}
 		if (my !== loadSeq) return;
-		references.set(mergeReferences(texts));
+		references.current = mergeReferences(texts);
 	} catch (e) {
 		console.error('Failed to load references:', e);
-		if (my === loadSeq) references.set([]);
+		if (my === loadSeq) references.current = [];
 	}
 }

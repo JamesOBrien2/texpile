@@ -69,7 +69,7 @@
 	<!-- the measure, from Preferences. Was a fixed max-w-3xl (768px), which is still the
 	     default; past it a wide window pads with empty space rather than stretching the
 	     line length, and how much of that is comfortable is a matter of taste -->
-	<div class="texpile-main-editor mx-auto w-full min-w-0" style="max-width: {$settings.visualMaxWidth ?? 768}px">
+	<div class="texpile-main-editor mx-auto w-full min-w-0" style="max-width: {settings.current.visualMaxWidth ?? 768}px">
 		{#if docMeta?.hadDocumentEnv && kind === 'tex'}
 			<!-- \title/\author fields are LaTeX; md frontmatter is YAML, edited in source mode -->
 			<PreambleFrontmatter preamble={docMeta.preamble} onEdit={onEditFrontmatter} />

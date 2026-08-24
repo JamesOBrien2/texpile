@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { route, navigate } from '$lib/router.svelte';
-	import { native, claimWorkspace, scanTexFiles, statFile, dirname, openNewWindow } from '$lib/workspace/fileSystem';
+	import { nativeBridge, claimWorkspace, scanTexFiles, statFile, dirname, openNewWindow } from '$lib/workspace/fileSystem';
 	import { workspaceRoot, texFiles, activeFilePath, addRecentFolder, savedLastFile } from '$lib/workspace/workspaceStore';
 	import { settings, loadSettings } from '$lib/settings';
 	import { checkForUpdate, updateModalOpen } from '$lib/updates';
@@ -12,7 +12,7 @@
 	// every released CHANGELOG.md entry, injected at build (vite.config)
 	const whatsNew = __WHATS_NEW__;
 	// the panel is opened from Help / the start screen, never thrown at you on launch
-	const whatsNewEntries = $derived(entriesToShow(whatsNew, $settings.whatsNewSeen));
+	const whatsNewEntries = $derived(entriesToShow(whatsNew, settings.current.whatsNewSeen));
 
 	import StartView from './views/StartView.svelte';
 	import ErrorView from './views/ErrorView.svelte';
@@ -68,15 +68,15 @@
 		const s = await loadSettings();
 		// once per app SESSION, not per window: without this every new window would re-check
 		// for updates (claim falls back to true in browser dev)
-		const primary = (await native()?.claimStartupTasks?.()) ?? true;
+		const primary = (await nativeBridge()?.claimStartupTasks?.()) ?? true;
 		if (!primary || !s.checkForUpdates) return;
 		// a failed silent check stays silent; the manual Help-menu check surfaces errors
-		if ((await checkForUpdate()) === 'update') updateModalOpen.set(true);
+		if ((await checkForUpdate()) === 'update') updateModalOpen.current = true;
 	});
 
 	// OS "Open With" hands us a .tex via the main process; open its folder and activate the file
 	onMount(() => {
-		const n = native();
+		const n = nativeBridge();
 		if (!n?.onOpenPath) return;
 		return n.onOpenPath(async (filePath) => {
 			try {
@@ -86,15 +86,15 @@
 				// (folder open elsewhere) only happens in odd races; that window was focused
 				if (!(await claimWorkspace(root)).ok) return;
 				// show the workspace immediately with the target file; the scan backfills the rest
-				workspaceRoot.set(root);
-				texFiles.set([]);
-				activeFilePath.set(filePath);
+				workspaceRoot.current = root;
+				texFiles.current = [];
+				activeFilePath.current = filePath;
 				addRecentFolder(root);
 				navigate('/workspace');
 				const { files } = await scanTexFiles(root);
 				const match = files.find((f) => f.path === filePath || f.path.toLowerCase() === filePath.toLowerCase());
-				texFiles.set(files);
-				if (match) activeFilePath.set(match.path);
+				texFiles.current = files;
+				if (match) activeFilePath.current = match.path;
 			} catch {
 				/* ignore an OS open we can't honor */
 			}
@@ -104,24 +104,24 @@
 	// session restore + "Open Folder in New Window": the main process pushes a folder for this
 	// window to open (the StartView-side auto-reopen is gone; it would misfire in new windows)
 	onMount(() => {
-		const n = native();
+		const n = nativeBridge();
 		if (!n?.onOpenFolder) return;
 		return n.onOpenFolder(async (root) => {
 			try {
 				loadWorkspace(); // stream the workspace chunk while the folder scans
 				if (!(await claimWorkspace(root)).ok) return;
 				// show the workspace immediately; the scan and last-file restore backfill it
-				workspaceRoot.set(root);
-				texFiles.set([]);
-				activeFilePath.set(null);
+				workspaceRoot.current = root;
+				texFiles.current = [];
+				activeFilePath.current = null;
 				addRecentFolder(root);
 				navigate('/workspace');
 				const { files } = await scanTexFiles(root);
 				// reopen the file the user last had open in this folder, like the old restore did
 				const saved = savedLastFile(root);
 				const active = saved && (await statFile(saved)).exists ? saved : (files[0]?.path ?? null);
-				texFiles.set(files);
-				activeFilePath.set(active);
+				texFiles.current = files;
+				activeFilePath.current = active;
 			} catch {
 				/* folder is gone or unreadable: stay on the start screen */
 			}
@@ -173,7 +173,7 @@
 {/if}
 
 {#if whatsNewEntries.length}
-	<WhatsNewModal bind:open={$whatsNewOpen} entries={whatsNewEntries} />
+	<WhatsNewModal bind:open={whatsNewOpen.current} entries={whatsNewEntries} />
 {/if}
 <UpdateAvailableModal />
 

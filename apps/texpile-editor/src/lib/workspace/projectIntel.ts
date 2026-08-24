@@ -169,5 +169,5 @@ export async function refreshProjectIntel(
 	into.sub = [...new Set(into.sub)];
 	into.sup = [...new Set(into.sup)];
 
-	if (token === scanToken) projectIntelStore.set(into);
+	if (token === scanToken) projectIntelStore.current = into;
 }

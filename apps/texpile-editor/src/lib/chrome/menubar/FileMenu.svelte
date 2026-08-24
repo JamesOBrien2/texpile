@@ -77,12 +77,12 @@
 							<Menu.Positioner>
 								<Menu.Content class={contentClass}>
 									<Menu.Item value="newfolder" class={itemClass}><Menu.ItemText>{m.menubar_open_new_folder()}</Menu.ItemText></Menu.Item>
-									{#if $recentFolders.length > 0}
+									{#if recentFolders.current.length > 0}
 										<Menu.Separator class={separatorClass} />
 										<div class="text-surface-500 px-2.5 py-0.5 text-xs font-semibold tracking-wider uppercase">
 											{m.menubar_recent_heading()}
 										</div>
-										{#each $recentFolders as folder (folder)}
+										{#each recentFolders.current as folder (folder)}
 											<Menu.Item value={folder} class={itemClass}>
 												<Menu.ItemText class="block max-w-64 truncate" title={folder}>{basename(folder)}</Menu.ItemText>
 											</Menu.Item>

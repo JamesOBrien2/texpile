@@ -4,6 +4,7 @@
 import { Compartment, type Extension } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 import { settings, type AppSettings } from '$lib/settings';
+import { observe } from '$lib/runes/observe.svelte';
 
 export type EditorKeymap = AppSettings['editorKeymap'];
 
@@ -33,20 +34,23 @@ export async function loadModalKeymap(mode: EditorKeymap): Promise<Extension> {
  */
 export function bindModalKeymap(view: EditorView, compartment: Compartment): () => void {
 	let wanted: EditorKeymap | null = null;
-	return settings.subscribe((s) => {
-		const mode = s.editorKeymap ?? 'default';
-		if (mode === wanted) return;
-		wanted = mode;
-		void loadModalKeymap(mode).then((ext) => {
-			if (wanted !== mode) return;
-			// the view can be destroyed while the import is in flight (file switch, mode toggle)
-			try {
-				view.dispatch({ effects: compartment.reconfigure(ext) });
-			} catch {
-				/* destroyed view */
-			}
-		});
-	});
+	return observe(
+		() => settings.current,
+		(s) => {
+			const mode = s.editorKeymap ?? 'default';
+			if (mode === wanted) return;
+			wanted = mode;
+			void loadModalKeymap(mode).then((ext) => {
+				if (wanted !== mode) return;
+				// the view can be destroyed while the import is in flight (file switch, mode toggle)
+				try {
+					view.dispatch({ effects: compartment.reconfigure(ext) });
+				} catch {
+					/* destroyed view */
+				}
+			});
+		}
+	);
 }
 
 /** a fresh compartment for the modal keymap; one per view */

@@ -66,18 +66,18 @@ export function createCursorPlugin() {
 		// cursorInCm sync: cheaper as a view() diff than a decorations() rebuild
 		view(view) {
 			let last = isCursorInCm(view.state);
-			cursorInCm.set(last);
+			cursorInCm.current = last;
 			return {
 				update(v) {
 					const cur = isCursorInCm(v.state);
 					if (cur !== last) {
 						last = cur;
-						cursorInCm.set(cur);
+						cursorInCm.current = cur;
 					}
 				},
 				destroy() {
 					// reset so a stale true doesn't keep the menus disabled
-					cursorInCm.set(false);
+					cursorInCm.current = false;
 				}
 			};
 		}

@@ -19,8 +19,8 @@ import { Plugin, PluginKey, TextSelection, type EditorState } from 'prosemirror-
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type { Node as PMNode } from 'prosemirror-model';
 import { buildAnchor, type CommentAnchor } from '$lib/comments/anchor';
-import { get } from 'svelte/store';
 import { settings, updateSettings } from '$lib/settings';
+import { observe } from '$lib/runes/observe.svelte';
 import { m } from '$lib/paraglide/messages';
 
 import { flattenDoc } from './pmCommentsResolve';
@@ -303,7 +303,7 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 			function place() {
 				const sel = view.state.selection;
 				// turned off in Preferences: the pill never appears, and the plugin costs a boolean
-				if (get(settings).commentPill === false || !(sel instanceof TextSelection) || sel.empty) {
+				if (settings.current.commentPill === false || !(sel instanceof TextSelection) || sel.empty) {
 					hide();
 					return;
 				}
@@ -345,7 +345,10 @@ function addPill(onAdd: (anchor: CommentAnchor | null) => void, label: string): 
 			const ro = new ResizeObserver(place);
 			ro.observe(view.dom);
 			// the toggle has to bite without waiting for the next selection change, in both directions
-			const unsub = settings.subscribe(() => place());
+			const unsub = observe(
+				() => settings.current,
+				() => place()
+			);
 			return {
 				update: place,
 				destroy() {

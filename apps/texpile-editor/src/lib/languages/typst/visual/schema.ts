@@ -10,7 +10,7 @@ import { updateImageNode, type SchemaImageSettings } from '$lib/editor/visual/ex
 import { Schema, type NodeSpec, type MarkSpec } from 'prosemirror-model';
 import { nodes as texNodes, marks as texMarks } from '$lib/languages/latex/schema/latexPMSchema';
 
-// mirrors mdSchema: built by hand because createDefaultSettings pulls in the DOM (fatal for a
+// mirrors mdSchema: built by hand because the imageplugin.svelte settings creators pull in the DOM (fatal for a
 // worker), and the image node must stay a block figure
 const schemaImageSettings: SchemaImageSettings = {
 	hasTitle: true,

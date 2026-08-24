@@ -11,7 +11,6 @@
 	import BibManager from '$lib/editor/visual/bib/BibManager.svelte';
 	import PDFViewer from '$lib/preview/PDFViewer.svelte';
 	import VisualLoading from '$lib/editor/visual/VisualLoading.svelte';
-	import { get } from 'svelte/store';
 	import { basename } from '$lib/workspace/fileSystem';
 	import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
 	import { editorViewStore } from '$lib/stores/editorStore';
@@ -125,7 +124,7 @@
 	 *  than an effect, so it cannot re-enter - the editor is built exactly once per file. */
 	function onVisualReady(): void {
 		readyFor = loadedPath;
-		const v = get(editorViewStore);
+		const v = editorViewStore.current;
 		if (!v || !loadedPath || session.collabFor(loadedPath)) return;
 		restoreVisualPosition(v, loadedPath, texSource, docMeta ? bodyOffsetOf(docMeta) : 0, stripFor(kind));
 	}
@@ -135,7 +134,7 @@
 	<TabBar
 		tabs={openTabs}
 		activePath={loadedPath}
-		dirty={$isDirty && !session.isGuest}
+		dirty={isDirty.current && !session.isGuest}
 		previewPath={previewTab}
 		onActivate={onActivateTab}
 		onClose={onCloseTab}
@@ -171,7 +170,7 @@
 		     draws its own full-width bars, so the 3px showed up as a gap between every one of those
 		     bars and the divider. It wears the inset on its own scroller instead. -->
 		<div class="h-full w-full overflow-auto {viewMode === 'diff' ? '' : 'scroll-inset-r'}">
-			{#if folderEmpty && !$activeFilePath}
+			{#if folderEmpty && !activeFilePath.current}
 				<div class="mx-auto mt-16 max-w-xl px-6">
 					<div class="text-center">
 						<h2 class="text-lg font-semibold">{m.wsview_start_new_doc_heading()}</h2>
@@ -308,7 +307,7 @@
 				<div class="text-surface-500 mt-12 text-center text-sm">
 					{m.wsview_binary_file_note({ name: basename(loadedPath) })}
 				</div>
-			{:else if $activeFilePath}
+			{:else if activeFilePath.current}
 				<!-- shown while the visual parse runs; fades in late so a fast parse never strobes a spinner -->
 				<div class="text-surface-500 spinner-late mt-12 flex items-center justify-center gap-2 text-sm">
 					<Loader2 class="size-4 animate-spin" />

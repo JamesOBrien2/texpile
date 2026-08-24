@@ -1,6 +1,5 @@
 // which command a compile runs: the folder's adopted command per lane, else the lane's stock
 // default, with the batch flags a terminal run needs
-import { get } from 'svelte/store';
 import { DEFAULT_COMPILE_COMMAND } from '$lib/settings';
 import { compileConfig } from './projectConfigSync.svelte';
 import { effectiveCompileFormat } from './workspaceStore';
@@ -22,7 +21,7 @@ export function relFromRoot(p: string, root: string) {
  * both commands and changing the main file changes which one runs.
  */
 export function resolveFormatCommand(format: 'latex' | 'typst', main?: string | null) {
-	const adopted = get(compileConfig)[format].command;
+	const adopted = compileConfig.current[format].command;
 	if (adopted) return adopted;
 	return format === 'typst' ? buildTypstCommand(main ?? null) : DEFAULT_COMPILE_COMMAND;
 }

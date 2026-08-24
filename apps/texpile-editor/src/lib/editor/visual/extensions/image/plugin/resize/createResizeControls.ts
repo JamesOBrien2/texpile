@@ -3,7 +3,6 @@ import type { EditorView } from 'prosemirror-view';
 import { ImagePluginClassName, type ImagePluginSettings, ResizeDirection } from '../../types';
 import { resizeFunctions, setSize } from './utils';
 import { clamp } from '../../imagepluginutils';
-import { get } from 'svelte/store';
 import { settings } from '$lib/settings';
 
 function createMouseDownHandler(
@@ -49,7 +48,7 @@ function createMouseDownHandler(
 				}
 				// snap during the drag so the image jumps between step sizes,
 				// not free-move then snap on release
-				const step = get(settings).figureResizeStep || 0.25;
+				const step = settings.current.figureResizeStep || 0.25;
 				const frac = Math.min(1, Math.max(step, widthUpdate / maxWidth));
 				const snappedFrac = Math.min(1, Math.max(step, Math.round(frac / step) * step));
 				widthUpdate = Math.round(snappedFrac * maxWidth);
@@ -81,7 +80,7 @@ function createMouseDownHandler(
 				}
 				// snap to clean multiples of \textwidth so the serialized figure gets a round
 				// width=0.5\textwidth, not width=0.873...
-				const step = get(settings).figureResizeStep || 0.25;
+				const step = settings.current.figureResizeStep || 0.25;
 				const rawFrac = Math.min(1, Math.max(step, wrapper.clientWidth / maxWidth));
 				const snappedFrac = Math.min(1, Math.max(step, Math.round(rawFrac / step) * step));
 				const snappedWidth = Math.round(snappedFrac * maxWidth);
