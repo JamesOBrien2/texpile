@@ -1,6 +1,8 @@
 // Leaving or emptying a math field: two-step delete-when-empty (first backspace marks the
 // field pending, the second removes the node) and cursor escape past either edge.
+import { GapCursor } from 'prosemirror-gapcursor';
 import { gapAwareSelectionNear } from '$lib/editor/visual/gapSelection';
+import { withPinnedScroll } from '$lib/editor/visual/scrollPin';
 import type { EditorView } from 'prosemirror-view';
 import type { Node } from 'prosemirror-model';
 import type { MathfieldElement } from 'mathlive';
@@ -82,25 +84,26 @@ export class MathFieldExit {
 	maybeEscape(dir: string): void {
 		if (dir == 'backward') {
 			this.maybedelete(-1);
-			this.h.deselect();
-			this.h.view.focus();
-			const tr = this.h.view.state.tr;
-			const targetPos = this.h.getPos();
-			// gap-aware, NOT Selection.near alone: near never returns a gap cursor, so beside
-			// another island it node-selects this field and selectNode bounces the caret back in
-			const resolvedPos = tr.doc.resolve(targetPos);
-			tr.setSelection(gapAwareSelectionNear(resolvedPos, -1));
-			this.h.view.dispatch(tr);
+			this.land(this.h.getPos(), -1);
 		} else if (dir == 'forward') {
 			this.maybedelete(1);
-
-			this.h.deselect();
-			this.h.view.focus();
-			const tr = this.h.view.state.tr;
-			const targetPos = this.h.getPos() + this.h.node().nodeSize;
-			const resolvedPos = tr.doc.resolve(targetPos);
-			tr.setSelection(gapAwareSelectionNear(resolvedPos, 1));
-			this.h.view.dispatch(tr);
+			this.land(this.h.getPos() + this.h.node().nodeSize, 1);
 		}
+	}
+
+	// gap-aware, NOT Selection.near alone: near never returns a gap cursor, so beside another
+	// island it node-selects this field and selectNode bounces the caret back in. gap landings
+	// pin the scroll: they are adjacent to this field, already on screen, and the blur/refocus/
+	// caret-anchoring below otherwise nudges the viewport a few pixels
+	private land(targetPos: number, dir: number): void {
+		const view = this.h.view;
+		const selection = gapAwareSelectionNear(view.state.doc.resolve(targetPos), dir);
+		const finish = () => {
+			this.h.deselect();
+			view.focus();
+			view.dispatch(view.state.tr.setSelection(selection));
+		};
+		if (selection instanceof GapCursor) withPinnedScroll(view.dom, finish);
+		else finish();
 	}
 }
