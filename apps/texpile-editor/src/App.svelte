@@ -16,6 +16,7 @@
 
 	import StartView from './views/StartView.svelte';
 	import ErrorView from './views/ErrorView.svelte';
+	import WorkspaceSkeleton from '$lib/chrome/WorkspaceSkeleton.svelte';
 
 	// route-split: StartView stays static (first paint), the editor views load on demand so the
 	// boot chunk stays small
@@ -133,8 +134,7 @@
 {#if route.path === '/'}
 	<StartView />
 {:else if route.path === '/workspace'}
-	<!-- null-render while the chunk loads; usually preloaded by the open handlers already -->
-	{#if WorkspaceView}<WorkspaceView />{:else if chunkError}<ErrorView status={500} />{/if}
+	{#if WorkspaceView}<WorkspaceView />{:else if chunkError}<ErrorView status={500} />{:else}<WorkspaceSkeleton />{/if}
 {:else if route.path === '/session'}
 	{#if SessionRoute}<SessionRoute />{:else if chunkError}<ErrorView status={500} />{/if}
 {:else}
