@@ -135,6 +135,9 @@ export default ts.config(
 		languageOptions: {
 			parserOptions: {
 				projectService: true,
+				// explicit since electron/ gained its own eslint config: with two configs in the
+				// workspace the editor's eslint server refuses to infer which tsconfig root applies
+				tsconfigRootDir: import.meta.dirname,
 				extraFileExtensions: ['.svelte'],
 				parser: ts.parser,
 				svelteConfig
