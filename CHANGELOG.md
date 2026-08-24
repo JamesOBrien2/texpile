@@ -5,6 +5,7 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
+- fix: the cursor in math fields is no longer blue; it follows the text color (black in light mode, white in dark)
 - fix: citation keys now also come from the folder's .bbl files (biber and classic bibtex formats), so arXiv-style projects that ship a .bbl without a .bib get \cite completion, hover info, and citation chips; .bbl files open with LaTeX highlighting and completions in the source editor
 - fix: every dialog closes on Escape and on a click outside it; pressing Escape on the AI setup instructions no longer also closes Preferences underneath
 - fix: the start screen no longer grows a scrollbar with a long recent-folder history; it shows the five newest, a "Show all" popup holds the rest, and the history now remembers ten folders

@@ -37,6 +37,16 @@ html[data-mode='dark'] {
 	--mathfield-focus-border: var(--color-surface-400);
 }
 
+/* mathlive's caret defaults to its blue accent in both schemes; follow the page text color
+   instead (the var pierces the shadow root, and an explicit value beats both of its
+   prefers-color-scheme fallbacks, which track the OS rather than the app toggle) */
+math-field {
+	--caret-color: var(--color-surface-950);
+}
+html[data-mode='dark'] math-field {
+	--caret-color: var(--color-surface-50);
+}
+
 /* the theme's error reds are tuned for white backgrounds and lose contrast as text on dark;
    lift the text-relevant steps while preserving the scale's ordering */
 html[data-mode='dark'] {
