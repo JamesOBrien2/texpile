@@ -1,7 +1,6 @@
 // Leaving or emptying a math field: two-step delete-when-empty (first backspace marks the
 // field pending, the second removes the node) and cursor escape past either edge.
-import { Selection } from 'prosemirror-state';
-import { setTextSelection } from 'prosemirror-utils';
+import { gapAwareSelectionNear } from '$lib/editor/visual/gapSelection';
 import type { EditorView } from 'prosemirror-view';
 import type { Node } from 'prosemirror-model';
 import type { MathfieldElement } from 'mathlive';
@@ -51,10 +50,10 @@ export class MathFieldExit {
 			}
 
 			const pos = this.h.getPos();
-			let tr = this.h.view.state.tr;
+			const tr = this.h.view.state.tr;
 
 			tr.delete(pos, pos + this.h.node().nodeSize);
-			tr = setTextSelection(pos, dir)(tr);
+			tr.setSelection(gapAwareSelectionNear(tr.doc.resolve(pos), dir));
 
 			this.h.view.dispatch(tr);
 			this.h.view.focus();
@@ -71,8 +70,8 @@ export class MathFieldExit {
 				return;
 			}
 			if (!this.maybedelete(-1) && field.selection.ranges) {
-				let tr = this.h.view.state.tr;
-				tr = setTextSelection(this.h.getPos(), -1)(tr);
+				const tr = this.h.view.state.tr;
+				tr.setSelection(gapAwareSelectionNear(tr.doc.resolve(this.h.getPos()), -1));
 
 				this.h.view.dispatch(tr);
 				this.h.view.focus();
@@ -87,9 +86,10 @@ export class MathFieldExit {
 			this.h.view.focus();
 			const tr = this.h.view.state.tr;
 			const targetPos = this.h.getPos();
-			// Selection.near falls back to a GapCursor when there's no text position
+			// gap-aware, NOT Selection.near alone: near never returns a gap cursor, so beside
+			// another island it node-selects this field and selectNode bounces the caret back in
 			const resolvedPos = tr.doc.resolve(targetPos);
-			tr.setSelection(Selection.near(resolvedPos, -1));
+			tr.setSelection(gapAwareSelectionNear(resolvedPos, -1));
 			this.h.view.dispatch(tr);
 		} else if (dir == 'forward') {
 			this.maybedelete(1);
@@ -99,7 +99,7 @@ export class MathFieldExit {
 			const tr = this.h.view.state.tr;
 			const targetPos = this.h.getPos() + this.h.node().nodeSize;
 			const resolvedPos = tr.doc.resolve(targetPos);
-			tr.setSelection(Selection.near(resolvedPos, 1));
+			tr.setSelection(gapAwareSelectionNear(resolvedPos, 1));
 			this.h.view.dispatch(tr);
 		}
 	}

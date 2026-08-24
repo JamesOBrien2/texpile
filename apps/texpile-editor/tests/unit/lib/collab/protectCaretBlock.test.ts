@@ -2,12 +2,11 @@
 // block-patches the live doc. Serialize->parse is lossy at a block's in-progress tail in every
 // dialect - trailing whitespace is dropped, a whitespace-only paragraph disappears - so without
 // protectCaretBlock the patch clobbers the block being typed in. These tests mirror the real
-// flow: parse, normalize (fixTables + trailing paragraph), type, serialize, re-parse, guard, patch.
+// flow: parse, normalize (fixTables), type, serialize, re-parse, guard, patch.
 import { describe, it, expect } from 'vitest';
 import { EditorState } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 import { fixTables } from 'prosemirror-tables';
-import { buildTrailingParagraphTr } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
 import { parseTypstFile, serializeTypstFile } from '$lib/languages/typst/visual/roundtrip';
 import { parseMarkdownFile, serializeMarkdownFile } from '$lib/languages/markdown/visual/roundtrip';
 import { parseLatexFile, serializeLatexFile } from '$lib/workspace/latexRoundtrip';
@@ -36,8 +35,6 @@ function normalize(doc: PMNode): PMNode {
 	let s = EditorState.create({ schema: doc.type.schema, doc });
 	const fix = fixTables(s);
 	if (fix) s = s.apply(fix);
-	const trail = buildTrailingParagraphTr(s);
-	if (trail) s = s.apply(trail);
 	return s.doc;
 }
 
@@ -48,7 +45,8 @@ function blockTexts(doc: PMNode): string[] {
 }
 
 /** the guarded patch applied; asserts the live blocks all survive (an extra trailing empty
- *  paragraph is the one tolerated difference - the trailing-paragraph plugin owns those). */
+ *  paragraph stays tolerated - empty paragraphs serialize to nothing, so either side of the
+ *  patch may legitimately hold one more than the other). */
 function assertNothingLost(live: PMNode, head: number, parsed: { doc: PMNode }, label: string) {
 	const guarded = protectCaretBlock(live, normalize(parsed.doc), head);
 	const patch = computeBlockPatch(live, guarded);

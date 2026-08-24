@@ -7,7 +7,6 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { fixTables } from 'prosemirror-tables';
 import { buildBlockMap, pmPosToSourceOffset, sourceOffsetToPmPos } from '$lib/editor/visual/sourceMap';
 import { computeBlockPatch, protectCaretBlock, syncOrigAttrs } from '$lib/editor/visual/blockPatch';
-import { buildTrailingParagraphTr } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
 import { spliceDiff } from './materialize';
 
 // same walk as EditorView's doc-swap helper: the pane that actually scrolls the editor
@@ -28,8 +27,6 @@ export function normalizeParsedDoc(doc: PMNode): PMNode {
 	let s = EditorState.create({ schema: doc.type.schema, doc });
 	const fix = fixTables(s);
 	if (fix) s = s.apply(fix);
-	const trail = buildTrailingParagraphTr(s);
-	if (trail) s = s.apply(trail);
 	return s.doc;
 }
 

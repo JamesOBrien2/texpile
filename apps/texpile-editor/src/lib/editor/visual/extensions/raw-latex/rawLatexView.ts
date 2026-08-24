@@ -4,7 +4,8 @@ import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { cmSyntaxHighlight } from '$lib/editor/source/cmHighlight';
 import { exitCode } from 'prosemirror-commands';
 import { undo, redo } from 'prosemirror-history';
-import { TextSelection, Selection } from 'prosemirror-state';
+import { TextSelection } from 'prosemirror-state';
+import { gapAwareSelectionNear } from '$lib/editor/visual/gapSelection';
 import type { Node } from 'prosemirror-model';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 import { languages as cmlangdata } from '@codemirror/language-data';
@@ -204,7 +205,8 @@ export class RawLatexView {
 		if (unit === 'line') main = state.doc.lineAt(main.head) as never;
 		if (dir < 0 ? main.from > 0 : main.to < state.doc.length) return false;
 		const targetPos = this.getPos() + (dir < 0 ? 0 : this.node.nodeSize);
-		const selection = Selection.near(this.view.state.doc.resolve(targetPos), dir);
+		// gap-aware: Selection.near alone lands back inside this block when nothing follows
+		const selection = gapAwareSelectionNear(this.view.state.doc.resolve(targetPos), dir);
 		const tr = this.view.state.tr.setSelection(selection).scrollIntoView();
 		this.view.dispatch(tr);
 		this.view.focus();
