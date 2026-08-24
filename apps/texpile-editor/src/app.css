@@ -181,6 +181,55 @@ html[data-mode='dark'] .ProseMirror {
 	color: var(--color-primary-300);
 }
 
+/* mathlive's \command suggestion popover (light DOM in <body>) ships one hardcoded gray look
+   for both themes and exposes no color variables; recolor it to the app's popup pair, matching
+   the CM autocomplete above. the html prefix is load-bearing: mathlive's sheet is adopted
+   (document.adoptedStyleSheets cascades after ours), so every override must out-rank it */
+html #mathlive-suggestion-popover {
+	background-color: var(--color-surface-50);
+	color: var(--color-surface-950);
+	border: 1px solid var(--color-surface-300);
+}
+html #mathlive-suggestion-popover.top-tip::after {
+	border-bottom-color: var(--color-surface-50);
+}
+html #mathlive-suggestion-popover.bottom-tip::after {
+	border-top-color: var(--color-surface-50);
+}
+html #mathlive-suggestion-popover li:hover,
+html #mathlive-suggestion-popover li.is-pressed,
+html #mathlive-suggestion-popover li.is-active {
+	background: var(--color-surface-200);
+}
+html #mathlive-suggestion-popover .ML__popover__current {
+	background: var(--color-primary-500);
+	color: white;
+}
+html #mathlive-suggestion-popover li a,
+html #mathlive-suggestion-popover li a:hover {
+	color: var(--color-primary-500);
+}
+html[data-mode='dark'] #mathlive-suggestion-popover {
+	background-color: var(--color-surface-900);
+	color: var(--color-surface-100);
+	border-color: var(--color-surface-700);
+}
+html[data-mode='dark'] #mathlive-suggestion-popover.top-tip::after {
+	border-bottom-color: var(--color-surface-900);
+}
+html[data-mode='dark'] #mathlive-suggestion-popover.bottom-tip::after {
+	border-top-color: var(--color-surface-900);
+}
+html[data-mode='dark'] #mathlive-suggestion-popover li:hover,
+html[data-mode='dark'] #mathlive-suggestion-popover li.is-pressed,
+html[data-mode='dark'] #mathlive-suggestion-popover li.is-active {
+	background: var(--color-surface-800);
+}
+html[data-mode='dark'] #mathlive-suggestion-popover li a,
+html[data-mode='dark'] #mathlive-suggestion-popover li a:hover {
+	color: var(--color-primary-300);
+}
+
 /* Skeleton's .input transparent bg leaks the OS-default white on <select> (native form chrome
    ignores transparent). force dark bg + color-scheme so the control and the <option> popup go dark. */
 [data-mode='dark'] select.input,
