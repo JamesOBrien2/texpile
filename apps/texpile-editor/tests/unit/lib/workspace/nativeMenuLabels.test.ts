@@ -9,7 +9,7 @@
 // The Help menu had (1) and (2) at once: menubar_menu_help was already translated and used by the
 // in-app bar, but never crossed the bridge, and role: 'help' carried Electron's label anyway.
 //
-// Read as text rather than imported: window-chrome.ts is main-process code in another package and
+// Read as text rather than imported: windowChrome.ts is main-process code in another package and
 // pulling it into the renderer's test env would drag in electron itself. The regexes only have to
 // understand the shape this one file is written in.
 import { describe, it, expect } from 'vitest';
@@ -21,7 +21,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pkg = resolve(here, '../../../..'); // apps/texpile-editor
 const repo = resolve(pkg, '../..');
 
-const chrome = readFileSync(resolve(repo, 'electron/src/window-chrome.ts'), 'utf8');
+const chrome = readFileSync(resolve(repo, 'electron/src/windowChrome.ts'), 'utf8');
 const native = readFileSync(resolve(pkg, 'src/lib/workspace/nativeMenu.ts'), 'utf8');
 
 /** the keys main looks up: label(s, 'key', 'English fallback') */

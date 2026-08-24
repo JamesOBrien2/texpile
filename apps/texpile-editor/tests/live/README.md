@@ -2,7 +2,7 @@
 
 The acceptance oracle for the instant-preview ceiling campaign, running WITHOUT Electron:
 the real `DraftView` is mounted in headless Chromium (vite dev serves the source), the real
-engine modules (`draft-service`, `draft-daemon`, synctex) sit behind a small HTTP bridge
+engine modules (`draftService`, `draftDaemon`, synctex) sit behind a small HTTP bridge
 (`server.mjs`), and the real decision layer (`$lib/draft/dispatch`) classifies each edit.
 
 Per scenario the driver applies a pure string edit to the fixture buffer, runs

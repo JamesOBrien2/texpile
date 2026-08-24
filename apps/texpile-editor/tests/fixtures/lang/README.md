@@ -1,7 +1,7 @@
 # Language / font fixtures
 
 Real engine output, captured by `node scripts/capture-lang-fixtures.mjs` through the exact job
-string `draft-service.ts` builds. `<case>.jsonl` is the page's records, `<case>.pages.json` its
+string `draftService.ts` builds. `<case>.jsonl` is the page's records, `<case>.pages.json` its
 manifest.
 
 They exist because live preview was broken for every document that loaded a font through

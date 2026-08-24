@@ -22,7 +22,7 @@ const VITE = 5177;
 const only = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7);
 const [onlyFixture, onlyScenario] = only ? only.split(':') : [null, null];
 
-if (!fs.existsSync(path.join(repoRoot, 'electron/dist/draft/draft-service.js'))) {
+if (!fs.existsSync(path.join(repoRoot, 'electron/dist/draft/draftService.js'))) {
 	console.error('electron/dist modules missing - run pnpm electron:build first');
 	process.exit(1);
 }

@@ -1,7 +1,7 @@
 // Preparing tinymist's preview page for our frame. Every failure here is a blank preview pane with
 // no error, which is why the module throws rather than returning something almost-right.
 import { describe, it, expect } from 'vitest';
-import { preparePreviewPage, prepareGuestPreviewPage, PreviewPageError } from '../../../../../electron/src/typst-preview-page';
+import { preparePreviewPage, prepareGuestPreviewPage, PreviewPageError } from '../../../../../electron/src/typstPreviewPage';
 
 const OPTS = { dataPlaneHost: '127.0.0.1:52145', background: '#131316', foreground: '#e4e4e7' };
 

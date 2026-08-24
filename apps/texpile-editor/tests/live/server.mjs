@@ -1,5 +1,5 @@
 // Engine bridge for the browser-mounted live harness: exposes the PRODUCT engine modules
-// (draft-service compile, warm daemon typeset, synctex, file bytes) over plain HTTP so
+// (draftService compile, warm daemon typeset, synctex, file bytes) over plain HTTP so
 // DraftView can run in ordinary Chromium with a window.texpileNative shim. No Electron.
 import http from 'node:http';
 import fs from 'node:fs';
@@ -13,9 +13,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../../..');
 const engineDir = path.join(repoRoot, 'electron/lua').replace(/\\/g, '/');
 const dist = (m) => require(path.join(repoRoot, 'electron/dist', m));
-const draftService = dist('draft/draft-service.js');
-const draftDaemon = dist('draft/draft-daemon.js');
-const fsService = dist('fs-service.js');
+const draftService = dist('draft/draftService.js');
+const draftDaemon = dist('draft/draftDaemon.js');
+const fsService = dist('fs/fsService.js');
 
 const PORT = Number(process.env.LIVE_BRIDGE_PORT || 8099);
 const workBase = path.join(os.tmpdir(), 'texpile-live-harness');

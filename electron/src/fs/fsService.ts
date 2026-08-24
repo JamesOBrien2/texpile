@@ -1,7 +1,7 @@
 // the primitive workspace file ops (read/write/stat and the create/delete/rename family);
 // kept dependency-free (node builtins only). Traversal lives in fsWalk, search in fsSearch.
 import { readFile, writeFile, mkdir, rm, rename, stat, cp } from 'node:fs/promises';
-import { dirname, basename, sep, resolve } from 'node:path';
+import { dirname, basename, extname, sep, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 
 export const MIME: Record<string, string> = {
@@ -46,6 +46,14 @@ export async function statFile(path: string): Promise<{ exists: boolean; mtimeMs
 	} catch {
 		return { exists: false, mtimeMs: 0, size: 0 };
 	}
+}
+
+/** no in-app caller; the live-test harness bridge serves workspace files through this (tests/live/server.mjs) */
+export async function fileBytes(path: string): Promise<{ data: Buffer; mime: string }> {
+	if (!path) throw new Error('Missing path');
+	const data = await readFile(path);
+	const mime = MIME[extname(path).toLowerCase()] || 'application/octet-stream';
+	return { data, mime };
 }
 
 export type FsOpBody = {

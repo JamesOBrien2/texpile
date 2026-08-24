@@ -33,7 +33,7 @@ const pick = new Set((process.env.MATRIX_PICK || '').split(',').filter(Boolean))
 
 const { FIXTURES, applyOp } = await import('./' + scenarioMod);
 
-if (!fs.existsSync(path.join(repoRoot, 'electron/dist/draft/draft-service.js'))) {
+if (!fs.existsSync(path.join(repoRoot, 'electron/dist/draft/draftService.js'))) {
 	console.error('electron/dist modules missing - run pnpm electron:build first');
 	process.exit(1);
 }
