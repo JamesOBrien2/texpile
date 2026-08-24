@@ -5,13 +5,11 @@
 	import WorkspaceModals from '$lib/modals/workspace/WorkspaceModals.svelte';
 	import WorkspaceMain from './WorkspaceMain.svelte';
 	import WorkspaceChrome from './WorkspaceChrome.svelte';
-	import { type RefUpdate } from '$lib/modals/workspace/RefUpdateModal.svelte';
 	import { compileLog } from '$lib/stores/compileLogStore';
 	import { bibPathsFrom } from '$lib/collab/compileIntelBridge';
 	import { DraftController } from '$lib/draft/draftController.svelte';
 	import GlobalSearch from '$lib/search/GlobalSearch.svelte';
 	import TutorialConfirmModal from '$lib/modals/start/TutorialConfirmModal.svelte';
-	import { StarterActions } from '$lib/workspace/starterActions.svelte';
 	import { editorViewStore } from '$lib/stores/editorStore';
 	import { tabs } from '$lib/workspace/tabs.svelte';
 	import { docPositions } from '$lib/workspace/docPositions';
@@ -31,23 +29,18 @@
 	import type { EditSession } from '$lib/collab/editSession';
 	import SessionShareModal from '$lib/collab/SessionShareModal.svelte';
 	import VisualCollab from '$lib/collab/VisualCollab.svelte';
-	import { references, loadReferences } from '$lib/workspace/citations';
+	import { references } from '$lib/workspace/citations';
 	import { pdfStore } from '$lib/stores/pdfStore';
 	import { DocRegistries } from '$lib/workspace/docRegistries.svelte';
 	import { filePathStore } from '$lib/stores/editorStore';
 	import { trailingDebounce } from '$lib/trailingDebounce';
 	import { formatTypstDocument, typstBridgeAvailable } from '$lib/languages/typst/intellisense/lspClient';
 	import { TypstPreviewController } from '$lib/languages/typst/preview/previewController.svelte';
-	import {
-		openGlobalSearch as openSearchPanel,
-		closeGlobalSearch as closeSearchPanel,
-		runFormat,
-		insertIncludeAtCursor,
-		insertTypstIncludeAtCursor
-	} from '$lib/workspace/editorCommands';
+	import { openGlobalSearch as openSearchPanel, closeGlobalSearch as closeSearchPanel, runFormat } from '$lib/workspace/editorCommands';
 	import { DiffMode } from '$lib/workspace/diffMode.svelte';
 	import { WorkspaceComments } from './workspaceComments.svelte';
 	import { WorkspaceCompileState } from './workspaceCompileState.svelte';
+	import { WorkspaceFiles } from './workspaceFiles.svelte';
 	import { projectConfigSync as projectConfig, compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 	import { attachWindowListeners, attachCloseGuard } from '$lib/workspace/workspaceMount';
 	import { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
@@ -60,32 +53,19 @@
 	import { TerminalDockState } from '$lib/workspace/terminalDockState.svelte';
 	import { CompileSettings } from '$lib/workspace/compileSettings.svelte';
 	import { ExternalChangeWatcher } from '$lib/workspace/externalChange.svelte';
-	import { FolderLifecycle } from '$lib/workspace/folderLifecycle';
 	import { UnsavedGuard } from '$lib/workspace/unsavedGuard.svelte';
 	import { createKeydownHandler } from '$lib/workspace/shortcuts';
-	import { MainFilePrompt } from '$lib/workspace/mainFilePrompt.svelte';
-	import { scanRenamedRefs, applyRefUpdate, flattenPaths } from '$lib/workspace/refUpdate';
-	import {
-		workspaceRoot,
-		texFiles,
-		fileTree,
-		activeFilePath,
-		isDirty,
-		mainFile,
-		setMainFile,
-		setLastFile
-	} from '$lib/workspace/workspaceStore';
+	import { flattenPaths } from '$lib/workspace/refUpdate';
+	import { workspaceRoot, texFiles, fileTree, activeFilePath, isDirty, mainFile, setLastFile } from '$lib/workspace/workspaceStore';
 	import { insertCitationFromZotero, zoteroAvailable } from '$lib/zotero/insertFromZotero';
 	import ZoteroCitationDialog from '$lib/zotero/ZoteroCitationDialog.svelte';
-	import { refreshTree as refreshTreeState } from '$lib/workspace/treeRefresh';
 	import { ScmActions } from '$lib/workspace/scmActions.svelte';
 	import { SavePipeline } from '$lib/workspace/savePipeline.svelte';
-	import { diskChangedSince, recordDiskStamp, retargetDiskStamp } from '$lib/workspace/diskStamp';
+	import { diskChangedSince, recordDiskStamp } from '$lib/workspace/diskStamp';
 	import { CompilePipeline } from '$lib/workspace/compilePipeline.svelte';
-	import { TreeOps } from '$lib/workspace/treeOps';
 	import { settings } from '$lib/settings';
 	import { detectMainFile, gatherProjectMacros } from '$lib/workspace/project';
-	import { basename, dirname, claimWorkspace, isDesktop, samePath, purgeUndoBackups, type TreeEntry } from '$lib/workspace/fileSystem';
+	import { basename, dirname, claimWorkspace, isDesktop, samePath, purgeUndoBackups } from '$lib/workspace/fileSystem';
 	import { diskProvider } from '$lib/workspace/diskProvider';
 	import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
 	// the file-access seam: the host gets the disk-backed provider by default; a guest session
@@ -99,9 +79,6 @@
 	function writeTextFile(p: string, content: string) {
 		return provider.writeText(p, content);
 	}
-	function writeBinaryFile(p: string, blob: Blob) {
-		return provider.writeBinary(p, blob);
-	}
 	function statFile(p: string) {
 		return provider.stat(p);
 	}
@@ -114,21 +91,8 @@
 	function deleteEntry(p: string) {
 		return provider.remove(p);
 	}
-	function renameEntry(from: string, to: string) {
-		return provider.rename(from, to);
-	}
-	function copyEntry(from: string, to: string) {
-		return provider.copy(from, to);
-	}
 	function formatLatexDocument(p: string, text: string) {
 		return provider.format!(p, text);
-	}
-	async function scanTexFiles(root: string) {
-		return { root, files: await provider.scanTexFiles(root) };
-	}
-	// citations read through the provider too, so guest sessions resolve \cite keys from the shared doc
-	function loadRefs(root: string) {
-		return loadReferences(root, { scan: (r, e) => provider.scanFiles(r, e), read: readTextFile });
 	}
 	// true for the disk-backed host; false for a read-only guest session. Gates the host-only
 	// lifecycle (folder claim, terminal, main-file/macro scan, on-disk change checks) so this same
@@ -247,8 +211,6 @@
 	// macro-defining text from the main file's include chain, fed to the parser (see workspace/project.ts)
 	let projectMacros = $state('');
 	const folderEmpty = $derived($texFiles.length === 0);
-	// lets the header's New file/folder buttons trigger the tree's inline create input
-	let fileTreeRef = $state<{ newAtRoot: (type: 'file' | 'dir' | 'include', defaultName?: string) => void; isEditing: () => boolean }>();
 
 	const kind = $derived(doc.kind);
 	// a guest opening a text-looking file the host shares as name only (too large / extension the
@@ -284,17 +246,27 @@
 	 */
 	const typstPreviewAvailable = $derived($compileConfig.typst.preview);
 
-	// starter templates + file import live in lib/workspace/starterActions.svelte.ts
-	const starters = new StarterActions({
-		loadRefs,
-		refreshTree: () => refreshTree(),
-		createEntry: (root, name, type) => treeOps.create(root, name, type)
+	// tree ops, starters, folder lifecycle, main-file choice and rename repointing live in
+	// ./workspaceFiles.svelte.ts
+	const files = new WorkspaceFiles({
+		provider,
+		session: () => session,
+		doc,
+		modes,
+		kind: () => kind,
+		hostMode: () => hostMode,
+		canTrash: () => canTrash,
+		layout: () => layout,
+		compiler: () => compiler,
+		saver: () => saver,
+		releaseHeldDraftCompile: () => draftCtl.trigger++,
+		typstProject: () => cc.typstProject,
+		commentsFileMoved: (from, to) => void commentsCtl.fileMoved(from, to),
+		confirmLeaveUnsaved: () => confirmLeaveUnsaved(),
+		setProjectMacros: (macros) => (projectMacros = macros),
+		rebuildVisual: () => rebuildVisualFromSource(),
+		resetTerminals: () => resetTerminalsForWorkspace()
 	});
-	// File menu "New": inline create in the tree, pre-named for the chosen type
-	function newFileOfType(ext?: string) {
-		layout.sidebarOpen = true;
-		fileTreeRef?.newAtRoot('file', starters.newFileName(ext));
-	}
 
 	// no folder open (e.g. hard navigation): send the user back to the start screen
 	onMount(() => {
@@ -313,19 +285,19 @@
 					navigate('/');
 				}
 			});
-			resolveMainConfirm(root); // storage first, before anything can want a compile
+			files.mainPrompt.resolve(root); // storage first, before anything can want a compile
 			// Nothing can reach the last session's undo backups: the stack is memory-only, so they
 			// became unreachable when the window closed. Purging on open (rather than on close) also
 			// means they outlive a crash, and the files themselves are in the recycle bin regardless.
 			void purgeUndoBackups(root).catch(() => {});
-			void initProject(root);
+			void files.folder.initProject(root);
 		}
 		tabs.bind(root, hostMode); // restore this folder's open tabs (guests start fresh)
 		docPositions.bind(root, hostMode); // and where the caret was in each of them
 		termDock.available = isDesktop() && hostMode; // client-only; set here so SSR/CSR agree
 		if (guest) layout.pdfPaneOpen = true; // guests land with the host's PDF visible
-		loadRefs(root);
-		refreshTree();
+		files.loadRefs(root);
+		void files.refreshTree();
 		initSpellcheckConfig(); // seed editorConfigStore so the spell-check toggle works
 
 		layout.restore(); // loadExistingPdf refills the preview if it was open last
@@ -335,10 +307,10 @@
 
 		function reloadReferences() {
 			const r = get(workspaceRoot);
-			if (r) void loadRefs(r);
+			if (r) void files.loadRefs(r);
 		}
 		const detachListeners = attachWindowListeners({
-			refreshTree: () => void refreshTree(),
+			refreshTree: () => void files.refreshTree(),
 			reloadReferences,
 			isHost: () => hostMode,
 			checkExternalChange: () => void checkExternalChange(),
@@ -410,37 +382,6 @@
 		tabs.close(path);
 	}
 
-	// tree rescan + manifest sync + git refresh live in lib/workspace/treeRefresh.ts
-	// treeRoot is the root the tree on screen currently reflects; plain, not $state, so recording it
-	// cannot retrigger the effect below.
-	let treeRoot: string | null = null;
-	async function refreshTree() {
-		treeRoot = get(workspaceRoot);
-		await refreshTreeState({
-			provider,
-			session,
-			isEditingTree: () => !!fileTreeRef?.isEditing?.()
-		});
-	}
-
-	// The tree FOLLOWS the root. It used to be rescanned only where a folder was opened through
-	// FolderLifecycle, but the root is also set straight from main's IPC handlers in App.svelte --
-	// session restore, Open Folder in New Window, and an OS "open with" on a .tex file. Those set
-	// texFiles and the active file but never the tree, so the explorer went on showing the folder
-	// before it. Reacting to the root covers every route in and any route added later.
-	// No double scan on the FolderLifecycle path: it awaits refreshTree itself, which records
-	// treeRoot, so by the time this runs the root already matches and it stands down.
-	$effect(() => {
-		const root = $workspaceRoot;
-		if (!root || root === treeRoot) return;
-		void refreshTree();
-	});
-
-	// the shared file set changes under a guest whenever the host adds, renames or deletes a file.
-	// The provider exposes a watch hook for exactly this; without it the tree only ever reflected
-	// what was there at join time.
-	onMount(() => provider.watch?.(() => void refreshTree()));
-
 	// Keep main's cache of what this window shows current, for the MCP get_editor_state tool.
 	//
 	// The dependencies have to be named HERE. buildWindowState reads every one of them with get(),
@@ -471,7 +412,7 @@
 			getViewMode: () => modes.mode,
 			syncToLine: (line) => nav.syncToLine(line),
 			runCompile: () => compiler.runCompile(),
-			setMainFile: (abs) => applyMainFile(abs),
+			setMainFile: (abs) => files.applyMainFile(abs),
 			isCompiling: () => compiler.busy,
 			getCompileCommand: () => cc.command,
 			// deferred through compileSettings so an MCP change persists exactly the way the dialog's
@@ -480,97 +421,7 @@
 		})
 	);
 
-	function openEntry(entry: TreeEntry) {
-		if (entry.type !== 'file') return;
-		activeFilePath.set(entry.path);
-	}
-
-	const folder = new FolderLifecycle({
-		scanTexFiles,
-		confirmLeaveUnsaved: () => confirmLeaveUnsaved(),
-		flushSaves: () => saver.flush(),
-		flushSavesAndWait: () => saver.flushAndWait(),
-		sessionActive: () => session.active,
-		endSession: () => session.end(),
-		hostMode: () => hostMode,
-		refreshTree,
-		loadRefs,
-		resolveMainConfirm: (root) => resolveMainConfirm(root),
-		setMainConfirmed: (v) => (mainPrompt.confirmed = v),
-		loadExistingPdf: () => void compiler.loadExistingPdf(),
-		setProjectMacros: (macros) => (projectMacros = macros),
-		resetTerminals: () => resetTerminalsForWorkspace()
-	});
-	function openFolderFromMenu(path?: string) {
-		return folder.open(path);
-	}
-	function closeWorkspace() {
-		return folder.close();
-	}
-	function openTutorial(root: string) {
-		return folder.openTutorial(root);
-	}
-	function initProject(root: string) {
-		return folder.initProject(root);
-	}
 	let tutorialModalOpen = $state(false);
-
-	/** the file tree's star: clicking the current main again clears it */
-	function toggleMainFile(path: string) {
-		return applyMainFile($mainFile && samePath($mainFile, path) ? null : path);
-	}
-
-	// persist the new main file, re-gather macros, and re-derive the open visual doc from
-	// doc.texSource so the newly resolved command signatures take effect immediately.
-	// Takes the value to APPLY, not the file that was clicked: the toggle belongs to the click, and
-	// an MCP caller naming the file that is already main must not have it cleared out from under them.
-	async function applyMainFile(next: string | null) {
-		const root = get(workspaceRoot);
-		if (!root) return;
-		setMainFile(root, next);
-		// the main file is the project's, not this machine's: out to .texpile/config.json
-		void projectConfig.save(root);
-		mainPrompt.confirmed = true; // an explicit choice (set or clear) settles the first-compile question
-		void compiler.loadExistingPdf(); // the main file changed â†’ its expected PDF did too
-		projectMacros = next ? await gatherProjectMacros(next, root) : '';
-		if (get(workspaceRoot) !== root) return;
-		if (doc.path && kind === 'tex' && modes.mode === 'visual') rebuildVisualFromSource();
-	}
-
-	// create/rename/delete/move/import/copy live in lib/workspace/treeOps.ts
-	const treeOps = new TreeOps({
-		create: createEntry,
-		remove: deleteEntry,
-		rename: renameEntry,
-		copy: copyEntry,
-		// only the disk provider can park a deleted entry somewhere it can be fetched back from; a
-		// guest gets neither, and TreeOps then records no history rather than offering an undo it
-		// cannot honour
-		trash: (p, dir) => provider.trash!(p, dir),
-		restore: (from, to) => provider.restore!(from, to),
-		supportsTrash: () => canTrash,
-		writeBinary: writeBinaryFile,
-		stat: statFile,
-		refreshTree,
-		loadRefs,
-		// source-mode users write their own preamble (the editor's ghost offers the skeleton);
-		// visual mode has no ghost and no way to write a preamble, so it gets one up front
-		wantsStarter: () => modes.lastEditMode !== 'source',
-		isTypstProject: () => cc.typstProject,
-		insertIncludeAtCursor: (path) => doInsertInclude(path),
-		afterRename: (oldPath, newPath) => void afterRename(oldPath, newPath),
-		// comment threads follow the file, on user gestures AND on undo/redo replays (which skip
-		// afterRename because it prompts). Writes a `move` event to the log - see fileMoved.
-		afterPathMoved: (from, to) => void commentsCtl.fileMoved(from, to),
-		retargetPendingSave: (from, to) => {
-			saver.retarget(from, to);
-			retargetDiskStamp(from, to); // the guard's stamp must follow the rename too
-		},
-		discardPendingSave: () => saver.discard(),
-		// the full set-main flow (store + config.json + macros + visual re-derive), so a renamed
-		// main behaves exactly as if the user had starred the new path themselves
-		retargetMainFile: (next) => void applyMainFile(next)
-	});
 
 	// $state (not const) because descendants bind into these objects' fields: svelte needs an
 	// assignable, reactive target to keep the ownership chain intact. Class instances are not
@@ -634,10 +485,10 @@
 
 	// Draft mode, whole: root/main derivation, triggers, pause, the per-edit dispatcher, and
 	// the engine lifecycle live in the controller; the preview chain gets this ONE object.
-	const draftCtl = new DraftController({
+	const draftCtl: DraftController = new DraftController({
 		compileCommand: () => cc.command,
 		// hold the first live compile until the main file is confirmed
-		mainConfirmed: () => mainPrompt.confirmed === true,
+		mainConfirmed: () => files.mainPrompt.confirmed === true,
 		pdfPaneOpen: () => layout.pdfPaneOpen,
 		setPdfPaneOpen: (open) => layout.setPdfPaneOpen(open),
 		openCompileModal: () => openCompileModal(),
@@ -645,42 +496,11 @@
 		getLoadedPath: () => doc.path,
 		flushSaves: () => saver.flushAndWait()
 	});
+	files.draftPaused = () => draftCtl.paused;
 	// the Compile button doubles as the draft status (live / paused)
 	function runDraftCompile() {
 		return draftCtl.compile();
 	}
-	// like the file tree's "Set as main file" (star badge included).
-	// Tri-state: null = unresolved for the current folder; the modal never auto-opens on
-	// null, so it can't flash while initProject is still scanning. Storage is consulted
-	// SYNCHRONOUSLY on folder open (resolveMainConfirm) - a folder with a saved choice is
-	// confirmed before the first render.
-	let mainPrompt = $state(
-		new MainFilePrompt({
-			loadExistingPdf: () => void compiler.loadExistingPdf(),
-			setProjectMacros: (macros) => (projectMacros = macros),
-			releaseHeldDraftCompile: () => draftCtl.trigger++
-		})
-	);
-	function resolveMainConfirm(root: string | null) {
-		return mainPrompt.resolve(root);
-	}
-	function openMainConfirm(then?: () => void) {
-		return mainPrompt.prompt(then);
-	}
-	// A main file that IS set answers the question this prompt exists to ask, whoever set it - the
-	// tree, .texpile/config.json, MCP, a starter. Tracking "confirmed" separately let the two drift:
-	// config.json is adopted in its own effect, so on a project whose config names a main it could
-	// land AFTER initProject had already recorded "not confirmed", leaving a starred main that still
-	// opened the picker on the first compile. Same symptom as the detection bug, different cause.
-	$effect(() => {
-		if ($mainFile) mainPrompt.confirmed = true;
-	});
-	// live mode compiles on its own as soon as the pane is open; surface the question then.
-	// Strictly `=== false`: null means initProject is still resolving, never a modal.
-	$effect(() => {
-		const wants = $compileConfig.latex.liveMode && layout.pdfPaneOpen && !draftCtl.paused && !!$workspaceRoot && $texFiles.length > 1;
-		if (wants && mainPrompt.confirmed === false && !mainPrompt.open) void mainPrompt.prompt();
-	});
 	// Draft mode leans on the on-disk file staying current: the full compile reads from disk,
 	// Live mode and hosting a session both need current-on-disk content (the draft engine writes
 	// nothing until a recompile; a session's host is the persistence authority). So autosave is
@@ -717,7 +537,7 @@
 		getCompileCommand: () => cc.command,
 		getVisualCaretSourcePos: (): { line: number; character: number } | null => nav.visualCaretSourcePos(),
 		flushSaves: () => saver.flushAndWait(),
-		refreshTree,
+		refreshTree: () => files.refreshTree(),
 		syncJumpToFileLine: (file: string, line: number) => nav.syncJumpToFileLine(file, line)
 	});
 
@@ -726,7 +546,7 @@
 		getLoadedPath: () => doc.path,
 		getCompileCommand: () => cc.command,
 		terminalAvailable: () => termDock.available,
-		mainConfirmed: () => mainPrompt.confirmed,
+		mainConfirmed: () => files.mainPrompt.confirmed,
 		commandPending: () => !!projectConfig.pending,
 		getSession: () => session,
 		getDock: () => termDock.dock,
@@ -735,12 +555,12 @@
 		create: createEntry,
 		fileUrl,
 		flushSaves: () => saver.flushAndWait(),
-		refreshTree,
+		refreshTree: () => files.refreshTree(),
 		showTerminal,
 		setDockView: (v) => (dockView = v),
 		setPdfPaneOpen: (open: boolean) => layout.setPdfPaneOpen(open),
 		openCompileModal: () => openCompileModal(),
-		openMainConfirm: (then) => void openMainConfirm(then),
+		openMainConfirm: (then) => void files.mainPrompt.prompt(then),
 		runDraftCompile,
 		openTypstPreview: () => typstPreview.enable(),
 		shareCompileState: () => cc.share()
@@ -802,8 +622,8 @@
 	 * guest has no main file to set (compiling is the host's).
 	 */
 	function openCompileModal() {
-		if (hostMode && !get(mainFile) && get(texFiles).length > 0 && !mainPrompt.open) {
-			void openMainConfirm(() => compileSettings.open());
+		if (hostMode && !get(mainFile) && get(texFiles).length > 0 && !files.mainPrompt.open) {
+			void files.mainPrompt.prompt(() => compileSettings.open());
 			return;
 		}
 		compileSettings.open();
@@ -841,12 +661,6 @@
 			setBusy: (b) => (formatting = b)
 		});
 	}
-	function doInsertInclude(newFilePath: string) {
-		return cc.typstProject
-			? insertTypstIncludeAtCursor(newFilePath, doc.path)
-			: insertIncludeAtCursor(newFilePath, doc.path, modes.mode === 'visual');
-	}
-
 	// label and bibitem registries live in lib/workspace/docRegistries.svelte.ts
 	const registries = new DocRegistries({
 		getSource: () => doc.texSource,
@@ -863,32 +677,6 @@
 		const root = $workspaceRoot;
 		filePathStore.set(root ? flattenPaths(tree, root) : []);
 	});
-
-	// after a rename/move, find \includegraphics/\input across the project's .tex files
-	// that pointed at the file (AST-based) and offer to repoint them
-	let pendingRefUpdate = $state<RefUpdate | null>(null);
-
-	const refUpdateDeps = {
-		getLoadedPath: () => doc.path,
-		getSourceText: () => doc.texSource,
-		setSourceText: (t: string) => (doc.texSource = t),
-		readText: readTextFile,
-		scanFiles: async (exts: string[]) => (await provider.scanFiles($workspaceRoot ?? '', exts)).map((f) => f.path),
-		writeText: writeTextFile,
-		onActiveFileEdited: () => {
-			if (modes.mode === 'visual') rebuildVisualFromSource();
-			isDirty.set(true);
-			saver.schedule(doc.path, doc.texSource);
-		}
-	};
-	async function afterRename(oldPath: string, newPath: string) {
-		pendingRefUpdate = await scanRenamedRefs(oldPath, newPath, refUpdateDeps);
-	}
-	async function doApplyRefUpdate() {
-		const u = pendingRefUpdate;
-		pendingRefUpdate = null;
-		if (u) await applyRefUpdate(u, refUpdateDeps);
-	}
 
 	// remember the open file per folder so reopening the workspace restores it (StartView's
 	// initialFile); recorded on every switch, kept when the file later disappears (existence is
@@ -957,7 +745,7 @@
 		attachSessionHandlers(session, {
 			runCompile: () => void compiler.runCompile(),
 			isBusy: () => compiler.busy,
-			refreshTree: () => void refreshTree(),
+			refreshTree: () => void files.refreshTree(),
 			expectedPdfPath: () => compiler.expectedPdfPath(),
 			applyCommentEvent: (event) => void commentsCtl.ingest(event),
 			commentLog: () => commentsCtl.store.serialize(),
@@ -1113,7 +901,7 @@
 		getLoadedPath: () => doc.path,
 		discardPendingSave: () => saver.discard(),
 		deleteEntry,
-		refreshTree,
+		refreshTree: () => files.refreshTree(),
 		loadFile,
 		captureDiffSnapshot: () => void captureDiffSnapshot(),
 		isDiffMode: () => modes.mode === 'diff',
@@ -1185,7 +973,7 @@
 		typstPreview,
 		compiler,
 		nav,
-		starters,
+		starters: files.starters,
 		provider,
 		kind: () => kind,
 		guest: () => guest,
@@ -1199,20 +987,20 @@
 		captureDiffSnapshot: () => void captureDiffSnapshot(),
 		activateTab,
 		closeTab,
-		newFileOfType,
-		openFolderFromMenu,
-		closeWorkspace,
+		newFileOfType: (ext) => files.newFileOfType(ext),
+		openFolderFromMenu: (path) => void files.folder.open(path),
+		closeWorkspace: () => void files.folder.close(),
 		openCompileModal,
 		openFormatModal,
 		canFormatDoc,
 		openGlobalSearch: () => void openGlobalSearch(),
 		closeGlobalSearch: () => void closeGlobalSearch(),
-		toggleMainFile: (p) => void toggleMainFile(p),
-		refreshTree,
+		toggleMainFile: (p) => void files.toggleMainFile(p),
+		refreshTree: () => files.refreshTree(),
 		canZoteroCite,
 		insertZoteroCitation,
 		setCompileCommandResolved: () => cc.resolveNow(),
-		openEntry,
+		openEntry: (entry) => files.openEntry(entry),
 		statFile
 	};
 	const actions = makeMainActions(actionDeps);
@@ -1255,7 +1043,7 @@
 		bind:termDock
 		{compiler}
 		{scm}
-		{treeOps}
+		treeOps={files.treeOps}
 		{guest}
 		{modLabel}
 		{showToc}
@@ -1274,7 +1062,7 @@
 		}}
 		actions={chromeActions}
 		pendingCommand={projectConfig.pending}
-		bind:fileTreeRef
+		bind:fileTreeRef={files.fileTreeRef}
 		bind:globalSearchRef
 	>
 		<WorkspaceMain
@@ -1299,11 +1087,11 @@
 			mainIsTypst={typstPreview.mainIsTypst}
 			guestTypstOffered={guest && collabGuest.typstPreviewOffered}
 			mainUnset={typstPreview.mainUnset}
-			onPickMain={() => void openMainConfirm()}
+			onPickMain={() => void files.mainPrompt.prompt()}
 			panes={{
 				openTabs: tabs.list,
 				previewTab: tabs.preview,
-				applyingStarter: starters.applying,
+				applyingStarter: files.starters.applying,
 				allReferences,
 				sourceGotoLine: nav.sourceGotoLine,
 				sourceDiagnostics: cc.sourceDiagnostics,
@@ -1329,25 +1117,25 @@
 	<ZoteroCitationDialog />
 
 	<WorkspaceModals
-		bind:mainPrompt
+		bind:mainPrompt={files.mainPrompt}
 		{unsaved}
 		{external}
 		bind:compileSettings
 		bind:formatModalOpen
 		formatTool={kind === 'typ' ? 'typstyle' : 'latexindent'}
 		{formatting}
-		{pendingRefUpdate}
+		pendingRefUpdate={files.pendingRefUpdate}
 		onSaveCompile={saveCompileCommand}
 		onUseDefaultCompile={useDefaultCommand}
 		onRunCompile={compiler.runCompile}
 		onFormat={doRunFormat}
 		onResolveConflict={resolveConflict}
-		onKeepRefs={() => (pendingRefUpdate = null)}
-		onApplyRefs={doApplyRefUpdate}
+		onKeepRefs={() => (files.pendingRefUpdate = null)}
+		onApplyRefs={() => void files.applyPendingRefUpdate()}
 	/>
 </div>
 
-<TutorialConfirmModal bind:open={tutorialModalOpen} onConfirm={openTutorial} />
+<TutorialConfirmModal bind:open={tutorialModalOpen} onConfirm={(root) => void files.folder.openTutorial(root)} />
 {#if !guest}
 	<SessionShareModal bind:open={shareModalOpen} root={$workspaceRoot} onBeforeStart={() => saver.flushAndWait()} />
 {/if}
