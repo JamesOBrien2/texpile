@@ -743,6 +743,7 @@
 	"harper_replacement_remove": "(entfernen)",
 	"harper_replacement_whitespace_one": "({count} Leerzeichen)",
 	"harper_replacement_whitespace_other": "({count} Leerzeichen)",
+	"image_missing_label": "Bild nicht gefunden",
 	"imageoverlay_settings_title": "Bildeinstellungen",
 	"imageoverlay_settings_aria": "Bildeinstellungen",
 	"imageoverlay_size_label": "Größe",

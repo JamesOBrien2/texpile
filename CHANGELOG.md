@@ -9,6 +9,8 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 - fix: the backslash-command suggestion popup in math fields follows the app theme instead of a fixed dark gray
 - fix: the command suggestion popup no longer blinks on every keystroke and arrow press
 - fix: tables centered with \begin{center} (BERT-era arXiv style) now get the full table editor with caption, settings, and horizontal scrolling, instead of a generic block that let wide tables crush their last columns
+- fix: a tabular wrapped in a {\small ...} size group also gets the full table editor instead of a raw source block; the size switch is preserved
+- fix: a missing image shows a clean card naming the file that was not found, in your language, instead of a fixed English graphic suggesting you delete it
 - fix: PDF figures display in the visual editor: \includegraphics of a .pdf renders its first page instead of showing "image not found", and an extensionless \includegraphics{fig} finds the file the way the engine would
 - fix: a genuinely missing image no longer draws an oversized resize outline around its small placeholder
 - fix: citation keys now also come from the folder's .bbl files (biber and classic bibtex formats), so arXiv-style projects that ship a .bbl without a .bib get \cite completion, hover info, and citation chips; .bbl files open with LaTeX highlighting and completions in the source editor

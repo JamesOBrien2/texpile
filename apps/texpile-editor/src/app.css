@@ -1265,11 +1265,10 @@ html[data-mode='dark'] .cm-comment-add:hover {
 }
 
 /* missing image source: bundled placeholder with a clear marker (imageNodeView.ts) */
+/* the generated missing-image card carries its own frame; !important beats the inline pixel
+   sizing the resize path wrote before the load failed */
 .image-not-found {
-	outline: 2px dashed var(--color-error-500);
-	outline-offset: 2px;
-	opacity: 0.7;
-	max-width: 240px;
+	max-width: min(480px, 100%);
 	height: auto !important;
 	width: auto !important;
 }

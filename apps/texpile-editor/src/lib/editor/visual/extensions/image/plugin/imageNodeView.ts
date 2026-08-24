@@ -2,7 +2,7 @@
 import { TextSelection } from 'prosemirror-state';
 import type { Node } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
-import imageNotFoundPng from '$lib/assets/compile/image_not_found_placeholder.png';
+import { missingImageSvg } from '../missingImagePlaceholder';
 import { ImagePluginClassName, type ImagePluginSettings } from '../types';
 import { createResizeControls } from './resize/createResizeControls';
 import { getImageDimensions } from './resize/getImageDimensions';
@@ -76,9 +76,9 @@ export function imageNodeView(pluginSettings: ImagePluginSettings) {
 		// cached image doesn't linger. HEAD avoids re-downloading bytes.
 		let notFound = false;
 		function showNotFound() {
-			if (image.src === imageNotFoundPng) return; // already showing the placeholder
+			if (notFound) return; // already showing the placeholder
 			notFound = true;
-			image.src = imageNotFoundPng;
+			image.src = missingImageSvg(node.attrs.src);
 			image.classList.add('image-not-found');
 			image.title = `File not found: ${node.attrs.src}`;
 			// the controls were sized from the missing image's synthetic dimensions while the

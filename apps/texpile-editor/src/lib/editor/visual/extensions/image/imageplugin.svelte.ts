@@ -10,7 +10,7 @@ import { joinPath, isRemoteSrc } from '$lib/workspace/fileSystem';
 import { editorFileUrl, editorWriteBinary } from '$lib/editor/visual/fileAccess';
 import { resolveGraphicUrl } from './graphicSrcResolve';
 import { pdfPageImageUrl } from './pdfImageSource';
-import imageNotFoundPng from '$lib/assets/compile/image_not_found_placeholder.png';
+import { missingImageSvg } from './missingImagePlaceholder';
 
 export const defaultExtraAttributes = {
 	width: null,
@@ -132,8 +132,8 @@ export function createTemplateEditorSettings(): ImagePluginSettings {
 		...sharedImageSettings,
 		uploadFile: async (_file: File) => TEMPLATE_PLACEHOLDER_IMAGE,
 		deleteSrc: async () => {},
-		// offline build: no remote storage, use the bundled placeholder
-		downloadImage: async (_src: string) => imageNotFoundPng
+		// offline build: no remote storage, show the missing-image card for the named source
+		downloadImage: async (src: string) => missingImageSvg(src)
 	} as ImagePluginSettings;
 }
 

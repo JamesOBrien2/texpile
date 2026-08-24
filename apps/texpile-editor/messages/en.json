@@ -743,6 +743,7 @@
 	"harper_replacement_remove": "(remove)",
 	"harper_replacement_whitespace_one": "({count} space)",
 	"harper_replacement_whitespace_other": "({count} spaces)",
+	"image_missing_label": "Image not found",
 	"imageoverlay_settings_title": "Image Settings",
 	"imageoverlay_settings_aria": "Image settings",
 	"imageoverlay_size_label": "Size",

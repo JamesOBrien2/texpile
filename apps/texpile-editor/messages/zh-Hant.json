@@ -743,6 +743,7 @@
 	"harper_replacement_remove": "（移除）",
 	"harper_replacement_whitespace_one": "（{count} 個空格）",
 	"harper_replacement_whitespace_other": "（{count} 個空格）",
+	"image_missing_label": "未找到圖片",
 	"imageoverlay_settings_title": "圖片設定",
 	"imageoverlay_settings_aria": "圖片設定",
 	"imageoverlay_size_label": "大小",
