@@ -224,6 +224,43 @@ BERT & 86.7 & 72.1 & 82.1 \\\\
 		expect(out).not.toContain('\\begin{center}');
 	});
 
+	// the appendix GLUE shape: a tabular* (with its width argument) inside center. tabular* was
+	// missing from the extractor's direct-child list, so the float went generic and the caption
+	// collapsed into one giant raw chip.
+	const glueSrc = `\\begin{table*}[t]
+\\small
+\\begin{center}
+ \\begin{tabular*}{\\textwidth}{l@{\\extracolsep{\\fill}}cc}
+System & MNLI & QQP \\\\
+BERT & 86.7 & 72.1 \\\\
+   \\end{tabular*}
+   \\caption{GLUE Test results, scored by the evaluation server.}
+   \\label{tab:glue_official}
+\\end{center}
+\\end{table*}`;
+
+	it('models a center-wrapped tabular* as a table_wrapper with its caption captured', () => {
+		const { doc } = latexToProseMirror(glueSrc, {});
+		expect(doc.childCount).toBe(1);
+		const wrapper = doc.child(0);
+		expect(wrapper.type.name).toBe('table_wrapper');
+		expect(wrapper.attrs.label).toBe('tab:glue_official');
+		let captionText = '';
+		wrapper.forEach((child) => {
+			if (child.type.name === 'table_caption') captionText = child.textContent;
+		});
+		expect(captionText).toContain('GLUE Test results');
+	});
+
+	it('the tabular* round-trips byte-identically on an untouched save and keeps its width arg on regeneration', () => {
+		const file = `\\documentclass{article}\n\\begin{document}\n${glueSrc}\n\\end{document}\n`;
+		const parsed = parseLatexFile(file);
+		expect(serializeLatexFile(parsed, parsed.doc)).toBe(file);
+		const out = serializeToLatex(latexToProseMirror(glueSrc, {}).doc);
+		expect(out).toContain('\\begin{tabular*}{\\textwidth}{l@{\\extracolsep{\\fill}}cc}');
+		expect(out).toContain('\\end{tabular*}');
+	});
+
 	it('leaves a center env that does not hold the tabular wrapped (setup stays intact)', () => {
 		const src = `\\begin{table}[h]
 \\begin{center}

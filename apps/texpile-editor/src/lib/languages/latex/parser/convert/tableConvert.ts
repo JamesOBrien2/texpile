@@ -47,11 +47,14 @@ function extractTableComponents(content: Node[], ctx: ConversionContext) {
 		} else if (node.type === 'macro' && node.content === 'label') {
 			const text = getTextContent(getMacroFirstArg(node as Macro));
 			if (text) labels.push(text);
-		} else if (node.type === 'environment' && (node.env === 'tabular' || node.env === 'tabularx' || node.env === 'longtable')) {
+		} else if (
+			node.type === 'environment' &&
+			(node.env === 'tabular' || node.env === 'tabular*' || node.env === 'tabularx' || node.env === 'longtable')
+		) {
+			// tabular* included: createTable already reads its width arg, and leaving it out sent
+			// the whole float down the generic path with the caption collapsing to a raw chip
 			sawTabular = true;
-			if (node.env === 'tabular') tables.push(...createTable(node as Environment));
-			else if (node.env === 'tabularx') tables.push(...createTable(node as Environment));
-			else if (node.env === 'longtable') tables.push(...createTable(node as Environment));
+			tables.push(...createTable(node as Environment));
 		} else {
 			// whitespace BEFORE the tabular is just separation (preBody re-joins with spaces);
 			// whitespace AFTER is preserved (word spacing in notes prose matters).

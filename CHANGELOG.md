@@ -10,6 +10,7 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 - fix: the command suggestion popup no longer blinks on every keystroke and arrow press
 - fix: tables centered with \begin{center} (BERT-era arXiv style) now get the full table editor with caption, settings, and horizontal scrolling, instead of a generic block that let wide tables crush their last columns
 - fix: a tabular wrapped in a {\small ...} size group also gets the full table editor instead of a raw source block; the size switch is preserved
+- fix: tabular* tables get the full table editor too; their caption no longer collapses into a raw source chip
 - fix: a missing image shows a clean card naming the file that was not found, in your language, instead of a fixed English graphic suggesting you delete it
 - fix: the undeletable blank line the visual editor forced after every equation, table, code block, and raw block is gone; arrowing past such a block now lands on a slim gap cursor, and typing there opens a real paragraph
 - fix: the caret no longer bounces back inside an equation when arrowing backward out of one at the very start of a document
