@@ -10,10 +10,6 @@
 	import { TerminalShells } from './terminalShells.svelte';
 	import { SquareTerminal, ChevronDown, Check, Trash2, Plus, X, FoldHorizontal, UnfoldHorizontal } from '@lucide/svelte';
 
-	type TermRef =
-		| { run: (cmd: string, onDone?: (output: string) => void) => void; focus: () => void; refit: () => void; interrupt: () => void }
-		| undefined;
-
 	let {
 		cwd,
 		view = $bindable<'terminal' | 'problems' | 'comments'>('terminal'),

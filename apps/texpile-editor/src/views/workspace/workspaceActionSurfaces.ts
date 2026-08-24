@@ -11,16 +11,20 @@ import { refreshGitStatus } from '$lib/workspace/gitStore';
 import { preferencesOpen } from '$lib/stores/dialogStore';
 import { isDesktop, revealItem, type TreeEntry } from '$lib/workspace/fileSystem';
 import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
-import type { DocumentBuffer, FileKind } from '$lib/workspace/documentBuffer.svelte';
-import type { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
 import type { CommentsController } from '$lib/workspace/commentsController.svelte';
 import type { TerminalDockState } from '$lib/workspace/terminalDockState.svelte';
 import type { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 import type { DraftController } from '$lib/draft/draftController.svelte';
 import type { TypstPreviewController } from '$lib/languages/typst/preview/previewController.svelte';
 import type { CompilePipeline } from '$lib/workspace/compilePipeline.svelte';
-import type { StarterActions } from '$lib/workspace/starterActions.svelte';
 import type { WorkspaceNav } from './workspaceNav.svelte';
+import type { WorkspaceDoc } from './workspaceDoc.svelte';
+import type { WorkspaceEditFlow } from './workspaceEditFlow.svelte';
+import type { WorkspaceFiles } from './workspaceFiles.svelte';
+import type { WorkspaceFormatting } from './workspaceFormatting.svelte';
+import type { WorkspaceIntegrations } from './workspaceIntegrations.svelte';
+import type { WorkspaceCompileState } from './workspaceCompileState.svelte';
+import type { Starter, ImportedFile } from '$lib/workspace/starters';
 import type { CommentMessage, CommentThread } from '$lib/comments/log';
 import type { CommentAnchor } from '$lib/comments/anchor';
 import type { Node as PMNode } from 'prosemirror-model';
@@ -28,44 +32,27 @@ import { toaster } from '$lib/modals/toaster-svelte';
 import { m } from '$lib/paraglide/messages';
 
 export type ActionSurfaceDeps = {
-	doc: DocumentBuffer;
-	modes: ViewModeSwitch;
+	provider: WorkspaceProvider;
+	wsdoc: WorkspaceDoc;
+	editFlow: () => WorkspaceEditFlow;
+	files: () => WorkspaceFiles;
+	fmt: WorkspaceFormatting;
+	integrations: WorkspaceIntegrations;
 	commentsCtl: CommentsController;
-	termDock: () => TerminalDockState;
-	layout: () => PaneLayout;
+	cc: WorkspaceCompileState;
 	draftCtl: DraftController;
 	typstPreview: TypstPreviewController;
 	compiler: CompilePipeline;
 	nav: WorkspaceNav;
-	starters: StarterActions;
-	provider: WorkspaceProvider;
-	kind: () => FileKind;
+	termDock: () => TerminalDockState;
+	layout: () => PaneLayout;
 	guest: () => boolean;
-	typstProject: () => boolean;
 	visualCollab: () => { publishCursor(): void } | null;
 	setDockView: (v: 'terminal' | 'problems' | 'comments') => void;
 	setShareModalOpen: (open: boolean) => void;
 	setTutorialModalOpen: (open: boolean) => void;
-	setViewMode: (mode: 'visual' | 'source' | 'diff') => void;
-	save: () => void;
-	captureDiffSnapshot: () => void;
-	activateTab: (path: string) => void;
-	closeTab: (path: string) => void;
-	newFileOfType: (ext?: string) => void;
-	openFolderFromMenu: (path?: string) => void;
-	closeWorkspace: () => void;
-	openCompileModal: () => void;
-	openFormatModal: () => void;
-	canFormatDoc: () => boolean;
 	openGlobalSearch: () => void;
 	closeGlobalSearch: () => void;
-	toggleMainFile: (path: string) => void;
-	refreshTree: () => Promise<void>;
-	canZoteroCite: () => boolean;
-	insertZoteroCitation: () => void;
-	setCompileCommandResolved: () => void;
-	openEntry: (entry: TreeEntry) => void;
-	statFile: (p: string) => Promise<{ exists: boolean; mtimeMs: number }>;
 };
 
 /**
@@ -129,7 +116,7 @@ export function makeMainActions(d: ActionSurfaceDeps) {
 		deleteComment: (t: CommentThread) => void d.commentsCtl.remove(t),
 		editCommentMessage: (msg: CommentMessage, body: string) => void d.commentsCtl.editMessage(msg, body),
 		deleteCommentMessage: (t: CommentThread, msg: CommentMessage) => void d.commentsCtl.removeMessage(t, msg),
-		setViewMode: d.setViewMode,
+		setViewMode: (mode: 'visual' | 'source' | 'diff') => d.wsdoc.modes.set(mode),
 		syncForward: () => d.nav.syncForward(),
 		pauseDraft: () => d.draftCtl.pause(),
 		onCaretMove: (line: number, character: number) => d.typstPreview.onCaretMove(line, character),
@@ -139,7 +126,7 @@ export function makeMainActions(d: ActionSurfaceDeps) {
 			collabGuest.requestCompile();
 			toaster.info({ title: m.session_compile_requested(), duration: 2500 });
 		},
-		openCompileModal: () => d.openCompileModal(),
+		openCompileModal: () => d.fmt.openCompileModal(),
 		showProblems: () => {
 			d.termDock().show();
 			d.setDockView('problems');
@@ -148,30 +135,30 @@ export function makeMainActions(d: ActionSurfaceDeps) {
 			d.termDock().show();
 			d.setDockView('comments');
 		},
-		insertZoteroCitation: d.insertZoteroCitation,
-		save: () => d.save(),
-		activateTab: d.activateTab,
-		closeTab: d.closeTab,
+		insertZoteroCitation: () => d.integrations.insertZoteroCitation(),
+		save: () => d.wsdoc.save(),
+		activateTab: (p: string) => d.editFlow().activateTab(p),
+		closeTab: (p: string) => d.editFlow().closeTab(p),
 		keepTab: (path: string) => tabs.keep(path),
-		useSource: () => d.setViewMode('source'),
-		pickStarter: d.starters.pick.bind(d.starters),
-		newTexFile: () => d.starters.newTexFile(),
-		importStarter: d.starters.importFiles.bind(d.starters),
-		onTexInput: (v: string) => d.doc.onTexInput(v),
-		onRawInput: (v: string) => d.doc.onRawInput(v),
-		onVisualChange: (node: PMNode) => d.doc.onVisualChange(node),
+		useSource: () => d.wsdoc.modes.set('source'),
+		pickStarter: (s: Starter) => d.files().starters.pick(s),
+		newTexFile: () => d.files().starters.newTexFile(),
+		importStarter: (imported: ImportedFile[]) => d.files().starters.importFiles(imported),
+		onTexInput: (v: string) => d.wsdoc.doc.onTexInput(v),
+		onRawInput: (v: string) => d.wsdoc.doc.onRawInput(v),
+		onVisualChange: (node: PMNode) => d.wsdoc.doc.onVisualChange(node),
 		onVisualSelection: () => {
 			d.visualCollab()?.publishCursor();
 			// visual-mode preview follow; gated here too so no timer churn outside typ+follow
-			if (d.kind() === 'typ') d.typstPreview.onVisualCaretMove();
+			if (d.wsdoc.doc.kind === 'typ') d.typstPreview.onVisualCaretMove();
 		},
-		onEditFrontmatter: (kind: string, inner: string) => d.doc.editFrontmatter(kind, inner),
+		onEditFrontmatter: (kind: string, inner: string) => d.wsdoc.doc.editFrontmatter(kind, inner),
 		syncToPdf: (line: number) => d.nav.syncToLine(line),
-		historyStep: (dir: 'undo' | 'redo') => d.modes.historyStep(dir),
+		historyStep: (dir: 'undo' | 'redo') => d.wsdoc.modes.historyStep(dir),
 		jumpToFile: (name: string) => d.nav.jumpToInclude(name),
 		openFileAt: (file: string, line: number, selectText?: string) => d.nav.openFileAtLine(file, line, selectText),
-		refreshDiff: () => void toastAfter(m.wsview_toast_diff_refreshed(), d.captureDiffSnapshot),
-		exitDiff: () => d.modes.exitDiff(),
+		refreshDiff: () => void toastAfter(m.wsview_toast_diff_refreshed(), () => void d.wsdoc.diff.snapshot()),
+		exitDiff: () => d.wsdoc.modes.exitDiff(),
 		onPdfDoubleClick: (page: number, x: number, y: number, selectText?: string) => d.nav.onPdfDoubleClick(page, x, y, selectText),
 		onInverseSync: (file: string, line: number, selectText?: string) => d.nav.openFileAtLine(normSyncPath(file), line, selectText),
 		onPreviewSettled: d.draftCtl.runDecision,
@@ -183,7 +170,7 @@ export function makeMainActions(d: ActionSurfaceDeps) {
 			// A compile that never reached the engine (lualatex not on PATH) leaves no log to read,
 			// and publishLogDiagnostics would throw on the missing file. That case is exactly the one
 			// the preview's own banner exists for, so there is nothing to add here.
-			const s = await d.statFile(logPath);
+			const s = await d.provider.stat(logPath);
 			if (!s.exists) return;
 			// the log's OWN mtime, not now(): updatedAt is what tells a reader how old this parse is,
 			// and stamping it with the read time made a day-old log look freshly written
@@ -201,28 +188,28 @@ export function makeChromeActions(d: ActionSurfaceDeps) {
 		// in the main actions because its banner is window-wide chrome now, not part of the editor column.
 		acceptProjectCommand: () => {
 			projectConfig.accept();
-			d.setCompileCommandResolved();
+			d.cc.resolveNow();
 		},
-		newFileOfType: (ext?: string) => d.newFileOfType(ext),
-		openFolder: d.openFolderFromMenu,
-		closeWorkspace: d.closeWorkspace,
-		save: () => d.save(),
+		newFileOfType: (ext?: string) => d.files().newFileOfType(ext),
+		openFolder: (path?: string) => void d.files().folder.open(path),
+		closeWorkspace: () => void d.files().folder.close(),
+		save: () => d.wsdoc.save(),
 		openShare: () => d.setShareModalOpen(true),
-		openCompileModal: () => d.openCompileModal(),
+		openCompileModal: () => d.fmt.openCompileModal(),
 		newTerminal: () => d.termDock().newTerminal(),
 		toggleTerminal: () => d.termDock().toggle(),
-		openFormatModal: d.openFormatModal,
+		openFormatModal: () => d.fmt.openFormatModal(),
 		openTutorial: () => d.setTutorialModalOpen(true),
 		uiZoomIn,
 		uiZoomOut,
 		uiZoomReset,
-		refreshTree: () => void toastAfter(m.wsview_toast_tree_refreshed(), d.refreshTree),
+		refreshTree: () => void toastAfter(m.wsview_toast_tree_refreshed(), () => d.files().refreshTree()),
 		openGlobalSearch: () => void d.openGlobalSearch(),
 		closeGlobalSearch: () => void d.closeGlobalSearch(),
 		openFileAt: (file: string, line: number, selectText?: string) => d.nav.openFileAtLine(file, line, selectText),
-		openEntry: d.openEntry,
+		openEntry: (entry: TreeEntry) => d.files().openEntry(entry),
 		// the main file is a property of the project, so it goes in .texpile/config.json with the rest
-		setMain: (entry: TreeEntry) => void d.toggleMainFile(entry.path),
+		setMain: (entry: TreeEntry) => void d.files().toggleMainFile(entry.path),
 		revealEntry: (entry: TreeEntry) => void revealItem(entry.path),
 		refreshGit: () => void toastAfter(m.wsview_toast_git_refreshed(), () => refreshGitStatus(get(workspaceRoot)))
 	};
@@ -231,40 +218,40 @@ export function makeChromeActions(d: ActionSurfaceDeps) {
 /** the Ctrl+K palette's command surface (registered on mount, cleared on destroy) */
 export function makePaletteActions(d: ActionSurfaceDeps) {
 	return {
-		save: () => d.save(),
+		save: () => d.wsdoc.save(),
 		runCompile: () => d.compiler.runCompile(),
 		stopCompile: () => d.compiler.stopCompile(),
 		isCompiling: () => d.compiler.compiling,
 		// caps.compile, not !guest: being a guest is why the toolchain is absent today, not what
 		// is absent. The other gates below read the capability, so this one does too.
 		compileAvailable: () => d.termDock().available && d.provider.caps.compile,
-		setViewMode: d.setViewMode,
-		getViewMode: () => d.modes.mode,
-		hasFile: () => !!d.doc.path,
+		setViewMode: (mode: 'visual' | 'source' | 'diff') => d.wsdoc.modes.set(mode),
+		getViewMode: () => d.wsdoc.modes.mode,
+		hasFile: () => !!d.wsdoc.doc.path,
 		canManageTree: () => d.provider.caps.manageTree,
 		canSearch: () => d.provider.caps.search,
-		canFormat: () => d.canFormatDoc(),
-		formatTool: () => (d.kind() === 'typ' ? 'typstyle' : 'latexindent') as 'typstyle' | 'latexindent',
+		canFormat: () => d.fmt.canFormatDoc(),
+		formatTool: () => (d.wsdoc.doc.kind === 'typ' ? 'typstyle' : 'latexindent') as 'typstyle' | 'latexindent',
 		canGit: () => d.provider.caps.git,
-		openFile: (abs: string) => d.activateTab(abs),
+		openFile: (abs: string) => d.editFlow().activateTab(abs),
 		toggleSidebar: () => d.layout().toggleSidebar(),
 		sidebarOpen: () => d.layout().sidebarOpen,
 		toggleTerminal: () => d.termDock().toggle(),
 		terminalVisible: () => d.termDock().visible,
 		terminalAvailable: () => d.termDock().available,
 		newTerminal: () => d.termDock().newTerminal(),
-		openCompileModal: () => d.openCompileModal(),
-		openFormatModal: d.openFormatModal,
+		openCompileModal: () => d.fmt.openCompileModal(),
+		openFormatModal: () => d.fmt.openFormatModal(),
 		openGlobalSearch: () => void d.openGlobalSearch(),
 		openPreferences: () => preferencesOpen.set(true),
 		// same condition the app-icon menu uses: desktop only, and never for a guest
 		openShareSession: isDesktop() && !d.guest() ? () => d.setShareModalOpen(true) : undefined,
-		newFile: (ext?: string) => d.newFileOfType(ext),
-		openFolder: () => void d.openFolderFromMenu(),
-		refreshTree: () => void d.refreshTree(),
+		newFile: (ext?: string) => d.files().newFileOfType(ext),
+		openFolder: () => void d.files().folder.open(),
+		refreshTree: () => void d.files().refreshTree(),
 		openTypstPreview: () => d.typstPreview.enable(),
-		isTypstProject: () => d.typstProject(),
-		canZoteroCite: d.canZoteroCite,
-		insertZoteroCitation: d.insertZoteroCitation
+		isTypstProject: () => d.cc.typstProject,
+		canZoteroCite: () => d.integrations.canZoteroCite(),
+		insertZoteroCitation: () => d.integrations.insertZoteroCitation()
 	};
 }

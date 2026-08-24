@@ -1,26 +1,10 @@
 <script lang="ts">
 	import type { Dialect } from '$lib/editor/visual/dialect';
 	import { editorViewStore } from '$lib/stores/editorStore';
-	import { DOMSerializer } from 'prosemirror-model';
 	import { onMount } from 'svelte';
-	import {
-		addColumnBefore,
-		addColumnAfter,
-		deleteColumn,
-		addRowBefore,
-		addRowAfter,
-		deleteRow,
-		deleteTable,
-		CellSelection,
-		mergeCells,
-		splitCell
-	} from 'prosemirror-tables';
-	import { toaster } from '$lib/modals/toaster-svelte';
-	import { sliceToLatex, pasteLatexText } from '$lib/editor/visual/extensions/latexClipboard';
-	import { sliceToTypst } from '$lib/languages/typst/visual/clipboard';
-	import { sliceToMarkdown } from '$lib/languages/markdown/visual/clipboard';
+	import { CellSelection, mergeCells, splitCell } from 'prosemirror-tables';
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
-	import { BookMarked, Copy, Clipboard, Plus, Trash2, Combine, SplitSquareHorizontal, MessageSquarePlus } from '@lucide/svelte';
+	import { BookMarked, MessageSquarePlus } from '@lucide/svelte';
 	import { TextSelection } from 'prosemirror-state';
 	import { buildPmAnchor, setPmCommentPending } from '$lib/editor/visual/extensions/pmComments';
 	import type { CommentAnchor } from '$lib/comments/anchor';
@@ -40,7 +24,6 @@
 	// merged cells have no pipe-table syntax, so the markdown editor loses merge/split. Everywhere
 	// else has a spanning form the serializer emits: \multicolumn/\multirow in LaTeX,
 	// table.cell(colspan:/rowspan:) in Typst.
-	const cellMerging = $derived(dialect !== 'markdown');
 
 	let isVisible: boolean = $state(false);
 	let isOnTable: boolean = $state(false);

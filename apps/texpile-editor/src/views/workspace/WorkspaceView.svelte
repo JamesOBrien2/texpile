@@ -1,63 +1,37 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { get } from 'svelte/store';
-	import { navigate } from '$lib/router.svelte';
 	import WorkspaceModals from '$lib/modals/workspace/WorkspaceModals.svelte';
 	import WorkspaceMain from './WorkspaceMain.svelte';
 	import WorkspaceChrome from './WorkspaceChrome.svelte';
-	import { compileLog } from '$lib/stores/compileLogStore';
-	import { bibPathsFrom } from '$lib/collab/compileIntelBridge';
-	import { DraftController } from '$lib/draft/draftController.svelte';
 	import GlobalSearch from '$lib/search/GlobalSearch.svelte';
 	import TutorialConfirmModal from '$lib/modals/start/TutorialConfirmModal.svelte';
 	import { tabs } from '$lib/workspace/tabs.svelte';
-	import { docPositions } from '$lib/workspace/docPositions';
-	import { WorkspaceNav } from './workspaceNav.svelte';
 	import { makeMainActions, makeChromeActions, makePaletteActions, type ActionSurfaceDeps } from './workspaceActionSurfaces';
-	import { sourceTocStore } from '$lib/editor/visual/extensions/tableofcontents/tocStore';
-	import { parseOutlineRaw, assembleProjectOutline } from '$lib/editor/visual/extensions/tableofcontents/latexHeadings';
-	import { refreshProjectIntel } from '$lib/workspace/projectIntel';
-	import { projectIntelStore } from '$lib/stores/projectIntel';
-	import { setGraphicResolver } from '$lib/languages/latex/intellisense/hover';
-	import { graphicCandidateUrls } from '$lib/editor/visual/graphicsCandidates';
-	import { setEditorFileAccess } from '$lib/editor/visual/fileAccess';
-	import { initSpellcheckConfig } from '$lib/editor/spellcheck/spellcheckConfig';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
-	import { visualCollabBridge, attachSessionHandlers } from '$lib/collab/workspaceSession';
+	import { visualCollabBridge } from '$lib/collab/workspaceSession';
 	import { collabGuest } from '$lib/collab/guestStore.svelte';
 	import type { EditSession } from '$lib/collab/editSession';
 	import SessionShareModal from '$lib/collab/SessionShareModal.svelte';
 	import VisualCollab from '$lib/collab/VisualCollab.svelte';
-	import { references } from '$lib/workspace/citations';
-	import { pdfStore } from '$lib/stores/pdfStore';
-	import { DocRegistries } from '$lib/workspace/docRegistries.svelte';
-	import { filePathStore } from '$lib/stores/editorStore';
-	import { trailingDebounce } from '$lib/trailingDebounce';
-	import { formatTypstDocument, typstBridgeAvailable } from '$lib/languages/typst/intellisense/lspClient';
-	import { TypstPreviewController } from '$lib/languages/typst/preview/previewController.svelte';
-	import { openGlobalSearch as openSearchPanel, closeGlobalSearch as closeSearchPanel, runFormat } from '$lib/workspace/editorCommands';
+	import { openGlobalSearch as openSearchPanel, closeGlobalSearch as closeSearchPanel } from '$lib/workspace/editorCommands';
 	import { WorkspaceComments } from './workspaceComments.svelte';
-	import { WorkspaceCompileState } from './workspaceCompileState.svelte';
 	import { WorkspaceFiles } from './workspaceFiles.svelte';
 	import { WorkspaceDoc } from './workspaceDoc.svelte';
 	import { WorkspaceEditFlow } from './workspaceEditFlow.svelte';
+	import { WorkspaceIntegrations } from './workspaceIntegrations.svelte';
+	import { createWorkspacePipelines } from './workspacePipelines.svelte';
+	import { WorkspaceFormatting } from './workspaceFormatting.svelte';
+	import { attachSourceToc } from './workspaceToc.svelte';
+	import { startWorkspace } from './workspaceStartup';
 	import { projectConfigSync as projectConfig, compileConfig } from '$lib/workspace/projectConfigSync.svelte';
-	import { attachWindowListeners, attachCloseGuard } from '$lib/workspace/workspaceMount';
-	import { publishWindowState } from '$lib/workspace/mcpPublish';
-	import { attachMcpCommands } from '$lib/workspace/mcpCommands';
 	import { setPaletteActions } from '$lib/workspace/commandPalette.svelte';
 	import { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 	import { TerminalDockState } from '$lib/workspace/terminalDockState.svelte';
-	import { CompileSettings } from '$lib/workspace/compileSettings.svelte';
 	import { createKeydownHandler } from '$lib/workspace/shortcuts';
-	import { flattenPaths } from '$lib/workspace/refUpdate';
-	import { workspaceRoot, texFiles, fileTree, activeFilePath, isDirty, mainFile, setLastFile } from '$lib/workspace/workspaceStore';
-	import { insertCitationFromZotero, zoteroAvailable } from '$lib/zotero/insertFromZotero';
+	import { workspaceRoot, texFiles } from '$lib/workspace/workspaceStore';
 	import ZoteroCitationDialog from '$lib/zotero/ZoteroCitationDialog.svelte';
-	import { ScmActions } from '$lib/workspace/scmActions.svelte';
-	import { CompilePipeline } from '$lib/workspace/compilePipeline.svelte';
 	import { settings } from '$lib/settings';
-	import { basename, dirname, claimWorkspace, isDesktop, purgeUndoBackups } from '$lib/workspace/fileSystem';
+	import { basename, dirname, isDesktop } from '$lib/workspace/fileSystem';
 	import { diskProvider } from '$lib/workspace/diskProvider';
 	import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
 	// the file-access seam: the host gets the disk-backed provider by default; a guest session
@@ -65,24 +39,6 @@
 	let { provider = diskProvider, session = collabHost }: { provider?: WorkspaceProvider; session?: EditSession } = $props();
 	// all file access flows through the provider; these thin delegates keep the existing call sites
 	// (and scan's wrapped {root,...} shape) intact
-	function readTextFile(p: string) {
-		return provider.readText(p);
-	}
-	function statFile(p: string) {
-		return provider.stat(p);
-	}
-	function fileUrl(p: string) {
-		return provider.fileUrl(p);
-	}
-	function createEntry(p: string, type: 'file' | 'dir', content = '') {
-		return provider.create(p, type, content);
-	}
-	function deleteEntry(p: string) {
-		return provider.remove(p);
-	}
-	function formatLatexDocument(p: string, text: string) {
-		return provider.format!(p, text);
-	}
 	// true for the disk-backed host; false for a read-only guest session. Gates the host-only
 	// lifecycle (folder claim, terminal, main-file/macro scan, on-disk change checks) so this same
 	// view can run over a shared session.
@@ -108,16 +64,6 @@
 	const editFlow: WorkspaceEditFlow = new WorkspaceEditFlow({ provider, session: () => session, guest: () => guest, wsdoc });
 	const { doc, parser, modes, diff } = wsdoc;
 	const { saver, unsaved, external } = editFlow;
-	const sourceHistory = modes.history;
-	function setViewMode(mode: 'visual' | 'source' | 'diff') {
-		return modes.set(mode);
-	}
-	function captureDiffSnapshot() {
-		return diff.snapshot();
-	}
-	function save() {
-		return doc.save();
-	}
 
 	// review-comment wiring (controller + feeding effects) lives in ./workspaceComments.svelte.ts
 	const commentsW = new WorkspaceComments({
@@ -141,15 +87,6 @@
 	$effect(() => {
 		if (session.active && !guest && $compileConfig.latex.liveMode) projectConfig.setLiveMode($workspaceRoot, false);
 	});
-	/**
-	 * Typst's Preview does NOT go dark while hosting, unlike draft mode above: the preview's data
-	 * plane is relayed to guests over the session (see collab/previewRelay.svelte.ts), so a hosted
-	 * preview is exactly what guests watch. The relay also creates demand of its own - a guest can
-	 * ask for the stream while the host's pane is closed - which is why the attach effect below
-	 * folds previewRelay.demand into `want`.
-	 */
-	const typstPreviewAvailable = $derived($compileConfig.typst.preview);
-
 	// tree ops, starters, folder lifecycle, main-file choice and rename repointing live in
 	// ./workspaceFiles.svelte.ts
 	const files = new WorkspaceFiles({
@@ -169,119 +106,10 @@
 		confirmLeaveUnsaved: () => editFlow.confirmLeaveUnsaved(),
 		setProjectMacros: (macros) => (wsdoc.projectMacros = macros),
 		rebuildVisual: () => wsdoc.rebuildVisualFromSource(),
-		resetTerminals: () => resetTerminalsForWorkspace()
+		resetTerminals: () => termDock.resetForWorkspace()
 	});
 
-	// no folder open (e.g. hard navigation): send the user back to the start screen
-	onMount(() => {
-		const root = get(workspaceRoot);
-		if (!root) {
-			navigate('/');
-			return;
-		}
-		// register as this folder's window (covers reloads); a lost claim means another window
-		// already owns the folder - that window was focused, this one goes back to Start.
-		// a guest session owns no folder, so it neither claims nor sets up a terminal/main file.
-		if (hostMode) {
-			void claimWorkspace(root).then((c) => {
-				if (!c.ok && get(workspaceRoot) === root) {
-					workspaceRoot.set(null);
-					navigate('/');
-				}
-			});
-			files.mainPrompt.resolve(root); // storage first, before anything can want a compile
-			// Nothing can reach the last session's undo backups: the stack is memory-only, so they
-			// became unreachable when the window closed. Purging on open (rather than on close) also
-			// means they outlive a crash, and the files themselves are in the recycle bin regardless.
-			void purgeUndoBackups(root).catch(() => {});
-			void files.folder.initProject(root);
-		}
-		tabs.bind(root, hostMode); // restore this folder's open tabs (guests start fresh)
-		docPositions.bind(root, hostMode); // and where the caret was in each of them
-		termDock.available = isDesktop() && hostMode; // client-only; set here so SSR/CSR agree
-		if (guest) layout.pdfPaneOpen = true; // guests land with the host's PDF visible
-		files.loadRefs(root);
-		void files.refreshTree();
-		initSpellcheckConfig(); // seed editorConfigStore so the spell-check toggle works
-
-		layout.restore(); // loadExistingPdf refills the preview if it was open last
-		termDock.restore();
-		modes.restore();
-		diff.restoreLayout();
-
-		function reloadReferences() {
-			const r = get(workspaceRoot);
-			if (r) void files.loadRefs(r);
-		}
-		const detachListeners = attachWindowListeners({
-			refreshTree: () => void files.refreshTree(),
-			reloadReferences,
-			isHost: () => hostMode,
-			checkExternalChange: () => void external.check(),
-			runCompile: () => compiler.runCompile(),
-			onWindowResize: layout.reclampPdf,
-			reloadProjectState: () => {
-				// both live in .texpile/ and both are committed, so both arrive by pull
-				void commentsCtl.refresh();
-				void projectConfig.refresh(guest ? null : get(workspaceRoot)).then(() => {
-					cc.resolveNow();
-				});
-			}
-		});
-		const offBeforeClose = attachCloseGuard({
-			promptIsOpen: () => !!unsaved.prompt,
-			canCloseSilently: () => editFlow.autosaveActive() || !doc.path || saver.pending?.path !== doc.path,
-			flushSaves: () => saver.flushAndWait(),
-			confirmLeaveUnsaved: () => editFlow.confirmLeaveUnsaved()
-		});
-		return () => {
-			offBeforeClose?.();
-			detachListeners();
-			compiler.dispose();
-			saver.cancelTimer();
-			deferredSourceToc.cancel();
-			draftCtl.dispose();
-		};
-	});
-
-	// Keep main's cache of what this window shows current, for the MCP get_editor_state tool.
-	//
-	// The dependencies have to be named HERE. buildWindowState reads every one of them with get(),
-	// which is the deliberately non-reactive store read - it subscribes and unsubscribes on the spot
-	// and never registers a dependency. So this used to track modes.mode alone, and the cache froze:
-	// set_main_file left mainFile null for the rest of the session, and `dirty` went stale after an
-	// edit even though the server's own instructions tell agents to check it before overwriting a
-	// file. publishWindowState de-dupes identical payloads, so listing these costs nothing.
-	$effect(() => {
-		void $mainFile;
-		void $activeFilePath;
-		void $isDirty;
-		void $settings;
-		void tabs.list;
-		publishWindowState(modes.mode);
-	});
-
-	// the MCP tools that need this window: get_unsaved / get_diagnostics answer here, and the steer
-	// commands (open_file, show_diff, set_view_mode) run through the same paths the UI uses
-	onMount(() =>
-		attachMcpCommands({
-			getLoadedPath: () => doc.path,
-			getBuffer: () => doc.buffer,
-			openFile: (abs) => activeFilePath.set(abs),
-			openFileAtLine: (abs, line) => nav.openFileAtLine(abs, line),
-			showDiff: () => setViewMode('diff'),
-			setViewMode,
-			getViewMode: () => modes.mode,
-			syncToLine: (line) => nav.syncToLine(line),
-			runCompile: () => compiler.runCompile(),
-			setMainFile: (abs) => files.applyMainFile(abs),
-			isCompiling: () => compiler.busy,
-			getCompileCommand: () => cc.command,
-			// deferred through compileSettings so an MCP change persists exactly the way the dialog's
-			// Save does - folder command, global default, folder output overrides
-			applyCompile: (command, outputs) => compileSettings.applyCommand(command, outputs)
-		})
-	);
+	onMount(() => startWorkspace({ guest, hostMode, wsdoc, editFlow, files, cc, compiler, draftCtl, commentsCtl, layout, termDock }));
 
 	let tutorialModalOpen = $state(false);
 
@@ -292,37 +120,9 @@
 
 	// visual TOC reads PM headings (works for md too); source-mode TOC parses raw LaTeX, tex-only
 	const showToc = $derived(!!doc.path && (modes.mode === 'visual' ? hasVisualMode(kind) : modes.mode === 'source' && kind === 'tex'));
-	// source mode has no ProseMirror plugin to feed the outline, so parse headings from the raw
-	// .tex; \input fragments pre-scanned into projectIntel merge into one numbered project outline.
-	// debounced (display-only) and reading state LIVE at fire time, so typing never pays the parse.
-	const deferredSourceToc = trailingDebounce<void>(300, () => {
-		if (kind !== 'tex' || modes.mode !== 'source') return;
-		sourceTocStore.set(
-			assembleProjectOutline(
-				parseOutlineRaw(doc.texSource),
-				doc.path,
-				doc.path ? dirname(doc.path) : null,
-				get(workspaceRoot),
-				get(projectIntelStore).outlines
-			)
-		);
-	});
-	$effect(() => {
-		void doc.texSource;
-		void $projectIntelStore;
-		if (kind === 'tex' && modes.mode === 'source') deferredSourceToc();
-	});
+	attachSourceToc(wsdoc);
 	// dock visibility/height/shrink live in lib/workspace/terminalDockState.svelte.ts
 	let termDock = $state(new TerminalDockState(() => guest));
-	function showTerminal() {
-		return termDock.show();
-	}
-	function resetTerminalsForWorkspace() {
-		return termDock.resetForWorkspace();
-	}
-
-	let formatModalOpen = $state(false);
-	let formatting = $state(false);
 	/**
 	 * The bottom dock is confined to the editor column rather than spanning every column.
 	 *
@@ -335,236 +135,33 @@
 	const dockShrunk = $derived(termDock.shrink || !layout.pdfPaneOpen || layout.pdfPopout);
 	// bottom dock body: the terminal shells (always mounted) or the Problems list
 	let dockView = $state<'terminal' | 'problems' | 'comments'>('terminal');
-	// the resolved compile command and its follower effects live in ./workspaceCompileState.svelte.ts
-	const cc: WorkspaceCompileState = new WorkspaceCompileState({
-		doc,
-		guest: () => guest,
+	// the compile-side stack (compile-command state, draft controller, typst preview, compile
+	// pipeline, jump router) is built in ./workspacePipelines.svelte.ts
+	const { cc, draftCtl, typstPreview, compiler, nav } = createWorkspacePipelines({
+		provider,
 		session: () => session,
-		compiler: () => compiler,
-		typstPreview: () => typstPreview,
-		statFile
-	});
-
-	// Draft mode, whole: root/main derivation, triggers, pause, the per-edit dispatcher, and
-	// the engine lifecycle live in the controller; the preview chain gets this ONE object.
-	const draftCtl: DraftController = new DraftController({
-		compileCommand: () => cc.command,
-		// hold the first live compile until the main file is confirmed
-		mainConfirmed: () => files.mainPrompt.confirmed === true,
-		pdfPaneOpen: () => layout.pdfPaneOpen,
-		setPdfPaneOpen: (open) => layout.setPdfPaneOpen(open),
-		openCompileModal: () => openCompileModal(),
-		getSource: () => doc.texSource,
-		getLoadedPath: () => doc.path,
-		flushSaves: () => saver.flushAndWait()
+		guest: () => guest,
+		wsdoc,
+		editFlow: () => editFlow,
+		files: () => files,
+		layout: () => layout,
+		termDock: () => termDock,
+		setDockView: (v) => (dockView = v),
+		openCompileModal: () => fmt.openCompileModal()
 	});
 	files.draftPaused = () => draftCtl.paused;
-	// the Compile button doubles as the draft status (live / paused)
-	function runDraftCompile() {
-		return draftCtl.compile();
-	}
-	// a new folder starts blank: the previous folder's log, PDF and macros are meaningless here
-	// (the switch now flips the root before its scan, so these would otherwise linger on screen)
-	$effect(() => {
-		void $workspaceRoot; // dependency: re-run per folder
-		compileLog.set(null);
-		pdfStore.set(null); // initProject's loadExistingPdf refills it for the new folder
-		wsdoc.projectMacros = '';
-		dockView = 'terminal';
-		compiler.resetForFolder(); // any pollers still watching the previous folder's paths stand down
-		cc.resolveNow();
-	});
-	// the Typst live preview, whole: task lifecycle, caret follow, forward sync, the guest
-	// stream relay, and its Problems feed live in languages/typst/preview/previewController.svelte.ts
-	const typstPreview: TypstPreviewController = new TypstPreviewController({
-		getGuest: () => guest,
-		getMainFile: () => $mainFile,
-		getPreviewSwitchOn: () => typstPreviewAvailable,
-		getTexFileCount: () => $texFiles.length,
-		getPaneOpen: () => layout.pdfPaneOpen,
-		setPaneOpen: (open) => layout.setPdfPaneOpen(open),
-		setPreviewSwitch: (root, on) => projectConfig.setTypstPreview(root, on),
-		getDocPath: () => doc.path,
-		getFollow: () => $settings.typstPreviewFollow === true,
-		getCompileCommand: () => cc.command,
-		getVisualCaretSourcePos: (): { line: number; character: number } | null => nav.visualCaretSourcePos(),
-		flushSaves: () => saver.flushAndWait(),
-		refreshTree: () => files.refreshTree(),
-		syncJumpToFileLine: (file: string, line: number) => nav.syncJumpToFileLine(file, line)
+
+	// compile-command dialog + Format-document modal live in ./workspaceFormatting.svelte.ts
+	const fmt = new WorkspaceFormatting({
+		provider,
+		wsdoc,
+		hostMode: () => hostMode,
+		cc: () => cc,
+		compiler: () => compiler,
+		saver: () => saver,
+		mainPrompt: () => files.mainPrompt
 	});
 
-	// compile / terminal / PDF-watch orchestration lives in lib/workspace/compilePipeline.svelte.ts
-	const compiler: CompilePipeline = new CompilePipeline({
-		getLoadedPath: () => doc.path,
-		getCompileCommand: () => cc.command,
-		terminalAvailable: () => termDock.available,
-		mainConfirmed: () => files.mainPrompt.confirmed,
-		commandPending: () => !!projectConfig.pending,
-		getSession: () => session,
-		getDock: () => termDock.dock,
-		stat: statFile,
-		readText: readTextFile,
-		create: createEntry,
-		fileUrl,
-		flushSaves: () => saver.flushAndWait(),
-		refreshTree: () => files.refreshTree(),
-		showTerminal,
-		setDockView: (v) => (dockView = v),
-		setPdfPaneOpen: (open: boolean) => layout.setPdfPaneOpen(open),
-		openCompileModal: () => openCompileModal(),
-		openMainConfirm: (then) => void files.mainPrompt.prompt(then),
-		runDraftCompile,
-		openTypstPreview: () => typstPreview.enable(),
-		shareCompileState: () => cc.share()
-	});
-
-	// every jump route (SyncTeX forward/inverse, visual caret mapping, include targets, the PDF
-	// pane scroll plumbing) lives in ./workspaceNav.svelte.ts
-	const nav: WorkspaceNav = new WorkspaceNav({
-		doc,
-		modes,
-		kind: () => kind,
-		guest: () => guest,
-		setPdfPaneOpen: (open) => layout.setPdfPaneOpen(open),
-		getDraftRoot: () => draftCtl.root,
-		syncDraftTo: (page, x, y, w, h) => draftCtl.view?.syncTo(page, x, y, w, h),
-		expectedPdfPath: () => compiler.expectedPdfPath(),
-		typstSyncForward: () => typstPreview.syncForward(),
-		typstSyncToLine: (line) => typstPreview.syncToLine(line),
-		statFile
-	});
-
-	// Zotero citations (host-only; see lib/zotero)
-	// The open file's dialect must match the main's engine: the imported entries land in the
-	// bibliography the MAIN file declares, so a .typ scratch file open in a LaTeX project has
-	// nowhere sensible to point its citation.
-	// zoteroEnabled gates every entry point (editor context menu, command palette) through this one predicate
-	function canZoteroCite() {
-		return (
-			$settings.zoteroEnabled !== false &&
-			!guest &&
-			zoteroAvailable() &&
-			!!$mainFile &&
-			(typstPreview.mainIsTypst ? kind === 'typ' : kind === 'tex')
-		);
-	}
-	function insertZoteroCitation() {
-		if (!canZoteroCite()) return;
-		void insertCitationFromZotero({
-			kind: kind as 'tex' | 'typ',
-			root: get(workspaceRoot) ?? '',
-			openDoc: () => ({ path: doc.path, text: doc.buffer })
-		});
-	}
-
-	// compile-command dialog state lives in lib/workspace/compileSettings.svelte.ts
-	let compileSettings = $state(
-		new CompileSettings(
-			() => cc.command,
-			(c) => (cc.command = c),
-			() => compiler.runCompile()
-		)
-	);
-	/**
-	 * Everything in the modal - the Format readout, which lane's settings show, the default
-	 * command - derives from the main file, so opened without one it can only show the LaTeX
-	 * fallback, which for a Typst folder is wrong on every row. Ask for the main first and open
-	 * the modal after; even dismissing the picker settles the detected candidate, so what follows
-	 * shows a real lane. An empty folder skips straight in - there is nothing to pick - and a
-	 * guest has no main file to set (compiling is the host's).
-	 */
-	function openCompileModal() {
-		if (hostMode && !get(mainFile) && get(texFiles).length > 0 && !files.mainPrompt.open) {
-			void files.mainPrompt.prompt(() => compileSettings.open());
-			return;
-		}
-		compileSettings.open();
-	}
-	function saveCompileCommand(thenRun: boolean) {
-		return compileSettings.save(thenRun);
-	}
-	function useDefaultCommand() {
-		return compileSettings.useDefault();
-	}
-
-	/**
-	 * Whether Format can serve the open file. LaTeX goes through latexindent (an external tool the
-	 * provider must expose); Typst goes through tinymist's built-in typstyle, gated to SOURCE mode:
-	 * the formatter edits the server's in-memory document, and only the source editor's LSP binding
-	 * keeps that identical to the buffer - in visual mode the server's copy is stale or closed.
-	 */
-	function canFormatDoc(): boolean {
-		if (kind === 'tex') return provider.caps.format;
-		return kind === 'typ' && typstBridgeAvailable() && modes.mode === 'source';
-	}
-	function openFormatModal() {
-		if (!doc.path || !canFormatDoc()) return;
-		formatModalOpen = true;
-	}
-	function doRunFormat() {
-		formatModalOpen = false;
-		return runFormat({
-			getLoadedPath: () => doc.path,
-			getSource: () => doc.texSource,
-			getEol: () => doc.eol,
-			flushSaves: () => saver.flushAndWait(),
-			format: kind === 'typ' ? (p, text) => formatTypstDocument(get(workspaceRoot), p, text) : formatLatexDocument,
-			applyFormatted: (text) => doc.replaceSource(text, { dirty: true }),
-			setBusy: (b) => (formatting = b)
-		});
-	}
-	// label and bibitem registries live in lib/workspace/docRegistries.svelte.ts
-	const registries = new DocRegistries({
-		getSource: () => doc.texSource,
-		captureHistory: (text) => sourceHistory.capture(text)
-	});
-	const allReferences = $derived.by(() => {
-		void $references; // re-derive when the folder's .bib entries change
-		return registries.merged;
-	});
-	$effect(() => registries.publish(allReferences));
-
-	$effect(() => {
-		const tree = $fileTree;
-		const root = $workspaceRoot;
-		filePathStore.set(root ? flattenPaths(tree, root) : []);
-	});
-
-	// remember the open file per folder so reopening the workspace restores it (StartView's
-	// initialFile); recorded on every switch, kept when the file later disappears (existence is
-	// checked at restore time)
-	$effect(() => {
-		const root = $workspaceRoot;
-		const path = $activeFilePath;
-		if (root && path) setLastFile(root, path);
-	});
-
-	// cross-file intel (labels/defs/glossary/outlines/aux numbers from the OTHER project files):
-	// rescan when the file list, main file, or active file changes — those are the only times the
-	// non-active files' on-disk state can have moved under us (a switch flushes the previous save)
-	$effect(() => {
-		const files = $texFiles;
-		const main = $mainFile;
-		const active = $activeFilePath;
-		const tree = $fileTree;
-		const root = $workspaceRoot;
-		const bibs = root ? bibPathsFrom(flattenPaths(tree, root), root) : [];
-		// the .aux sits next to the log (output/aux dirs included); fall back to a main-sibling .aux
-		const aux = compiler.expectedLogPath()?.replace(/\.log$/i, '.aux') ?? (main ? main.replace(/\.tex$/i, '.aux') : null);
-		// a guest has no aux on disk; the host's shared parse fills the numbers in (and re-runs
-		// this when a fresh compile lands). Reading session.active also seeds the host's share
-		// when a session starts against an already-compiled project.
-		const live = session.active;
-		const sharedAux =
-			guest && session.compileIntel ? { numbers: session.compileIntel.auxNumbers, pages: session.compileIntel.auxPages } : null;
-		void refreshProjectIntel(files, bibs, guest ? null : aux, active ?? null, readTextFile, sharedAux).then(() => {
-			if (live && !guest) cc.share();
-		});
-	});
-
-	// \includegraphics hover preview: candidate texfile:// URLs (current dir, root, and any
-	// \graphicspath dirs, adding raster extensions when the path has none); the tooltip's img
-	// advances past misses
 	// the visual editor's shared-session machinery (remote patches, presence) lives in
 	// VisualCollab; this api hands it doc-state access, the ref carries its editor hooks
 	let visualCollab = $state<{ noteLocalEdit(): void; noteFreshParse(): void; publishCursor(): void } | null>(null);
@@ -574,54 +171,31 @@
 		parse: (text) => wsdoc.tryParseVisual(text),
 		scheduleSave: (path, content) => saver.schedule(path, content)
 	});
-
-	// visual-editor file access (figure previews, image paste) resolves through the provider,
-	// so a guest's images come from the session blob cache and uploads go through the session
-	setEditorFileAccess(
-		(p) => provider.fileUrl(p),
-		(p, blob) => provider.writeBinary(p, blob)
-	);
-	setGraphicResolver((rel) =>
-		graphicCandidateUrls(rel, { root: get(workspaceRoot), loadedPath: doc.path, source: doc.texSource, fileUrl })
-	);
 	onDestroy(() => {
-		setGraphicResolver(null);
-		setEditorFileAccess(null, null);
 		typstPreview.dispose(); // leaving the workspace must not leave a preview compiling in the server
 		projectConfig.reset(); // adopted compile state is per folder; the start screen holds defaults
 	});
-
 	// shared session: guests can ask for a compile; leaving the workspace ends the session
 	let shareModalOpen = $state(false);
-	onMount(() =>
-		attachSessionHandlers(session, {
-			runCompile: () => void compiler.runCompile(),
-			isBusy: () => compiler.busy,
-			refreshTree: () => void files.refreshTree(),
-			expectedPdfPath: () => compiler.expectedPdfPath(),
-			applyCommentEvent: (event) => void commentsCtl.ingest(event),
-			commentLog: () => commentsCtl.store.serialize(),
-			typstScrollForGuest: (rel, line, character) => typstPreview.scrollForGuest(rel, line, character)
-		})
-	);
 
-	// keep the label registry, the embedded bibitem refs, and the cross-mode undo history fresh
-	$effect(() => {
-		void doc.texSource; // dependency: re-arm the debounce on every source change
-		return registries.schedule();
+	// MCP, session handlers, project intel, registries, file access, Zotero and SCM wiring live
+	// in ./workspaceIntegrations.svelte.ts
+	const integrations = new WorkspaceIntegrations({
+		provider,
+		session: () => session,
+		guest: () => guest,
+		wsdoc,
+		editFlow: () => editFlow,
+		nav: () => nav,
+		files: () => files,
+		cc: () => cc,
+		compiler: () => compiler,
+		typstPreview: () => typstPreview,
+		compileSettings: () => fmt.compileSettings,
+		commentsCtl,
+		setDockView: (v) => (dockView = v)
 	});
-
-	// source control ops live in lib/workspace/scmActions.svelte.ts; the panel is presentational.
-	const scm = new ScmActions({
-		getLoadedPath: () => doc.path,
-		discardPendingSave: () => saver.discard(),
-		deleteEntry,
-		refreshTree: () => files.refreshTree(),
-		loadFile: (path) => wsdoc.loadFile(path),
-		captureDiffSnapshot: () => void captureDiffSnapshot(),
-		isDiffMode: () => modes.mode === 'diff',
-		enterDiffMode: () => (modes.mode = 'diff')
-	});
+	const scm = integrations.scm;
 
 	let globalSearchRef = $state<GlobalSearch | null>(null);
 	// Find in Files panel plumbing lives in lib/workspace/editorCommands.ts
@@ -631,53 +205,30 @@
 		isSourceMode: () => modes.mode === 'source',
 		focusInput: (seed?: string) => globalSearchRef?.focusInput(seed)
 	};
-	function openGlobalSearch() {
-		return openSearchPanel(searchDeps);
-	}
-	function closeGlobalSearch() {
-		return closeSearchPanel(searchDeps);
-	}
 
 	// the three callback surfaces live in ./workspaceActionSurfaces.ts
 	const actionDeps: ActionSurfaceDeps = {
-		doc,
-		modes,
+		provider,
+		wsdoc,
+		editFlow: () => editFlow,
+		files: () => files,
+		fmt,
+		integrations,
 		commentsCtl,
-		termDock: () => termDock,
-		layout: () => layout,
+		cc,
 		draftCtl,
 		typstPreview,
 		compiler,
 		nav,
-		starters: files.starters,
-		provider,
-		kind: () => kind,
+		termDock: () => termDock,
+		layout: () => layout,
 		guest: () => guest,
-		typstProject: () => cc.typstProject,
 		visualCollab: () => visualCollab,
 		setDockView: (v) => (dockView = v),
 		setShareModalOpen: (open) => (shareModalOpen = open),
 		setTutorialModalOpen: (open) => (tutorialModalOpen = open),
-		setViewMode,
-		save: () => save(),
-		captureDiffSnapshot: () => void captureDiffSnapshot(),
-		activateTab: (p) => editFlow.activateTab(p),
-		closeTab: (p) => editFlow.closeTab(p),
-		newFileOfType: (ext) => files.newFileOfType(ext),
-		openFolderFromMenu: (path) => void files.folder.open(path),
-		closeWorkspace: () => void files.folder.close(),
-		openCompileModal,
-		openFormatModal,
-		canFormatDoc,
-		openGlobalSearch: () => void openGlobalSearch(),
-		closeGlobalSearch: () => void closeGlobalSearch(),
-		toggleMainFile: (p) => void files.toggleMainFile(p),
-		refreshTree: () => files.refreshTree(),
-		canZoteroCite,
-		insertZoteroCitation,
-		setCompileCommandResolved: () => cc.resolveNow(),
-		openEntry: (entry) => files.openEntry(entry),
-		statFile
+		openGlobalSearch: () => void openSearchPanel(searchDeps),
+		closeGlobalSearch: () => void closeSearchPanel(searchDeps)
 	};
 	const actions = makeMainActions(actionDeps);
 	const chromeActions = makeChromeActions(actionDeps);
@@ -696,8 +247,8 @@
 		getLoadedPath: () => doc.path,
 		closeTab: (p: string) => editFlow.closeTab(p),
 		isGuest: () => guest,
-		save,
-		openGlobalSearch: () => void openGlobalSearch(),
+		save: () => wsdoc.save(),
+		openGlobalSearch: () => void openSearchPanel(searchDeps),
 		terminalAvailable: () => termDock.available,
 		isCompiling: () => compiler.compiling,
 		runCompile: () => compiler.runCompile(),
@@ -732,7 +283,7 @@
 			// never a guest: a guest is IN someone's session, not in a position to open one
 			shareable: isDesktop() && !guest,
 			hostMode,
-			canFormat: canFormatDoc(),
+			canFormat: fmt.canFormatDoc(),
 			uiZoomPercent,
 			typstProject: cc.typstProject
 		}}
@@ -768,10 +319,10 @@
 				openTabs: tabs.list,
 				previewTab: tabs.preview,
 				applyingStarter: files.starters.applying,
-				allReferences,
+				allReferences: integrations.allReferences,
 				sourceGotoLine: nav.sourceGotoLine,
 				sourceDiagnostics: cc.sourceDiagnostics,
-				fileUrl,
+				fileUrl: (p: string) => provider.fileUrl(p),
 				cwd: $workspaceRoot ?? '',
 				comments: commentsCtl.threads,
 				commentFile: commentsCtl.activeFile,
@@ -782,7 +333,7 @@
 				commentSelected: commentsCtl.selected,
 				commentRanges: commentsCtl.ranges,
 				commentPending: commentsCtl.pending,
-				zoteroCite: canZoteroCite()
+				zoteroCite: integrations.canZoteroCite()
 			}}
 			{actions}
 			bind:dockView
@@ -796,15 +347,15 @@
 		bind:mainPrompt={files.mainPrompt}
 		{unsaved}
 		{external}
-		bind:compileSettings
-		bind:formatModalOpen
+		bind:compileSettings={fmt.compileSettings}
+		bind:formatModalOpen={fmt.formatModalOpen}
 		formatTool={kind === 'typ' ? 'typstyle' : 'latexindent'}
-		{formatting}
+		formatting={fmt.formatting}
 		pendingRefUpdate={files.pendingRefUpdate}
-		onSaveCompile={saveCompileCommand}
-		onUseDefaultCompile={useDefaultCommand}
+		onSaveCompile={(thenRun) => fmt.saveCompileCommand(thenRun)}
+		onUseDefaultCompile={() => fmt.useDefaultCommand()}
 		onRunCompile={compiler.runCompile}
-		onFormat={doRunFormat}
+		onFormat={() => void fmt.runFormatNow()}
 		onResolveConflict={(c) => external.resolve(c)}
 		onKeepRefs={() => (files.pendingRefUpdate = null)}
 		onApplyRefs={() => void files.applyPendingRefUpdate()}

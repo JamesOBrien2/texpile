@@ -3,7 +3,6 @@
 import { get } from 'svelte/store';
 import type { Component } from 'svelte';
 import { DOMSerializer } from 'prosemirror-model';
-import { TextSelection } from 'prosemirror-state';
 import {
 	addColumnBefore,
 	addColumnAfter,
@@ -12,7 +11,6 @@ import {
 	addRowAfter,
 	deleteRow,
 	deleteTable,
-	CellSelection,
 	mergeCells,
 	splitCell
 } from 'prosemirror-tables';

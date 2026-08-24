@@ -1,0 +1,241 @@
+// The workspace's outward integrations: the MCP command surface and window-state cache,
+// shared-session handlers, cross-file project intel, the label/bibitem registries, editor
+// file access + graphics resolution, Zotero citations, and source-control actions.
+import { fromStore, get } from 'svelte/store';
+import { publishWindowState } from '$lib/workspace/mcpPublish';
+import { attachMcpCommands } from '$lib/workspace/mcpCommands';
+import { attachSessionHandlers } from '$lib/collab/workspaceSession';
+import { DocRegistries } from '$lib/workspace/docRegistries.svelte';
+import { ScmActions } from '$lib/workspace/scmActions.svelte';
+import { refreshProjectIntel } from '$lib/workspace/projectIntel';
+import { bibPathsFrom } from '$lib/collab/compileIntelBridge';
+import { flattenPaths } from '$lib/workspace/refUpdate';
+import { setGraphicResolver } from '$lib/languages/latex/intellisense/hover';
+import { graphicCandidateUrls } from '$lib/editor/visual/graphicsCandidates';
+import { setEditorFileAccess } from '$lib/editor/visual/fileAccess';
+import { insertCitationFromZotero, zoteroAvailable } from '$lib/zotero/insertFromZotero';
+import { compileLog } from '$lib/stores/compileLogStore';
+import { pdfStore } from '$lib/stores/pdfStore';
+import { filePathStore } from '$lib/stores/editorStore';
+import { references } from '$lib/workspace/citations';
+import { tabs } from '$lib/workspace/tabs.svelte';
+import { workspaceRoot, texFiles, fileTree, activeFilePath, isDirty, mainFile, setLastFile } from '$lib/workspace/workspaceStore';
+import { settings } from '$lib/settings';
+import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
+import type { EditSession } from '$lib/collab/editSession';
+import type { CompilePipeline } from '$lib/workspace/compilePipeline.svelte';
+import type { CompileSettings } from '$lib/workspace/compileSettings.svelte';
+import type { TypstPreviewController } from '$lib/languages/typst/preview/previewController.svelte';
+import type { CommentsController } from '$lib/workspace/commentsController.svelte';
+import type { WorkspaceDoc } from './workspaceDoc.svelte';
+import type { WorkspaceNav } from './workspaceNav.svelte';
+import type { WorkspaceFiles } from './workspaceFiles.svelte';
+import type { WorkspaceCompileState } from './workspaceCompileState.svelte';
+import type { WorkspaceEditFlow } from './workspaceEditFlow.svelte';
+
+type IntegrationDeps = {
+	provider: WorkspaceProvider;
+	session: () => EditSession;
+	guest: () => boolean;
+	wsdoc: WorkspaceDoc;
+	editFlow: () => WorkspaceEditFlow;
+	nav: () => WorkspaceNav;
+	files: () => WorkspaceFiles;
+	cc: () => WorkspaceCompileState;
+	compiler: () => CompilePipeline;
+	typstPreview: () => TypstPreviewController;
+	compileSettings: () => CompileSettings;
+	commentsCtl: CommentsController;
+	setDockView: (v: 'terminal' | 'problems' | 'comments') => void;
+};
+
+export class WorkspaceIntegrations {
+	// label and bibitem registries live in lib/workspace/docRegistries.svelte.ts
+	readonly registries: DocRegistries;
+	// source control ops live in lib/workspace/scmActions.svelte.ts; the panel is presentational.
+	readonly scm: ScmActions;
+
+	#root = fromStore(workspaceRoot);
+	#main = fromStore(mainFile);
+	#texFiles = fromStore(texFiles);
+	#tree = fromStore(fileTree);
+	#active = fromStore(activeFilePath);
+	#dirty = fromStore(isDirty);
+	#settings = fromStore(settings);
+	#references = fromStore(references);
+
+	constructor(private d: IntegrationDeps) {
+		const { doc, modes } = d.wsdoc;
+		this.registries = new DocRegistries({
+			getSource: () => doc.texSource,
+			captureHistory: (text) => modes.history.capture(text)
+		});
+		this.scm = new ScmActions({
+			getLoadedPath: () => doc.path,
+			discardPendingSave: () => d.editFlow().saver.discard(),
+			deleteEntry: (p) => d.provider.remove(p),
+			refreshTree: () => d.files().refreshTree(),
+			loadFile: (path) => d.wsdoc.loadFile(path),
+			captureDiffSnapshot: () => void d.wsdoc.diff.snapshot(),
+			isDiffMode: () => modes.mode === 'diff',
+			enterDiffMode: () => (modes.mode = 'diff')
+		});
+
+		// Keep main's cache of what this window shows current, for the MCP get_editor_state tool.
+		// The dependencies have to be named HERE. buildWindowState reads every one of them with
+		// get(), the deliberately non-reactive store read. Tracking modes.mode alone froze the
+		// cache: set_main_file left mainFile null for the rest of the session, and `dirty` went
+		// stale after an edit. publishWindowState de-dupes identical payloads, so this costs nothing.
+		$effect(() => {
+			void this.#main.current;
+			void this.#active.current;
+			void this.#dirty.current;
+			void this.#settings.current;
+			void tabs.list;
+			publishWindowState(modes.mode);
+		});
+		// the MCP tools that need this window: get_unsaved / get_diagnostics answer here, and the
+		// steer commands (open_file, show_diff, set_view_mode) run through the same paths the UI uses
+		$effect(() =>
+			attachMcpCommands({
+				getLoadedPath: () => doc.path,
+				getBuffer: () => doc.buffer,
+				openFile: (abs) => activeFilePath.set(abs),
+				openFileAtLine: (abs, line) => d.nav().openFileAtLine(abs, line),
+				showDiff: () => modes.set('diff'),
+				setViewMode: (mode) => modes.set(mode),
+				getViewMode: () => modes.mode,
+				syncToLine: (line) => d.nav().syncToLine(line),
+				runCompile: () => d.compiler().runCompile(),
+				setMainFile: (abs) => d.files().applyMainFile(abs),
+				isCompiling: () => d.compiler().busy,
+				getCompileCommand: () => d.cc().command,
+				// deferred through compileSettings so an MCP change persists exactly the way the dialog's
+				// Save does - folder command, global default, folder output overrides
+				applyCompile: (command, outputs) => d.compileSettings().applyCommand(command, outputs)
+			})
+		);
+		// shared session: guests can ask for a compile; leaving the workspace ends the session
+		$effect(() =>
+			attachSessionHandlers(d.session(), {
+				runCompile: () => void d.compiler().runCompile(),
+				isBusy: () => d.compiler().busy,
+				refreshTree: () => void d.files().refreshTree(),
+				expectedPdfPath: () => d.compiler().expectedPdfPath(),
+				applyCommentEvent: (event) => void d.commentsCtl.ingest(event),
+				commentLog: () => d.commentsCtl.store.serialize(),
+				typstScrollForGuest: (rel, line, character) => d.typstPreview().scrollForGuest(rel, line, character)
+			})
+		);
+		// keep the label registry, the embedded bibitem refs, and the cross-mode undo history fresh
+		$effect(() => {
+			void doc.texSource; // dependency: re-arm the debounce on every source change
+			return this.registries.schedule();
+		});
+		$effect(() => this.registries.publish(this.allReferences));
+		$effect(() => {
+			const tree = this.#tree.current;
+			const root = this.#root.current;
+			filePathStore.set(root ? flattenPaths(tree, root) : []);
+		});
+		// remember the open file per folder so reopening the workspace restores it (StartView's
+		// initialFile); recorded on every switch, kept when the file later disappears (existence is
+		// checked at restore time)
+		$effect(() => {
+			const root = this.#root.current;
+			const path = this.#active.current;
+			if (root && path) setLastFile(root, path);
+		});
+		// a new folder starts blank: the previous folder's log, PDF and macros are meaningless here
+		// (the switch now flips the root before its scan, so these would otherwise linger on screen)
+		$effect(() => {
+			void this.#root.current; // dependency: re-run per folder
+			compileLog.set(null);
+			pdfStore.set(null); // initProject's loadExistingPdf refills it for the new folder
+			d.wsdoc.projectMacros = '';
+			d.setDockView('terminal');
+			d.compiler().resetForFolder(); // any pollers still watching the previous folder's paths stand down
+			d.cc().resolveNow();
+		});
+		// cross-file intel (labels/defs/glossary/outlines/aux numbers from the OTHER project files):
+		// rescan when the file list, main file, or active file changes - those are the only times the
+		// non-active files' on-disk state can have moved under us (a switch flushes the previous save)
+		$effect(() => {
+			const texList = this.#texFiles.current;
+			const main = this.#main.current;
+			const active = this.#active.current;
+			const tree = this.#tree.current;
+			const root = this.#root.current;
+			const session = d.session();
+			const guest = d.guest();
+			const bibs = root ? bibPathsFrom(flattenPaths(tree, root), root) : [];
+			// the .aux sits next to the log (output/aux dirs included); fall back to a main-sibling .aux
+			const aux =
+				d
+					.compiler()
+					.expectedLogPath()
+					?.replace(/\.log$/i, '.aux') ?? (main ? main.replace(/\.tex$/i, '.aux') : null);
+			// a guest has no aux on disk; the host's shared parse fills the numbers in (and re-runs
+			// this when a fresh compile lands). Reading session.active also seeds the host's share
+			// when a session starts against an already-compiled project.
+			const live = session.active;
+			const sharedAux =
+				guest && session.compileIntel ? { numbers: session.compileIntel.auxNumbers, pages: session.compileIntel.auxPages } : null;
+			void refreshProjectIntel(texList, bibs, guest ? null : aux, active ?? null, (p) => d.provider.readText(p), sharedAux).then(() => {
+				if (live && !guest) d.cc().share();
+			});
+		});
+		// visual-editor file access (figure previews, image paste) resolves through the provider,
+		// so a guest's images come from the session blob cache and uploads go through the session.
+		// \includegraphics hover preview: candidate texfile:// URLs; the tooltip's img advances past misses
+		$effect(() => {
+			setEditorFileAccess(
+				(p) => d.provider.fileUrl(p),
+				(p, blob) => d.provider.writeBinary(p, blob)
+			);
+			setGraphicResolver((rel) =>
+				graphicCandidateUrls(rel, {
+					root: get(workspaceRoot),
+					loadedPath: doc.path,
+					source: doc.texSource,
+					fileUrl: (p) => d.provider.fileUrl(p)
+				})
+			);
+			return () => {
+				setGraphicResolver(null);
+				setEditorFileAccess(null, null);
+			};
+		});
+	}
+
+	get allReferences() {
+		void this.#references.current; // re-derive when the folder's .bib entries change
+		return this.registries.merged;
+	}
+
+	// Zotero citations (host-only; see lib/zotero)
+	// The open file's dialect must match the main's engine: the imported entries land in the
+	// bibliography the MAIN file declares, so a .typ scratch file open in a LaTeX project has
+	// nowhere sensible to point its citation.
+	// zoteroEnabled gates every entry point (editor context menu, command palette) through this one predicate
+	canZoteroCite(): boolean {
+		const kind = this.d.wsdoc.doc.kind;
+		return (
+			this.#settings.current.zoteroEnabled !== false &&
+			!this.d.guest() &&
+			zoteroAvailable() &&
+			!!this.#main.current &&
+			(this.d.typstPreview().mainIsTypst ? kind === 'typ' : kind === 'tex')
+		);
+	}
+
+	insertZoteroCitation(): void {
+		if (!this.canZoteroCite()) return;
+		const { doc } = this.d.wsdoc;
+		void insertCitationFromZotero({
+			kind: doc.kind as 'tex' | 'typ',
+			root: get(workspaceRoot) ?? '',
+			openDoc: () => ({ path: doc.path, text: doc.buffer })
+		});
+	}
+}
