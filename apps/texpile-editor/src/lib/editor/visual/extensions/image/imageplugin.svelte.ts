@@ -8,6 +8,8 @@ import { mount } from 'svelte';
 import ImageOverlay from './ImageOverlay.svelte';
 import { joinPath, isRemoteSrc } from '$lib/workspace/fileSystem';
 import { editorFileUrl, editorWriteBinary } from '$lib/editor/visual/fileAccess';
+import { resolveGraphicUrl } from './graphicSrcResolve';
+import { pdfPageImageUrl } from './pdfImageSource';
 import imageNotFoundPng from '$lib/assets/compile/image_not_found_placeholder.png';
 
 export const defaultExtraAttributes = {
@@ -178,16 +180,28 @@ const REMOTE_IMAGE_BLOCKED =
 			'</svg>'
 	);
 
+async function urlExists(url: string): Promise<boolean> {
+	try {
+		return (await fetch(url, { method: 'HEAD', cache: 'no-store' })).ok;
+	} catch {
+		return false;
+	}
+}
+
 /** image settings for the local folder editor: images land in images/ next to the document. */
 export function createLocalImageSettings(imageDir: string): ImagePluginSettings {
 	return {
 		...sharedImageSettings,
 		uploadFile: (file: File) => uploadLocalImage(file, imageDir),
-		// resolve the relative path to a served URL; pass through already-resolved LOCAL srcs
+		// resolve the relative path to a served URL; pass through already-resolved LOCAL srcs.
+		// extensionless srcs probe like the engine would, and PDF figures render to a bitmap.
 		downloadImage: async (src: string) => {
 			if (/^https?:/i.test(src)) return REMOTE_IMAGE_BLOCKED;
 			if (!src || isRemoteSrc(src) || /^(data:|blob:|file:)/.test(src)) return src;
-			return editorFileUrl(joinPath(imageDir, src));
+			const { url, isPdf } = await resolveGraphicUrl(src, (rel) => editorFileUrl(joinPath(imageDir, rel)), urlExists);
+			// failed render falls through to the raw URL, whose <img> error shows not-found
+			if (isPdf) return (await pdfPageImageUrl(url)) ?? url;
+			return url;
 		},
 		deleteSrc: async () => {}
 	} as ImagePluginSettings;

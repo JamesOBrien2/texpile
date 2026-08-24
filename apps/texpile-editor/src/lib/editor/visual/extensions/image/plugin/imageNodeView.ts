@@ -81,6 +81,10 @@ export function imageNodeView(pluginSettings: ImagePluginSettings) {
 			image.src = imageNotFoundPng;
 			image.classList.add('image-not-found');
 			image.title = `File not found: ${node.attrs.src}`;
+			// the controls were sized from the missing image's synthetic dimensions while the
+			// placeholder sizes itself (auto !important) - a large orphan outline over the text
+			resizeControls?.remove();
+			resizeControls = undefined;
 		}
 		image.addEventListener('error', showNotFound);
 		async function revalidate() {
@@ -93,7 +97,12 @@ export function imageNodeView(pluginSettings: ImagePluginSettings) {
 					notFound = false;
 					image.classList.remove('image-not-found');
 					image.title = node.attrs.alt ?? '';
-					image.src = `${finalSrc}${finalSrc.includes('?') ? '&' : '?'}_=${Date.now()}`;
+					const freshSrc = `${finalSrc}${finalSrc.includes('?') ? '&' : '?'}_=${Date.now()}`;
+					// re-measure before rebuilding the resize controls: the stored dimensions are
+					// the failed load's 0x0
+					if (pluginSettings.enableResize) dimensions = await getImageDimensions(freshSrc);
+					image.src = freshSrc;
+					updateDom();
 				}
 			} catch {
 				showNotFound();
@@ -133,6 +142,12 @@ export function imageNodeView(pluginSettings: ImagePluginSettings) {
 		let resizeControls: HTMLDivElement | undefined;
 		function updateDom() {
 			if (resizeActive) {
+				return;
+			}
+			if (notFound) {
+				// no resize chrome around the placeholder; revalidate rebuilds it if the file returns
+				resizeControls?.remove();
+				resizeControls = undefined;
 				return;
 			}
 
