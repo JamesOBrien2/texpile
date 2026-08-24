@@ -227,7 +227,7 @@ function buildServer(): McpServer {
 			if (!t) return fail('no matching Texpile window');
 			// The renderer resolves this against the workspace tree, not the filesystem. That is the
 			// whole containment story for this server: it is the only tool taking a path, and the path
-			// never reaches fs-service.
+			// never reaches fsService.
 			sendCommand(t.win, { kind: 'open_file', path: p, line });
 			return ok({ opened: p, line: line ?? null, switchedToSource: line !== undefined });
 		}

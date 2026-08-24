@@ -105,7 +105,7 @@ let session: Session | null = null;
 
 /**
  * Bumped when the server process DIES out from under us (never for our own stops - the spawn
- * suppresses those, see typst-service). By the bump the dead client is already dropped, so
+ * suppresses those, see typstService). By the bump the dead client is already dropped, so
  * subscribers re-arm against a fresh `typstClient()`: WorkspaceView restarts a live preview whose
  * task died with the server, and each open .typ editor rebuilds its LSP extension - both were
  * otherwise left holding a corpse, the pane dialing a dead port forever.

@@ -3,7 +3,7 @@
 	//
 	// The document is rendered by tinymist's own viewer page - incremental SVG patching, ctrl+wheel
 	// zoom, its keybindings, click-to-jump - which we fetch, theme and re-serve on loopback (see
-	// electron/src/typst-preview-page.ts). This component is the frame around it.
+	// electron/src/typstPreviewPage.ts). This component is the frame around it.
 	//
 	// The frame is a SEPARATE ORIGIN, so the page cannot reach this window's bridges. The only
 	// channel between us is postMessage, and the bridge on the far side is one we injected. That is
@@ -111,7 +111,7 @@
 		};
 	});
 
-	/** what the framed page reports about itself; see the bridge in electron/src/typst-preview-page.ts */
+	/** what the framed page reports about itself; see the bridge in electron/src/typstPreviewPage.ts */
 	type FrameStatus = {
 		pages: number;
 		/** WebSocket.readyState, or -1 when the page never constructed a socket at all */

@@ -1,19 +1,19 @@
 // Keeps ONE warm lualatex alive (the user's real preamble loaded, keyed by its hash) and
 // typesets single blocks on it over stdin/stdout -- nothing else. This is the "no delay
-// while typing" engine; the full recompile (draft-service) reconciles on a debounce.
+// while typing" engine; the full recompile (draftService) reconciles on a debounce.
 import { spawn, type ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import { resolveType1 } from '../font-t1map';
+import { resolveType1 } from '../fontT1Map';
 
 const BLOCK_TIMEOUT_MS = 6000;
 const OUT_REL = '_draft';
 // \pdfoutput is a pdfTeX primitive luatex lacks; arXiv preambles that set it unguarded
 // (\pdfoutput=1) would crash the warm engine. Define it as a dummy count if absent (harmless
 // no-op otherwise). Prepended before the preamble so it runs before that assignment. Mirror
-// of the compile-side shim in draft-service so the daemon warms whatever the compile compiles.
+// of the compile-side shim in draftService so the daemon warms whatever the compile compiles.
 const PDF_SHIM = `\\ifdefined\\pdfoutput\\else\\newcount\\pdfoutput\\fi`;
 
 function splitPreamble(mainPath: string): { preamble: string } | null {
@@ -65,7 +65,7 @@ function spawnDaemon(root: string, engineDir: string, preamble: string): Promise
 	const outDir = path.join(root, '_draft');
 	fs.mkdirSync(outDir, { recursive: true });
 	const texName = '_draft/texd-daemon.tex';
-	// live-refs.tex (exported by draft-service from the resolved aux) carries \bibcite +
+	// live-refs.tex (exported by draftService from the resolved aux) carries \bibcite +
 	// \newlabel so \cite/\ref resolve in instant patches; biblatex documents instead read
 	// _draft/texd_daemon.bbl (a copy of draft.bbl) at \begin{document} automatically.
 	// Store the live-refs \newlabel/\bibcite data by DIRECTLY defining \r@<label>/\b@<key>

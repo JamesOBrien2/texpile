@@ -229,7 +229,7 @@
 
 <!-- Lives inside TitleBar's row, so the row owns the border and the height; this only lays out its
      own triggers. no-drag because the row around it is a drag region.
-     On macOS the triggers are gone and the real menu bar carries them (window-chrome.ts), but the
+     On macOS the triggers are gone and the real menu bar carries them (windowChrome.ts), but the
      component still mounts: it owns Preferences, the dictionary, the shortcut sheet and the image
      picker, none of which have anything to do with where the menus are drawn.
      preventDefault on mousedown so opening a menu doesn't blur the editor; inserts land at the cursor -->

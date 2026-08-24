@@ -4,21 +4,21 @@ import * as fs from 'node:fs';
 import { Readable } from 'node:stream';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import * as fsService from './fs-service';
-import * as gitService from './git-service';
-import * as draftService from './draft/draft-service';
-import * as draftDaemon from './draft/draft-daemon';
-import * as typstService from './typst-service';
-import * as typstPreviewPage from './typst-preview-page';
-import * as previewRelay from './typst-preview-relay';
+import * as fsService from './fsService';
+import * as gitService from './gitService';
+import * as draftService from './draft/draftService';
+import * as draftDaemon from './draft/draftDaemon';
+import * as typstService from './typstService';
+import * as typstPreviewPage from './typstPreviewPage';
+import * as previewRelay from './typstPreviewRelay';
 import * as toolchain from './toolchain';
 import * as updates from './updates';
-import { startWorkspaceWatch, stopWorkspaceWatch } from './fs-watch';
-import { isAllowedFontPath } from './font-t1map';
+import { startWorkspaceWatch, stopWorkspaceWatch } from './fsWatch';
+import { isAllowedFontPath } from './fontT1Map';
 import * as mcp from './mcp/server';
 import { publishWindowState, forgetWindow, type WindowState } from './mcp/state';
 import { deliverResponse } from './mcp/bridge';
-import { registerWindowChrome, forgetWindowChrome, watchWindowState } from './window-chrome';
+import { registerWindowChrome, forgetWindowChrome, watchWindowState } from './windowChrome';
 import { registerZotero } from './zotero';
 
 const isDev = !app.isPackaged;
@@ -340,7 +340,7 @@ function createWindow(url: string, pending?: PendingOpen): BrowserWindow {
 		//
 		// macOS keeps a real frame: `hiddenInset` hides the title bar but leaves the traffic lights,
 		// the double-click-to-zoom behaviour and the system menu bar, none of which a frameless
-		// window can reproduce. There the menus live in the native bar instead (window-chrome.ts).
+		// window can reproduce. There the menus live in the native bar instead (windowChrome.ts).
 		//
 		// Off macOS the buttons themselves are Chromium's, not ours: titleBarOverlay reserves a strip
 		// at the end of our own title bar and draws minimise / maximise / close into it. Two reasons,
@@ -897,7 +897,7 @@ ipcMain.handle('typst:lsp:start', async (e, root: string | null) => {
  */
 // --- Typst live preview -----------------------------------------------------
 // The renderer starts the preview through the language server; here we fetch the page tinymist
-// serves for it, prepare it (see typst-preview-page.ts) and re-serve it, which the pane then frames.
+// serves for it, prepare it (see typstPreviewPage.ts) and re-serve it, which the pane then frames.
 //
 // Why re-serve instead of framing tinymist's origin directly: served by us, we can theme the page
 // and open a postMessage bridge to it.
@@ -1020,7 +1020,7 @@ ipcMain.handle('typst:preview:prepareGuest', async (e, body: { html: string; bac
 });
 
 // --- Typst preview relay (host side of a shared session) ------------------------------------
-// One websocket per guest to the preview task's data plane; see typst-preview-relay.ts.
+// One websocket per guest to the preview task's data plane; see typstPreviewRelay.ts.
 ipcMain.on('typst:relay:open', (e, body: { id: number; host: string }) => {
 	if (typeof body?.id === 'number' && typeof body?.host === 'string') previewRelay.open(e.sender, body.id, body.host);
 });
@@ -1385,7 +1385,7 @@ app.whenReady().then(() => {
 
 	// Window controls for the custom title bar, plus - on macOS - the native menu bar, built from
 	// what the renderer reports about its own menus. Everywhere else the native menu is removed
-	// and the renderer draws it. See window-chrome.ts.
+	// and the renderer draws it. See windowChrome.ts.
 	// persisted so the NEXT launch can paint its window buttons in the right colours before a
 	// renderer exists to report them; see chromeColors()
 	registerWindowChrome((c) =>

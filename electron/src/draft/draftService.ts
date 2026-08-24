@@ -1,16 +1,16 @@
 // Runs ONE full engine compile of the user's main file and returns its pages -- nothing
 // else. The job string injects the page-extract.lua shipout hook (contained in _draft/,
 // source never touched); the result is the engine's manifest + per-page records, with
-// image filenames (draft-images) and Type1 font paths (font-t1map) attached, the
-// bibliography cycled between passes (draft-bib), and refs exported for the warm daemon
-// (draft-refs). Same engine as the user's own compile, so exact by construction.
+// image filenames (draftImages) and Type1 font paths (fontT1Map) attached, the
+// bibliography cycled between passes (draftBib), and refs exported for the warm daemon
+// (draftRefs). Same engine as the user's own compile, so exact by construction.
 import { execFile } from 'node:child_process';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { resolveType1Line } from '../font-t1map';
-import { seedBbl, auxCycle } from './draft-bib';
-import { exportDaemonRefs } from './draft-refs';
-import { readImageUses, attachImageFiles } from './draft-images';
+import { resolveType1Line } from '../fontT1Map';
+import { seedBbl, auxCycle } from './draftBib';
+import { exportDaemonRefs } from './draftRefs';
+import { readImageUses, attachImageFiles } from './draftImages';
 
 // ht = the shipout box HEIGHT = distance from box top to the box baseline, which is the
 // FOOTER line's baseline -- the renderer uses it to keep bottom-anchored footers out of
@@ -108,7 +108,7 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 	// \pdfoutput is a pdfTeX primitive luatex lacks; many arXiv preambles set it unguarded
 	// (\pdfoutput=1) and crash lualatex. Define it as a dummy count if absent so the assignment
 	// is a harmless no-op. Injected before \input so it runs before the main preamble; a no-op
-	// for docs that never touch it (only defines what isn't there). See PDF_SHIM in draft-daemon.
+	// for docs that never touch it (only defines what isn't there). See PDF_SHIM in draftDaemon.
 	const pdfShim = `\\ifdefined\\pdfoutput\\else\\newcount\\pdfoutput\\fi`;
 	const job = `${setup}${hooks}${pdfShim}\\input{${mainRel}}`;
 	function enginePass(): Promise<void> {

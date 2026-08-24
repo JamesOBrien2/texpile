@@ -1,8 +1,8 @@
 // The workspace's comment log: read it, fold it, append to it.
 //
-// Lives at .texpile/comments.jsonl. That path is invisible in the file tree - fs-service's skipDir
+// Lives at .texpile/comments.jsonl. That path is invisible in the file tree - fsService's skipDir
 // drops every dot-directory from the walk - so it needs no ignore-list entry. It is NOT invisible
-// to the watcher: fs-watch exempts .texpile from the same rule precisely so a log arriving by
+// to the watcher: fsWatch exempts .texpile from the same rule precisely so a log arriving by
 // `git pull` reaches reload() while the folder is open.
 //
 // This is the first thing Texpile writes into a user's project. Everything else kept per folder -

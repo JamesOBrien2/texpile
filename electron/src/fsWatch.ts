@@ -18,7 +18,7 @@ import * as path from 'node:path';
 
 /**
  * Dirs whose contents never matter to the renderer's view of the workspace. Matches the tree
- * scan's TREE_IGNORE_DIRS + dot-dirs (fs-service.ts): what the tree does not show cannot need a
+ * scan's TREE_IGNORE_DIRS + dot-dirs (fsService.ts): what the tree does not show cannot need a
  * refresh. Deliberately NOT the wider SCAN_IGNORE_DIRS - the tree does show build/out/output, and
  * a compile dropping a fresh PDF there is exactly the kind of change the tree should pick up.
  * _draft matters most: the draft daemon writes there continuously while the user types.
@@ -73,10 +73,10 @@ export function startWorkspaceWatch(key: string, root: string, onChange: () => v
 		});
 		// EPERM/ENOENT churn (a dir deleted mid-scan, a locked file on Windows) is routine; the
 		// watcher keeps running for everything else
-		watcher.on('error', (e) => console.warn('fs-watch:', root, e instanceof Error ? e.message : e));
+		watcher.on('error', (e) => console.warn('fsWatch:', root, e instanceof Error ? e.message : e));
 		watchers.set(key, entry);
 	} catch (e) {
-		console.error('fs-watch: could not watch', root, e);
+		console.error('fsWatch: could not watch', root, e);
 	}
 }
 

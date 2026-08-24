@@ -1,4 +1,4 @@
-// git backing for the Source Control panel. Kept out of fs-service.ts so that module stays
+// git backing for the Source Control panel. Kept out of fsService.ts so that module stays
 // dependency-free; every function returns { ok, reason|error } and never throws
 import { simpleGit, type SimpleGit, type FileStatusResult } from 'simple-git';
 import { dirname, resolve, relative, join, isAbsolute } from 'node:path';
@@ -10,7 +10,7 @@ let gitBinaryMissing = false;
 const repoRootCache = new Map<string, string | null>();
 
 export type GitStatusEntry = {
-	/** absolute path, built to match the file-tree's own path strings (fs-service join()). */
+	/** absolute path, built to match the file-tree's own path strings (fsService join()). */
 	path: string;
 	/** index (staged) status char, e.g. 'M'/'A'/'D'/'R'; ' ' if not staged, '?' if untracked. */
 	x: string;

@@ -46,7 +46,7 @@ declare global {
 		version: string;
 		/** the Typst version its embedded compiler is - what actually builds the PDF */
 		typstVersion: string;
-		/** which candidate answered; there is no configured path (see typst-service.ts) */
+		/** which candidate answered; there is no configured path (see typstService.ts) */
 		source: 'path' | 'managed';
 	};
 

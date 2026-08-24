@@ -11,7 +11,7 @@
 	//
 	// Same viewer page as TypstPreview - the guest received it over the session (blob 'typst-page')
 	// and serves it from its own loopback under a networkless CSP. Its WebSocket is a shim
-	// (electron/src/typst-preview-page.ts) that talks to this component by postMessage; this
+	// (electron/src/typstPreviewPage.ts) that talks to this component by postMessage; this
 	// component splices that onto the session's preview frames, and the host's relay splices those
 	// onto the real data plane. To the viewer it is all just a slow socket.
 	//

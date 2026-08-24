@@ -108,7 +108,7 @@ export function fileItems(a: PaletteActions): PaletteItem[] {
 		});
 	// searchOnly, and deliberately untranslated: it is a diagnostic, and English is what a support
 	// note or a web search will name, so a localized label would make it harder to talk someone to.
-	// The palette is its ONLY way in - no menu item, no shortcut (see electron window-chrome.ts).
+	// The palette is its ONLY way in - no menu item, no shortcut (see electron windowChrome.ts).
 	if (native()?.toggleDevTools)
 		items.push({
 			id: 'window.devtools',

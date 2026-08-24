@@ -71,7 +71,7 @@ export type MenuStateInput = {
 // substitution happens here. menubar_version_footer already hardcodes it the same way.
 const APP = 'Texpile';
 
-/** every label the native template can ask for, keyed the way window-chrome.ts looks them up */
+/** every label the native template can ask for, keyed the way windowChrome.ts looks them up */
 function labels(tool: 'latexindent' | 'typstyle'): Record<string, string> {
 	return {
 		file: m.menubar_menu_file(),

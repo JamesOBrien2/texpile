@@ -1,6 +1,6 @@
 // Regenerates tests/fixtures/lang from a real engine run -- nothing else.
 //
-// Each .tex there is compiled through EXACTLY the job string draft-service.ts builds (the
+// Each .tex there is compiled through EXACTLY the job string draftService.ts builds (the
 // page-extract hook, -no-shell-escape, -output-directory, -jobname=draft), so the captured
 // page-001.jsonl and pages.json are the same bytes the app would hand the renderer. The tests
 // then assert against real luaotfload output instead of a hand-written idea of it.
