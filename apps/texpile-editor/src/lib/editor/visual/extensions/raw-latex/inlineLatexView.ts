@@ -13,7 +13,17 @@ import { renderStaticInlineCode, setStaticCode } from '$lib/editor/visual/extens
 import { cmCommentHighlights, cmCommentClicks, syncCmCommentHighlights } from '$lib/editor/visual/extensions/codemirrorbridge/cmComments';
 import { upgradeWhenNear, cancelUpgrade } from '$lib/editor/visual/extensions/mathlivebridge/mathViewport';
 
-// single-line inline codemirror for inline_latex; newlines rejected, enter / arrow-out exit the node
+// single-line inline codemirror for inline_latex; new newlines rejected, enter / arrow-out exit the node
+
+/**
+ * Rejects transactions that ADD lines - measured against the transaction's own start, never a
+ * flat `lines > 1`. A chip whose captured source slice already spans lines (a multi-line
+ * \caption, a macro with an embedded % comment, whose newline is semantically load-bearing)
+ * would otherwise have EVERY transaction rejected: the caret froze, typing died, and even the
+ * language reconfigure was swallowed, which is why such chips rendered unhighlighted.
+ */
+export const singleLineGuard = EditorState.transactionFilter.of((tr) => (tr.newDoc.lines > tr.startState.doc.lines ? [] : tr));
+
 export class InlineLatexView {
 	node: Node;
 	view: ProseMirrorView;
@@ -69,8 +79,7 @@ export class InlineLatexView {
 				cmCommentClicks(this.view, () => this.getPos()),
 				// popup escapes the inline node's box; only latex content has completions to offer
 				...(String(this.node.attrs.lang ?? 'latex') === 'latex' ? [latexAutocomplete({ tooltipsInBody: true })] : []),
-				// reject anything that would make it multi-line
-				EditorState.transactionFilter.of((tr) => (tr.newDoc.lines > 1 ? [] : tr)),
+				singleLineGuard,
 				// soft-wrap long inline blocks instead of pushing past the page width; still one logical line
 				CodeMirrorView.lineWrapping,
 				// inline-block shrink-to-fit keeps short macros tight, max-width + lineWrapping wraps long ones
