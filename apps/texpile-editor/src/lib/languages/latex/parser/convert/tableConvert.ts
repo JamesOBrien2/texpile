@@ -32,7 +32,21 @@ function extractTableComponents(content: Node[], ctx: ConversionContext) {
 	let noteNodes: Node[] = [];
 	let sawTabular = false;
 
+	// see through \begin{center}: many papers center the tabular with the environment instead of
+	// \centering (BERT-era arXiv especially), which parked the whole float on the generic-
+	// environment path - no caption chrome, no scroll container. the wrapper serializer re-emits
+	// \centering, which is what the environment means inside a float, so unwrapping loses
+	// nothing - but only a center that actually holds the tabular; any other stays setup/notes.
+	const flat: Node[] = [];
 	for (const node of content) {
+		if (node.type === 'environment' && (node as Environment).env === 'center' && containsTabular([node])) {
+			flat.push(...(((node as Environment).content ?? []) as Node[]));
+		} else {
+			flat.push(node);
+		}
+	}
+
+	for (const node of flat) {
 		if (node.type === 'macro' && node.content === 'caption') {
 			const arg = getMacroFirstArg(node as Macro);
 			const captionText = convertNodesToInline(arg, ctx);

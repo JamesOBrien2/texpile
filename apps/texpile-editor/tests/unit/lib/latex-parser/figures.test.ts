@@ -142,3 +142,65 @@ c & d \\\\
 		expect(out).not.toMatch(/\\begin\{figure\}/);
 	});
 });
+
+// a tabular wrapped in \begin{center} (BERT-era arXiv style, corpus repro: 1810.04805) parked
+// the whole float on the generic-environment path: no caption chrome, no scroll container, so a
+// wide table crushed its last columns. extractTableComponents now sees through a center that
+// holds the tabular; the wrapper serializer re-emits \centering, which is what the environment
+// means inside a float.
+describe('center-wrapped table floats', () => {
+	const bertSrc = `\\begin{table*}[t]
+\\small
+\\renewcommand{\\arraystretch}{1.2}
+\\begin{center}
+\\begin{tabular}{l|cccccccc|c}
+System & MNLI & QQP & Average \\\\
+BERT & 86.7 & 72.1 & 82.1 \\\\
+\\end{tabular}
+\\end{center}
+\\caption{GLUE Test results.}
+\\label{tab:glue}
+\\end{table*}`;
+
+	it('models the BERT GLUE table as an editable table_wrapper, not a generic environment', () => {
+		const { doc } = latexToProseMirror(bertSrc, {});
+		expect(doc.childCount).toBe(1);
+		const wrapper = doc.child(0);
+		expect(wrapper.type.name).toBe('table_wrapper');
+		expect(wrapper.attrs.label).toBe('tab:glue');
+		expect(wrapper.attrs.spanning).toBe(true);
+		// the pre-tabular setup survives as the raw prefix
+		expect(String(wrapper.attrs.preBody)).toContain('\\renewcommand{\\arraystretch}{1.2}');
+	});
+
+	it('round-trips byte-identically on an untouched save (real app pipeline)', () => {
+		const file = `\\documentclass{article}\n\\begin{document}\n${bertSrc}\n\\end{document}\n`;
+		const parsed = parseLatexFile(file);
+		expect(serializeLatexFile(parsed, parsed.doc)).toBe(file);
+	});
+
+	it('regenerates as table* with \\centering, keeping the caption and setup', () => {
+		const { doc } = latexToProseMirror(bertSrc, {});
+		const out = serializeToLatex(doc);
+		expect(out).toContain('\\begin{table*}[t]');
+		expect(out).toContain('\\centering');
+		expect(out).toContain('GLUE Test results.');
+		expect(out).toContain('\\renewcommand{\\arraystretch}{1.2}');
+		expect(out).not.toContain('\\begin{center}');
+	});
+
+	it('leaves a center env that does not hold the tabular wrapped (setup stays intact)', () => {
+		const src = `\\begin{table}[h]
+\\begin{center}
+Some centered prose.
+\\end{center}
+\\begin{tabular}{ll}
+a & b \\\\
+\\end{tabular}
+\\caption{T.}
+\\end{table}`;
+		const { doc } = latexToProseMirror(src, {});
+		expect(doc.child(0).type.name).toBe('table_wrapper');
+		expect(String(doc.child(0).attrs.preBody)).toContain('\\begin{center}');
+	});
+});
