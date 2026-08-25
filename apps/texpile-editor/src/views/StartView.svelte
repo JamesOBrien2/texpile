@@ -8,25 +8,9 @@
 	// dark wordmark for light backgrounds, white one for dark mode
 	import logoOnLight from '$branding/Logo-dark.svg';
 	import logoOnDark from '$branding/Logo-light.svg';
-	import {
-		pickFolder,
-		claimWorkspace,
-		isDesktop,
-		openNewWindow,
-		scanTexFiles,
-		statFile,
-		basename,
-		type TexFile
-	} from '$lib/workspace/fileSystem';
-	import {
-		workspaceRoot,
-		texFiles,
-		recentFolders,
-		addRecentFolder,
-		activeFilePath,
-		setMainFile,
-		savedLastFile
-	} from '$lib/workspace/workspaceStore';
+	import { pickFolder, isDesktop, openNewWindow, basename } from '$lib/workspace/fileSystem';
+	import { recentFolders, setMainFile } from '$lib/workspace/workspaceStore';
+	import { openFolderInWindow } from '$lib/workspace/openWorkspace';
 	import { openTutorialProject } from '$lib/workspace/starters';
 	import { m } from '$lib/paraglide/messages';
 
@@ -67,34 +51,16 @@
 		return void import('./workspace/WorkspaceView.svelte').catch(() => {});
 	}
 
-	async function finishOpen(root: string, active: string | null) {
-		preloadWorkspace();
-		// belt & braces: template/tutorial roots are freshly created, but claiming is cheap
-		if (!(await claimWorkspace(root)).ok) return;
-		const { files } = await scanTexFiles(root);
-		workspaceRoot.current = root;
-		texFiles.current = files;
-		activeFilePath.current = active ?? files[0]?.path ?? null;
-		addRecentFolder(root);
-		navigate('/workspace');
-	}
-
-	// the file to open with a folder: the one last open there (if it still exists), else the first
-	async function initialFile(root: string, files: TexFile[]): Promise<string | null> {
-		const saved = savedLastFile(root);
-		if (saved && (await statFile(saved)).exists) return saved;
-		return files[0]?.path ?? null;
-	}
-
 	// TutorialConfirmModal has the user pick an empty folder and confirm first; this only runs after
 	async function openTutorial(pickedRoot: string) {
 		if (busy) return;
 		busy = true;
 		error = null;
+		preloadWorkspace(); // ahead of the copy: the chunk streams while the template lands on disk
 		try {
 			const { root, mainFile } = await openTutorialProject(pickedRoot);
 			setMainFile(root, mainFile);
-			await finishOpen(root, mainFile);
+			if ((await openFolderInWindow(root, mainFile)) === 'missing') error = m.start_error_tutorial();
 		} catch (e) {
 			error = e instanceof Error ? e.message : m.start_error_tutorial();
 		} finally {
@@ -109,14 +75,8 @@
 		if (!root) return;
 		busy = true;
 		try {
-			// already open in another window: that window was focused, stay on the start screen
-			if (!(await claimWorkspace(root)).ok) return;
-			const { files } = await scanTexFiles(root);
-			workspaceRoot.current = root;
-			texFiles.current = files;
-			activeFilePath.current = await initialFile(root, files);
-			addRecentFolder(root);
-			navigate('/workspace');
+			// 'elsewhere' means another window already had it and was focused: stay on the start screen
+			if ((await openFolderInWindow(root)) === 'missing') error = m.start_error_open_folder();
 		} catch (e) {
 			error = e instanceof Error ? e.message : m.start_error_open_folder();
 		} finally {

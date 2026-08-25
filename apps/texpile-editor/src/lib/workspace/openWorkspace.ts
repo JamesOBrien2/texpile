@@ -6,6 +6,9 @@ import { activeFilePath, addRecentFolder, savedLastFile, texFiles, workspaceRoot
 
 export type BootOpen = { kind: 'file' | 'folder'; path: string };
 
+/** 'elsewhere': another window already owns the folder and main focused it, so this one stays put. */
+export type OpenOutcome = 'opened' | 'elsewhere' | 'missing';
+
 /** what the main process handed this window at creation, or null for a plain start screen. */
 export function bootOpen(): BootOpen | null {
 	return nativeBridge()?.bootstrap?.open ?? null;
@@ -42,26 +45,27 @@ export function adoptBootOpen(open: BootOpen): void {
 	void fill(root, open.kind === 'file' ? open.path : savedLastFile(root)).catch(() => {});
 }
 
-/** a folder pushed at a window that is already running; a lost claim leaves it where it was */
-export async function openFolderInWindow(root: string): Promise<void> {
-	try {
-		if (!(await claimWorkspace(root)).ok) return;
-		show(root);
-		await fill(root, savedLastFile(root));
-	} catch {
-		/* folder is gone or unreadable: stay where we are */
-	}
+// Resolves once the workspace is on screen; the scan lands after it, as at launch. Waiting for the
+// scan first put three round trips between the click and anything happening.
+async function open(root: string, want: string | null): Promise<OpenOutcome> {
+	// together, and both before navigating: claiming does not check the folder is still there, so a
+	// recent-folders entry for a deleted one has to fail here rather than in an empty workspace
+	const [claim, found] = await Promise.all([claimWorkspace(root), statFile(root)]);
+	if (!claim.ok) return 'elsewhere';
+	if (!found.exists) return 'missing';
+	latexParserWorker();
+	show(root);
+	void fill(root, want).catch(() => {});
+	return 'opened';
+}
+
+/** a folder picked on the start screen, or pushed at a window that is already running. `want` is
+ *  the file to land on; omit it for whichever was open there last. */
+export function openFolderInWindow(root: string, want?: string | null): Promise<OpenOutcome> {
+	return open(root, want === undefined ? savedLastFile(root) : want);
 }
 
 /** OS "Open With": open the file's folder and land on the file itself */
-export async function openFileInWindow(filePath: string): Promise<void> {
-	const root = dirname(filePath);
-	try {
-		// main routes to whichever window owns the folder, so a lost claim means it was focused there
-		if (!(await claimWorkspace(root)).ok) return;
-		show(root);
-		await fill(root, filePath);
-	} catch {
-		/* ignore an OS open we can't honor */
-	}
+export function openFileInWindow(filePath: string): Promise<OpenOutcome> {
+	return open(dirname(filePath), filePath);
 }
