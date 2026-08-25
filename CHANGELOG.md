@@ -5,43 +5,9 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
-- fix: launching with "reopen last folder" on no longer flashes the start screen on the way in; the window opens straight into the workspace, and the editor is ready sooner
-- fix: the app no longer recompiles its whole program on every launch, so it starts faster from the second launch onward
-- fix: launching is faster again: the parts nothing on screen needs yet (git, the terminal, AI assistant access, update checks) now load after the window is up instead of before it, and the update check no longer runs while your document is still opening
-- fix: opening a folder from the start screen switches to it immediately instead of waiting for the folder to be scanned first; the file tree fills in behind it, as it already did when reopening the last folder at launch
-- fix: the main-file star in the file explorer sits in its own column on the left instead of trailing the file name, so it is in the same place on every row
-- fix: the cursor in math fields is no longer blue; it follows the text color (black in light mode, white in dark)
-- fix: the backslash-command suggestion popup in math fields follows the app theme instead of a fixed dark gray
-- fix: the command suggestion popup no longer blinks on every keystroke and arrow press
-- fix: tables centered with \begin{center} (BERT-era arXiv style) now get the full table editor with caption, settings, and horizontal scrolling, instead of a generic block that let wide tables crush their last columns
-- fix: a tabular wrapped in a {\small ...} size group also gets the full table editor instead of a raw source block; the size switch is preserved
-- fix: tabular* tables get the full table editor too; their caption no longer collapses into a raw source chip
-- fix: raw LaTeX chips whose source spans several lines are editable again; they were frozen (caret stuck, typing dead) and showed no syntax colors
-- fix: a missing image shows a clean card naming the file that was not found, in your language, instead of a fixed English graphic suggesting you delete it
-- fix: the undeletable blank line the visual editor forced after every equation, table, code block, and raw block is gone; arrowing past such a block now lands on a slim gap cursor, and typing there opens a real paragraph
-- fix: the caret no longer bounces back inside an equation when arrowing backward out of one at the very start of a document
-- fix: PDF figures display in the visual editor: \includegraphics of a .pdf renders its first page instead of showing "image not found", and an extensionless \includegraphics{fig} finds the file the way the engine would
-- fix: a genuinely missing image no longer draws an oversized resize outline around its small placeholder
-- fix: citation keys now also come from the folder's .bbl files (biber and classic bibtex formats), so arXiv-style projects that ship a .bbl without a .bib get \cite completion, hover info, and citation chips; .bbl files open with LaTeX highlighting and completions in the source editor
-- fix: every dialog closes on Escape and on a click outside it; pressing Escape on the AI setup instructions no longer also closes Preferences underneath
-- fix: the start screen no longer grows a scrollbar with a long recent-folder history; it shows the five newest, a "Show all" popup holds the rest, and the history now remembers ten folders
-- fix: live mode now renders typing-from-scratch instantly: new sections and paragraphs appear as you type instead of waiting for a pause and a full pass
-- fix: half-typed inline math renders live in new paragraphs, both $ ... $ and \( ... \) forms, closing the math for the preview while you type
-- fix: live mode places edits in numbered theorems, equations, and align blocks instantly, refining the number in the background instead of falling back to a full compile
-- fix: live mode could briefly show a wrong theorem or equation number while claiming the render was final
-- fix: live mode no longer flashes "Refining page N" for background passes that finish quickly; the label only appears when refinement actually takes a while
-- fix: the first compile after picking a Typst main file in the confirmation dialog could run the LaTeX command instead
-- fix: a compile that finishes without writing its PDF or log now says where Texpile looked, instead of silently claiming success
-- feat: switching workspace shows the new workspace immediately; the file explorer and project fill in as they load
-- fix: a clean Typst compile behind a cd command now clears old entries from the Problems panel
-- fix: the source editor's right-click menu showed macOS shortcut symbols on Windows and Linux
-- fix: live mode renders edits in paragraphs that straddle a column or page break instantly, refining in the background instead of recompiling
-- fix: live mode renders edits in full-width tables and figures of two-column documents instantly
-- fix: adding or deleting a list item renders instantly in live mode instead of waiting for a full compile
-- fix: a new paragraph typed at the very top of the document or right below a table or figure renders instantly in live mode
-- fix: editing a comment, a label, or the preamble no longer announces "Compiling project" in live mode; the page holds and the pass runs quietly in the background
-- fix: text painted by a live-mode instant patch no longer looks thinner than the settled page
-- fix: in two-column documents, live mode now flows overflowing text into the next column of the same page, matching where the real compile puts it; only the last column spills to the next page
+- fix: improved launch speed
+- fix: editor now correctly handles bbl files
+- fix: various improvements in the visual editor
 
 ## [0.17.1] - 2026-08-19
 

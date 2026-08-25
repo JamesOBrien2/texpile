@@ -8,13 +8,10 @@
 import { browser } from '$lib/runtime';
 import { layout as layoutStore, updateLayout } from '$lib/storage/layout';
 import { startDrag, nudgeOnKey, clampTo, SNAP_SLACK } from '$lib/workspace/paneResize';
-const SIDEBAR_MIN = 180;
-const SIDEBAR_MAX = 600;
+// the launch skeleton lays the same panes out from these, so they live where both can reach them
+import { SIDEBAR_MIN, SIDEBAR_MAX, PDF_MIN, pdfMaxWidth, pdfWidthOf } from '$lib/workspace/paneGeometry';
 const TOC_MIN = 0.1;
 const TOC_MAX = 0.9;
-const PDF_MIN = 280;
-/** keep this much room for the editor no matter how wide the preview was saved */
-const EDITOR_RESERVE = 360;
 
 const clampSidebar = clampTo(SIDEBAR_MIN, SIDEBAR_MAX);
 const clampToc = clampTo(TOC_MIN, TOC_MAX);
@@ -46,10 +43,7 @@ export class PaneLayout {
 		if (s.sidebarWidth >= SIDEBAR_MIN && s.sidebarWidth <= SIDEBAR_MAX) this.sidebarWidth = s.sidebarWidth;
 		this.sidebarOpen = s.sidebarOpen;
 		if (s.tocFraction >= TOC_MIN && s.tocFraction <= TOC_MAX) this.tocFraction = s.tocFraction;
-		if (browser && typeof window !== 'undefined') {
-			const frac = s.pdfPaneFraction;
-			this.pdfPaneWidth = this.clampPdf((frac > 0 && frac < 1 ? frac : 0.4) * window.innerWidth);
-		}
+		if (browser && typeof window !== 'undefined') this.pdfPaneWidth = pdfWidthOf(s, window.innerWidth);
 		this.pdfPaneOpen = s.pdfPaneOpen;
 	}
 
@@ -119,10 +113,9 @@ export class PaneLayout {
 
 	// PDF preview pane
 
-	/** cap: whatever is left after the sidebar, keeping room for the editor */
 	private pdfMaxWidth(): number {
 		const win = typeof window !== 'undefined' ? window.innerWidth : 1280;
-		return Math.max(320, win - (this.sidebarOpen ? this.sidebarWidth : 0) - EDITOR_RESERVE);
+		return pdfMaxWidth(this.sidebarOpen ? this.sidebarWidth : 0, win);
 	}
 
 	clampPdf = (w: number) => Math.min(this.pdfMaxWidth(), Math.max(PDF_MIN, w));
