@@ -1,5 +1,4 @@
-// Opening a folder into this window: one sequence, shared by the launch bootstrap, the main
-// process's later pushes (OS "Open With", Open Folder in New Window) and the start screen.
+// the one folder-open sequence: launch bootstrap, main's later pushes, and the start screen
 import { navigate } from '$lib/router.svelte';
 import { claimWorkspace, dirname, nativeBridge, samePath, scanTexFiles, statFile } from './fileSystem';
 import { latexParserWorker } from './latexParserWorker';
@@ -12,7 +11,6 @@ export function bootOpen(): BootOpen | null {
 	return nativeBridge()?.bootstrap?.open ?? null;
 }
 
-/** show the folder now; the scan, and the file to land on, arrive through fill() */
 function show(root: string): void {
 	workspaceRoot.current = root;
 	texFiles.current = [];
@@ -21,9 +19,7 @@ function show(root: string): void {
 	navigate('/workspace');
 }
 
-// The scan and the last-file check go out together. Resolving the file after the scan put two
-// round trips in front of the document for no reason: which file to reopen comes from storage,
-// not from the scan, so only its existence check has to wait on anything.
+// together, not serially: which file to reopen comes from storage, so only its stat has to wait
 async function fill(root: string, want: string | null): Promise<void> {
 	const [scanned, wantExists] = await Promise.all([
 		scanTexFiles(root),
@@ -40,8 +36,7 @@ async function fill(root: string, want: string | null): Promise<void> {
 /** the launch path: main created this window for this folder, so it is shown without asking */
 export function adoptBootOpen(open: BootOpen): void {
 	const root = open.kind === 'file' ? dirname(open.path) : open.path;
-	// a document is certain here, so the parser worker boots alongside the editor chunk instead
-	// of after it
+	// a document is certain here, so warm the parser alongside the editor chunk
 	latexParserWorker();
 	show(root);
 	void fill(root, open.kind === 'file' ? open.path : savedLastFile(root)).catch(() => {});
@@ -62,8 +57,7 @@ export async function openFolderInWindow(root: string): Promise<void> {
 export async function openFileInWindow(filePath: string): Promise<void> {
 	const root = dirname(filePath);
 	try {
-		// main routes files to the window already owning the folder, so a failed claim (folder open
-		// elsewhere) only happens in odd races; that window was focused
+		// main routes to whichever window owns the folder, so a lost claim means it was focused there
 		if (!(await claimWorkspace(root)).ok) return;
 		show(root);
 		await fill(root, filePath);

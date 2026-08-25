@@ -1,10 +1,4 @@
 <script lang="ts">
-	// What a restored window paints while the editor chunk loads. Adopting the folder before the
-	// first render means the start screen is never mounted, so without this the window sits on its
-	// background colour with nothing in it until ~2MB of editor has parsed.
-	//
-	// The remembered pane geometry, not a generic spinner: the real workspace lands in the same
-	// places, so nothing jumps when it replaces this.
 	import TitleBar from './TitleBar.svelte';
 	import { layout } from '$lib/storage/layout';
 

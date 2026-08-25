@@ -11,38 +11,22 @@ import { createWindow, startUrl } from './windows/createWindow';
 import { windowRoots, pendingOpens, normRoot, windowFor, focusWindow, beginQuit } from './windows/windowRegistry';
 import { registerBootstrapIpc } from './ipc/bootstrapIpc';
 import { registerFsIpc } from './ipc/fsIpc';
-import { registerGitIpc } from './ipc/gitIpc';
 import { registerDraftIpc } from './ipc/draftIpc';
-import { registerPdfSaveIpc } from './ipc/pdfSaveIpc';
-import { registerTypstIpc } from './ipc/typstIpc';
-import { registerTypstPreviewIpc } from './ipc/typstPreviewIpc';
-import { registerTerminalIpc, killAllPtys } from './ipc/terminalIpc';
 import { registerWorkspaceWindowIpc } from './ipc/workspaceWindowIpc';
-import { registerUpdatesIpc } from './ipc/updatesIpc';
-import { registerMcpIpc, mcpHost } from './ipc/mcpIpc';
+import { registerDeferredIpc, shutdownDeferred } from './ipc/deferredIpc';
 import { registerWindowChrome } from './windowChrome';
-import { registerZotero } from './zotero';
-import * as draftDaemon from './draft/draftDaemon';
-import * as mcp from './mcp/server';
 
 applyAppIdentity();
 fixShellPath();
 registerPrivilegedSchemes();
 
+// only what a window needs before it can paint; the rest is in deferredIpc
 registerSettingsIpc();
 // before every other surface: preload calls it synchronously while the window is still loading
 registerBootstrapIpc();
 registerFsIpc();
-registerGitIpc();
 registerDraftIpc();
-registerPdfSaveIpc();
-registerTypstIpc();
-registerTypstPreviewIpc();
-registerTerminalIpc();
 registerWorkspaceWindowIpc();
-registerUpdatesIpc();
-registerMcpIpc();
-registerZotero();
 
 // .tex handed over by the OS before any window exists; consumed at whenReady
 let initialOpenPath: string | null = null;
@@ -114,11 +98,6 @@ app.whenReady().then(() => {
 	registerProtocolHandlers();
 	if (!initialOpenPath) initialOpenPath = fileFromArgv(process.argv);
 
-	// A client is configured once and expects us to be listening; making this a per-launch button
-	// would surface the failure as a connection error inside the client, not here. So once granted,
-	// it starts with the app. A failure to bind must not stop the editor from opening.
-	if (readSettings().mcpEnabled) mcp.start(mcpHost()).catch((e) => console.error('mcp: failed to start', e));
-
 	// Window controls for the custom title bar, plus - on macOS - the native menu bar, built from
 	// what the renderer reports about its own menus. Everywhere else the native menu is removed
 	// and the renderer draws it. See windowChrome.ts.
@@ -157,6 +136,13 @@ app.whenReady().then(() => {
 		else createWindow(startUrl());
 	}
 
+	// Not before the renderer has been served its own bundle. The app:// handler runs on this
+	// thread, so evaluating these any earlier stalls the very requests the first paint waits on -
+	// measured at 31ms added to index.html alone. The timer is the backstop for a load that never
+	// finishes; nothing here may depend on a healthy renderer.
+	BrowserWindow.getAllWindows()[0]?.webContents.once('did-finish-load', () => void registerDeferredIpc());
+	setTimeout(() => void registerDeferredIpc(), 3000);
+
 	app.on('activate', () => {
 		if (BrowserWindow.getAllWindows().length === 0) createWindow(startUrl());
 	});
@@ -173,8 +159,5 @@ app.on('before-quit', () => {
 // destructive teardown only once the quit is actually happening: the unsaved-edit hold can
 // CANCEL a quit, and a cancelled quit must not have killed every shell and the warm engine
 app.on('will-quit', () => {
-	killAllPtys();
-	draftDaemon.stopDaemon();
-	// takes the endpoint file with it, so a stale port/token is never left on disk for the bridge
-	void mcp.stop();
+	shutdownDeferred();
 });

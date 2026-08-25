@@ -25,12 +25,10 @@ console.log = (...args: unknown[]) => {
 window.addEventListener('error', (e) => console.error('[client error]', (e.error && e.error.stack) || e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => console.error('[client error]', e.reason));
 
-// A restored window knows its folder before it renders anything, so it adopts it here rather than
-// mounting the start screen and swapping: the route is already /workspace at first render, and the
-// editor chunk streams alongside the folder scan instead of after it.
+// adopt before mount, or the start screen renders first and is thrown away
 const boot = bootOpen();
 if (boot) {
-	// App's own loader owns the retry and the error path; this is only the head start
+	// head start only; App's own loader owns the retry and the error path
 	void import('./views/workspace/WorkspaceView.svelte').catch(() => {});
 	adoptBootOpen(boot);
 }

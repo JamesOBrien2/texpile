@@ -65,14 +65,19 @@
 		else if (route.path === '/session') loadSession();
 	});
 
-	onMount(async () => {
-		const s = await loadSettings();
-		// once per app SESSION, not per window: without this every new window would re-check
-		// for updates (claim falls back to true in browser dev)
-		const primary = (await nativeBridge()?.claimStartupTasks?.()) ?? true;
-		if (!primary || !s.checkForUpdates) return;
-		// a failed silent check stays silent; the manual Help-menu check surfaces errors
-		if ((await checkForUpdate()) === 'update') updateModalOpen.current = true;
+	// not during the launch itself: this is a DNS lookup, a TLS handshake and an HTTP round trip,
+	// and nothing about it is worth putting in front of the document opening
+	onMount(() => {
+		const t = setTimeout(async () => {
+			const s = await loadSettings();
+			// once per app SESSION, not per window: without this every new window would re-check
+			// for updates (claim falls back to true in browser dev)
+			const primary = (await nativeBridge()?.claimStartupTasks?.()) ?? true;
+			if (!primary || !s.checkForUpdates) return;
+			// a failed silent check stays silent; the manual Help-menu check surfaces errors
+			if ((await checkForUpdate()) === 'update') updateModalOpen.current = true;
+		}, 3000);
+		return () => clearTimeout(t);
 	});
 
 	// OS "Open With" hands us a .tex via the main process; open its folder and activate the file.

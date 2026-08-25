@@ -8,7 +8,7 @@
 // about module resolution. Same bundler for both, same behaviour.
 //
 // --dev keeps the output readable and mapped, so a main-process stack trace points at real source.
-import { rmSync, mkdirSync } from 'node:fs';
+import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildSync } from 'esbuild';
 
@@ -21,7 +21,9 @@ rmSync(DIST, { recursive: true, force: true });
 mkdirSync(DIST, { recursive: true });
 
 buildSync({
-	entryPoints: [join(ROOT, 'electron', 'src', 'main.ts'), join(ROOT, 'electron', 'src', 'preload.ts')],
+	// app.js, not main.js: main.js is the shim below, and the entry script is already compiled by
+	// the time it can turn the compile cache on
+	entryPoints: { app: join(ROOT, 'electron', 'src', 'main.ts'), preload: join(ROOT, 'electron', 'src', 'preload.ts') },
 	outdir: DIST,
 	bundle: true,
 	platform: 'node',
@@ -39,6 +41,26 @@ buildSync({
 	// node-pty is native, dlopen'd from asar.unpacked at runtime; simple-git is pure JS and bundles in
 	external: ['electron', 'node-pty']
 });
+// V8 throws away the bytecode it compiled for app.js at exit, so every launch recompiles ~800KB
+// of main-process JS from source. This caches it to disk instead. Its own file because Node
+// compiles the entry script before the entry script can run.
+//
+// The directory has to be spelled out rather than taken from appIdentity: requiring anything from
+// the bundle here would compile it, which is the thing being cached. Keep it in step with the
+// userData path there.
+writeFileSync(
+	join(DIST, 'main.js'),
+	`const { enableCompileCache } = require('node:module');
+const { app } = require('electron');
+const path = require('node:path');
+try {
+	enableCompileCache(path.join(app.getPath('appData'), 'texpile-desktop', 'compile-cache'));
+} catch {
+	// an unwritable cache dir only costs the recompile it would have saved
+}
+require('./app.js');
+`
+);
 console.log(
-	`build-electron: bundled ${dev ? 'main.js and preload.js (dev: unminified, inline sourcemaps)' : '+ minified main.js and preload.js'}`
+	`build-electron: bundled ${dev ? 'app.js and preload.js (dev: unminified, inline sourcemaps)' : '+ minified app.js and preload.js'} + main.js shim`
 );

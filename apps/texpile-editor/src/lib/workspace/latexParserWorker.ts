@@ -1,6 +1,4 @@
-// The parser worker's handle, kept apart from its client so launch can warm it without pulling
-// the schemas (and prosemirror-model) into the boot chunk. Its own module is ~400KB, and loading
-// that only once the first document asks put the whole of it in front of the first render.
+// apart from its client so launch can warm the worker without pulling the schemas into the boot chunk
 let worker: Worker | null = null;
 
 export function latexParserWorker(): Worker {
