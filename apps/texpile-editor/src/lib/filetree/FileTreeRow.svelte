@@ -63,7 +63,13 @@
 					/>{/if}
 				<FileIcon name={entry.name} folder={sel.expanded[entry.path] ? 'open' : 'closed'} class="size-4 shrink-0" />
 			{:else}
-				<span class="w-3.5 shrink-0"></span>
+				<!-- the slot a directory puts its chevron in; for a file it holds the main-file star, so
+				     the mark sits in one column instead of trailing a name of whatever length -->
+				<span class="flex w-3.5 shrink-0 items-center justify-center">
+					{#if isMain(entry)}
+						<Star class="fill-primary-500 text-primary-500 size-3" aria-label={m.filetree_main_file_label()} />
+					{/if}
+				</span>
 				<FileIcon name={entry.name} class="size-4 shrink-0" />
 			{/if}
 			{#if editor.renaming === entry.path}
@@ -86,9 +92,6 @@
 				/>
 			{:else}
 				<span class="truncate">{entry.name}</span>
-				{#if isMain(entry)}
-					<Star class="fill-primary-500 text-primary-500 size-3 shrink-0" aria-label={m.filetree_main_file_label()} />
-				{/if}
 				{#if gitBadgeOf(gitStatus, entry)}
 					{@const b = gitBadgeOf(gitStatus, entry)}
 					<!-- pushed left by the hover buttons rather than faded out, which read as a flicker -->

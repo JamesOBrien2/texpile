@@ -9,6 +9,7 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 - fix: the app no longer recompiles its whole program on every launch, so it starts faster from the second launch onward
 - fix: launching is faster again: the parts nothing on screen needs yet (git, the terminal, AI assistant access, update checks) now load after the window is up instead of before it, and the update check no longer runs while your document is still opening
 - fix: opening a folder from the start screen switches to it immediately instead of waiting for the folder to be scanned first; the file tree fills in behind it, as it already did when reopening the last folder at launch
+- fix: the main-file star in the file explorer sits in its own column on the left instead of trailing the file name, so it is in the same place on every row
 - fix: the cursor in math fields is no longer blue; it follows the text color (black in light mode, white in dark)
 - fix: the backslash-command suggestion popup in math fields follows the app theme instead of a fixed dark gray
 - fix: the command suggestion popup no longer blinks on every keystroke and arrow press
