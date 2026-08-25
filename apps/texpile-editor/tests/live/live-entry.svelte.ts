@@ -9,7 +9,7 @@ import { mount, unmount } from 'svelte';
 // the viewport windowing sees every page as visible
 import '../../src/app.css';
 import DraftView from '$lib/draft/DraftView.svelte';
-import { decideEdit } from '$lib/draft/dispatch';
+import { decideEdit } from '$lib/draft/heuristics/dispatch';
 
 // ?bridge=<port> pairs this page with one bridge instance (parallel shards run several)
 const SRV = 'http://localhost:' + (new URLSearchParams(location.search).get('bridge') ?? '8099');
@@ -36,6 +36,7 @@ const post = async (p: string, body: unknown) => {
 (window as any).texpileNative = {
 	draftCompile: (b: unknown) => post('/compile', b),
 	draftTypeset: (b: unknown) => post('/typeset', b),
+	draftSkeleton: (b: unknown) => post('/skeleton', b),
 	synctex: (b: unknown) => post('/synctex', b),
 	draftStop: () => post('/stop', {}),
 	draftSavePdf: async () => ({ ok: false, error: 'harness' })

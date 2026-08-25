@@ -8,6 +8,13 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 - fix: improved launch speed
 - fix: editor now correctly handles bbl files
 - fix: various improvements in the visual editor
+- fix: live preview reads section, footnote and list numbers from the engine, so more edits render exactly instead of provisionally
+- fix: live preview no longer stalls on paragraphs with \verb or \url
+- fix: editing an abstract or other narrowed block now patches instantly instead of waiting for a full recompile
+- fix: edits that need a full recompile now highlight where the change will land while it runs
+- fix: the table of contents and cross-references no longer stay empty or show ?? in live preview
+- fix: instant patches now ask the engine whether the edited page still fits and read stretched spacing from it, instead of guessing
+- fix: the engine fit check now works on many more document classes instead of refusing pages with invisible layout rules
 
 ## [0.17.1] - 2026-08-19
 

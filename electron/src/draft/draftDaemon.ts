@@ -34,6 +34,13 @@ type Daemon = {
 	hsize: number;
 	textheight: number;
 	glyphs: Rec[];
+	// engine-truth announce (once at warm-up): the preamble's registered float envs and
+	// the document's live catcode table -- riding every result so the renderer's decision
+	// layer reads the engine instead of assuming LaTeX defaults
+	floats?: string[];
+	cats?: number[];
+	// SPLIT requests answer two record groups; the marker moves the first into here
+	splitFirst?: Rec[] | null;
 	onReady?: () => void;
 	onResult?: (s: Rec) => void;
 	onGlyphsDone?: () => void;
@@ -104,6 +111,8 @@ function spawnDaemon(root: string, engineDir: string, preamble: string): Promise
 		glyphs: []
 	};
 	state.rl = readline.createInterface({ input: child.stdout! });
+	// harness tap: raw protocol lines, for debugging engine-side changes outside the app
+	if (process.env.TEXD_DEBUG) state.rl.on('line', (raw) => console.log('[texd]', raw));
 	// frame markers carry the app prefix (TeX log chatter can contain bare @@, e.g. \@@par
 	// in error contexts); per-record lines keep the short @@G -- thousands stream per
 	// request, and they're only read between R and GEND
@@ -129,8 +138,23 @@ function spawnDaemon(root: string, engineDir: string, preamble: string): Promise
 				} catch {
 					/* skip */
 				}
+			} else if (l.startsWith('GSPLIT')) {
+				state.splitFirst = state.glyphs;
+				state.glyphs = [];
 			} else if (l.startsWith('GEND')) {
 				state.onGlyphsDone?.();
+			} else if (l.startsWith('FLOATS ')) {
+				try {
+					state.floats = JSON.parse(l.slice(7));
+				} catch {
+					/* renderer keeps its default float set */
+				}
+			} else if (l.startsWith('CATS ')) {
+				try {
+					state.cats = JSON.parse(l.slice(5));
+				} catch {
+					/* renderer keeps standard catcodes */
+				}
 			}
 			return;
 		}
@@ -175,9 +199,15 @@ async function ensureDaemon(root: string, engineDir: string, preamble: string): 
 }
 
 /* eslint-disable no-param-reassign -- a request runs BY rewiring the daemon handle's callback slots */
-function typesetOn(state: Daemon, text: string, hsize: number): Promise<{ records: Rec[]; stats: Rec | null; timedOut?: boolean }> {
+function typesetOn(
+	state: Daemon,
+	text: string,
+	hsize: number,
+	splitTo?: number
+): Promise<{ records: Rec[]; splitRecords?: Rec[]; stats: Rec | null; timedOut?: boolean }> {
 	return new Promise((resolve) => {
 		state.glyphs = [];
+		state.splitFirst = null;
 		let stats: Rec | null = null;
 		let settled = false;
 		const timer = setTimeout(() => {
@@ -193,25 +223,127 @@ function typesetOn(state: Daemon, text: string, hsize: number): Promise<{ record
 			if (daemon === state) daemon = null;
 			resolve({ records: [], stats: null, timedOut: true });
 		}, BLOCK_TIMEOUT_MS);
-		state.onResult = (s) => (stats = s);
+		state.onResult = (s) => {
+			stats = s;
+			// an error R never streams glyphs; settling here beats riding out the block timeout
+			if (s.error && !settled) {
+				settled = true;
+				clearTimeout(timer);
+				resolve({ records: [], stats });
+			}
+		};
 		state.onGlyphsDone = () => {
 			if (settled) return;
 			settled = true;
 			clearTimeout(timer);
-			resolve({ records: state.glyphs, stats });
+			// a SPLIT answer: splitFirst = what fit (box A), glyphs = the remainder (box B)
+			if (state.splitFirst) resolve({ records: state.splitFirst, splitRecords: state.glyphs, stats });
+			else resolve({ records: state.glyphs, stats });
 		};
 		// LINE-FAITHFUL payload: normalize only the line-ending byte form (\r\n -> \n) and
 		// ship every line as-is -- the ENGINE's catcodes decide what newlines, blank lines,
 		// and % comments mean. Framing = line count + byte count of the joined payload.
 		const payload = text.replace(/\r\n?/g, '\n');
 		const nLines = payload.split('\n').length;
-		state.child.stdin!.write(`HSIZE ${hsize}\nGLYPHS\nTEXT ${nLines} ${Buffer.byteLength(payload, 'utf8')}\n${payload}\nEND\n`);
+		const splitFrame = splitTo && splitTo > 0 ? `SPLIT ${splitTo.toFixed(4)}\n` : '';
+		state.child.stdin!.write(
+			`HSIZE ${hsize}\n${splitFrame}GLYPHS\nTEXT ${nLines} ${Buffer.byteLength(payload, 'utf8')}\n${payload}\nEND\n`
+		);
 	});
 }
 /* eslint-enable no-param-reassign */
 
+// One item of a page skeleton: a line as a bare box, a glue at natural size, a penalty.
+export type SkeletonItem =
+	| { t: 'b'; h: number; d: number }
+	| { t: 'g'; w: number; st: number; sto: number; sh: number; sho: number }
+	| { t: 'p'; p: number };
+
+export type SkeletonResult =
+	| { ok: true; kA: number; kB: number; gs: number; gsn: number; go: number; ys: number[] }
+	| { ok: false; error: string };
+
+/* eslint-disable no-param-reassign -- same callback-slot protocol as typesetOn */
+function skeletonOn(state: Daemon, items: SkeletonItem[], targetPt: number): Promise<SkeletonResult> {
+	return new Promise((resolve) => {
+		let settled = false;
+		const timer = setTimeout(() => {
+			if (settled) return;
+			settled = true;
+			try {
+				state.child.kill('SIGKILL');
+			} catch {
+				/* ignore */
+			}
+			if (daemon === state) daemon = null;
+			resolve({ ok: false, error: 'skeleton split timed out (daemon reset)' });
+		}, BLOCK_TIMEOUT_MS);
+		state.onResult = (s) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			if (s.error) resolve({ ok: false, error: String(s.error) });
+			else
+				resolve({
+					ok: true,
+					kA: Number(s.kA) || 0,
+					kB: Number(s.kB) || 0,
+					gs: Number(s.gs) || 0,
+					gsn: Number(s.gsn) || 0,
+					go: Number(s.go) || 0,
+					ys: Array.isArray(s.ys) ? (s.ys as number[]).map(Number) : []
+				});
+		};
+		const lines = items.map((it) =>
+			it.t === 'b'
+				? `b ${it.h.toFixed(4)} ${it.d.toFixed(4)}`
+				: it.t === 'g'
+					? `g ${it.w.toFixed(4)} ${it.st.toFixed(4)} ${it.sto} ${it.sh.toFixed(4)} ${it.sho}`
+					: `p ${Math.round(it.p)}`
+		);
+		state.child.stdin!.write(`SKELETON ${targetPt.toFixed(4)} ${lines.length}\n${lines.join('\n')}\nEND\n`);
+	});
+}
+/* eslint-enable no-param-reassign */
+
+// Re-split a page's dimension skeleton on the warm daemon: the engine's own vert_break
+// answers whether an edit moved the page break, and with what glue state.
+export async function splitSkeleton(body: {
+	root: string;
+	mainFile: string;
+	engineDir: string;
+	items: SkeletonItem[];
+	targetPt: number;
+}): Promise<SkeletonResult> {
+	const run = queue.then(async (): Promise<SkeletonResult> => {
+		try {
+			armIdleStop();
+			const split = splitPreamble(path.join(body.root, body.mainFile));
+			if (!split) return { ok: false, error: 'no \\begin{document} in main file' };
+			const state = await ensureDaemon(body.root, body.engineDir, split.preamble);
+			return await skeletonOn(state, body.items, body.targetPt);
+		} catch (e) {
+			return { ok: false, error: e instanceof Error ? e.message : String(e) };
+		}
+	});
+	queue = run.catch(() => undefined);
+	return run;
+}
+
 export type ParagraphResult =
-	{ ok: true; records: Rec[]; stats: Rec | null; hsize: number; textheight: number } | { ok: false; error: string };
+	| {
+			ok: true;
+			records: Rec[];
+			// SPLIT requests: records = what fit the requested height, splitRecords = the rest
+			splitRecords?: Rec[];
+			stats: Rec | null;
+			hsize: number;
+			textheight: number;
+			// engine-truth announce, riding every result (see Daemon)
+			floats?: string[];
+			cats?: number[];
+	  }
+	| { ok: false; error: string };
 
 // Typeset one block on the warm daemon (spawning/reusing it for the current preamble).
 // Requests are serialized so the single stdin protocol never interleaves.
@@ -221,6 +353,7 @@ export async function typesetParagraph(body: {
 	engineDir: string;
 	text: string;
 	hsize?: number;
+	splitTo?: number;
 }): Promise<ParagraphResult> {
 	const run = queue.then(async (): Promise<ParagraphResult> => {
 		try {
@@ -230,11 +363,21 @@ export async function typesetParagraph(body: {
 			const preamble = split.preamble;
 			const state = await ensureDaemon(body.root, body.engineDir, preamble);
 			const hsize = body.hsize && body.hsize > 0 ? body.hsize : state.hsize;
-			const r = await typesetOn(state, body.text, hsize);
+			const r = await typesetOn(state, body.text, hsize, body.splitTo);
 			if (r.timedOut) return { ok: false, error: 'paragraph typeset timed out (daemon reset)' };
 			// Type1: attach { pfb, enc }; async -- kpsewhich spawns must not block the main process
-			await Promise.all(r.records.filter((rec) => rec.t === 'font').map((rec) => resolveType1(rec)));
-			return { ok: true, records: r.records, stats: r.stats, hsize, textheight: state.textheight };
+			const allRecs = r.splitRecords ? [...r.records, ...r.splitRecords] : r.records;
+			await Promise.all(allRecs.filter((rec) => rec.t === 'font').map((rec) => resolveType1(rec)));
+			return {
+				ok: true,
+				records: r.records,
+				splitRecords: r.splitRecords,
+				stats: r.stats,
+				hsize,
+				textheight: state.textheight,
+				floats: state.floats,
+				cats: state.cats
+			};
 		} catch (e) {
 			return { ok: false, error: e instanceof Error ? e.message : String(e) };
 		}

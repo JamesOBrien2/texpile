@@ -3,14 +3,21 @@
 // it into its page -- ONLY when provably identical to a full recompile; else demote to a
 // tinted provisional + debounced reconcile, or an honest full pass.
 import { INDENT_PREFIX } from './daemonIndent';
-import { planOverflowSplit } from './patch/planOverflowSplit';
-import { buildColumnSplit } from './patch/buildColumnSplit';
-import { computeReflow, buildBandPatch, lineExtents } from './patch/computeReflow';
+import { abandonBand } from './heuristics/abandonBand';
+import { pageBreakCertificate, remapBandRecords, type Certificate } from './patch/pageCertificate';
+import { planOverflowSplit } from './heuristics/planOverflowSplit';
+import { buildColumnSplit } from './heuristics/buildColumnSplit';
+import { computeReflow, buildBandPatch, lineExtents } from './heuristics/computeReflow';
 import { whyPhrase } from './whyPhrase';
-import type { Cal, CalBail } from './locate/locate.types';
+import type { Cal, CalBail, PaperMetrics } from './locate/locate.types';
 import type { Patch, PatchReq } from './patch/patch.types';
 import type { EditBand } from './draftViewport.svelte';
+import type { SkeletonItem, SkeletonResult } from '$lib/workspace/fileSystem';
 import { m } from '$lib/paraglide/messages';
+
+// a recompile-bound highlight must survive until the compile lands (which clears it);
+// long documents can take several seconds, and an early fade reads as "nothing happened"
+const RECOMPILE_BAND_HOLD = 8000;
 
 type PatcherHooks = {
 	hasNative: () => boolean;
@@ -19,14 +26,21 @@ type PatcherHooks = {
 	setStatus: (s: string) => void;
 	compile: (reason: string) => void;
 	locate: (file: string, line: number, orig: string, listItem?: boolean, endLine?: number) => Promise<Cal | CalBail>;
-	daemonTypeset: (body: { text: string; hsize?: number }) => Promise<any>;
+	daemonTypeset: (body: { text: string; hsize?: number; splitTo?: number }) => Promise<any>;
 	pageRecords: (n: number) => any[];
 	colBottomOf: (p: number) => number;
 	contentFloor: (p: number) => number;
+	paper: () => PaperMetrics;
+	/** the shipped vpack stretched this page to \textheight: deltas distribute over glue */
+	pageStretchy: (p: number) => boolean;
 	missingInk: (records: any[]) => Promise<boolean>;
 	/** record the live patch and paint it (activePatch.set + renderPage + patchedPages.add) */
 	applyPatch: (n: number, p: Patch | Patch[]) => Promise<void>;
-	showEditBand: (b: EditBand) => void;
+	showEditBand: (b: EditBand, holdMs?: number) => void;
+	synctex: (body: Record<string, unknown>) => Promise<any>;
+	pdfPath: () => string;
+	/** engine page-break certificate: re-split a dimension skeleton on the warm daemon */
+	splitSkeleton: (items: SkeletonItem[], targetPt: number) => Promise<SkeletonResult>;
 	followEdit: (page: number, top: number, bottom: number, colL?: number, colR?: number) => void;
 	emit: (kind: string, detail?: unknown) => void;
 };
@@ -154,9 +168,28 @@ export class DraftPatcher {
 			}
 			h.emit('abandon', { stage, ...(typeof detail === 'object' ? detail : { detail }) });
 			await req.onRecompile?.();
+			// the edit still deserves a place on the page while the full pass runs: synctex
+			// is too fuzzy to anchor a splice, but a highlight only needs roughly the right
+			// rows. The landing compile clears the band (fresh layout may have shifted it).
+			try {
+				const sx: any = await h.synctex({
+					action: 'view',
+					pdf: h.pdfPath(),
+					tex: req.file.replace(/\\/g, '/'),
+					line: req.line,
+					column: 0
+				});
+				const band = abandonBand(((sx && sx.boxes) || []) as any[], h.paper() as any);
+				if (band) {
+					h.showEditBand(band, RECOMPILE_BAND_HOLD);
+					h.followEdit(band.page, band.top, band.bottom, band.colL, band.colR);
+				}
+			} catch {
+				// hint only; the status line still says why
+			}
 			// the daemon SURVIVES this: an abandon means "this edit renders via a full pass",
 			// never an engine reload (that only happens on a preamble change)
-			h.setStatus(m.draft_status_recompiling({ reason: whyPhrase(stage) }));
+			h.setStatus(m.draft_status_not_instant({ reason: whyPhrase(stage) }));
 			h.compile('abandon:' + stage);
 		}
 		try {
@@ -196,10 +229,12 @@ export class DraftPatcher {
 			h.emit('located', { key, page: cal.pageNo });
 			// cal.indent: the page paragraph is TeX-indented (the CALIBRATION discovered this
 			// by typesetting both variants through the engine and matching the page), so the
-			// edit carries the same engine-resolved \hspace*{\parindent}. An edit that changes
+			// edit carries the same engine-resolved \hspace*{\parindent}. cal.pre likewise
+			// carries a narrowed environment's engine-measured font. An edit that changes
 			// the paragraph's command set (e.g. typing \noindent) is cmdChanged and always
 			// reconciles -- the engine certifies whatever the commands mean.
-			const r = await h.daemonTypeset({ text: (cal.indent && !req.listItem ? INDENT_PREFIX : '') + req.text, hsize: cal.W });
+			const sendText = (cal.pre ?? '') + (cal.indent && !req.listItem ? INDENT_PREFIX : '') + req.text;
+			const r = await h.daemonTypeset({ text: sendText, hsize: cal.W });
 			if (!r.ok || (r.stats && (r.stats as any).certified === false)) {
 				await recompile('typeset', { ok: r.ok });
 				return;
@@ -210,13 +245,26 @@ export class DraftPatcher {
 				return;
 			}
 			const { h1, dk } = lineExtents(lineRecs);
+			// the ENGINE's break row for a column split: re-typeset with \vsplit to the
+			// column's remaining height, so vert_break (club/widow penalties included) picks
+			// the cut. Refused or empty -> the JS arithmetic in the planners stands in.
+			const calW = cal.W;
+			async function engineSplitTo(room: number): Promise<{ recsA: any[]; recsB: any[] } | undefined> {
+				if (!(room > 0)) return undefined;
+				const rs = await h.daemonTypeset({ text: sendText, hsize: calW, splitTo: room });
+				if (rs.ok && rs.splitRecords?.length && rs.records.some((x: any) => x.t === 'line')) {
+					return { recsA: rs.records, recsB: rs.splitRecords };
+				}
+				return undefined;
+			}
 			if (cal.spill) {
 				const split = buildColumnSplit(cal as Cal & { spill: NonNullable<Cal['spill']> }, r.records, lineRecs, {
 					h1,
 					dk,
 					colBottom: h.colBottomOf(cal.pageNo),
 					contentFloorOf: h.contentFloor,
-					pageRecords: h.pageRecords
+					pageRecords: h.pageRecords,
+					engine: await engineSplitTo(h.colBottomOf(cal.pageNo) - (cal.b1 - h1))
 				});
 				const { segA, segB, spillPage } = split;
 				if (spillPage !== cal.pageNo) {
@@ -243,11 +291,19 @@ export class DraftPatcher {
 			// down, instead of cramming rows past the bottom under the tint. Always provisional.
 			if (flow.overflow) {
 				const plan = planOverflowSplit(
-					{ pageRecords: h.pageRecords, contentFloor: h.contentFloor, pageCount: h.pageCount },
+					{ pageRecords: h.pageRecords, contentFloor: h.contentFloor, pageCount: h.pageCount, colSep: h.paper().colSep },
 					cal,
 					r.records as any[],
 					lineRecs as any[],
-					{ h1, dk, delta: flow.delta, colBottom, belowBases: flow.belowBases, lastBelow: flow.lastBelow }
+					{
+						h1,
+						dk,
+						delta: flow.delta,
+						colBottom,
+						belowBases: flow.belowBases,
+						lastBelow: flow.lastBelow,
+						engine: await engineSplitTo(colBottom - (cal.b1 - h1))
+					}
 				);
 				if (plan) {
 					const { segA, segsB, samePage, spillPage } = plan;
@@ -282,31 +338,73 @@ export class DraftPatcher {
 			// whether the page-bottom note block still matches is the engine's call.)
 			const footnote = /\\footnote/.test(req.text) || /\\footnote/.test(req.orig);
 			const fontGap = await h.missingInk(r.records as any[]);
+			// Engine page-break certificate (stretched pages): two skeleton splits on the warm
+			// daemon -- calibrate on the unedited column, then re-split with the edited band
+			// spliced in. Break held -> the certified baselines respace band and column to the
+			// engine's own numbers, so stretch-approx locates and underflow stop demoting.
+			// Break moved, or any refusal -> the existing provisional path stands unchanged.
+			let cert: Certificate | null = null;
+			if (
+				h.pageStretchy(cal.pageNo) &&
+				!cal.spill &&
+				!req.transient &&
+				!req.floatInner &&
+				!footnote &&
+				!fontGap &&
+				!req.cmdChanged &&
+				(!cal.approx || cal.approxStretch) &&
+				(flow.delta !== 0 || flow.underflow || cal.approxStretch)
+			) {
+				cert = await pageBreakCertificate(
+					{ pageRecords: h.pageRecords, splitSkeleton: h.splitSkeleton, emit: h.emit },
+					cal,
+					r.records as any[],
+					colBottom
+				);
+			}
+			// full certificate (same line count) carries the engine's baselines; a fit-only
+			// certificate (grown band) just answers whether the page still holds the content
+			const fullCert = cert?.fits && cert.bandAbsYs ? (cert as Required<Certificate>) : null;
+			const certRecs = fullCert ? remapBandRecords(r.records as any[], fullCert.bandAbsYs, cal.b1 - flow.y0) : null;
+			// the renderer never moves content ABOVE the band; a certificate that needs it
+			// visibly moved renders the exact band/below anyway but keeps the tint
+			const certExact = !!fullCert && !!certRecs && fullCert.maxAboveDy <= 0.2;
 			// an approx locate is placement-correct but break-inexact: always provisional. A
 			// float-inner patch (tabular inside a \begin{table}) is provisional too: the cell
 			// content is exact but auto column widths / float placement are the full pass's call.
+			// A transient (auto-repaired mid-typing) render carries INVENTED closers: it may
+			// hold the screen for as long as the user pauses unbalanced, so it must wear the
+			// tint -- nothing uncertified sits on screen looking final.
 			const provisionalStage = flow.overflow
 				? 'overflow'
-				: flow.underflow
-					? 'underflow'
-					: cal.approx
-						? 'approx-locate'
-						: req.floatInner
-							? 'float-inner'
-							: footnote
-								? 'footnote'
-								: fontGap
-									? 'font-missing'
-									: req.cmdChanged
-										? 'command-changed'
-										: null;
-			const patchObj = buildBandPatch(cal, r.records as any[], {
+				: cert && !cert.fits
+					? 'engine-overflow'
+					: flow.underflow && !cert
+						? 'underflow'
+						: cal.approx && !(cal.approxStretch && certExact)
+							? 'approx-locate'
+							: req.floatInner
+								? 'float-inner'
+								: footnote
+									? 'footnote'
+									: fontGap
+										? 'font-missing'
+										: req.cmdChanged
+											? 'command-changed'
+											: req.transient
+												? 'transient'
+												: fullCert && !certExact
+													? 'respace-above'
+													: null;
+			const patchObj = buildBandPatch(cal, (certRecs ?? r.records) as any[], {
 				y0: flow.y0,
 				h1,
 				dk,
 				delta: flow.delta,
 				floorA,
-				pageRecords: h.pageRecords
+				stretchy: h.pageStretchy(cal.pageNo),
+				pageRecords: h.pageRecords,
+				cert: certRecs && fullCert ? { steps: fullCert.steps } : undefined
 			});
 			await h.applyPatch(cal.pageNo, patchObj); // survives zoom re-renders until the next compile
 			h.showEditBand({

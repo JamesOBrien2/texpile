@@ -675,6 +675,7 @@
 	"draft_reason_nothing_to_typeset": "沒有需要排版的內容",
 	"draft_reason_needs_recompile": "需要完整重新編譯",
 	"draft_status_recompiling": "正在重新編譯（{reason}），引擎保持熱啟動狀態……",
+	"draft_status_not_instant": "此變更無法即時渲染（{reason}），正在重新編譯……",
 	"draft_status_refining": "正在細化第 {page} 頁……",
 	"draft_status_patched": "熱引擎 · 已在 {ms} 毫秒內修補第 {page} 頁",
 	"draft_status_warm_ready": "熱引擎已就緒",

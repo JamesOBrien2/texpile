@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention -- TeX geometry shorthand for the inverse-locate deltas */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BP2PT } from '../texUnits';
-import { columnCandidates } from '../geometry/columnCandidates';
+import { COL_GUTTER, GLUE_GAP_TOL, LINE_GAP_FALLBACK, ROW_BREAK, ROW_CLUSTER, SPREAD_TOL } from '../heuristics/tolerances';
+import { columnCandidates } from '../heuristics/columnCandidates';
 import { median } from '../geometry/median';
 import type { Cal, CalBail, LocateContext } from './locate.types';
 
@@ -34,7 +35,7 @@ export async function locateInverse(ctx: LocateContext, file: string, line: numb
 	const allG = recs.filter((x: any) => x.t === 'g');
 	if (!allG.length) return bail('no-page-glyphs');
 	const W = paper.colW > 0 ? paper.colW : Math.max(...boxes.map((b) => b.W)) * BP2PT;
-	const G = 8;
+	const G = COL_GUTTER;
 	const cal = await ctx.typesetParagraph({ text: orig, hsize: W });
 	if (!cal.ok) return bail('cal-typeset-failed');
 	const calLines = cal.records.filter((x: any) => x.t === 'line');
@@ -45,14 +46,14 @@ export async function locateInverse(ctx: LocateContext, file: string, line: numb
 	const calGaps: number[] = [];
 	for (let i = 1; i < calLines.length; i++) calGaps.push((calLines[i] as any).y - (calLines[i - 1] as any).y);
 	const calGap = median(calGaps);
-	const gap = calGap || 12;
+	const gap = calGap || paper.blSkip || LINE_GAP_FALLBACK;
 	// window the inverse mapping to the forward hint (the paragraph's own box is tagged to
 	// line 1, so its y is here even when the line boxes aren't): bounds the synctex edit calls
 	// and drops a far-away footer/header from the candidate set
 	const fwdYs = boxes.map((b) => b.y * BP2PT - paper.my);
 	const winLo = Math.min(...fwdYs) - 5 * gap,
 		winHi = Math.max(...fwdYs) + (N + 5) * gap;
-	const colLefts = columnCandidates(allG, W, G);
+	const colLefts = columnCandidates(allG, W, G, paper.colSep);
 	type Run = { col: number; len: number; gcount: number; b1: number; bk: number; left: number };
 	const runs: Run[] = [];
 	for (const cl of colLefts) {
@@ -75,7 +76,7 @@ export async function locateInverse(ctx: LocateContext, file: string, line: numb
 			let j = i,
 				rep = rawYs[i],
 				rc = yc.get(rawYs[i]) as number;
-			while (j + 1 < rawYs.length && rawYs[j + 1] - rawYs[j] <= gap * 0.45) {
+			while (j + 1 < rawYs.length && rawYs[j + 1] - rawYs[j] <= gap * ROW_CLUSTER) {
 				j++;
 				const c = yc.get(rawYs[j]) as number;
 				if (c > rc) {
@@ -123,7 +124,7 @@ export async function locateInverse(ctx: LocateContext, file: string, line: numb
 				continue;
 			}
 			let j = i;
-			while (j + 1 < base.length && inRange(j + 1) && base[j + 1] - base[j] <= gap * 1.5) j++;
+			while (j + 1 < base.length && inRange(j + 1) && base[j + 1] - base[j] <= gap * ROW_BREAK) j++;
 			runs.push({
 				col: cl,
 				len: j - i + 1,
@@ -180,7 +181,8 @@ export async function locateInverse(ctx: LocateContext, file: string, line: numb
 	const b1 = best.b1,
 		bk = best.bk;
 	const calSpread = (calLines[calLines.length - 1] as any).y - (calLines[0] as any).y;
-	if (Math.abs(calSpread - (bk - b1)) > 0.7) return bail('spread', { calSpread: +calSpread.toFixed(1), pageSpread: +(bk - b1).toFixed(1) });
+	if (Math.abs(calSpread - (bk - b1)) > SPREAD_TOL)
+		return bail('spread', { calSpread: +calSpread.toFixed(1), pageSpread: +(bk - b1).toFixed(1) });
 	if (calGap) {
 		function inColB(x: number) {
 			return x >= best.col - G && x <= best.col + W + G;
@@ -191,7 +193,8 @@ export async function locateInverse(ctx: LocateContext, file: string, line: numb
 		const pg: number[] = [];
 		for (let i = 1; i < bys.length; i++) pg.push(bys[i] - bys[i - 1]);
 		const pageGap = median(pg);
-		if (pageGap && Math.abs(pageGap - calGap) > 0.5) return bail('glue-gap', { pageGap: +pageGap.toFixed(2), calGap: +calGap.toFixed(2) });
+		if (pageGap && Math.abs(pageGap - calGap) > GLUE_GAP_TOL)
+			return bail('glue-gap', { pageGap: +pageGap.toFixed(2), calGap: +calGap.toFixed(2) });
 	}
 	ctx.emit('locate-inverse-ok', { pageNo, b1, bk, N, gcount: best.gcount, Gd });
 	const invDGl = cal.records.filter((x: any) => x.t === 'g' || x.t === 'glyph');

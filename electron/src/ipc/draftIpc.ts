@@ -35,11 +35,19 @@ export function registerDraftIpc(): void {
 		draftOwner = { wcId: e.sender.id, root: body.root };
 		return draftService.compileDraft({ ...body, engineDir: luaDir() });
 	});
-	handleFsE('draft:typeset', async (e, body: { root: string; mainFile: string; text: string; hsize?: number }) => {
+	handleFsE('draft:typeset', async (e, body: { root: string; mainFile: string; text: string; hsize?: number; splitTo?: number }) => {
 		if (draftBusy(e, body.root)) return { ok: false, error: 'engine-busy' };
 		draftOwner = { wcId: e.sender.id, root: body.root };
 		return draftDaemon.typesetParagraph({ ...body, engineDir: luaDir() });
 	});
+	handleFsE(
+		'draft:skeleton',
+		async (e, body: { root: string; mainFile: string; items: draftDaemon.SkeletonItem[]; targetPt: number }) => {
+			if (draftBusy(e, body.root)) return { ok: false, error: 'engine-busy' };
+			draftOwner = { wcId: e.sender.id, root: body.root };
+			return draftDaemon.splitSkeleton({ ...body, engineDir: luaDir() });
+		}
+	);
 	// stop the warm engine when draft mode is switched off / the preview closes, so we don't
 	// leave an idle lualatex process holding memory for the rest of the session. Only the
 	// owner may stop it: another window closing its (blocked) preview must not kill ours.

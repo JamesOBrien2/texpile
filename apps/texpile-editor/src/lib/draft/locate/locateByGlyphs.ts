@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { INDENT_PREFIX } from '../daemonIndent';
-import { columnCandidates } from '../geometry/columnCandidates';
+import { COL_GUTTER, GLUE_GAP_TOL, LINE_GAP_FALLBACK, ROW_BREAK } from '../heuristics/tolerances';
+import { columnCandidates } from '../heuristics/columnCandidates';
+import { extraCalVariants } from '../heuristics/calVariants';
 import { glyphRows } from '../geometry/glyphRows';
 import { median } from '../geometry/median';
 import { sameCodepoints, sameCodepointsDigitTolerant, sameOffsets } from '../geometry/rowEquality';
@@ -29,37 +31,7 @@ export async function locateByGlyphs(
 	const pdf = ctx.pdfPath();
 	if (!(paper.colW > 0)) return bail('no-colwidth');
 	const W = paper.colW;
-	const G = 8;
-	// Calibration VARIANTS, matched empirically against the page (~2ms each, once per
-	// paragraph per compile): indent x width. TeX indents mid-section paragraphs but the
-	// daemon's box is \noindent, which shifts the first line's break. And under twocolumn
-	// a starred float wraps at \textwidth, not \columnwidth -- rather than guessing which
-	// blocks are full-width by name, typeset at BOTH engine-announced widths and let
-	// whichever reproduces the page win. The winning variant's indent flag and width ride
-	// on the cal so edited re-typesets reproduce the same breaks.
-	const widths = [W];
-	if (paper.textW > W + 2) widths.push(paper.textW);
-	const variants: { lines: any[]; glyphs: any[]; indent: boolean; W: number }[] = [];
-	for (const Wc of widths) {
-		for (const ind of listItem ? [false] : [false, true]) {
-			const cal = await ctx.typesetParagraph({ text: (ind ? INDENT_PREFIX : '') + orig, hsize: Wc });
-			if (!cal.ok) continue;
-			const lines = cal.records.filter((x: any) => x.t === 'line');
-			if (!lines.length || (cal.stats && (cal.stats as any).certified === false)) continue;
-			variants.push({ lines, glyphs: cal.records.filter((x: any) => x.t === 'g' || x.t === 'glyph'), indent: ind, W: Wc });
-		}
-	}
-	if (!variants.length) return bail('cal-typeset-failed');
-	const calGaps: number[] = [];
-	for (let i = 1; i < variants[0].lines.length; i++) calGaps.push((variants[0].lines[i] as any).y - (variants[0].lines[i - 1] as any).y);
-	const calGap = median(calGaps);
-	const gap = calGap || 12;
-	function rowsOf(glyphs: any[]) {
-		return glyphRows(glyphs, gap);
-	}
-	const varRows = variants.map((v) => ({ rows: rowsOf(v.glyphs), indent: v.indent, W: v.W })).filter((v) => v.rows.length);
-	if (!varRows.length) return bail('no-daemon-glyphs');
-	const N = varRows[0].rows.length;
+	const G = COL_GUTTER;
 	// page search order: synctex page hints (reliable at page granularity even when its line
 	// attribution isn't), then the rest
 	const hintPages: number[] = [];
@@ -68,6 +40,46 @@ export async function locateByGlyphs(
 		for (const b of ((sx && sx.boxes) || []) as any[]) if (b.page && !hintPages.includes(b.page)) hintPages.push(b.page);
 	}
 	const order = [...hintPages, ...ctx.pageNumbers().filter((p) => !hintPages.includes(p))];
+	// Calibration VARIANTS, matched empirically against the page (~2ms each, once per
+	// paragraph per compile): indent x width x font. TeX indents mid-section paragraphs but
+	// the daemon's box is \noindent, which shifts the first line's break. Under twocolumn a
+	// starred float wraps at \textwidth, not \columnwidth -- rather than guessing which
+	// blocks are full-width by name, typeset at BOTH engine-announced widths and let
+	// whichever reproduces the page win. And a narrowed environment (an abstract) matches
+	// NEITHER: extraCalVariants reads its true width/font/leading from the hint page's own
+	// records. The winning variant's indent flag, width and font prefix ride on the cal so
+	// edited re-typesets reproduce the same breaks. Per-variant line gap: a variant at
+	// another font size has another leading, and rows must cluster at ITS gap, not the
+	// body's.
+	const base: { W: number; pre: string }[] = [{ W, pre: '' }];
+	if (paper.textW > W + 2) base.push({ W: paper.textW, pre: '' });
+	const learned = order.length ? extraCalVariants(paper, ctx.pageRecords(order[0])) : [];
+	const variants: { lines: any[]; glyphs: any[]; indent: boolean; W: number; pre: string; calGap: number; gap: number }[] = [];
+	for (const wv of [...base, ...learned]) {
+		for (const ind of listItem ? [false] : [false, true]) {
+			const cal = await ctx.typesetParagraph({ text: wv.pre + (ind ? INDENT_PREFIX : '') + orig, hsize: wv.W });
+			if (!cal.ok) continue;
+			const lines = cal.records.filter((x: any) => x.t === 'line');
+			if (!lines.length || (cal.stats && (cal.stats as any).certified === false)) continue;
+			const gs: number[] = [];
+			for (let i = 1; i < lines.length; i++) gs.push((lines[i] as any).y - (lines[i - 1] as any).y);
+			const cg = median(gs);
+			variants.push({
+				lines,
+				glyphs: cal.records.filter((x: any) => x.t === 'g' || x.t === 'glyph'),
+				indent: ind,
+				W: wv.W,
+				pre: wv.pre,
+				calGap: cg,
+				gap: cg || paper.blSkip || LINE_GAP_FALLBACK
+			});
+		}
+	}
+	if (!variants.length) return bail('cal-typeset-failed');
+	const varRows = variants.map((v) => ({ ...v, rows: glyphRows(v.glyphs, v.gap) })).filter((v) => v.rows.length);
+	if (!varRows.length) return bail('no-daemon-glyphs');
+	const N = varRows[0].rows.length;
+	const gap0 = varRows[0].gap;
 	// tier 1: Nv contiguous rows matching a calibration variant, row for row. Pass 1 is
 	// glyph-identical (can certify exact). Pass 2 tolerates digit-for-digit differences:
 	// the daemon's counters are deterministic but not the page's (a second theorem, a
@@ -79,45 +91,79 @@ export async function locateByGlyphs(
 			const allG = ctx.pageRecords(pageNo).filter((x: any) => x.t === 'g');
 			if (!allG.length) continue;
 			for (const v of varRows) {
-				for (const cl of columnCandidates(allG, v.W, G)) {
+				for (const cl of columnCandidates(allG, v.W, G, paper.colSep)) {
 					const colL = cl - G,
 						colR = cl + v.W + G;
-					const rows = rowsOf(allG.filter((x: any) => x.x >= colL && x.x <= colR));
+					const rows = glyphRows(
+						allG.filter((x: any) => x.x >= colL && x.x <= colR),
+						v.gap
+					);
 					const dRows = v.rows,
 						Nv = dRows.length;
 					// placement anchor: band left minus daemon left = the daemon box origin on the
 					// page (see locateForward's paraLeft note)
 					const dLeft = Math.min(...dRows.map((r) => r.left));
-					const starts: number[] = [];
+					const starts: { s: number; seam: boolean }[] = [];
 					for (let s = 0; s + Nv <= rows.length; s++) {
-						let okRun = true;
+						let okRun = true,
+							seam = false;
 						for (let i = 0; i < Nv && okRun; i++) {
 							if (!rowEq(rows[s + i].cs, dRows[i].cs) || !sameOffsets(rows[s + i], dRows[i])) okRun = false;
-							else if (i > 0 && rows[s + i].y - rows[s + i - 1].y > gap * 1.5) okRun = false;
+							else if (i > 0) {
+								// a big page gap breaks the run only when it exceeds the daemon's OWN
+								// gap at this index by a line-height or more: interposed material is
+								// never smaller than a line. Anything less is the env's internal
+								// spacing (an abstract's heading skip, an inter-paragraph \parskip)
+								// vertically adjusted by context the daemon's fresh box lacks
+								// (\addvspace collapsing, flushbottom stretch) -- accept it, but a
+								// magnitude mismatch means the splice renders daemon spacing:
+								// legitimate placement, approx only.
+								const pg = rows[s + i].y - rows[s + i - 1].y;
+								const dgi = dRows[i].y - dRows[i - 1].y;
+								if (pg > v.gap * ROW_BREAK) {
+									if (pg - dgi > v.gap) okRun = false;
+									else if (Math.abs(pg - dgi) > GLUE_GAP_TOL) seam = true;
+								} else if (dgi > v.gap * ROW_BREAK && dgi - pg > GLUE_GAP_TOL) {
+									// the mirror case: the daemon renders a skip the page collapsed --
+									// placement is right, spacing is not: never certify exact
+									seam = true;
+								}
+							}
 						}
-						if (okRun) starts.push(s);
+						if (okRun) starts.push({ s, seam });
 					}
 					if (starts.length > 1) return bail('ambiguous', { matches: starts.length, pageNo });
 					if (starts.length === 1) {
-						const s = starts[0];
+						const { s, seam } = starts[0];
 						const b1 = rows[s].y,
 							bk = rows[s + Nv - 1].y;
 						const paraLeft = Math.min(...rows.slice(s, s + Nv).map((r) => r.left)) - dLeft;
 						const digits = rowEq !== sameCodepoints;
+						const win = { medGap: v.gap, W: v.W, indent: v.indent, ...(v.pre ? { pre: v.pre } : {}) };
 						// C2: natural band spacing -> exact. Stretched spacing (flushbottom
 						// vertical justification) with content and x positions matching is still
 						// the right paragraph in the right place: splice with natural spacing as
 						// a close-enough PROVISIONAL and let the reconcile restore the stretch.
-						if (calGap && Nv > 1) {
+						if (v.calGap && Nv > 1) {
 							const pg: number[] = [];
 							for (let i = 1; i < Nv; i++) pg.push(rows[s + i].y - rows[s + i - 1].y);
-							if (Math.abs(median(pg) - calGap) > 0.5) {
+							if (Math.abs(median(pg) - v.calGap) > GLUE_GAP_TOL) {
 								ctx.emit('locate-glyph-stretched', { pageNo, b1, bk, N: Nv });
-								return { pageNo, b1, bk, medGap: gap, paraLeft, W: v.W, colL, colR, indent: v.indent, approx: true };
+								return { pageNo, b1, bk, paraLeft, colL, colR, ...win, approx: true, approxStretch: true };
 							}
 						}
-						ctx.emit(digits ? 'locate-glyph-digits' : 'locate-glyph-ok', { pageNo, b1, bk, N: Nv, indent: v.indent });
-						return { pageNo, b1, bk, medGap: gap, paraLeft, W: v.W, colL, colR, indent: v.indent, ...(digits ? { approx: true } : {}) };
+						ctx.emit(digits ? 'locate-glyph-digits' : 'locate-glyph-ok', { pageNo, b1, bk, N: Nv, indent: v.indent, seam });
+						return {
+							pageNo,
+							b1,
+							bk,
+							paraLeft,
+							colL,
+							colR,
+							...win,
+							...(digits || seam ? { approx: true } : {}),
+							...(seam && !digits ? { approxStretch: true } : {})
+						};
 					}
 				}
 			}
@@ -140,15 +186,18 @@ export async function locateByGlyphs(
 		if (ctx.rtlPage(pageNo)) continue;
 		const allG = ctx.pageRecords(pageNo).filter((x: any) => x.t === 'g');
 		if (!allG.length) continue;
-		for (const cl of columnCandidates(allG, W, G)) {
+		for (const cl of columnCandidates(allG, W, G, paper.colSep)) {
 			const colL = cl - G,
 				colR = cl + W + G;
-			const rows = rowsOf(allG.filter((x: any) => x.x >= colL && x.x <= colR));
+			const rows = glyphRows(
+				allG.filter((x: any) => x.x >= colL && x.x <= colR),
+				gap0
+			);
 			for (const len of [N, N + 1, N - 1]) {
 				if (len < 1) continue;
 				for (let s = 0; s + len <= rows.length; s++) {
 					let contiguous = true;
-					for (let i = 1; i < len && contiguous; i++) if (rows[s + i].y - rows[s + i - 1].y > gap * 1.5) contiguous = false;
+					for (let i = 1; i < len && contiguous; i++) if (rows[s + i].y - rows[s + i - 1].y > gap0 * ROW_BREAK) contiguous = false;
 					if (!contiguous) continue;
 					const freq = new Map<number, number>();
 					let total = 0;
@@ -179,12 +228,15 @@ export async function locateByGlyphs(
 	}
 	if (!found.length) return bail('not-on-page', { N });
 	// windows of different lengths over the same paragraph overlap: group overlapping matches
-	// and keep the best per group; >1 group = genuinely ambiguous
+	// and keep the best per group; >1 group = genuinely ambiguous. Same y-region, DIFFERENT
+	// column candidate = still the same text (nested candidates from the cluster-min rule
+	// window the same paragraph twice), so grouping ignores colL -- the lowest-diff member
+	// (the window that lost no glyphs) wins.
 	found.sort((a, b) => a.pageNo - b.pageNo || a.b1 - b.b1);
 	const groups: Fuzzy[][] = [];
 	for (const f of found) {
 		const g = groups[groups.length - 1];
-		if (g && g[0].pageNo === f.pageNo && g[0].colL === f.colL && f.b1 <= g[g.length - 1].bk + gap) g.push(f);
+		if (g && g[0].pageNo === f.pageNo && f.b1 <= g[g.length - 1].bk + gap0) g.push(f);
 		else groups.push([f]);
 	}
 	if (groups.length > 1) return bail('ambiguous', { matches: groups.length });
@@ -194,11 +246,12 @@ export async function locateByGlyphs(
 		pageNo: best.pageNo,
 		b1: best.b1,
 		bk: best.bk,
-		medGap: gap,
+		medGap: gap0,
 		paraLeft: best.left,
 		W,
 		colL: best.colL,
 		colR: best.colR,
+		...(varRows[0].pre ? { pre: varRows[0].pre } : {}),
 		approx: true
 	};
 }

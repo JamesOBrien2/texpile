@@ -16,6 +16,8 @@ const dist = (m) => require(path.join(repoRoot, 'electron/dist', m));
 const draftService = dist('draft/draftService.js');
 const draftDaemon = dist('draft/draftDaemon.js');
 const fsService = dist('fs/fsService.js');
+// synctex moved out of fsService (fs/synctexCli.ts); emit it alongside the other bridges
+const synctexCli = dist('fs/synctexCli.js');
 
 const PORT = Number(process.env.LIVE_BRIDGE_PORT || 8099);
 const workBase = path.join(os.tmpdir(), 'texpile-live-harness');
@@ -83,11 +85,24 @@ http
 							mainFile: body.mainFile || 'main.tex',
 							engineDir,
 							text: body.text,
-							hsize: body.hsize
+							hsize: body.hsize,
+							splitTo: body.splitTo
+						})
+					);
+				case '/skeleton':
+					return json(
+						res,
+						200,
+						await draftDaemon.splitSkeleton({
+							root: body.root,
+							mainFile: body.mainFile || 'main.tex',
+							engineDir,
+							items: body.items,
+							targetPt: body.targetPt
 						})
 					);
 				case '/synctex':
-					return json(res, 200, await fsService.synctex(body));
+					return json(res, 200, await synctexCli.synctex(body));
 				case '/write':
 					fs.writeFileSync(path.join(body.root, body.file || 'main.tex'), body.content);
 					return json(res, 200, { ok: true });

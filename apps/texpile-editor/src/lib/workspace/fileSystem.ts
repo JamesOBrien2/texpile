@@ -29,6 +29,11 @@ export type DraftPage = {
 	// shipout box height = box top to the box BASELINE, i.e. the footer line's baseline;
 	// the renderer treats rows at/below it as bottom-anchored (never shifted by patches)
 	ht?: number;
+	// the shipped vpack's glue_set/sign/order: gsn 1 = the page was stretched to
+	// \textheight (flushbottom), so a patch's delta distributes over its vg records
+	gs?: number;
+	gsn?: number;
+	go?: number;
 	// the walker's certification reasons for this page (comma-joined: literal, transform,
 	// escape, dir); absent when every record on it is safe to paint
 	unc?: string;
@@ -47,6 +52,14 @@ export type DraftResult =
 			textW?: number;
 			// \footskip: body bottom sits at page ht - footSkip; the footer baseline at ht
 			footSkip: number;
+			// engine registers the renderer used to guess: \columnsep, \baselineskip, \parskip
+			colSep?: number;
+			blSkip?: number;
+			parSkip?: number;
+			// the line \begin{document} executed at (main file), from the hook itself
+			bodyLine?: number;
+			// per-line counter snapshots; the daemon pins typesets to these TRUE values
+			counters?: { l: number; f?: string; s: Record<string, number> }[];
 			marginX: number;
 			marginY: number;
 			pages: DraftPage[];
@@ -54,8 +67,26 @@ export type DraftResult =
 	| { ok: false; error: string; ms: number; log?: string; superseded?: true };
 
 export type ParagraphResult =
-	| { ok: true; records: Record<string, unknown>[]; stats: Record<string, unknown> | null; hsize: number; textheight: number }
+	| {
+			ok: true;
+			records: Record<string, unknown>[];
+			// SPLIT requests: records = what fit the requested height, splitRecords = the rest
+			splitRecords?: Record<string, unknown>[];
+			stats: Record<string, unknown> | null;
+			hsize: number;
+			textheight: number;
+			// engine-truth announce from the warm daemon (float envs, catcode table)
+			floats?: string[];
+			cats?: number[];
+	  }
 	| { ok: false; error: string };
+
+// one page-skeleton item: a line as a bare box, glue at natural size, or a penalty
+export type SkeletonItem =
+	{ t: 'b'; h: number; d: number } | { t: 'g'; w: number; st: number; sto: number; sh: number; sho: number } | { t: 'p'; p: number };
+
+export type SkeletonResult =
+	{ ok: true; kA: number; kB: number; gs: number; gsn: number; go: number; ys: number[] } | { ok: false; error: string };
 
 type TexpileNative = {
 	/** answered synchronously in preload, so the first render already knows what it is opening */
@@ -94,7 +125,8 @@ type TexpileNative = {
 	fsFormatLatex: (path: string, text: string) => Promise<{ formatted: string }>;
 	synctex: (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
 	draftCompile: (body: { root: string; mainFile: string }) => Promise<DraftResult>;
-	draftTypeset: (body: { root: string; mainFile: string; text: string; hsize?: number }) => Promise<ParagraphResult>;
+	draftTypeset: (body: { root: string; mainFile: string; text: string; hsize?: number; splitTo?: number }) => Promise<ParagraphResult>;
+	draftSkeleton?: (body: { root: string; mainFile: string; items: SkeletonItem[]; targetPt: number }) => Promise<SkeletonResult>;
 	draftStop: () => Promise<{ ok: boolean }>;
 	draftTakeover?: (body: { root: string }) => Promise<{ ok: boolean }>;
 	onDraftPreempted?: (cb: (notice: { root: string }) => void) => () => void;

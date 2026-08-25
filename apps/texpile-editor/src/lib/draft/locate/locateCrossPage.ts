@@ -2,7 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BP2PT } from '../texUnits';
 import { INDENT_PREFIX } from '../daemonIndent';
-import { columnCandidates } from '../geometry/columnCandidates';
+import { COL_GUTTER, LINE_GAP_FALLBACK, ROW_BREAK } from '../heuristics/tolerances';
+import { columnCandidates } from '../heuristics/columnCandidates';
 import { glyphRows } from '../geometry/glyphRows';
 import { median } from '../geometry/median';
 import { sameCodepoints, sameOffsets } from '../geometry/rowEquality';
@@ -35,7 +36,7 @@ export async function locateCrossPage(
 	// truthful hsize to reproduce line breaks at -- no invented default
 	if (!(paper.colW > 0)) return bail('no-colwidth');
 	const W = paper.colW;
-	const G = 8;
+	const G = COL_GUTTER;
 	const variants: { glyphs: any[]; lines: any[]; indent: boolean }[] = [];
 	for (const ind of listItem ? [false] : [false, true]) {
 		const cal = await ctx.typesetParagraph({ text: (ind ? INDENT_PREFIX : '') + orig, hsize: W });
@@ -49,14 +50,14 @@ export async function locateCrossPage(
 	if (!variants.length) return bail('cal-typeset-failed');
 	const calGaps: number[] = [];
 	for (let i = 1; i < variants[0].lines.length; i++) calGaps.push((variants[0].lines[i] as any).y - (variants[0].lines[i - 1] as any).y);
-	const gap = median(calGaps) || 12;
+	const gap = median(calGaps) || paper.blSkip || LINE_GAP_FALLBACK;
 	const allGA = recsA.filter((x: any) => x.t === 'g');
 	const allGB = recsB.filter((x: any) => x.t === 'g');
 	if (!allGA.length || !allGB.length) return bail('no-page-glyphs');
 	// prefer page A's synctex-anchored column, but fall back to every candidate
 	const boxesA = lineBoxes.filter((b) => b.page === pA);
 	const aMin = boxesA.length ? Math.min(...boxesA.map((b) => (b.bl ?? b.x) * BP2PT - paper.mx)) : null;
-	const colsA = columnCandidates(allGA, W, G);
+	const colsA = columnCandidates(allGA, W, G, paper.colSep);
 	if (aMin !== null) colsA.sort((a, b) => Math.abs(a - aMin) - Math.abs(b - aMin));
 	// every start where dRows[off..off+len-1] matches `rows` contiguously, content and
 	// x offsets both. No positional anchoring: a real column tail carries footnotes
@@ -68,7 +69,7 @@ export async function locateCrossPage(
 			let ok = true;
 			for (let i = 0; i < len && ok; i++) {
 				if (!sameCodepoints(rows[s + i].cs, dRows[off + i].cs) || !sameOffsets(rows[s + i], dRows[off + i])) ok = false;
-				else if (i > 0 && rows[s + i].y - rows[s + i - 1].y > gap * 1.5) ok = false;
+				else if (i > 0 && rows[s + i].y - rows[s + i - 1].y > gap * ROW_BREAK) ok = false;
 			}
 			if (ok) out.push(s);
 		}
@@ -86,7 +87,7 @@ export async function locateCrossPage(
 				gap
 			);
 			if (!rowsA.length) continue;
-			for (const clB of columnCandidates(allGB, W, G)) {
+			for (const clB of columnCandidates(allGB, W, G, paper.colSep)) {
 				// same page: the continuation can only open a LATER column of the reading order
 				if (samePage && clB <= clA + G) continue;
 				const colLB = clB - G,

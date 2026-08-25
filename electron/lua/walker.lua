@@ -13,6 +13,7 @@ local RULE  = node.id("rule")
 local DISC  = node.id("disc")
 local MATH  = node.id("math")
 local INS   = node.id("ins")
+local PENALTY = node.id("penalty")
 local WHATSIT = node.id("whatsit")
 local ok_mk, MKERN = pcall(node.id, "margin_kern")
 if not ok_mk then MKERN = -1 end
@@ -58,6 +59,8 @@ end
 local FONTKERN = subtypeByName("kern", "fontkern", 0)
 local RULE_IMAGE = subtypeByName("rule", "image", 2)
 local HL_LINE = subtypeByName("hlist", "line", 1)
+local HL_EQ = subtypeByName("hlist", "equation", 6)
+local HL_EQNO = subtypeByName("hlist", "equationnumber", 7)
 local LEADERS_MIN = subtypeByName("glue", "leaders", 100)
 local LEADERS_MAX = subtypeByName("glue", "gleaders", 103)
 
@@ -444,6 +447,16 @@ walk_vlist = function(head, parent, x, y, emit, fonts, colorStack)
 		local id = n.id
 		if id == HLIST then
 			cy = cy + n.height
+			-- pl: each paragraph line's engine \hsize -- narrowed environments (an
+			-- abstract, a quote: LaTeX lists parshape their lines) announce their true
+			-- width here, so calibration variants read it instead of guessing. h/d ride
+			-- along so a page skeleton (the re-split certificate) rebuilds the line as a
+			-- box. Display-math lines (equation subtypes) are galley boxes the same way --
+			-- without them a display reads as a gap full of stray fraction rules.
+			if n.subtype == HL_LINE or n.subtype == HL_EQ or n.subtype == HL_EQNO then
+				emit(string.format('{"t":"pl","x":%.4f,"y":%.4f,"w":%.4f,"h":%.4f,"d":%.4f}',
+					(x + (n.shift or 0)) / pt, cy / pt, n.width / pt, n.height / pt, n.depth / pt))
+			end
 			-- drawing box sitting directly in vertical material (\vbox{\hbox{tikz}}).
 			-- Paragraph LINES are exempt: walk() captures just the inner drawing box,
 			-- so an inline picture doesn't turn the whole line into pixels.
@@ -469,7 +482,21 @@ walk_vlist = function(head, parent, x, y, emit, fonts, colorStack)
 				emit(string.format('{"t":"rule","x":%.4f,"y":%.4f,"w":%.4f,"h":%.4f,"d":%.4f%s}',
 					x / pt, (cy + h) / pt, (parent.width or 0) / pt, h / pt, d / pt, colSuffix(colorStack)))
 			end
+			-- STRETCHABLE vertical glue only: where the engine would absorb a height change
+			-- (vpack distributes linearly over these), so a patch can shift the flow the way
+			-- a repack would instead of rigidly. Rigid glue never absorbs; skip it. nw = the
+			-- NATURAL width (w is the effective, post-stretch value): a page skeleton rebuilds
+			-- the glue from its natural size and lets the engine re-stretch it.
+			if (n.stretch or 0) ~= 0 or (n.shrink or 0) ~= 0 then
+				emit(string.format('{"t":"vg","x":%.4f,"y":%.4f,"w":%.4f,"nw":%.4f,"st":%.4f,"sto":%d,"sh":%.4f,"sho":%d}',
+					x / pt, cy / pt, eff / pt, (n.width or 0) / pt, (n.stretch or 0) / pt, n.stretch_order or 0, (n.shrink or 0) / pt, n.shrink_order or 0))
+			end
 			cy = cy + eff
+		elseif id == PENALTY then
+			-- pen: vertical break penalties (interline, club/widow, section \nobreak) --
+			-- invisible ink, but the page skeleton needs them to re-ask the engine where
+			-- a page breaks after an edit
+			emit(string.format('{"t":"pen","y":%.4f,"p":%d}', cy / pt, n.penalty or 0))
 		elseif id == KERN then
 			cy = cy + n.kern
 		elseif id == RULE then
@@ -558,7 +585,13 @@ function M.lines(head, y0)
 			end
 			emit('{"t":"noteend"}')
 		elseif line.id == GLUE then
+			if (line.stretch or 0) ~= 0 or (line.shrink or 0) ~= 0 then
+				emit(string.format('{"t":"vg","x":0,"y":%.4f,"w":%.4f,"nw":%.4f,"st":%.4f,"sto":%d,"sh":%.4f,"sho":%d}',
+					y / pt, line.width / pt, (line.width or 0) / pt, (line.stretch or 0) / pt, line.stretch_order or 0, (line.shrink or 0) / pt, line.shrink_order or 0))
+			end
 			y = y + line.width
+		elseif line.id == PENALTY then
+			emit(string.format('{"t":"pen","y":%.4f,"p":%d}', y / pt, line.penalty or 0))
 		elseif line.id == DIR then
 			flags.dir = true
 		end

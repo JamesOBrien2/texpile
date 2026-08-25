@@ -675,6 +675,7 @@
 	"draft_reason_nothing_to_typeset": "nothing to typeset",
 	"draft_reason_needs_recompile": "needs a full recompile",
 	"draft_status_recompiling": "Recompiling ({reason}), engine stays warm…",
+	"draft_status_not_instant": "This change is not instantly renderable ({reason}), recompiling…",
 	"draft_status_refining": "Refining p{page}…",
 	"draft_status_patched": "Warm engine · patched p{page} in {ms} ms",
 	"draft_status_warm_ready": "Warm engine ready",

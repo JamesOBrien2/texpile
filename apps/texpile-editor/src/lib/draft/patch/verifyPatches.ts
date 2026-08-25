@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { glyphRows } from '../geometry/glyphRows';
+import { VERIFY_DRIFT } from '../heuristics/tolerances';
 import { sameCodepointsDigitTolerant } from '../geometry/rowEquality';
 import type { PageRecord } from '../geometry/geometry.types';
 import type { Patch } from './patch.types';
@@ -57,7 +58,8 @@ export function verifyPatches(ctx: VerifyContext, activePatches: Map<number, Pat
 			// the compile contained newer text than the patch (normal mid-typing grading
 			// noise); 'unknown' = nothing matched (usually a fully superseded patch, but
 			// worth eyeballing via `near`)
-			const verdict = drift > 3 || xdrift > 3 ? 'wrong' : found === pred.length ? 'ok' : found > 0 ? 'stale' : 'unknown';
+			const verdict =
+				drift > VERIFY_DRIFT || xdrift > VERIFY_DRIFT ? 'wrong' : found === pred.length ? 'ok' : found > 0 ? 'stale' : 'unknown';
 			const near =
 				verdict === 'ok'
 					? undefined

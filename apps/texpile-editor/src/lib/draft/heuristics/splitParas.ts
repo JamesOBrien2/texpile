@@ -1,5 +1,7 @@
 // Splitting a .tex buffer into prose paragraphs, and re-wrapping one paragraph as the exact
 // TeX the daemon typesets. The dispatcher diffs in units of these.
+import { counterBefore, lexCats } from '../engineTruth';
+import { maskVerbatim, VERB_ENV_RE } from './verbatim';
 
 export type Para = { text: string; startLine: number; wrap?: string; idx?: number; env?: string; head?: string };
 
@@ -62,15 +64,25 @@ export function splitParaLines(lines: string[]): Para[] {
 		const be = ln.match(BEGIN_ENV);
 		if (be && !NON_BLOCK_ENVS.has(be[1]) && !listStack.length) {
 			flush();
-			// nesting-aware: accumulate until the matching \end (blank lines included)
 			const s0 = i;
-			let depth = 0;
 			const blk: string[] = [];
-			for (; i < lines.length; i++) {
-				depth += (lines[i].match(/\\begin\{[a-zA-Z*]+\}/g) || []).length;
-				depth -= (lines[i].match(/\\end\{[a-zA-Z*]+\}/g) || []).length;
-				blk.push(lines[i]);
-				if (depth <= 0) break;
+			if (VERB_ENV_RE.test(be[1])) {
+				// verbatim body: \begin/\end in it is TEXT, so no depth counting -- only the
+				// literal closer ends it
+				const closer = `\\end{${be[1]}}`;
+				for (; i < lines.length; i++) {
+					blk.push(lines[i]);
+					if (lines[i].includes(closer)) break;
+				}
+			} else {
+				// nesting-aware: accumulate until the matching \end (blank lines included)
+				let depth = 0;
+				for (; i < lines.length; i++) {
+					depth += (lines[i].match(/\\begin\{[a-zA-Z*]+\}/g) || []).length;
+					depth -= (lines[i].match(/\\end\{[a-zA-Z*]+\}/g) || []).length;
+					blk.push(lines[i]);
+					if (depth <= 0) break;
+				}
 			}
 			out.push({ text: blk.join('\n'), startLine: s0 + 1, env: be[1] });
 			continue;
@@ -143,48 +155,78 @@ export function splitParaLines(lines: string[]): Para[] {
 }
 
 // wrap a captured \item body back in its list env for the daemon (correct width + label).
-// The counter is pinned to a FIXED value so repeated typesets are deterministic -- the
-// engine's own counter would accumulate across requests. The pinned (likely wrong) label
-// digit fails exact verification and demotes to provisional; the reconcile paints the
-// real number. (A JS re-count of \item lines used to guess the true value: deleted --
+// The counter is pinned so repeated typesets are deterministic -- the engine's own counter
+// would accumulate across requests. The pin is the TRUE value from the last compile's
+// counter log when it is known (the patch can then certify exact); without it the 0 pin's
+// wrong digit fails exact verification and demotes to provisional, and the reconcile
+// paints the real number. (A JS re-count of \item lines used to guess the value: deleted --
 // reconstructing TeX counter state in JS is exactly the approximation we don't do.)
-export function wrapItem(t: string, w?: string) {
+export function wrapItem(t: string, w?: string, line?: number, file?: string) {
 	if (!w) return t;
-	const setc = w === 'enumerate' ? '\\setcounter{enumi}{0}' : '';
+	const pin = w === 'enumerate' && line !== undefined ? counterBefore('enumi', line, file) : null;
+	const setc = w === 'enumerate' ? `\\setcounter{enumi}{${pin ?? 0}}` : '';
 	return `\\begin{${w}}${setc}\\item ${t}\\end{${w}}`;
 }
 // comment stripping is ONLY for JS-side lexing guards (brace balance); dispatched text
-// ships verbatim -- the engine's own catcodes decide what a % means
+// ships verbatim -- the engine's own catcodes decide what a % means. Comment chars come
+// from the engine's catcode table, verbatim bodies are masked first (\url{a%b} comments
+// nothing), and escape parity is tracked so "\\% comment" strips where "\%" does not.
 export function stripTexComments(s: string) {
-	return s.replace(/([^\\]|^)%.*$/gm, '$1');
+	const cats = lexCats();
+	const t = maskVerbatim(s);
+	let out = '';
+	for (let i = 0; i < t.length; i++) {
+		const c = t.charCodeAt(i);
+		if (cats.escape.has(c)) {
+			out += t[i];
+			if (i + 1 < t.length) out += t[++i];
+		} else if (cats.comment.has(c)) {
+			while (i < t.length && t[i] !== '\n') i++;
+			if (i < t.length) out += '\n';
+		} else out += t[i];
+	}
+	return out;
 }
 // Heading dispatch prefix: the daemon's section counters accumulate across requests
 // (\section{hi} renders "1 hi", then "2 hi", ...) and \@startsection's beforeskip
 // depends on the leftover @nobreak state -- both nondeterministic. Pin the counters and
-// force @nobreak so every typeset of the same heading is identical; the (likely wrong)
-// number renders as a PROVISIONAL patch and the reconcile pass paints the real one.
-const HEAD_RESET: Record<string, string> = {
-	section: '\\setcounter{section}{0}',
-	subsection: '\\setcounter{section}{1}\\setcounter{subsection}{0}',
-	subsubsection: '\\setcounter{section}{1}\\setcounter{subsection}{1}\\setcounter{subsubsection}{0}',
+// force @nobreak so every typeset of the same heading is identical. Pins are the TRUE
+// values from the last compile's counter log when known -- the heading then reproduces
+// the page exactly and the patch certifies; the fixed fallbacks render a wrong number
+// that stays provisional until the reconcile.
+const HEAD_CHAIN: Record<string, string[]> = {
+	section: ['section'],
+	subsection: ['section', 'subsection'],
+	subsubsection: ['section', 'subsection', 'subsubsection'],
 	// run-in levels print no number at default secnumdepth; pinned anyway for docs that raise it
-	paragraph: '\\setcounter{section}{1}\\setcounter{subsection}{1}\\setcounter{subsubsection}{1}\\setcounter{paragraph}{0}',
-	subparagraph:
-		'\\setcounter{section}{1}\\setcounter{subsection}{1}\\setcounter{subsubsection}{1}\\setcounter{paragraph}{1}\\setcounter{subparagraph}{0}'
+	paragraph: ['section', 'subsection', 'subsubsection', 'paragraph'],
+	subparagraph: ['section', 'subsection', 'subsubsection', 'paragraph', 'subparagraph']
 };
+function headPins(head: string, line?: number, file?: string): string {
+	const chain = HEAD_CHAIN[head];
+	if (!chain) return '';
+	// the head's own counter pins to the value BEFORE its step (the \section steps it);
+	// parents pin to their standing value
+	return chain
+		.map((c, k) => {
+			const trueV = line !== undefined ? counterBefore(c, line, file) : null;
+			return `\\setcounter{${c}}{${trueV ?? (k === chain.length - 1 ? 0 : 1)}}`;
+		})
+		.join('');
+}
 // blank lines inside a head para (run-in head, blank, prose) are stripped for the daemon:
 // TeX attaches the head across them, and a shipped \par would detach it
-export function wrapHead(t: string, head?: string) {
+export function wrapHead(t: string, head?: string, line?: number, file?: string) {
 	return head
-		? `\\makeatletter\\@nobreaktrue\\makeatother${HEAD_RESET[head] ?? ''}${t
+		? `\\makeatletter\\@nobreaktrue\\makeatother${headPins(head, line, file)}${t
 				.split('\n')
 				.filter((l) => l.trim() !== '')
 				.join('\n')}`
 		: t;
 }
 // a Para as the daemon should typeset it (list items re-wrapped, headings pinned)
-export function paraTex(p: Para) {
-	return wrapHead(wrapItem(p.text, p.wrap), p.head);
+export function paraTex(p: Para, file?: string) {
+	return wrapHead(wrapItem(p.text, p.wrap, p.startLine, file), p.head, p.startLine, file);
 }
 
 // While typing you pass through unbalanced states (\textbf{ before the }, $ before its

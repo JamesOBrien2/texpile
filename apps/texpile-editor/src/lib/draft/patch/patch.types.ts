@@ -1,4 +1,5 @@
 import type { PageRecord } from '../geometry/geometry.types';
+import type { FlowStep } from './glueShift';
 
 export type Patch = {
 	top: number;
@@ -15,6 +16,9 @@ export type Patch = {
 	// records BELOW this y are outside the contiguous content flow (the isolated
 	// page-number footer): never shift, clip, or move them
 	flowBottom?: number;
+	// piecewise below-band shift from the page's real glue (stretched pages): content
+	// past each step's y shifts by its dy instead of the constant delta
+	flowSteps?: FlowStep[];
 	// the patch's CLAIM about the content below the band (rows sampled at patch time,
 	// y already shifted by delta): verifyPatches grades it against the fresh compile --
 	// a row that lands elsewhere means the live render put the column/page break in the

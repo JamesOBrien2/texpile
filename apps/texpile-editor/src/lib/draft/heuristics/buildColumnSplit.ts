@@ -4,7 +4,7 @@
 // content below by the spill-height change. Always provisional.
 import { glyphRows } from '../geometry/glyphRows';
 import type { Cal } from '../locate/locate.types';
-import type { Patch } from './patch.types';
+import type { Patch } from '../patch/patch.types';
 
 type SplitDeps = {
 	h1: number;
@@ -12,6 +12,9 @@ type SplitDeps = {
 	colBottom: number;
 	contentFloorOf: (p: number) => number;
 	pageRecords: (n: number) => any[];
+	// the daemon's \vsplit answer: the engine's break row (penalties included) instead of
+	// the capacity arithmetic below
+	engine?: { recsA: any[]; recsB: any[] };
 };
 
 export function buildColumnSplit(
@@ -20,13 +23,27 @@ export function buildColumnSplit(
 	lineRecs: any[],
 	d: SplitDeps
 ): { segA: Patch; segB: Patch; spillPage: number; kA: number } {
-	const capA = Math.max(1, Math.floor((d.colBottom - (cal.b1 - d.h1)) / cal.medGap));
-	const kA = Math.min(lineRecs.length, capA);
-	const cutY = kA >= lineRecs.length ? Infinity : ((lineRecs[kA - 1] as any).y + (lineRecs[kA] as any).y) / 2;
-	const recsA = records.filter((x: any) => x.t === 'font' || (x.y ?? 0) < cutY);
-	const recsB = records.filter((x: any) => x.t === 'font' || (x.y ?? 0) >= cutY);
-	const yFirstB = kA < lineRecs.length ? (lineRecs[kA] as any).y : 0;
-	const newSpillH = kA < lineRecs.length ? (lineRecs[lineRecs.length - 1] as any).y - yFirstB : -cal.medGap;
+	let kA: number;
+	let recsA: any[];
+	let recsB: any[];
+	let yFirstB: number;
+	let newSpillH: number;
+	const bLines = d.engine ? d.engine.recsB.filter((x: any) => x.t === 'line') : [];
+	if (d.engine && bLines.length) {
+		kA = d.engine.recsA.filter((x: any) => x.t === 'line').length;
+		recsA = d.engine.recsA;
+		recsB = d.engine.recsB;
+		yFirstB = (bLines[0] as any).y;
+		newSpillH = (bLines[bLines.length - 1] as any).y - yFirstB;
+	} else {
+		const capA = Math.max(1, Math.floor((d.colBottom - (cal.b1 - d.h1)) / cal.medGap));
+		kA = Math.min(lineRecs.length, capA);
+		const cutY = kA >= lineRecs.length ? Infinity : ((lineRecs[kA - 1] as any).y + (lineRecs[kA] as any).y) / 2;
+		recsA = records.filter((x: any) => x.t === 'font' || (x.y ?? 0) < cutY);
+		recsB = records.filter((x: any) => x.t === 'font' || (x.y ?? 0) >= cutY);
+		yFirstB = kA < lineRecs.length ? (lineRecs[kA] as any).y : 0;
+		newSpillH = kA < lineRecs.length ? (lineRecs[lineRecs.length - 1] as any).y - yFirstB : -cal.medGap;
+	}
 	const segA: Patch = {
 		top: cal.b1 - d.h1,
 		dropTop: cal.b1 - d.h1 - 2,
@@ -47,7 +64,7 @@ export function buildColumnSplit(
 		paraLeft: cal.spill.paraLeft,
 		colL: cal.spill.colL,
 		colR: cal.spill.colR,
-		newRecs: kA < lineRecs.length ? recsB : [],
+		newRecs: d.engine && bLines.length ? recsB : kA < lineRecs.length ? recsB : [],
 		flowBottom: d.contentFloorOf(spillOn),
 		flowPred: glyphRows(
 			d
