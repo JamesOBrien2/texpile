@@ -57,7 +57,7 @@ describe('TabBar overflow', () => {
 	});
 
 	it('hides the ones past capacity and reports how many', () => {
-		width = 400; // floor((400 - 44) / 116) = 3
+		width = 400; // floor((400 - 44) / 96) = 3
 		render({ tabs: files(8), activePath: '/ws/file0.tex' });
 		expect(visibleTabs()).toEqual(['/ws/file0.tex', '/ws/file1.tex', '/ws/file2.tex']);
 		expect(host.textContent).toContain('5'); // 8 open, 3 shown

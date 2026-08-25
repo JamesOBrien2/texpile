@@ -5,7 +5,8 @@
 // under the reader the moment the real workspace replaces it.
 import type { LayoutState } from '$lib/storage/layout';
 
-export const SIDEBAR_MIN = 180;
+// the header collapses its actions into one "..." button, so the folder name is all that has to fit
+export const SIDEBAR_MIN = 140;
 export const SIDEBAR_MAX = 600;
 export const PDF_MIN = 280;
 /** keep this much room for the editor no matter how wide the preview was saved */

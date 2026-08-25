@@ -25,8 +25,9 @@
 		return !!activePath && samePath(t, activePath);
 	}
 
-	/** a tab narrower than this is unreadable, so it goes in the dropdown instead */
-	const MIN_TAB_PX = 116;
+	/** a tab narrower than this is unreadable, so it goes in the dropdown instead.
+	 *  drives the tabs' CSS min-width directly - do not restate it as a class. */
+	const MIN_TAB_PX = 96;
 	/** the overflow button's own footprint, reserved before dividing up the rest */
 	const OVERFLOW_PX = 44;
 
@@ -73,12 +74,10 @@
 	>
 		{#each visible as tab (tab)}
 			<div
-				class="group border-surface-200-800 flex min-w-[116px] shrink cursor-pointer items-center gap-1.5 border-r px-3 text-sm {isActive(
-					tab
-				)
+				class="group border-surface-200-800 flex shrink cursor-pointer items-center gap-1.5 border-r px-3 text-sm {isActive(tab)
 					? 'bg-surface-50-950'
 					: 'text-surface-600-400 hover:bg-surface-200-800/60'}"
-				style="max-width: 15rem"
+				style="min-width: {MIN_TAB_PX}px; max-width: 15rem"
 				role="tab"
 				aria-selected={isActive(tab)}
 				tabindex="0"
@@ -97,8 +96,9 @@
 			>
 				<span class="truncate leading-none" class:italic={!!previewPath && samePath(tab, previewPath)}>{basename(tab)}</span>
 				<!-- fixed-size trailing slot: dirty dot and close button share it, so neither ever
-				     changes the tab's width; hovering swaps the dot for the close button -->
-				<span class="-mr-1 flex size-5 shrink-0 items-center justify-center">
+				     changes the tab's width; hovering swaps the dot for the close button.
+				     ml-auto keeps it on the right edge when the name leaves slack -->
+				<span class="-mr-1 ml-auto flex size-5 shrink-0 items-center justify-center">
 					{#if isActive(tab) && dirty}
 						<span class="bg-warning-500 size-2 rounded-full group-hover:hidden" title={m.wsview_unsaved_changes()}></span>
 					{/if}
