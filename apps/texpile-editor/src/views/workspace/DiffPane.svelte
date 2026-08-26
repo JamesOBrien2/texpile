@@ -13,11 +13,34 @@
 		loading: boolean;
 		error: string | null;
 		hasHead: boolean;
+		/** the version being compared against; null means the last saved one */
+		compareRef?: { hash: string; subject: string } | null;
+		/** the working copy is gone: the version is shown against nothing */
+		fileDeleted?: boolean;
+		/** nothing may be written back: the file is being co-edited, and this pane is not CRDT-bound */
+		readOnly?: boolean;
+		/** edits to the working side, routed to the buffer's own input handler */
+		onModifiedInput?: (value: string) => void;
 		onToggleLayout: () => void;
 		onRefresh: () => void;
 		onExit: () => void;
 	};
-	let { filename, original, modified, layout, loading, error, hasHead, onToggleLayout, onRefresh, onExit }: Props = $props();
+	let {
+		filename,
+		original,
+		modified,
+		layout,
+		loading,
+		error,
+		hasHead,
+		compareRef = null,
+		fileDeleted = false,
+		readOnly = false,
+		onModifiedInput,
+		onToggleLayout,
+		onRefresh,
+		onExit
+	}: Props = $props();
 </script>
 
 <div class="flex h-full flex-col">
@@ -28,7 +51,12 @@
 	>
 		<GitCompare class="size-3.5 shrink-0" />
 		<span class="font-medium">{m.wsview_diff_heading()}</span>
-		{#if loading}<span class="text-surface-500">· {m.wsview_diff_loading()}</span>
+		<!-- naming the version matters more than the word "diff" once this can point at any of them -->
+		{#if compareRef}
+			<span class="text-surface-500 min-w-0 truncate" title={compareRef.hash}>· {compareRef.subject}</span>
+		{/if}
+		{#if fileDeleted}<span class="text-surface-500">· {m.wsview_diff_file_deleted()}</span>
+		{:else if loading}<span class="text-surface-500">· {m.wsview_diff_loading()}</span>
 		{:else if error}<span class="text-error-500 truncate">· {error}</span>
 		{:else if !hasHead}<span class="text-surface-500">· {m.wsview_diff_new_file()}</span>{/if}
 		<div class="ml-auto flex shrink-0 items-center gap-1">
@@ -81,7 +109,7 @@
 	     its scrollbar off the divider lozenge, and the bars above must still reach it -->
 	<div class="scroll-inset-r min-h-0 flex-1 overflow-auto">
 		{#key filename}
-			<DiffPanel {filename} {original} {modified} {layout} />
+			<DiffPanel {filename} {original} {modified} {layout} {readOnly} {onModifiedInput} />
 		{/key}
 	</div>
 </div>

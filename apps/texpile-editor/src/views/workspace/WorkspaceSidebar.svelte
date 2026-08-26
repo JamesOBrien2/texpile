@@ -6,10 +6,20 @@
 	import SourceControlPanel from '$lib/workspace/SourceControlPanel.svelte';
 	import TableOfContents from './TableOfContents.svelte';
 	import { workspaceRoot, fileTree, activeFilePath, mainFile } from '$lib/workspace/workspaceStore';
-	import { isGitRepo, gitBranch, gitChanges, gitStatusMap } from '$lib/workspace/gitStore';
+	import {
+		isGitRepo,
+		gitBranch,
+		gitChanges,
+		gitStatusMap,
+		gitHistory,
+		gitHistoryError,
+		gitHistoryHasMore,
+		refreshGitHistory,
+		showMoreGitHistory
+	} from '$lib/workspace/gitStore';
 	import { basename, type TreeEntry } from '$lib/workspace/fileSystem';
 	import type { FileHistory } from '$lib/workspace/fileHistory.svelte';
-	import type { GitStatusEntry } from '$lib/workspace/git';
+	import type { GitStatusEntry, GitLogEntry, GitFileChange } from '$lib/workspace/git';
 	import { m } from '$lib/paraglide/messages';
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import { FilePlus, FolderPlus, RefreshCw, GitBranch, Search, MoreHorizontal } from '@lucide/svelte';
@@ -22,6 +32,9 @@
 		scmBusy: boolean;
 		showToc: boolean;
 		tocFraction: number;
+		/** the source control panel's own split: the timeline's share of it */
+		historyFraction: number;
+		scmSplitEl?: HTMLDivElement;
 		viewMode: 'visual' | 'source' | 'diff';
 		fileTreeRef?: { newAtRoot: (type: 'file' | 'dir' | 'include', defaultName?: string) => void; isEditing: () => boolean };
 		globalSearchRef?: GlobalSearch | null;
@@ -45,12 +58,16 @@
 		fileHistory: FileHistory | null;
 		onStartTocResize: (e: MouseEvent) => void;
 		onResizeTocByKey: (e: KeyboardEvent) => void;
+		onStartHistoryResize: (e: MouseEvent) => void;
+		onResizeHistoryByKey: (e: KeyboardEvent) => void;
 		onRefreshGit: () => void;
 		scmInit: () => void;
-		scmStage: (paths: string[]) => void;
-		scmUnstage: (paths: string[]) => void;
 		scmDiscard: (changes: GitStatusEntry[]) => void;
-		scmCommit: (message: string) => Promise<boolean>;
+		scmCommit: (message: string, paths: string[]) => Promise<boolean>;
+		scmRestore: (entry: GitLogEntry) => void;
+		scmIgnoreArtifacts: () => void;
+		scmCompare: (entry: GitLogEntry, path: string) => void;
+		scmChangesSince: (hash: string) => Promise<GitFileChange[]>;
 		scmOpenDiff: (path: string) => void;
 	};
 	let {
@@ -61,6 +78,8 @@
 		scmBusy,
 		showToc,
 		tocFraction,
+		historyFraction,
+		scmSplitEl = $bindable(),
 		viewMode,
 		fileTreeRef = $bindable(),
 		globalSearchRef = $bindable(),
@@ -82,25 +101,48 @@
 		fileHistory,
 		onStartTocResize,
 		onResizeTocByKey,
+		onStartHistoryResize,
+		onResizeHistoryByKey,
 		onRefreshGit,
 		scmInit,
-		scmStage,
-		scmUnstage,
 		scmDiscard,
 		scmCommit,
+		scmRestore,
+		scmIgnoreArtifacts,
+		scmCompare,
+		scmChangesSince,
 		scmOpenDiff
 	}: Props = $props();
+
+	// The timeline loads when the panel is opened rather than on every tree refresh: status is cheap
+	// and runs constantly, `git log` is not and only changes when a version is saved. Commits and
+	// restores refresh it themselves, so this covers opening the panel and commits made elsewhere.
+	$effect(() => {
+		if (view !== 'scm' || !isGitRepo.current) return;
+		void refreshGitHistory(workspaceRoot.current);
+	});
 
 	// One list, rendered either as a header icon or as a menu row, so the two can never drift apart.
 	// `active` is the view-toggle state the icon shows as a tint.
 	type SidebarAction = { key: string; icon: typeof FilePlus; label: string; title?: string; active?: boolean; run: () => void };
 
-	/** the plain actions, in the order they give way to the "..." menu (last one goes first) */
-	const collapsible = $derived<SidebarAction[]>([
-		{ key: 'new-file', icon: FilePlus, label: m.wsview_new_file_title(), run: () => fileTreeRef?.newAtRoot('file') },
-		{ key: 'new-folder', icon: FolderPlus, label: m.wsview_new_folder_title(), run: () => fileTreeRef?.newAtRoot('dir') },
-		{ key: 'refresh', icon: RefreshCw, label: m.wsview_refresh_tree_title(), run: onRefreshTree }
-	]);
+	/**
+	 * The plain actions, in the order they give way to the "..." menu (last one goes first).
+	 *
+	 * Explorer only, because all three act on the file TREE: fileTreeRef is bound inside the
+	 * explorer branch, so in History or Find they were wired to undefined and did nothing at all,
+	 * while the tree refresh sat directly above the History panel's own refresh looking like a
+	 * duplicate of it. The view toggles below stay put, since those are navigation.
+	 */
+	const collapsible = $derived<SidebarAction[]>(
+		view !== 'explorer'
+			? []
+			: [
+					{ key: 'new-file', icon: FilePlus, label: m.wsview_new_file_title(), run: () => fileTreeRef?.newAtRoot('file') },
+					{ key: 'new-folder', icon: FolderPlus, label: m.wsview_new_folder_title(), run: () => fileTreeRef?.newAtRoot('dir') },
+					{ key: 'refresh', icon: RefreshCw, label: m.wsview_refresh_tree_title(), run: onRefreshTree }
+				]
+	);
 
 	// The view toggles hold their place at every width: each one carries state, and a tint inside a
 	// closed menu is a state you cannot see. A guest has neither.
@@ -243,20 +285,32 @@
 	{#if view === 'search'}
 		<GlobalSearch bind:this={globalSearchRef} root={workspaceRoot.current ?? ''} onOpen={onOpenFileAt} onClose={onCloseGlobalSearch} />
 	{:else if view === 'scm'}
-		<div class="scroll-inset-r min-h-0 flex-1 overflow-y-auto">
+		<!-- the panel owns its own scrolling: it is two regions with a splitter between them, each
+		     scrolling on its own, and an outer scroller here would fight both -->
+		<div class="min-h-0 flex-1">
 			<SourceControlPanel
 				root={workspaceRoot.current ?? ''}
 				isRepo={isGitRepo.current}
 				branch={gitBranch.current}
 				changes={gitChanges.current}
+				history={gitHistory.current}
+				historyError={gitHistoryError.current}
+				historyHasMore={gitHistoryHasMore.current}
+				onShowMoreHistory={() => void showMoreGitHistory(workspaceRoot.current)}
 				busy={scmBusy}
 				onInit={scmInit}
-				onStage={scmStage}
-				onUnstage={scmUnstage}
 				onDiscard={scmDiscard}
 				onCommit={scmCommit}
+				onRestore={scmRestore}
+				onIgnoreArtifacts={scmIgnoreArtifacts}
+				onCompare={scmCompare}
+				onLoadChanges={scmChangesSince}
 				onOpenDiff={scmOpenDiff}
 				onRefresh={onRefreshGit}
+				{historyFraction}
+				bind:splitEl={scmSplitEl}
+				{onStartHistoryResize}
+				{onResizeHistoryByKey}
 			/>
 		</div>
 	{:else}

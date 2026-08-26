@@ -1,21 +1,35 @@
-// Open-file tabs, VS Code style: which files are open and in what order. Per window and per
+// Open tabs, VS Code style: which files are open and in what order. Per window and per
 // user (shared sessions don't sync tab state). The ACTIVE file stays workspaceStore's
 // activeFilePath; WorkspaceView wires activation, closing and tree-change cleanup to this.
+//
+// A tab is a FILE or a COMPARISON of one against a saved version - the same kind of thing, so
+// one strip. Not the visual/source axis, which stays a preference. Comparisons are never persisted.
 import { samePath, joinPath } from './fileSystem';
 import { getFolder, updateFolder } from '$lib/storage/workspaces';
 
 const MAX_TABS = 50;
+
+/** the saved version a comparison tab is against */
+export type CompareRef = { hash: string; subject: string };
+
+export type Tab = { path: string; compare?: CompareRef };
+
+// a path cannot contain NUL, so a comparison key can never collide with a plain file key
+const KEY_SEP = '\u0000';
+
+/** stable identity for a tab; one file compared against two versions is two tabs. */
+export function tabKey(t: Tab): string {
+	return t.compare ? `${t.path}${KEY_SEP}${t.compare.hash}` : t.path;
+}
 
 function sepOf(p: string) {
 	return p.includes('\\') ? '\\' : '/';
 }
 
 class TabsStore {
-	list = $state<string[]>([]);
-	/** The one PREVIEW tab, VS Code style: a file you opened but have not edited yet. Opening
-	 *  another file takes its slot instead of adding a tab, so browsing a tree does not bury the
-	 *  strip. Editing it (keep()) makes it permanent, and only then does the next file get a tab
-	 *  of its own. Never persisted: a restored session's tabs are all permanent. */
+	list = $state<Tab[]>([]);
+	/** VS Code style: opening another takes its slot rather than adding a tab, so browsing a tree
+	 *  does not bury the strip. A KEY, so a comparison can hold the slot as a file does. */
 	preview = $state<string | null>(null);
 	private root: string | null = null;
 	private persistable = false;
@@ -28,29 +42,50 @@ class TabsStore {
 		this.preview = null;
 		if (!this.persistable || !root) return;
 		const rels = getFolder(root).tabs;
-		if (Array.isArray(rels)) this.list = rels.slice(0, MAX_TABS).map((r) => joinPath(root, String(r)));
+		if (Array.isArray(rels)) this.list = rels.slice(0, MAX_TABS).map((r) => ({ path: joinPath(root, String(r)) }));
 	}
 
-	isPreview(path: string): boolean {
-		return !!this.preview && samePath(this.preview, path);
+	/** for callers that only care about documents (MCP, guards) */
+	get paths(): string[] {
+		return this.list.filter((t) => !t.compare).map((t) => t.path);
+	}
+
+	isPreview(key: string): boolean {
+		return this.preview === key;
 	}
 
 	/** promote out of the preview slot: the file was edited, or the user asked to keep it. */
-	keep(path: string): void {
-		if (this.isPreview(path)) this.preview = null;
+	keep(key: string): void {
+		if (this.preview === key) this.preview = null;
 	}
 
 	private persist(): void {
 		if (!this.persistable || !this.root) return;
 		const root = this.root;
-		const rels = this.list.map((p) => p.slice(root.length).replace(/^[\\/]/, ''));
+		// comparisons are transient by design and never reach storage
+		const rels = this.list.filter((t) => !t.compare).map((t) => t.path.slice(root.length).replace(/^[\\/]/, ''));
 		updateFolder(root, (draft) => {
 			draft.tabs = rels;
 		});
 	}
 
-	has(path: string): boolean {
-		return this.list.some((t) => samePath(t, path));
+	has(key: string): boolean {
+		return this.list.some((t) => tabKey(t) === key);
+	}
+
+	/** ignoring any comparisons of it */
+	hasFile(path: string): boolean {
+		return this.list.some((t) => !t.compare && samePath(t.path, path));
+	}
+
+	private add(tab: Tab): void {
+		const key = tabKey(tab);
+		if (this.has(key)) return;
+		// replacing in place keeps the strip from shuffling under the pointer
+		const at = this.preview ? this.list.findIndex((t) => tabKey(t) === this.preview) : -1;
+		this.list = at >= 0 ? this.list.map((t, i) => (i === at ? tab : t)) : [...this.list.slice(-(MAX_TABS - 1)), tab];
+		this.preview = key;
+		this.persist();
 	}
 
 	/** every opened file gains a tab (file tree, SyncTeX jumps, include links, restores). */
@@ -62,32 +97,45 @@ class TabsStore {
 			const prefix = this.root + sepOf(this.root);
 			if (!samePath(path.slice(0, prefix.length), prefix)) return;
 		}
-		if (this.has(path)) return;
-		// the unedited tab gives up its slot rather than its position: replacing in place keeps
-		// the strip from shuffling under the pointer while you click down a file tree
-		const at = this.preview ? this.list.findIndex((t) => samePath(t, this.preview!)) : -1;
-		this.list = at >= 0 ? this.list.map((t, i) => (i === at ? path : t)) : [...this.list.slice(-(MAX_TABS - 1)), path];
-		this.preview = path;
-		this.persist();
+		if (this.hasFile(path)) return;
+		this.add({ path });
 	}
 
-	/** the tab to activate when closing the active one: right neighbor first, then left. */
-	neighborOf(path: string): string | null {
-		const i = this.list.findIndex((t) => samePath(t, path));
+	/** open (or re-focus) a comparison of `path` against one version; returns its key. */
+	openCompare(path: string, compare: CompareRef): string {
+		const tab: Tab = { path, compare };
+		this.add(tab);
+		return tabKey(tab);
+	}
+
+	find(key: string): Tab | null {
+		return this.list.find((t) => tabKey(t) === key) ?? null;
+	}
+
+	/** right neighbour first, then left */
+	neighborOf(key: string): Tab | null {
+		const i = this.list.findIndex((t) => tabKey(t) === key);
 		if (i < 0) return null;
 		return this.list[i + 1] ?? this.list[i - 1] ?? null;
 	}
 
-	close(path: string): void {
-		this.list = this.list.filter((t) => !samePath(t, path));
-		this.keep(path); // the slot goes with the tab
+	close(key: string): void {
+		this.list = this.list.filter((t) => tabKey(t) !== key);
+		this.keep(key); // the slot goes with the tab
+		this.persist();
+	}
+
+	/** its comparisons go too: nothing left to sit beside */
+	closeFile(path: string): void {
+		this.list = this.list.filter((t) => !samePath(t.path, path));
+		this.dropPreviewIfClosed();
 		this.persist();
 	}
 
 	/** a deleted folder takes every tab under it along. */
 	closeUnder(path: string): void {
 		const prefix = path + sepOf(path);
-		this.list = this.list.filter((t) => !samePath(t, path) && !t.startsWith(prefix));
+		this.list = this.list.filter((t) => !samePath(t.path, path) && !t.path.startsWith(prefix));
 		this.dropPreviewIfClosed();
 		this.persist();
 	}
@@ -95,17 +143,20 @@ class TabsStore {
 	/** a rename/move retargets the tab, or every tab under it when a folder moved. */
 	rename(from: string, to: string): void {
 		const prefix = from + sepOf(from);
-		function retarget(t: string) {
-			return samePath(t, from) ? to : t.startsWith(prefix) ? to + t.slice(from.length) : t;
+		function retarget(p: string) {
+			return samePath(p, from) ? to : p.startsWith(prefix) ? to + p.slice(from.length) : p;
 		}
-		this.list = this.list.map(retarget);
-		if (this.preview) this.preview = retarget(this.preview);
+		// the preview key embeds the path, so it is re-derived from the moved tab rather than carried
+		const at = this.preview ? this.list.findIndex((t) => tabKey(t) === this.preview) : -1;
+		const moved = this.list.map((t) => ({ ...t, path: retarget(t.path) }));
+		this.list = moved;
+		this.preview = at >= 0 ? tabKey(moved[at]) : null;
 		this.persist();
 	}
 
 	/** drop tabs whose files no longer exist (tree refreshes, remote deletions). */
 	prune(livePaths: string[]): void {
-		const next = this.list.filter((t) => livePaths.some((p) => samePath(p, t)));
+		const next = this.list.filter((t) => livePaths.some((p) => samePath(p, t.path)));
 		if (next.length !== this.list.length) {
 			this.list = next;
 			this.dropPreviewIfClosed();
@@ -117,9 +168,9 @@ class TabsStore {
 		if (this.preview && !this.has(this.preview)) this.preview = null;
 	}
 
-	cycle(current: string | null, dir: 1 | -1): string | null {
+	cycle(currentKey: string | null, dir: 1 | -1): Tab | null {
 		if (this.list.length === 0) return null;
-		const i = current ? this.list.findIndex((t) => samePath(t, current)) : -1;
+		const i = currentKey ? this.list.findIndex((t) => tabKey(t) === currentKey) : -1;
 		return this.list[(i + dir + this.list.length) % this.list.length] ?? null;
 	}
 }

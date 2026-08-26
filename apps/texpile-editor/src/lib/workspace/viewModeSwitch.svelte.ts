@@ -5,8 +5,10 @@
 // whereas positions only drift. `scroll` is the viewport-top block; `cursor` is the caret mapped
 // proportionally within its block's orig.latex slice.
 //
-// Diff is a read-only third view and is deliberately NOT persisted: a reload restores the last
-// visual/source choice, never diff.
+// Diff is deliberately NOT persisted: a reload restores the last visual/source choice, never diff.
+// It is not a third view any more either - asking for it opens a comparison TAB, and visual/source
+// still applies inside that tab. The working copy is editable in both; the version compared against
+// is the read-only half and lives in the diff layer rather than on screen.
 import { browser } from '$lib/runtime';
 import { layout, updateLayout } from '$lib/storage/layout';
 import { isGitRepo } from '$lib/workspace/gitStore';
@@ -21,7 +23,10 @@ import { bodyOffsetOf, type ParsedLatexFile } from '$lib/workspace/latexRoundtri
 import { stripFor } from '$lib/languages/markdown/visual/sourceMap';
 import { createSourceHistory } from '$lib/workspace/sourceHistory';
 
+/** what callers may ASK for. 'diff' is a command - it opens a comparison tab - not a state. */
 export type ViewMode = 'visual' | 'source' | 'diff';
+/** what this class can actually be in: how the focused tab is rendered, whatever it holds. */
+export type EditMode = 'visual' | 'source';
 type DocMeta = Pick<ParsedLatexFile, 'preamble' | 'postamble' | 'hadDocumentEnv'> | null;
 
 export type ViewModeDeps = {
@@ -33,14 +38,14 @@ export type ViewModeDeps = {
 	/** the text the current visual doc was parsed from; null while a parse is in flight */
 	getLastParsedSource(): string | null;
 	rebuildVisual(): void;
+	/** open a comparison of the open file against the last saved version. */
+	startCompare(): void;
 	captureDiffSnapshot(): void;
 	scheduleSave(path: string | null, text: string): void;
 };
 
 export class ViewModeSwitch {
-	mode = $state<ViewMode>('visual');
-	/** the last real editing mode, so leaving diff returns where the user was */
-	lastEditMode = $state<'visual' | 'source'>('visual');
+	mode = $state<EditMode>('visual');
 
 	/** consumed by SourceEditor at mount */
 	sourceScrollAnchor = $state<{ scroll: number | null; cursor: number | null } | null>(null);
@@ -55,10 +60,7 @@ export class ViewModeSwitch {
 
 	/** restore the persisted choice; call once at mount */
 	restore() {
-		if (browser && layout.current.viewMode === 'source') {
-			this.mode = 'source';
-			this.lastEditMode = 'source';
-		}
+		if (browser && layout.current.viewMode === 'source') this.mode = 'source';
 	}
 
 	/** orig.start stamps are body-relative; bodyOffsetOf knows where the body begins in the FILE
@@ -80,21 +82,19 @@ export class ViewModeSwitch {
 		resolveVisualAnchor(v, anchor, this.bodyOffset(), stripFor(this.deps.getKind()));
 	}
 
-	/** mirror into the store the editors read; diff presents as source to them */
+	/** mirror into the store the editors read */
 	syncStore(): void {
-		viewModeStore.current = this.mode === 'diff' ? 'source' : this.mode;
+		viewModeStore.current = this.mode;
 	}
 
 	set(mode: ViewMode): void {
 		const d = this.deps;
 		if (mode === this.mode) return;
 		if (mode === 'diff') {
+			// opens a comparison TAB rather than switching this mode: the representation the user
+			// chose survives, and applies to the comparison as well
 			if (!d.getLoadedPath() || !isGitRepo.current) return;
-			this.mode = 'diff';
-			// a pending source->visual anchor must not survive a diff detour (exitDiff re-enters
-			// visual without coming back through here, so nothing else would clear it)
-			this.pendingVisualAnchor = null;
-			d.captureDiffSnapshot();
+			d.startCompare();
 			return;
 		}
 		const kind = d.getKind();
@@ -110,15 +110,8 @@ export class ViewModeSwitch {
 		// the rebuild drops back to source with a toast, so the user never gets stuck on a blank
 		// pane. .bib uses the raw buffer for both views, so no rebuild is needed.
 		this.mode = mode;
-		this.lastEditMode = mode;
 		if (structured && mode === 'visual') d.rebuildVisual();
 		if (browser) updateLayout({ viewMode: mode });
-	}
-
-	exitDiff(): void {
-		this.mode = this.lastEditMode;
-		const kind = this.deps.getKind();
-		if ((kind === 'tex' || kind === 'md' || kind === 'typ') && this.lastEditMode === 'visual') this.deps.rebuildVisual();
 	}
 
 	/** step the workspace history; false at the stack edge lets the key fall through */

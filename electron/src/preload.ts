@@ -183,8 +183,7 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	draftTypeset: (body: { root: string; mainFile: string; text: string; hsize?: number; splitTo?: number }) =>
 		invokeFs('draft:typeset', body),
 	/** Draft-mode page-break certificate: re-split a page's dimension skeleton on the engine. */
-	draftSkeleton: (body: { root: string; mainFile: string; items: unknown[]; targetPt: number }) =>
-		invokeFs('draft:skeleton', body),
+	draftSkeleton: (body: { root: string; mainFile: string; items: unknown[]; targetPt: number }) => invokeFs('draft:skeleton', body),
 	/** Stop the warm daemon (draft mode off / preview closed) so it stops holding memory. */
 	draftStop: () => invokeFs('draft:stop', {}),
 	/** Steal the warm engine from the window that currently owns it (explicit user action). */
@@ -217,7 +216,15 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	gitDiscard: (root: string, paths: string[]) => invokeFs('git:discard', root, paths),
 	gitCommit: (root: string, message: string) => invokeFs('git:commit', root, message),
 	/** the repo's configured user.name, for attributing comments -> { ok, name }. */
-	gitUserName: (root: string) => invokeFs('git:userName', root)
+	gitUserName: (root: string) => invokeFs('git:userName', root),
+	/** commits touching the workspace, newest first -> { ok, entries? }. */
+	gitLog: (root: string, limit?: number) => invokeFs('git:log', root, limit),
+	/** files that differ between a commit and the working copy now -> { ok, entries? }. */
+	gitChangesSince: (root: string, hash: string) => invokeFs('git:changesSince', root, hash),
+	/** a file's contents at an arbitrary commit, for diffing a version -> { ok, hasHead, content? }. */
+	gitShowAt: (path: string, ref: string) => invokeFs('git:showAt', path, ref),
+	/** roll the workspace back to a commit by writing that version forward as a new one. */
+	gitRestore: (root: string, hash: string, message: string) => invokeFs('git:restore', root, hash, message)
 });
 
 // in-app updates: check/download are explicit renderer calls, events stream back per channel

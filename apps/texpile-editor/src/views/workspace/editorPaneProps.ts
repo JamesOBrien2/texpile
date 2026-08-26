@@ -7,16 +7,19 @@ import type { ParsedLatexFile, ParsePhase } from '$lib/workspace/latexRoundtrip'
 import type { BiblatexReference } from '$lib/workspace/citations';
 import type { Starter, ImportedFile } from '$lib/workspace/starters';
 import type { FileKind } from '$lib/workspace/documentBuffer.svelte';
+import type { Tab, CompareRef } from '$lib/workspace/tabs.svelte';
 import type { CommentAnchor } from '$lib/comments/anchor';
 
 export type EditorPaneProps = {
 	loadedPath: string | null;
-	openTabs: string[];
-	/** the unedited preview tab, if any (see TabsStore.preview) */
+	openTabs: Tab[];
+	/** key of the focused tab; a file and a comparison of it are two different keys */
+	activeTabKey: string | null;
+	/** the unedited preview tab's key, if any (see TabsStore.preview) */
 	previewTab: string | null;
-	onActivateTab: (path: string) => void;
-	onCloseTab: (path: string) => void;
-	onKeepTab: (path: string) => void;
+	onActivateTab: (tab: Tab) => void;
+	onCloseTab: (tab: Tab) => void;
+	onKeepTab: (tab: Tab) => void;
 	kind: FileKind;
 	/** a shared session serves this file by name only (no body): show a note, not an empty editor */
 	nameOnly?: boolean;
@@ -24,6 +27,8 @@ export type EditorPaneProps = {
 	session: EditSession;
 	folderEmpty: boolean;
 	loadError: string | null;
+	/** the working copy is gone from disk; only reachable inside a comparison */
+	fileDeleted?: boolean;
 	applyingStarter: boolean;
 	texSource: string;
 	rawContent: string;
@@ -43,6 +48,17 @@ export type EditorPaneProps = {
 	diffLoading: boolean;
 	diffError: string | null;
 	diffHasHead: boolean;
+	/** the version the diff compares against; null means the last saved one */
+	diffCompareRef: { hash: string; subject: string } | null;
+	/** that version parsed, for the VISUAL diff: it compares documents, not sources */
+	diffVersionDoc: PMNode | null;
+	/** its preamble, which sits outside the body and so cannot show up in a document diff */
+	diffVersionPreamble: string | null;
+	/** the version would not parse, so there is no visual diff to draw for it */
+	diffVersionUnavailable: boolean;
+	/** set when the FOCUSED TAB is a comparison: the pane renders a diff instead of the document.
+	 *  Orthogonal to viewMode, which stays visual/source and applies inside either. */
+	compare: CompareRef | null;
 	/** the workspace provider's URL builder: guests resolve through the session, not disk */
 	fileUrl: (path: string) => string;
 	onPickStarter: (s: Starter) => void;

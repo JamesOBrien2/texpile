@@ -23,6 +23,8 @@ export type LayoutState = {
 	sidebarWidth: number;
 	/** table-of-contents share of the sidebar height (0..1) */
 	tocFraction: number;
+	/** the timeline's share of the source control panel (0..1) */
+	historyFraction: number;
 	pdfPaneOpen: boolean;
 	/** preview width as a fraction of window width, so it stays proportional across resizes */
 	pdfPaneFraction: number;
@@ -48,6 +50,7 @@ const DEFAULTS: LayoutState = {
 	sidebarOpen: true,
 	sidebarWidth: 256,
 	tocFraction: 0.5,
+	historyFraction: 0.5,
 	pdfPaneOpen: false,
 	pdfPaneFraction: 0.4,
 	terminalVisible: false,

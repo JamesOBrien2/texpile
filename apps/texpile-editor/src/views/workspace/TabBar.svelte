@@ -1,28 +1,38 @@
 <script lang="ts">
-	// Open-file tabs on a dedicated strip above the editor. Tabs shrink as the count grows; past
+	// Open tabs on a dedicated strip above the editor. Tabs shrink as the count grows; past
 	// the point where another one would be narrower than MIN_TAB_PX the strip stops growing and
 	// the leftovers move into a dropdown, so the bar never scrolls out from under the pointer.
-	import { X, ChevronDown } from '@lucide/svelte';
+	//
+	// A tab is a file or a comparison of that file against one saved version. Both live here
+	// because both are things you opened and can close; visual/source is a separate axis and
+	// stays a toolbar toggle applying to whichever tab is focused.
+	import { X, ChevronDown, GitCompare } from '@lucide/svelte';
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
-	import { basename, samePath } from '$lib/workspace/fileSystem';
+	import { basename } from '$lib/workspace/fileSystem';
+	import { tabKey, type Tab } from '$lib/workspace/tabs.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	type Props = {
-		tabs: string[];
-		activePath: string | null;
-		/** only the active file can be dirty (switching files flushes saves). */
+		tabs: Tab[];
+		/** key of the focused tab, from tabKey() */
+		activeKey: string | null;
+		/** only the active FILE can be dirty (switching files flushes saves; a comparison is read-only). */
 		dirty: boolean;
-		/** the unedited PREVIEW tab, shown in italics; the next file opened takes its slot. */
-		previewPath?: string | null;
-		onActivate: (path: string) => void;
-		onClose: (path: string) => void;
+		/** the unedited PREVIEW tab, shown in italics; the next thing opened takes its slot. */
+		previewKey?: string | null;
+		onActivate: (tab: Tab) => void;
+		onClose: (tab: Tab) => void;
 		/** double-click keeps a preview tab (the only way to hold one you never edit, e.g. a PDF). */
-		onKeep?: (path: string) => void;
+		onKeep?: (tab: Tab) => void;
 	};
-	let { tabs, activePath, dirty, previewPath = null, onActivate, onClose, onKeep }: Props = $props();
+	let { tabs, activeKey, dirty, previewKey = null, onActivate, onClose, onKeep }: Props = $props();
 
-	function isActive(t: string) {
-		return !!activePath && samePath(t, activePath);
+	function isActive(t: Tab) {
+		return !!activeKey && tabKey(t) === activeKey;
+	}
+	/** the version name rides on the tooltip: at MIN_TAB_PX only the filename fits on the strip */
+	function tabTitle(t: Tab) {
+		return t.compare ? m.tabs_compare_title({ name: t.path, version: t.compare.subject }) : t.path;
 	}
 
 	/** a tab narrower than this is unreadable, so it goes in the dropdown instead.
@@ -48,7 +58,7 @@
 	let windowStart = $state(0);
 	$effect(() => {
 		const max = Math.max(0, tabs.length - capacity);
-		const i = activePath ? tabs.findIndex((t) => samePath(t, activePath)) : -1;
+		const i = activeKey ? tabs.findIndex((t) => tabKey(t) === activeKey) : -1;
 		let start = Math.min(windowStart, max);
 		if (i >= 0) {
 			if (i < start) start = i;
@@ -60,9 +70,9 @@
 	const visible = $derived(tabs.slice(windowStart, windowStart + capacity));
 
 	let menuOpen = $state(false);
-	function chooseFromMenu(path: string) {
+	function chooseFromMenu(tab: Tab) {
 		menuOpen = false;
-		onActivate(path);
+		onActivate(tab);
 	}
 </script>
 
@@ -72,7 +82,8 @@
 		role="tablist"
 		bind:clientWidth={stripWidth}
 	>
-		{#each visible as tab (tab)}
+		{#each visible as tab (tabKey(tab))}
+			{@const key = tabKey(tab)}
 			<div
 				class="group border-surface-200-800 flex shrink cursor-pointer items-center gap-1.5 border-r px-3 text-sm {isActive(tab)
 					? 'bg-surface-50-950'
@@ -81,7 +92,7 @@
 				role="tab"
 				aria-selected={isActive(tab)}
 				tabindex="0"
-				title={tab}
+				title={tabTitle(tab)}
 				onclick={() => onActivate(tab)}
 				ondblclick={() => onKeep?.(tab)}
 				onkeydown={(e) => {
@@ -94,16 +105,21 @@
 					if (e.button === 1) onClose(tab);
 				}}
 			>
-				<span class="truncate leading-none" class:italic={!!previewPath && samePath(tab, previewPath)}>{basename(tab)}</span>
+				<!-- the marker carries the whole distinction between a file and a comparison of it, so
+				     it sits BEFORE the name where it cannot be trimmed away by a long filename -->
+				{#if tab.compare}
+					<GitCompare class="text-primary-500 size-3.5 shrink-0" />
+				{/if}
+				<span class="truncate leading-none" class:italic={previewKey === key}>{basename(tab.path)}</span>
 				<!-- fixed-size trailing slot: dirty dot and close button share it, so neither ever
 				     changes the tab's width; hovering swaps the dot for the close button.
 				     ml-auto keeps it on the right edge when the name leaves slack -->
 				<span class="-mr-1 ml-auto flex size-5 shrink-0 items-center justify-center">
-					{#if isActive(tab) && dirty}
+					{#if isActive(tab) && dirty && !tab.compare}
 						<span class="bg-warning-500 size-2 rounded-full group-hover:hidden" title={m.wsview_unsaved_changes()}></span>
 					{/if}
 					<button
-						class="hover:bg-surface-300-700 items-center justify-center rounded p-0.5 {isActive(tab) && dirty
+						class="hover:bg-surface-300-700 items-center justify-center rounded p-0.5 {isActive(tab) && dirty && !tab.compare
 							? 'hidden group-hover:inline-flex'
 							: isActive(tab)
 								? 'inline-flex'
@@ -140,15 +156,22 @@
 					<Popover.Positioner class="z-floating-ui">
 						<Popover.Content class="card bg-surface-50-950 border-surface-300-700 max-h-96 min-w-[240px] overflow-y-auto border shadow-lg">
 							<div class="py-1">
-								{#each tabs as tab (tab)}
+								{#each tabs as tab (tabKey(tab))}
+									{@const key = tabKey(tab)}
 									<button
 										type="button"
 										class="hover:preset-tonal-primary flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
 										class:preset-tonal-primary={isActive(tab)}
-										title={tab}
+										title={tabTitle(tab)}
 										onclick={() => chooseFromMenu(tab)}
 									>
-										<span class="truncate" class:italic={!!previewPath && samePath(tab, previewPath)}>{basename(tab)}</span>
+										{#if tab.compare}<GitCompare class="text-primary-500 size-3.5 shrink-0" />{/if}
+										<span class="truncate" class:italic={previewKey === key}>{basename(tab.path)}</span>
+										<!-- in the menu there IS room for the version, and without it two comparisons of
+										     the same file would be two identical rows -->
+										{#if tab.compare}
+											<span class="text-surface-500 ml-auto shrink-0 truncate text-xs">{tab.compare.subject}</span>
+										{/if}
 									</button>
 								{/each}
 							</div>

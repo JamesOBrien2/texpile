@@ -3,8 +3,8 @@
 // UI zoom uses webContents.setZoomFactor, which scales the ENTIRE renderer (editor, sidebar,
 // toolbars, panels). It is persisted in settings and also reachable from the View menu. Distinct
 // from the PDF / Live preview zoom, which only scales the preview.
-import { activeFilePath } from '$lib/workspace/workspaceStore';
-import { tabs } from '$lib/workspace/tabs.svelte';
+import { activeFilePath, activeCompare } from '$lib/workspace/workspaceStore';
+import { tabs, tabKey, type Tab } from '$lib/workspace/tabs.svelte';
 import { settings, updateSettings } from '$lib/settings';
 import { nativeBridge } from '$lib/workspace/fileSystem';
 
@@ -29,7 +29,7 @@ export function uiZoomReset() {
 
 export type ShortcutDeps = {
 	getLoadedPath(): string | null;
-	closeTab(path: string): void;
+	closeTab(tab: Tab): void;
 	/** a guest has nothing to save: its edits are already live in the shared doc */
 	isGuest(): boolean;
 	save(): void;
@@ -45,12 +45,19 @@ export function createKeydownHandler(deps: ShortcutDeps): (e: KeyboardEvent) => 
 		const mod = e.metaKey || e.ctrlKey;
 		if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'w') {
 			e.preventDefault();
+			// closes the FOCUSED tab, which may be a comparison rather than the file itself
 			const path = deps.getLoadedPath();
-			if (path) deps.closeTab(path);
+			if (path) deps.closeTab({ path, compare: activeCompare.current ?? undefined });
 		} else if (e.ctrlKey && e.key === 'Tab') {
 			e.preventDefault();
-			const next = tabs.cycle(activeFilePath.current, e.shiftKey ? -1 : 1);
-			if (next) activeFilePath.current = next;
+			// cycle by tab KEY, so a file and a comparison of it are two stops rather than one
+			const p = activeFilePath.current;
+			const current = p ? tabKey({ path: p, compare: activeCompare.current ?? undefined }) : null;
+			const next = tabs.cycle(current, e.shiftKey ? -1 : 1);
+			if (next) {
+				activeCompare.current = next.compare ?? null;
+				activeFilePath.current = next.path;
+			}
 		} else if (mod && e.key.toLowerCase() === 's') {
 			e.preventDefault(); // block the browser save dialog
 			if (!deps.isGuest()) deps.save();

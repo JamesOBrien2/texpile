@@ -65,6 +65,9 @@ export type DocumentBufferDeps = {
 export class DocumentBuffer {
 	path = $state<string | null>(null);
 	loadError = $state<string | null>(null);
+	/** the file is gone from disk, so what is loaded is empty. Only reachable through a comparison,
+	 *  where a deleted file is the thing being looked at rather than a file that failed to open. */
+	deletedOnDisk = $state(false);
 
 	/** the whole .tex file, as raw text */
 	texSource = $state('');

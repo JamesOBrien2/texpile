@@ -77,7 +77,7 @@ export function buildWindowState(viewMode: ViewMode | null): WindowStatePayload 
 		// Only the active file has a buffer, so it is the only one that can be dirty: `isDirty` is a
 		// single store and TabBar already paints it on the active tab alone.
 		const dirty = isDirty.current;
-		const list = tabs.list;
+		const list = tabs.paths;
 		return {
 			mainFile: rel(mainFile.current, root),
 			activeFile: rel(active, root),

@@ -7,7 +7,7 @@ import { imagePluginKey } from './imagepluginutils';
 import { mount } from 'svelte';
 import ImageOverlay from './ImageOverlay.svelte';
 import { joinPath, isRemoteSrc } from '$lib/workspace/fileSystem';
-import { editorFileUrl, editorWriteBinary } from '$lib/editor/visual/fileAccess';
+import { editorFileUrl, editorWriteBinary, editorGraphicDirs } from '$lib/editor/visual/fileAccess';
 import { resolveGraphicUrl } from './graphicSrcResolve';
 import { pdfPageImageUrl } from './pdfImageSource';
 import { missingImageSvg } from './missingImagePlaceholder';
@@ -198,7 +198,13 @@ export function createLocalImageSettings(imageDir: string): ImagePluginSettings 
 		downloadImage: async (src: string) => {
 			if (/^https?:/i.test(src)) return REMOTE_IMAGE_BLOCKED;
 			if (!src || isRemoteSrc(src) || /^(data:|blob:|file:)/.test(src)) return src;
-			const { url, isPdf } = await resolveGraphicUrl(src, (rel) => editorFileUrl(joinPath(imageDir, rel)), urlExists);
+			// the injected dirs carry \graphicspath and the project root; imageDir alone is the
+			// fallback for a workspace that has not published them (a guest, or before first parse)
+			const urlsFor = (rel: string) => {
+				const dirs = editorGraphicDirs();
+				return (dirs.length ? dirs : [imageDir]).map((d) => editorFileUrl(joinPath(d, rel)));
+			};
+			const { url, isPdf } = await resolveGraphicUrl(src, urlsFor, urlExists);
 			// failed render falls through to the raw URL, whose <img> error shows not-found
 			if (isPdf) return (await pdfPageImageUrl(url)) ?? url;
 			return url;

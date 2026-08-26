@@ -1,7 +1,7 @@
 // client-side file access, all through the Electron bridge (window.texpileNative):
 // data ops over fs:* IPC, raw file bytes over the texfile:// protocol. no browser transport.
 import { browser } from '$lib/runtime';
-import type { GitStatusResult, GitShowResult, GitOpResult } from './git';
+import type { GitStatusResult, GitShowResult, GitOpResult, GitLogResult, GitChangesResult } from './git';
 
 export type TexFile = {
 	name: string;
@@ -141,6 +141,11 @@ type TexpileNative = {
 	gitDiscard: (root: string, paths: string[]) => Promise<GitOpResult>;
 	gitCommit: (root: string, message: string) => Promise<GitOpResult>;
 	gitUserName: (root: string) => Promise<{ ok: true; name: string | null }>;
+	// optional: an older preload predates the history surface, and the client degrades to no history
+	gitLog?: (root: string, limit?: number) => Promise<GitLogResult>;
+	gitChangesSince?: (root: string, hash: string) => Promise<GitChangesResult>;
+	gitShowAt?: (path: string, ref: string) => Promise<GitShowResult>;
+	gitRestore?: (root: string, hash: string, message: string) => Promise<GitOpResult>;
 };
 
 export function nativeBridge(): TexpileNative | undefined {

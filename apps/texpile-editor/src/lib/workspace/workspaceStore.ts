@@ -10,6 +10,7 @@ import { box } from '$lib/runes/box.svelte';
 import { getFolder, updateFolder } from '$lib/storage/workspaces';
 import { userData } from '$lib/storage/userData';
 import type { TexFile, TreeEntry } from './fileSystem';
+import type { CompareRef } from './tabs.svelte';
 
 export const workspaceRoot = box<string | null>(null);
 
@@ -46,6 +47,15 @@ export const activeFilePath = {
 		return () => activeFileWriteHooks.delete(hook);
 	}
 };
+
+/**
+ * The version the active tab compares against, or null when it is a plain file tab.
+ *
+ * Kept BESIDE activeFilePath rather than folded into it: compile, the PDF preview, intellisense
+ * and SyncTeX all read the active path and must keep seeing a real file. Only the editor pane
+ * consults this, to decide whether it renders the document or a comparison of it.
+ */
+export const activeCompare = box<CompareRef | null>(null);
 
 /** the main entry .tex, anchors cross-file macro resolution. auto-detected, user-overridable, persisted per folder. */
 export const mainFile = box<string | null>(null);

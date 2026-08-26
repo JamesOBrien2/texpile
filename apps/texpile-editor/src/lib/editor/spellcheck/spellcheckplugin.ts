@@ -5,14 +5,20 @@ import { lintText, syncDocumentDictionary } from '$lib/editor/spellcheck/linter'
 import { createHarperSuggestionBox } from '$lib/editor/spellcheck/suggestionBoxFactory';
 import './suggestion.css';
 import { editorConfigStore, editorViewStore } from '$lib/stores/editorStore';
+import { activeCompare } from '$lib/workspace/workspaceStore';
 import { observe } from '$lib/runes/observe.svelte';
 
 const spellcheckenabled = createSpellCheckEnabledStore(() => false);
 
 observe(
-	() => editorConfigStore.current,
-	(value) => {
-		spellcheckenabled.set(value?.spellcheck ?? false);
+	// The comparison is a dependency, not just the setting: a diff suppresses spell-check while it
+	// is open. Squiggles under the same words the diff is tinting is two annotation layers arguing
+	// over one line, and neither is about the other - a misspelling that has been in the paper for
+	// a year is not what anyone opened a version to look at. The setting is untouched, so it comes
+	// back by itself when the comparison closes.
+	() => ({ value: editorConfigStore.current, comparing: !!activeCompare.current }),
+	({ value, comparing }) => {
+		spellcheckenabled.set((value?.spellcheck ?? false) && !comparing);
 
 		// guard on a NON-EMPTY dictionary so the empty default doesn't boot the harper WASM worker
 		// on every load; it boots lazily on the first lint once spell-check is enabled

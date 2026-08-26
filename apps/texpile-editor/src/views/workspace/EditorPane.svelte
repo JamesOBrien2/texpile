@@ -2,7 +2,7 @@
 	// The editor column: the mode toolbar on top and, under it, whichever surface the open file
 	// needs (starter picker, diff, source, visual, bib, pdf, image). Chooses the surface; the
 	// state behind it all lives in WorkspaceView.
-	import { Loader2, CircleAlert, Info } from '@lucide/svelte';
+	import { Loader2, CircleAlert, Info, GitCompare, RefreshCw, X } from '@lucide/svelte';
 	import { isTexpileManaged } from '$lib/comments/managed';
 	import SearchBar from '$lib/editor/visual/SearchBar.svelte';
 	import StarterPicker from '$lib/workspace/StarterPicker.svelte';
@@ -21,6 +21,8 @@
 	import TabBar from './TabBar.svelte';
 	import EditorToolbarStrip from './EditorToolbarStrip.svelte';
 	import VisualEditorHost from './VisualEditorHost.svelte';
+	import { attachVisualDiff } from '$lib/editor/visual/diff/attachVisualDiff';
+	import { untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	import type { EditorPaneProps } from './editorPaneProps';
@@ -28,6 +30,8 @@
 	let {
 		loadedPath,
 		openTabs,
+		activeTabKey,
+		compare,
 		previewTab,
 		onActivateTab,
 		onCloseTab,
@@ -38,6 +42,7 @@
 		session,
 		folderEmpty,
 		loadError,
+		fileDeleted = false,
 		applyingStarter,
 		texSource,
 		rawContent,
@@ -55,6 +60,10 @@
 		diffLoading,
 		diffError,
 		diffHasHead,
+		diffCompareRef,
+		diffVersionDoc,
+		diffVersionPreamble,
+		diffVersionUnavailable,
 		fileUrl,
 		onPickStarter,
 		onBlankStarter,
@@ -112,6 +121,13 @@
 	/** kinds that have a visual (ProseMirror) surface */
 	const structured = $derived(kind === 'tex' || kind === 'md' || kind === 'typ');
 
+	/** independent of viewMode, which says whether the diff is rendered or in source */
+	const comparing = $derived(!!compare);
+
+	/** the working side IS the file, so it takes the editor's own handler - split the same way
+	 *  DiffMode's getWorkingText splits it */
+	const onDiffInput = $derived(structured ? onTexInput : onRawInput);
+
 	/** md link tooltip Open: real schemes go to the browser, in-doc anchors are swallowed (no
 	 * anchor targets yet), anything path-like opens in the workspace. */
 	function onMdLink(href: string): boolean {
@@ -119,6 +135,29 @@
 	}
 	/** the visual editor is wanted, whether or not it has been built yet */
 	const visualPending = $derived(loadedPath && structured && viewMode === 'visual');
+
+	/** unmarked otherwise reads as a version nothing has changed since */
+	const versionParsing = $derived(comparing && viewMode === 'visual' && structured && !diffVersionDoc && !diffVersionUnavailable);
+
+	/**
+	 * UNTRACKED, and this matters: the apply dispatches into the editor, whose plugins write the
+	 * runes this effect reads, so a tracked apply spins until Svelte's depth guard trips.
+	 *
+	 * Gated on composing: redrawing decorations under a live IME composition kills it - invisibly
+	 * on Windows, visibly on macOS - and retrying beats dropping the attach.
+	 */
+	$effect(() => {
+		const view = editorViewStore.current;
+		const wanted = comparing && viewMode === 'visual' && structured && diffVersionDoc ? { oldDoc: diffVersionDoc } : null;
+		if (!view) return;
+		const apply = () => untrack(() => attachVisualDiff(view, wanted));
+		if (!view.composing) {
+			apply();
+			return;
+		}
+		view.dom.addEventListener('compositionend', apply, { once: true });
+		return () => view.dom.removeEventListener('compositionend', apply);
+	});
 
 	/** ProseMirror is built: put the caret back where this file was left. A one-shot callback rather
 	 *  than an effect, so it cannot re-enter - the editor is built exactly once per file. */
@@ -133,18 +172,18 @@
 <div class="flex min-h-0 min-w-0 flex-col" style="grid-column: 1; grid-row: 2">
 	<TabBar
 		tabs={openTabs}
-		activePath={loadedPath}
+		activeKey={activeTabKey}
 		dirty={isDirty.current && !session.isGuest}
-		previewPath={previewTab}
+		previewKey={previewTab}
 		onActivate={onActivateTab}
 		onClose={onCloseTab}
 		onKeep={onKeepTab}
 	/>
-	{#if loadedPath && structured && viewMode !== 'diff' && (viewMode === 'source' || visualDoc)}
+	{#if loadedPath && structured && !comparing && (viewMode === 'source' || visualDoc)}
 		<EditorToolbarStrip {kind} mode={viewMode === 'visual' ? 'visual' : 'source'} />
 	{/if}
 	<!-- not in diff mode: DiffPane carries its own, and both rendered gave two stacked banners -->
-	{#if loadedPath && viewMode !== 'diff' && isTexpileManaged(loadedPath)}
+	{#if loadedPath && !comparing && isTexpileManaged(loadedPath)}
 		<!-- Above the editor, not in it: .texpile is hidden from the tree, so anyone who has this
 		     open reached it deliberately from Source Control and deserves the warning before they
 		     touch it. One short line everywhere a managed file appears - the same sentence as the
@@ -160,16 +199,56 @@
 			<p class="min-w-0 truncate"><span class="font-medium">{m.vcs_texpile_managed()}.</span> {m.texpile_managed_note()}</p>
 		</div>
 	{/if}
+	{#if loadedPath && comparing && viewMode === 'visual' && structured}
+		<div
+			class="bg-surface-100-900 text-surface-600-300 border-surface-200-800 flex min-h-10 shrink-0 items-center gap-2 border-b px-3 text-xs"
+		>
+			<GitCompare class="size-3.5 shrink-0" />
+			<span class="font-medium">{m.wsview_diff_heading()}</span>
+			{#if compare}<span class="text-surface-500 min-w-0 truncate" title={compare.hash}>· {compare.subject}</span>{/if}
+			<!-- What it cannot show, said out loud: an unmarked document otherwise reads as "nothing
+			     changed". No count - the number would be of source runs, which nothing on screen shows. -->
+			{#if fileDeleted}
+				<span class="text-surface-500 min-w-0 truncate">· {m.wsview_diff_file_deleted()}</span>
+			{:else if versionParsing}
+				<!-- the same "nothing below 300ms" rule the editor's own loading bar follows, done with
+				     an animation delay so a parse that lands quickly never flashes anything -->
+				<span class="text-surface-500 note-late min-w-0 truncate">· {m.wsview_diff_finding_changes()}</span>
+			{:else if diffVersionUnavailable}
+				<span class="text-surface-500 min-w-0 truncate">· {m.wsview_diff_version_unparsed()}</span>
+			{:else if diffVersionPreamble !== null && docMeta && diffVersionPreamble !== docMeta.preamble}
+				<span class="text-surface-500 min-w-0 truncate">· {m.wsview_diff_source_only()}</span>
+			{/if}
+			<div class="ml-auto flex shrink-0 items-center gap-1">
+				<button
+					class="hover:preset-tonal rounded p-0.5"
+					onclick={onRefreshDiff}
+					title={m.wsview_refresh_diff()}
+					aria-label={m.wsview_refresh_diff()}
+				>
+					<RefreshCw class="size-3.5" />
+				</button>
+				<button
+					class="hover:preset-tonal-primary rounded p-0.5"
+					onclick={onExitDiff}
+					title={m.wsview_back_to_editor_title()}
+					aria-label={m.wsview_close_label()}
+				>
+					<X class="size-3.5" />
+				</button>
+			</div>
+		</div>
+	{/if}
 	<!-- relative anchors the floating find bar; it sits outside the scroller so it doesn't scroll away -->
 	<div class="relative min-h-0 min-w-0 flex-1">
-		{#if loadedPath && structured && viewMode === 'visual' && visualDoc}
+		{#if loadedPath && structured && viewMode === 'visual' && visualDoc && !comparing}
 			<SearchBar />
 		{/if}
 		<!-- scroll-inset-r keeps this scrollbar clear of the lozenge on the preview divider. NOT in diff
 		     mode: DiffPane is a pane, not a document - it fills the height, scrolls inside itself and
 		     draws its own full-width bars, so the 3px showed up as a gap between every one of those
 		     bars and the divider. It wears the inset on its own scroller instead. -->
-		<div class="h-full w-full overflow-auto {viewMode === 'diff' ? '' : 'scroll-inset-r'}">
+		<div class="h-full w-full overflow-auto {comparing ? '' : 'scroll-inset-r'}">
 			{#if folderEmpty && !activeFilePath.current}
 				<div class="mx-auto mt-16 max-w-xl px-6">
 					<div class="text-center">
@@ -200,7 +279,7 @@
 				<div class="text-surface-500 mt-12 text-center text-sm">
 					{m.wsview_shared_name_only({ name: basename(loadedPath) })}
 				</div>
-			{:else if loadedPath && viewMode === 'diff' && (structured || kind === 'bib' || kind === 'text')}
+			{:else if loadedPath && comparing && (viewMode === 'source' || !structured) && (structured || kind === 'bib' || kind === 'text')}
 				<DiffPane
 					filename={loadedPath}
 					original={diffOriginal}
@@ -209,6 +288,10 @@
 					loading={diffLoading}
 					error={diffError}
 					hasHead={diffHasHead}
+					compareRef={diffCompareRef}
+					{fileDeleted}
+					readOnly={!!session.collabFor(loadedPath) || fileDeleted}
+					onModifiedInput={onDiffInput}
 					onToggleLayout={onToggleDiffLayout}
 					onRefresh={onRefreshDiff}
 					onExit={onExitDiff}
@@ -324,6 +407,12 @@
 	.spinner-late {
 		opacity: 0;
 		animation: spinner-late-in 0.2s ease 0.15s forwards;
+	}
+	/* 300ms, matching VisualLoading's first step: most parses finish inside it and should show
+	   nothing at all. An animation delay rather than a timer, so nothing has to be armed or cleared. */
+	.note-late {
+		opacity: 0;
+		animation: spinner-late-in 0.2s ease 0.3s forwards;
 	}
 	@keyframes spinner-late-in {
 		to {

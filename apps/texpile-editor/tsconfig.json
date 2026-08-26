@@ -32,7 +32,8 @@
 		"src/**/*.ts",
 		"src/**/*.svelte",
 		"tests/**/*.js",
-		"tests/**/*.ts"
+		"tests/**/*.ts",
+		"tests/**/*.svelte"
 	],
 	"exclude": ["node_modules/**"]
 }

@@ -1307,6 +1307,69 @@ html[data-mode='dark'] .cm-comment-add:hover {
 	border-radius: 4px;
 }
 
+/* Visual diff: what changed since a saved version, drawn on the rendered document. Added text is
+   tinted rather than underlined so it survives inside headings, maths and table cells, where an
+   underline would collide with the node view's own chrome. Same success/error pair the source
+   diff uses, so the two representations of one comparison read as the same colours. */
+.texpile-diff-added {
+	background-color: color-mix(in srgb, var(--color-success-500) 22%, transparent);
+	border-radius: 2px;
+}
+/* The same change on a node that renders its OWN content - a CodeMirror island, a formula, a
+   citation chip, a figure. ProseMirror draws nothing inside those, so an inline decoration there
+   has no span to attach to and the node carries the mark instead. An outline as well as a fill,
+   because a figure covers its own background.
+
+   Two colours, because the node cannot say WHAT changed and the colour is all the detail there
+   is: green for a formula that is new, amber for one that is no longer what it was. Same pair the
+   file tree uses for added and modified. */
+.texpile-diff-added-node {
+	background-color: color-mix(in srgb, var(--color-success-500) 16%, transparent);
+	outline: 2px solid color-mix(in srgb, var(--color-success-500) 45%, transparent);
+	outline-offset: 1px;
+	border-radius: 2px;
+}
+.texpile-diff-changed-node {
+	background-color: color-mix(in srgb, var(--color-warning-500) 16%, transparent);
+	outline: 2px solid color-mix(in srgb, var(--color-warning-500) 45%, transparent);
+	outline-offset: 1px;
+	border-radius: 2px;
+}
+/* What was deleted, shown rather than hidden behind a hover. It was a 3px hairline with the text
+   on its title, which collapsed a deleted paragraph - and a deleted FILE - into a sliver.
+
+   Struck through and tinted, so it reads as gone at a glance and is never mistaken for text that
+   is still in the document. user-select is left on: the reason to look at deleted text is often to
+   take a sentence back out of it. */
+.texpile-diff-removed,
+.texpile-diff-removed-block {
+	background-color: color-mix(in srgb, var(--color-error-500) 14%, transparent);
+	color: color-mix(in srgb, var(--color-error-500) 55%, var(--color-surface-950));
+	text-decoration: line-through;
+	text-decoration-color: color-mix(in srgb, var(--color-error-500) 70%, transparent);
+	border-radius: 2px;
+	white-space: pre-wrap; /* multi-paragraph removals keep their breaks */
+}
+[data-mode='dark'] .texpile-diff-removed,
+[data-mode='dark'] .texpile-diff-removed-block {
+	color: color-mix(in srgb, var(--color-error-500) 45%, var(--color-surface-50));
+}
+/* inside a paragraph: sits in the line where the words were */
+.texpile-diff-removed {
+	padding: 0 2px;
+}
+/* between paragraphs: the removal WAS whole blocks, so it takes a block of its own rather than
+   being crammed into the line beside it.
+
+   No rule down the side: it read as a blockquote, which is a thing the document HAS, and the
+   tint and the strikethrough already say removed. The negative margin lets the tint bleed into
+   the padding so the struck text still lines up with the body text above and below it. */
+.texpile-diff-removed-block {
+	display: block;
+	margin: 0.35em -0.3em;
+	padding: 0.15em 0.3em;
+}
+
 /* svelte-pdf-view exposes --pdf-* hooks with light defaults; set them so the viewer chrome follows
    the app mode. page canvases are inverted by the darkMode prop (PDFViewer.svelte). */
 [data-mode='dark'] .pdf-viewer-container {

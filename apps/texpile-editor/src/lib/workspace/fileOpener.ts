@@ -65,6 +65,28 @@ export class FileOpener {
 		});
 	}
 
+	/**
+	 * The file's text, or '' when it is gone from disk AND we are opening it as a comparison.
+	 *
+	 * A deleted file is exactly what a comparison against an older version is for: that version had
+	 * it, the working copy does not, and the diff is the whole file struck out. Letting the read
+	 * throw turned that into "ENOENT: no such file or directory" in the middle of the editor, which
+	 * is a true sentence and a useless one - the panel had just offered the row that led there.
+	 */
+	private async readWorkingCopy(path: string): Promise<string> {
+		const d = this.deps;
+		try {
+			const raw = await d.readText(path);
+			d.doc.deletedOnDisk = false;
+			return raw;
+		} catch (e) {
+			const missing = /ENOENT|no such file|cannot find|not found/i.test(e instanceof Error ? e.message : String(e));
+			if (!missing || !d.isDiffMode()) throw e;
+			d.doc.deletedOnDisk = true;
+			return '';
+		}
+	}
+
 	async open(path: string): Promise<void> {
 		const d = this.deps;
 		try {
@@ -77,7 +99,7 @@ export class FileOpener {
 
 			const k = fileKind(path);
 			if (hasVisualMode(k)) {
-				const raw = await d.readText(path);
+				const raw = await this.readWorkingCopy(path);
 				if (!this.current(path)) return;
 				const text = toLf(raw); // the editor works in LF
 				const seq = d.parser.nextSequence();
@@ -91,7 +113,7 @@ export class FileOpener {
 				d.clearPerFileViewState();
 				if (d.isDiffMode()) d.captureDiffSnapshot(); // re-diff the newly-opened file
 			} else if (isRawTextKind(k)) {
-				const raw = await d.readText(path);
+				const raw = await this.readWorkingCopy(path);
 				if (!this.current(path)) return;
 				d.doc.openRaw(path, toLf(raw), detectEol(raw));
 				void recordDiskStamp(path);
