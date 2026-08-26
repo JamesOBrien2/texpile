@@ -1318,7 +1318,12 @@ html[data-mode='dark'] .cm-comment-add:hover {
 /* The same change on a node that renders its OWN content - a CodeMirror island, a formula, a
    citation chip, a figure. ProseMirror draws nothing inside those, so an inline decoration there
    has no span to attach to and the node carries the mark instead. An outline as well as a fill,
-   because a figure covers its own background.
+   because a figure covers its own background - an outline paints above the content, which an
+   inset shadow would not.
+
+   The offset is NEGATIVE so the ring stays inside the node's own box. Outset, two marked blocks
+   standing next to each other overlap in the gap between them and the lower one paints over the
+   upper one's edge, which reads as one box losing a side.
 
    Two colours, because the node cannot say WHAT changed and the colour is all the detail there
    is: green for a formula that is new, amber for one that is no longer what it was. Same pair the
@@ -1326,14 +1331,14 @@ html[data-mode='dark'] .cm-comment-add:hover {
 .texpile-diff-added-node {
 	background-color: color-mix(in srgb, var(--color-success-500) 16%, transparent);
 	outline: 2px solid color-mix(in srgb, var(--color-success-500) 45%, transparent);
-	outline-offset: 1px;
-	border-radius: 2px;
+	outline-offset: -2px;
+	border-radius: 4px;
 }
 .texpile-diff-changed-node {
 	background-color: color-mix(in srgb, var(--color-warning-500) 16%, transparent);
 	outline: 2px solid color-mix(in srgb, var(--color-warning-500) 45%, transparent);
-	outline-offset: 1px;
-	border-radius: 2px;
+	outline-offset: -2px;
+	border-radius: 4px;
 }
 /* What was deleted, shown rather than hidden behind a hover. It was a 3px hairline with the text
    on its title, which collapsed a deleted paragraph - and a deleted FILE - into a sliver.

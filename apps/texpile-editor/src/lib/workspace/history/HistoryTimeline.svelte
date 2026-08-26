@@ -2,6 +2,7 @@
 	// A version opens to what differs between it and the working copy NOW - deliberately not what
 	// that version changed, which a commit graph lists. Those answer different questions, and this
 	// is the one standing next to Restore. Shaped after VS Code's Source Control Graph.
+	import { onDestroy } from 'svelte';
 	import { GitCommitHorizontal, GitBranch, TriangleAlert, MoreHorizontal, History } from '@lucide/svelte';
 	import { Popover, Portal } from '@skeletonlabs/skeleton-svelte';
 	import GraphRail from './GraphRail.svelte';
@@ -49,20 +50,40 @@
 	let loading = $state(false);
 	let openMenu = $state<string | null>(null);
 
+	// clicked and still being read, which is not the same as open. Deliberately not $state: the
+	// markup must not react to it, or the row starts opening again.
+	let opening: string | null = null;
+	let slow: ReturnType<typeof setTimeout> | undefined;
+
+	/** Opens ALREADY FILLED. The read is usually a few ms, and expanding to a bare lane and then
+	 *  appending the rows a frame later reads as a twitch - the rail's own length changes with them.
+	 *  Past 300ms, the editor's threshold for showing anything at all, the row opens on its own so a
+	 *  slow read still answers the click. */
 	async function toggle(hash: string) {
-		if (expanded === hash) {
-			expanded = null;
+		if (expanded === hash || opening === hash) {
+			clearTimeout(slow);
+			if (expanded === hash) expanded = null;
+			opening = null;
 			return;
 		}
-		expanded = hash;
-		changes = [];
-		loading = true;
+		opening = hash;
+		slow = setTimeout(() => {
+			if (opening !== hash) return;
+			expanded = hash;
+			changes = [];
+			loading = true;
+		}, 300);
 		const got = await onLoadChanges(hash);
 		// a second version may have been opened while this was in flight; that one owns the list now
-		if (expanded !== hash) return;
+		if (opening !== hash) return;
+		clearTimeout(slow);
+		opening = null;
+		expanded = hash;
 		changes = got;
 		loading = false;
 	}
+
+	onDestroy(() => clearTimeout(slow));
 
 	/** coarse on purpose: "3 days ago" is what a writer wants, an exact timestamp is on the title */
 	function ago(iso: string): string {
