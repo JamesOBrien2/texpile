@@ -8,6 +8,7 @@ import { browser } from '$lib/runtime';
 import { mount, unmount } from 'svelte';
 import MathSettings from './MathSettings.svelte';
 import { configureMathVirtualKeyboard } from './virtualKeyboardConfig';
+import { installSuggestionPopoverFlashFix } from './suggestionPopoverFlashFix';
 import { syncBlockMathAttrs, isMathLatexEmpty } from './mathEnvironments';
 import { renderEquationNumbers } from './equationNumbers';
 import { MathFieldExit, applyMathOutline } from './mathFieldExit';
@@ -23,6 +24,7 @@ type SettingsHost = {
 if (browser) {
 	MathfieldElement.soundsDirectory = null;
 	configureMathVirtualKeyboard();
+	installSuggestionPopoverFlashFix();
 }
 export class MathLiveView implements NodeView {
 	dom: HTMLElement;

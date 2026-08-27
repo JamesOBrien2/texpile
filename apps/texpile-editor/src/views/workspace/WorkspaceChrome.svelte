@@ -158,10 +158,12 @@
 			scmBusy={scm.busy}
 			{showToc}
 			tocFraction={layout.tocFraction}
+			historyFraction={layout.historyFraction}
 			viewMode={modes.mode}
 			bind:fileTreeRef
 			bind:globalSearchRef
 			bind:splitEl={layout.splitEl}
+			bind:scmSplitEl={layout.scmSplitEl}
 			onRefreshTree={actions.refreshTree}
 			onOpenGlobalSearch={actions.openGlobalSearch}
 			onCloseGlobalSearch={actions.closeGlobalSearch}
@@ -179,12 +181,16 @@
 			fileHistory={treeOps.history}
 			onStartTocResize={layout.startTocResize}
 			onResizeTocByKey={layout.resizeTocByKey}
+			onStartHistoryResize={layout.startHistoryResize}
+			onResizeHistoryByKey={layout.resizeHistoryByKey}
 			onRefreshGit={actions.refreshGit}
 			scmInit={scm.init}
-			scmStage={scm.stage}
-			scmUnstage={scm.unstage}
 			scmDiscard={scm.discard}
 			scmCommit={scm.commit}
+			scmRestore={scm.restore}
+			scmIgnoreArtifacts={scm.ignoreArtifacts}
+			scmCompare={scm.compare}
+			scmChangesSince={scm.changesSince}
 			scmOpenDiff={scm.openDiff}
 		/>
 	{/if}

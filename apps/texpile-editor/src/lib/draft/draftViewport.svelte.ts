@@ -254,13 +254,15 @@ export class DraftViewport {
 		else center();
 	}
 
-	showEditBand(b: EditBand): void {
+	// holdMs: a recompile-bound highlight must outlive the compile it waits on (the landing
+	// compile clears it anyway); the default fade covers ordinary typing
+	showEditBand(b: EditBand, holdMs = 1600): void {
 		this.editBand = b;
 		if (this.editBandTimer) clearTimeout(this.editBandTimer);
 		this.editBandTimer = setTimeout(() => {
 			this.editBandTimer = null;
 			this.editBand = null;
-		}, 1600);
+		}, holdMs);
 	}
 	clearEditBand(): void {
 		this.editBand = null;

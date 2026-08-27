@@ -25,11 +25,28 @@ export function classify(events) {
 	else if (first && compiled) latencyMs = Math.round(compiled.t - first.t);
 	const reasons = events
 		.filter((e) =>
-			['abandon', 'provisional', 'bail', 'locate-bail', 'locate-glyph-bail', 'locate-xpage-bail', 'compile-start'].includes(e.kind)
+			[
+				'abandon',
+				'provisional',
+				'bail',
+				'locate-bail',
+				'locate-glyph-bail',
+				'locate-xpage-bail',
+				'locate-inverse-bail',
+				'locate-inverse-span',
+				'locate-inverse-ok',
+				'compile-start'
+			].includes(e.kind)
 		)
-		.map((e) => e.detail?.reason || e.detail?.stage || e.detail?.why || (typeof e.detail === 'string' ? e.detail : null))
+		.map(
+			(e) =>
+				e.detail?.reason ||
+				e.detail?.stage ||
+				(e.detail?.why ? e.detail.why + (e.detail.err ? '=' + String(e.detail.err).slice(0, 80) : '') : null) ||
+				(typeof e.detail === 'string' ? e.detail : null)
+		)
 		.filter(Boolean);
-	return { outcome, latencyMs, reasons: [...new Set(reasons)].slice(0, 4) };
+	return { outcome, latencyMs, reasons: [...new Set(reasons)].slice(0, 6) };
 }
 
 /** Drain page events until quiet (and no compile left in flight). */

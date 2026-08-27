@@ -17,7 +17,9 @@ export const FIXTURES = [
 			{ name: 'item-middle-bullet', anchor: 'Middle bullet', expect: ['EXACT'] },
 			// enumerate labels: the counter pin is a FIXED value now (no JS re-count of \item
 			// lines), so a non-first item's label digit differs and the patch certifies
-			{ name: 'enum-middle-item', anchor: 'Middle numbered', expect: ['PROV'] },
+			// EXACT with the compile's counter log (the true enumi pin reproduces the label);
+			// PROV only when the log is missing and the 0 pin falls back
+			{ name: 'enum-middle-item', anchor: 'Middle numbered', expect: ['EXACT', 'PROV'] },
 			{ name: 'equation-body', anchor: '= m', expect: ['EXACT', 'PROV'] },
 			{ name: 'tabular-cell', anchor: 'alpha & one', expect: ['EXACT', 'PROV'] },
 			// footnote-bearing paragraphs always reconcile (the page-bottom note block is the
@@ -150,7 +152,16 @@ export const FIXTURES = [
 		name: 'bookdoc',
 		scenarios: [
 			{ name: 'book-prose', anchor: 'breaker', expect: ['EXACT'] },
-			{ name: 'chapter-line', anchor: 'Opening', line: '\\chapter{Opening}', expect: ['RECOMPILE'], maxMs: 16000 }
+			{ name: 'chapter-line', anchor: 'Opening', line: '\\chapter{Opening}', expect: ['RECOMPILE'], maxMs: 16000 },
+			{
+				// the engine page-break certificate's proving ground: a stretched book page
+				// (display skip supplies the glue), a mid-page paragraph growing by a line
+				name: 'book-stretch-grow',
+				anchor: 'certificate machinery',
+				op: { t: 'append', text: ' plus the appended clause that makes the paragraph one line taller than before' },
+				expect: ['EXACT', 'PROV'],
+				maxMs: 16000
+			}
 		]
 	},
 	{

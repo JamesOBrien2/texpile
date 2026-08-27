@@ -15,7 +15,6 @@
 	import { editorViewStore, referenceStore } from '$lib/stores/editorStore';
 	import type { BiblatexReference } from '$lib/languages/bib/biblatex';
 	import { preferences } from '$lib/stores/preferencesStore.svelte';
-	import { buildTrailingParagraphTr } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
 	import ContextMenu from '$lib/editor/visual/toolbar/ContextMenu.svelte';
 	import { syncPmComments } from '$lib/editor/visual/extensions/pmCommentsSync.svelte';
 	import type { CommentAnchor } from '$lib/comments/anchor';
@@ -104,10 +103,6 @@
 		let editorState = EditorState.create({ schema: typSchema, plugins, doc: localValue ?? undefined });
 		const fix = fixTables(editorState);
 		if (fix) editorState = editorState.apply(fix.setMeta('addToHistory', false));
-		// trailing paragraphs at load, not lazily on first edit (byte-neutral; empty paragraphs
-		// serialize to nothing)
-		const trail = buildTrailingParagraphTr(editorState);
-		if (trail) editorState = editorState.apply(trail.setMeta('addToHistory', false));
 
 		editorView = new EditorView(editor, {
 			attributes: { class: 'TexpileEditor TypstEditor', spellcheck: 'false' },

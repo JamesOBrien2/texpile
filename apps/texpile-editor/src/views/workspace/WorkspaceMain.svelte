@@ -10,6 +10,7 @@
 	import TerminalDock from '$lib/terminal/TerminalDock.svelte';
 	import { ChevronLeft } from '@lucide/svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { activeCompare } from '$lib/workspace/workspaceStore';
 	import type { WorkspaceMainProps } from './workspaceMainProps';
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the pipelines are structural here
@@ -55,7 +56,7 @@
 			? guestTypstOffered
 				? kind === 'typ'
 				: kind === 'tex'
-			: (mainIsTypst ? kind === 'typ' && typstPreviewWanted : kind === 'tex') && modes.mode !== 'diff'
+			: (mainIsTypst ? kind === 'typ' && typstPreviewWanted : kind === 'tex') && !activeCompare.current
 	);
 	const syncToCursor = $derived(canSync ? (actions.syncForward as () => void) : null);
 </script>
@@ -100,6 +101,8 @@
 	<div class="contents">
 		<EditorPane
 			openTabs={panes.openTabs}
+			activeTabKey={panes.activeTabKey}
+			compare={activeCompare.current}
 			previewTab={panes.previewTab}
 			onActivateTab={actions.activateTab}
 			onCloseTab={actions.closeTab}
@@ -111,6 +114,7 @@
 			{session}
 			{folderEmpty}
 			loadError={doc.loadError}
+			fileDeleted={doc.deletedOnDisk}
 			applyingStarter={panes.applyingStarter}
 			texSource={doc.texSource}
 			rawContent={doc.rawContent}
@@ -128,6 +132,10 @@
 			diffLoading={diff.loading}
 			diffError={diff.error}
 			diffHasHead={diff.hasHead}
+			diffCompareRef={diff.compareRef}
+			diffVersionDoc={diff.versionDoc}
+			diffVersionPreamble={diff.versionPreamble}
+			diffVersionUnavailable={diff.versionUnavailable}
 			fileUrl={panes.fileUrl}
 			onPickStarter={actions.pickStarter}
 			onBlankStarter={actions.newTexFile}

@@ -142,3 +142,137 @@ c & d \\\\
 		expect(out).not.toMatch(/\\begin\{figure\}/);
 	});
 });
+
+// a tabular wrapped in \begin{center} (BERT-era arXiv style, corpus repro: 1810.04805) parked
+// the whole float on the generic-environment path: no caption chrome, no scroll container, so a
+// wide table crushed its last columns. extractTableComponents now sees through a center that
+// holds the tabular; the wrapper serializer re-emits \centering, which is what the environment
+// means inside a float.
+describe('center-wrapped table floats', () => {
+	const bertSrc = `\\begin{table*}[t]
+\\small
+\\renewcommand{\\arraystretch}{1.2}
+\\begin{center}
+\\begin{tabular}{l|cccccccc|c}
+System & MNLI & QQP & Average \\\\
+BERT & 86.7 & 72.1 & 82.1 \\\\
+\\end{tabular}
+\\end{center}
+\\caption{GLUE Test results.}
+\\label{tab:glue}
+\\end{table*}`;
+
+	it('models the BERT GLUE table as an editable table_wrapper, not a generic environment', () => {
+		const { doc } = latexToProseMirror(bertSrc, {});
+		expect(doc.childCount).toBe(1);
+		const wrapper = doc.child(0);
+		expect(wrapper.type.name).toBe('table_wrapper');
+		expect(wrapper.attrs.label).toBe('tab:glue');
+		expect(wrapper.attrs.spanning).toBe(true);
+		// the pre-tabular setup survives as the raw prefix
+		expect(String(wrapper.attrs.preBody)).toContain('\\renewcommand{\\arraystretch}{1.2}');
+	});
+
+	it('round-trips byte-identically on an untouched save (real app pipeline)', () => {
+		const file = `\\documentclass{article}\n\\begin{document}\n${bertSrc}\n\\end{document}\n`;
+		const parsed = parseLatexFile(file);
+		expect(serializeLatexFile(parsed, parsed.doc)).toBe(file);
+	});
+
+	it('regenerates as table* with \\centering, keeping the caption and setup', () => {
+		const { doc } = latexToProseMirror(bertSrc, {});
+		const out = serializeToLatex(doc);
+		expect(out).toContain('\\begin{table*}[t]');
+		expect(out).toContain('\\centering');
+		expect(out).toContain('GLUE Test results.');
+		expect(out).toContain('\\renewcommand{\\arraystretch}{1.2}');
+		expect(out).not.toContain('\\begin{center}');
+	});
+
+	// the other BERT shape: the tabular inside a {\small ...} group inside center, and the
+	// \label embedded in the caption argument
+	const maskSrc = `\\begin{table}[ht]
+\\begin{center}
+{\\small \\begin{tabular}{@{}rrrccc@{}}\\toprule \\multicolumn{3}{c}{Masking Rates} & \\multicolumn{3}{c}{Dev Set Results} \\\\
+80\\% & 10\\% & 10\\% & 84.2 & 95.4 & 94.9 \\\\
+\\bottomrule\\end{tabular} }
+\\end{center}
+\\caption{\\label{tab:mask_ablation} Ablation over different masking strategies.}
+\\end{table}`;
+
+	it('sees through a {\\small ...} group holding the tabular; the switch survives in preBody', () => {
+		const { doc } = latexToProseMirror(maskSrc, {});
+		expect(doc.childCount).toBe(1);
+		const wrapper = doc.child(0);
+		expect(wrapper.type.name).toBe('table_wrapper');
+		expect(String(wrapper.attrs.preBody)).toContain('\\small');
+	});
+
+	it('the group-wrapped shape round-trips byte-identically on an untouched save', () => {
+		const file = `\\documentclass{article}\n\\begin{document}\n${maskSrc}\n\\end{document}\n`;
+		const parsed = parseLatexFile(file);
+		expect(serializeLatexFile(parsed, parsed.doc)).toBe(file);
+	});
+
+	it('regenerates with the caption text, its embedded label, and the size switch', () => {
+		const { doc } = latexToProseMirror(maskSrc, {});
+		const out = serializeToLatex(doc);
+		expect(out).toContain('Ablation over different masking strategies.');
+		expect(out).toContain('\\label{tab:mask_ablation}');
+		expect(out).toContain('\\small');
+		expect(out).toContain('\\multicolumn{3}'); // the span survives; its col spec is style-derived
+		expect(out).not.toContain('\\begin{center}');
+	});
+
+	// the appendix GLUE shape: a tabular* (with its width argument) inside center. tabular* was
+	// missing from the extractor's direct-child list, so the float went generic and the caption
+	// collapsed into one giant raw chip.
+	const glueSrc = `\\begin{table*}[t]
+\\small
+\\begin{center}
+ \\begin{tabular*}{\\textwidth}{l@{\\extracolsep{\\fill}}cc}
+System & MNLI & QQP \\\\
+BERT & 86.7 & 72.1 \\\\
+   \\end{tabular*}
+   \\caption{GLUE Test results, scored by the evaluation server.}
+   \\label{tab:glue_official}
+\\end{center}
+\\end{table*}`;
+
+	it('models a center-wrapped tabular* as a table_wrapper with its caption captured', () => {
+		const { doc } = latexToProseMirror(glueSrc, {});
+		expect(doc.childCount).toBe(1);
+		const wrapper = doc.child(0);
+		expect(wrapper.type.name).toBe('table_wrapper');
+		expect(wrapper.attrs.label).toBe('tab:glue_official');
+		let captionText = '';
+		wrapper.forEach((child) => {
+			if (child.type.name === 'table_caption') captionText = child.textContent;
+		});
+		expect(captionText).toContain('GLUE Test results');
+	});
+
+	it('the tabular* round-trips byte-identically on an untouched save and keeps its width arg on regeneration', () => {
+		const file = `\\documentclass{article}\n\\begin{document}\n${glueSrc}\n\\end{document}\n`;
+		const parsed = parseLatexFile(file);
+		expect(serializeLatexFile(parsed, parsed.doc)).toBe(file);
+		const out = serializeToLatex(latexToProseMirror(glueSrc, {}).doc);
+		expect(out).toContain('\\begin{tabular*}{\\textwidth}{l@{\\extracolsep{\\fill}}cc}');
+		expect(out).toContain('\\end{tabular*}');
+	});
+
+	it('leaves a center env that does not hold the tabular wrapped (setup stays intact)', () => {
+		const src = `\\begin{table}[h]
+\\begin{center}
+Some centered prose.
+\\end{center}
+\\begin{tabular}{ll}
+a & b \\\\
+\\end{tabular}
+\\caption{T.}
+\\end{table}`;
+		const { doc } = latexToProseMirror(src, {});
+		expect(doc.child(0).type.name).toBe('table_wrapper');
+		expect(String(doc.child(0).attrs.preBody)).toContain('\\begin{center}');
+	});
+});

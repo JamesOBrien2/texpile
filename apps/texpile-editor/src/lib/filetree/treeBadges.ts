@@ -7,15 +7,18 @@ export function gitBadgeOf(gitStatus: Record<string, GitBadge>, e: TreeEntry): G
 	return e.type === 'file' ? gitStatus[gitKey(e.path)] : undefined;
 }
 
-export const BADGE_COLOR: Record<GitBadge, string> = {
+// Status is carried by the file name's colour rather than a letter, so it costs the row no width.
+// The tooltip below is what names the state, since a colour alone cannot.
+export const STATUS_COLOR: Record<GitBadge, string> = {
 	M: 'text-amber-500',
+	// added and untracked are both "new" and share one green, the way VS Code reads them
 	A: 'text-green-500',
+	U: 'text-green-500',
 	D: 'text-red-500',
-	U: 'text-sky-500',
 	R: 'text-violet-500'
 };
 
-export const BADGE_TITLE: Record<GitBadge, string> = {
+export const STATUS_TITLE: Record<GitBadge, string> = {
 	M: m.filetree_badge_modified(),
 	A: m.filetree_badge_added(),
 	D: m.filetree_badge_deleted(),

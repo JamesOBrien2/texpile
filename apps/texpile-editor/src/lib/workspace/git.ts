@@ -112,3 +112,78 @@ export async function gitCommit(root: string, message: string): Promise<GitOpRes
 		return { ok: false, error: errMsg(e) };
 	}
 }
+
+/** one file that differs between two states, by absolute path. `status` maps onto the tree's
+ *  badge colours, so a file reads the same here as it does in the explorer. */
+export type GitFileChange = { path: string; status: GitBadge };
+
+export type GitLogEntry = {
+	hash: string;
+	short: string;
+	subject: string;
+	author: string;
+	/** author date, ISO 8601 */
+	date: string;
+	/** versions this one was made from; two or more means it joined two lines of work */
+	parentCount: number;
+};
+
+export type GitLogResult = {
+	ok: boolean;
+	reason?: 'not-a-repo' | 'no-git';
+	error?: string;
+	entries?: GitLogEntry[];
+	/** the history is longer than what was asked for, so `entries` is the newest slice of it */
+	hasMore?: boolean;
+};
+
+/** commits touching the workspace, newest first. */
+export async function gitLog(root: string, limit?: number): Promise<GitLogResult> {
+	const n = nativeBridge();
+	if (!n?.gitLog) return { ok: false, error: NO_BRIDGE };
+	try {
+		return await n.gitLog(root, limit);
+	} catch (e) {
+		return { ok: false, error: errMsg(e) };
+	}
+}
+
+export type GitChangesResult = {
+	ok: boolean;
+	reason?: 'not-a-repo' | 'no-git';
+	error?: string;
+	entries?: GitFileChange[];
+};
+
+/** what differs between a version and the working copy now - what restoring it would change. */
+export async function gitChangesSince(root: string, hash: string): Promise<GitChangesResult> {
+	const n = nativeBridge();
+	if (!n?.gitChangesSince) return { ok: false, error: NO_BRIDGE };
+	try {
+		return await n.gitChangesSince(root, hash);
+	} catch (e) {
+		return { ok: false, error: errMsg(e) };
+	}
+}
+
+/** a file's contents at an arbitrary commit, for diffing one version against the working copy. */
+export async function gitShowAt(path: string, ref: string): Promise<GitShowResult> {
+	const n = nativeBridge();
+	if (!n?.gitShowAt) return { ok: false, hasHead: false, error: NO_BRIDGE };
+	try {
+		return await n.gitShowAt(path, ref);
+	} catch (e) {
+		return { ok: false, hasHead: false, error: errMsg(e) };
+	}
+}
+
+/** roll the workspace back to a commit, recorded as a new commit rather than a reset. */
+export async function gitRestore(root: string, hash: string, message: string): Promise<GitOpResult> {
+	const n = nativeBridge();
+	if (!n?.gitRestore) return { ok: false, error: NO_BRIDGE };
+	try {
+		return await n.gitRestore(root, hash, message);
+	} catch (e) {
+		return { ok: false, error: errMsg(e) };
+	}
+}

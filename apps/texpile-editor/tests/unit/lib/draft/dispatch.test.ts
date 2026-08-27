@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decideEdit, daemonReady, repairForPreview } from '$lib/draft/dispatch';
+import { decideEdit, daemonReady, repairForPreview } from '$lib/draft/heuristics/dispatch';
 
 // The compound-alignment rules: an exact patch never advances the baseline, so "type in a
 // paragraph, then open a new one" must read as ONE merged engine typeset (prev + \par +

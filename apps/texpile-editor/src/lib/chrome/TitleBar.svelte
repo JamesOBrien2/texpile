@@ -21,7 +21,7 @@
 	import { syncWindowOverlay } from './windowOverlay';
 	import Kbd from '$lib/components/Kbd.svelte';
 	import { titleBarLayout } from './titleBarLayout.svelte';
-	import iconUrl from '$lib/assets/logo/Logo-icon.svg';
+	import iconUrl from '$branding/Logo-icon.svg';
 	import { m } from '$lib/paraglide/messages';
 
 	let {

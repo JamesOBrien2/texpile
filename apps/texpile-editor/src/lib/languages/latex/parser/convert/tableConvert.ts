@@ -32,7 +32,14 @@ function extractTableComponents(content: Node[], ctx: ConversionContext) {
 	let noteNodes: Node[] = [];
 	let sawTabular = false;
 
-	for (const node of content) {
+	// see through the wrappers papers put around the tabular - \begin{center} instead of
+	// \centering, and {\small ...} groups scoping a size switch (BERT-era arXiv especially).
+	// either parked the whole float on the generic-environment path: no caption chrome, no
+	// scroll container. nothing is lost unwrapping: the wrapper serializer re-emits \centering,
+	// and an unwrapped size switch lands in preBody, where the float's own group bounds it just
+	// as the braces did. only wrappers that actually hold the tabular unwrap; a macro ARG holding
+	// one (\resizebox{...}{tabular}) is untouched, since containsTabular never enters args.
+	for (const node of flattenTabularWrappers(content)) {
 		if (node.type === 'macro' && node.content === 'caption') {
 			const arg = getMacroFirstArg(node as Macro);
 			const captionText = convertNodesToInline(arg, ctx);
@@ -40,11 +47,14 @@ function extractTableComponents(content: Node[], ctx: ConversionContext) {
 		} else if (node.type === 'macro' && node.content === 'label') {
 			const text = getTextContent(getMacroFirstArg(node as Macro));
 			if (text) labels.push(text);
-		} else if (node.type === 'environment' && (node.env === 'tabular' || node.env === 'tabularx' || node.env === 'longtable')) {
+		} else if (
+			node.type === 'environment' &&
+			(node.env === 'tabular' || node.env === 'tabular*' || node.env === 'tabularx' || node.env === 'longtable')
+		) {
+			// tabular* included: createTable already reads its width arg, and leaving it out sent
+			// the whole float down the generic path with the caption collapsing to a raw chip
 			sawTabular = true;
-			if (node.env === 'tabular') tables.push(...createTable(node as Environment));
-			else if (node.env === 'tabularx') tables.push(...createTable(node as Environment));
-			else if (node.env === 'longtable') tables.push(...createTable(node as Environment));
+			tables.push(...createTable(node as Environment));
 		} else {
 			// whitespace BEFORE the tabular is just separation (preBody re-joins with spaces);
 			// whitespace AFTER is preserved (word spacing in notes prose matters).
@@ -116,6 +126,18 @@ function extractTableComponents(content: Node[], ctx: ConversionContext) {
 	const extraLabels = labels.length > 1 ? labels.slice(0, -1) : null;
 
 	return { caption, label, extraLabels, tables, notes, preBody, postBody };
+}
+
+function flattenTabularWrappers(content: Node[]): Node[] {
+	const flat: Node[] = [];
+	for (const node of content) {
+		const unwrap =
+			(node.type === 'environment' && (node as Environment).env === 'center' && containsTabular([node])) ||
+			(node.type === 'group' && containsTabular(node.content ?? []));
+		if (unwrap) flat.push(...flattenTabularWrappers(((node as { content?: Node[] }).content ?? []) as Node[]));
+		else flat.push(node);
+	}
+	return flat;
 }
 
 /** Whether a tabular/tabularx/longtable appears anywhere (possibly nested) in these nodes. */

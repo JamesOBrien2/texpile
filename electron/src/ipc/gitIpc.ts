@@ -11,4 +11,8 @@ export function registerGitIpc(): void {
 	handleFs('git:discard', gitService.gitDiscard);
 	handleFs('git:commit', gitService.gitCommit);
 	handleFs('git:userName', gitService.gitUserName);
+	handleFs('git:log', gitService.gitLog);
+	handleFs('git:changesSince', gitService.gitChangesSince);
+	handleFs('git:showAt', gitService.gitShowAt);
+	handleFs('git:restore', gitService.gitRestore);
 }

@@ -1,12 +1,12 @@
 // The workspace's three callback surfaces: the editor-column actions WorkspaceMain hands
 // down, the chrome actions the menu bar and sidebar get, and the Ctrl+K palette commands.
-import { tabs } from '$lib/workspace/tabs.svelte';
+import { tabs, tabKey, type Tab } from '$lib/workspace/tabs.svelte';
 import { collabGuest } from '$lib/collab/guestStore.svelte';
 import { normSyncPath } from '$lib/workspace/syncTexNav';
 import { projectConfigSync as projectConfig } from '$lib/workspace/projectConfigSync.svelte';
 import { uiZoomIn, uiZoomOut, uiZoomReset } from '$lib/workspace/shortcuts';
-import { workspaceRoot } from '$lib/workspace/workspaceStore';
-import { refreshGitStatus } from '$lib/workspace/gitStore';
+import { workspaceRoot, activeCompare } from '$lib/workspace/workspaceStore';
+import { refreshGitStatus, refreshGitHistory } from '$lib/workspace/gitStore';
 import { preferencesOpen } from '$lib/stores/dialogStore';
 import { isDesktop, revealItem, type TreeEntry } from '$lib/workspace/fileSystem';
 import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
@@ -139,9 +139,9 @@ export function makeMainActions(d: ActionSurfaceDeps) {
 		insertLibraryCitation: () => d.integrations.insertFromLibrary(),
 		openLibraryManager: () => d.integrations.openLibraryManager(),
 		save: () => d.wsdoc.save(),
-		activateTab: (p: string) => d.editFlow().activateTab(p),
-		closeTab: (p: string) => d.editFlow().closeTab(p),
-		keepTab: (path: string) => tabs.keep(path),
+		activateTab: (t: Tab) => d.editFlow().activateTab(t),
+		closeTab: (t: Tab) => d.editFlow().closeTab(t),
+		keepTab: (t: Tab) => tabs.keep(tabKey(t)),
 		useSource: () => d.wsdoc.modes.set('source'),
 		pickStarter: (s: Starter) => d.files().starters.pick(s),
 		newTexFile: () => d.files().starters.newTexFile(),
@@ -160,7 +160,11 @@ export function makeMainActions(d: ActionSurfaceDeps) {
 		jumpToFile: (name: string) => d.nav.jumpToInclude(name),
 		openFileAt: (file: string, line: number, selectText?: string) => d.nav.openFileAtLine(file, line, selectText),
 		refreshDiff: () => void toastAfter(m.wsview_toast_diff_refreshed(), () => void d.wsdoc.diff.snapshot()),
-		exitDiff: () => d.wsdoc.modes.exitDiff(),
+		// leaving a comparison is closing its tab: it is a thing you opened, not a mode you are in
+		exitDiff: () => {
+			const path = d.wsdoc.doc.path;
+			if (path) d.editFlow().closeTab({ path, compare: activeCompare.current ?? undefined });
+		},
 		onPdfDoubleClick: (page: number, x: number, y: number, selectText?: string) => d.nav.onPdfDoubleClick(page, x, y, selectText),
 		onInverseSync: (file: string, line: number, selectText?: string) => d.nav.openFileAtLine(normSyncPath(file), line, selectText),
 		onPreviewSettled: d.draftCtl.runDecision,
@@ -214,7 +218,11 @@ export function makeChromeActions(d: ActionSurfaceDeps) {
 		// the main file is a property of the project, so it goes in .texpile/config.json with the rest
 		setMain: (entry: TreeEntry) => void d.files().toggleMainFile(entry.path),
 		revealEntry: (entry: TreeEntry) => void revealItem(entry.path),
-		refreshGit: () => void toastAfter(m.wsview_toast_git_refreshed(), () => refreshGitStatus(workspaceRoot.current))
+		refreshGit: () =>
+			void toastAfter(m.wsview_toast_git_refreshed(), async () => {
+				await refreshGitStatus(workspaceRoot.current);
+				await refreshGitHistory(workspaceRoot.current);
+			})
 	};
 }
 
@@ -236,7 +244,7 @@ export function makePaletteActions(d: ActionSurfaceDeps) {
 		canFormat: () => d.fmt.canFormatDoc(),
 		formatTool: () => (d.wsdoc.doc.kind === 'typ' ? 'typstyle' : 'latexindent') as 'typstyle' | 'latexindent',
 		canGit: () => d.provider.caps.git,
-		openFile: (abs: string) => d.editFlow().activateTab(abs),
+		openFile: (abs: string) => d.editFlow().activateTab({ path: abs }),
 		toggleSidebar: () => d.layout().toggleSidebar(),
 		sidebarOpen: () => d.layout().sidebarOpen,
 		toggleTerminal: () => d.termDock().toggle(),

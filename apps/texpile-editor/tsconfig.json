@@ -2,7 +2,8 @@
 	"compilerOptions": {
 		"paths": {
 			"$lib": ["./src/lib"],
-			"$lib/*": ["./src/lib/*"]
+			"$lib/*": ["./src/lib/*"],
+			"$branding/*": ["../../branding/*"]
 		},
 		"verbatimModuleSyntax": true,
 		"isolatedModules": true,
@@ -31,7 +32,8 @@
 		"src/**/*.ts",
 		"src/**/*.svelte",
 		"tests/**/*.js",
-		"tests/**/*.ts"
+		"tests/**/*.ts",
+		"tests/**/*.svelte"
 	],
 	"exclude": ["node_modules/**"]
 }

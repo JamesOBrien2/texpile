@@ -126,6 +126,8 @@ try {
 					await page.screenshot({ path: path.join(here, 'results', `early-${fx.name}-${sc.name}.png`), fullPage: true });
 				}
 				let ev = await collectUntilQuiet(page, { maxMs: sc.maxMs ?? 12000 });
+				if (process.env.MATRIX_DUMP_EVENTS)
+					fs.writeFileSync(path.join(here, 'results', `events-${fx.name}-${sc.name}.json`), JSON.stringify(ev, null, 1));
 				for (let retry = 0; retry < 2 && !ev.length; retry++) {
 					// straggler race (a late compile/warm settling as we dispatched): retry patiently
 					console.log(

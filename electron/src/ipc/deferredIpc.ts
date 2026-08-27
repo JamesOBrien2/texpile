@@ -11,6 +11,7 @@ type Terminal = typeof import('./terminalIpc.js');
 type Daemon = typeof import('../draft/draftDaemon.js');
 type McpServer = typeof import('../mcp/server.js');
 
+// held for the shutdown hooks: what never loaded has nothing to tear down
 let terminal: Terminal | null = null;
 let daemon: Daemon | null = null;
 let mcpServer: McpServer | null = null;

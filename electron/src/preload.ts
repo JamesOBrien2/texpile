@@ -29,7 +29,22 @@ function bufferedChannel<T>(channel: string, map: (...args: unknown[]) => T) {
 const onOpenPathBuffered = bufferedChannel('main:open-path', (p) => String(p));
 const onOpenFolderBuffered = bufferedChannel('main:open-folder', (r) => String(r));
 
+// The one deliberate sendSync in the app. Preload runs before any page code, so what it returns
+// here the renderer has before its first render: a restored window can go straight to the
+// workspace instead of painting the start screen and swapping, and settings need no round trip
+// before mount. One blocking call of well under a millisecond buys both.
+type Bootstrap = { open: { kind: 'file' | 'folder'; path: string } | null; settings: Record<string, unknown> };
+const bootstrap: Bootstrap = (() => {
+	try {
+		return ipcRenderer.sendSync('window:bootstrap') as Bootstrap;
+	} catch {
+		return { open: null, settings: {} };
+	}
+})();
+
 contextBridge.exposeInMainWorld('texpileNative', {
+	/** what this window is opening and the settings to open it with, known before the first render. */
+	bootstrap,
 	/** native folder picker; resolves to the chosen absolute path or null. */
 	openFolder: () => ipcRenderer.invoke('dialog:openFolder'),
 	getSettings: () => ipcRenderer.invoke('settings:get'),
@@ -165,7 +180,10 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	 * engine's exact per-page positioned records. -> { ok, pages, paperW, paperH, ... }. */
 	draftCompile: (body: { root: string; mainFile: string }) => invokeFs('draft:compile', body),
 	/** Draft-mode instant path: typeset ONE paragraph on the warm daemon (~1-2ms). */
-	draftTypeset: (body: { root: string; mainFile: string; text: string; hsize?: number }) => invokeFs('draft:typeset', body),
+	draftTypeset: (body: { root: string; mainFile: string; text: string; hsize?: number; splitTo?: number }) =>
+		invokeFs('draft:typeset', body),
+	/** Draft-mode page-break certificate: re-split a page's dimension skeleton on the engine. */
+	draftSkeleton: (body: { root: string; mainFile: string; items: unknown[]; targetPt: number }) => invokeFs('draft:skeleton', body),
 	/** Stop the warm daemon (draft mode off / preview closed) so it stops holding memory. */
 	draftStop: () => invokeFs('draft:stop', {}),
 	/** Steal the warm engine from the window that currently owns it (explicit user action). */
@@ -198,7 +216,15 @@ contextBridge.exposeInMainWorld('texpileNative', {
 	gitDiscard: (root: string, paths: string[]) => invokeFs('git:discard', root, paths),
 	gitCommit: (root: string, message: string) => invokeFs('git:commit', root, message),
 	/** the repo's configured user.name, for attributing comments -> { ok, name }. */
-	gitUserName: (root: string) => invokeFs('git:userName', root)
+	gitUserName: (root: string) => invokeFs('git:userName', root),
+	/** commits touching the workspace, newest first -> { ok, entries? }. */
+	gitLog: (root: string, limit?: number) => invokeFs('git:log', root, limit),
+	/** files that differ between a commit and the working copy now -> { ok, entries? }. */
+	gitChangesSince: (root: string, hash: string) => invokeFs('git:changesSince', root, hash),
+	/** a file's contents at an arbitrary commit, for diffing a version -> { ok, hasHead, content? }. */
+	gitShowAt: (path: string, ref: string) => invokeFs('git:showAt', path, ref),
+	/** roll the workspace back to a commit by writing that version forward as a new one. */
+	gitRestore: (root: string, hash: string, message: string) => invokeFs('git:restore', root, hash, message)
 });
 
 // in-app updates: check/download are explicit renderer calls, events stream back per channel

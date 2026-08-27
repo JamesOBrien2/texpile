@@ -1,9 +1,13 @@
 <script lang="ts">
-	// read-only HEAD vs working-buffer diff via @codemirror/merge. purely presentational:
-	// WorkspaceView passes the snapshot pair down, so this re-diffs on snapshot/layout changes only, never per keystroke.
+	// A saved version against the working copy, via @codemirror/merge.
+	//
+	// The version is read-only; the working copy is the FILE, so it is editable and a keystroke goes
+	// back through the buffer's own handler. merge re-diffs as it changes, which is what makes an
+	// editable diff honest.
 	import { onDestroy } from 'svelte';
-	import { EditorView, lineNumbers } from '@codemirror/view';
+	import { EditorView, lineNumbers, keymap } from '@codemirror/view';
 	import { EditorState, type Extension } from '@codemirror/state';
+	import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 	import { LanguageDescription } from '@codemirror/language';
 	import { languages as cmlangdata } from '@codemirror/language-data';
 	import { unifiedMergeView, MergeView } from '@codemirror/merge';
@@ -11,16 +15,28 @@
 	import { bibtex } from '$lib/languages/bib/bibtexLanguage';
 	import { latex } from '$lib/languages/latex/source/latexLanguage';
 
-	let {
-		filename = '',
-		original = '',
-		modified = '',
-		layout = 'unified'
-	}: { filename?: string; original?: string; modified?: string; layout?: 'unified' | 'split' } = $props();
+	type Props = {
+		filename?: string;
+		original?: string;
+		modified?: string;
+		layout?: 'unified' | 'split';
+		/** set while co-editing: this pane holds plain text, so an edit would be a whole-text replace
+		 *  against a CRDT others are typing into. The Y-bound source editor is where that happens. */
+		readOnly?: boolean;
+		/** the whole text, the shape the buffer's own handler takes */
+		onModifiedInput?: (value: string) => void;
+	};
+	let { filename = '', original = '', modified = '', layout = 'unified', readOnly = false, onModifiedInput }: Props = $props();
 
 	let host = $state<HTMLDivElement>();
 	let current: EditorView | MergeView | null = null;
+	/** in split the b editor; unified, the whole view */
+	let modifiedView: EditorView | null = null;
 	let langExt = $state<Extension>([]);
+	// what the view was built from. Plain locals: the rebuild effect writes them and must not re-run.
+	let builtOriginal: string | null = null;
+	let builtLayout: 'unified' | 'split' | null = null;
+	let builtLang: Extension | null = null;
 
 	// normalize CRLF -> LF on both sides: git show returns LF bytes while the working buffer may be
 	// CRLF (core.autocrlf on Windows); without this every line reads as changed
@@ -44,7 +60,7 @@
 		}
 		let cancelled = false;
 		if (/\.typ$/i.test(f)) {
-			// island flavour: highlighting only, no fold gutter in a read-only diff
+			// island flavour: highlighting only, no folding in a view that already collapses lines
 			void import('$lib/languages/typst/source/typstLanguage').then(({ typstIslandLanguage }) => {
 				if (!cancelled) langExt = typstIslandLanguage();
 			});
@@ -65,50 +81,76 @@
 		};
 	});
 
-	function baseExts(): Extension[] {
+	function sharedExts(): Extension[] {
+		return [lineNumbers(), cmSyntaxHighlight(), langExt, EditorView.lineWrapping];
+	}
+
+	/** bytes in git, with nowhere to write back to */
+	function versionExts(): Extension[] {
+		return [EditorState.readOnly.of(true), EditorView.editable.of(false), ...sharedExts()];
+	}
+
+	/** typing here edits the file, so it needs the editing basics - undo among them */
+	function workingExts(): Extension[] {
+		const emit = onModifiedInput;
+		if (readOnly || !emit) return versionExts();
 		return [
-			EditorState.readOnly.of(true),
-			EditorView.editable.of(false),
-			lineNumbers(),
-			cmSyntaxHighlight(),
-			langExt,
-			EditorView.lineWrapping
+			...sharedExts(),
+			history(),
+			keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+			EditorView.updateListener.of((u) => {
+				if (u.docChanged) emit(u.state.doc.toString());
+			})
 		];
 	}
 
-	// rebuild the view on snapshot/layout/language changes; rebuilding is the simplest
-	// correct way to force a re-diff and it fires rarely
+	// rebuilding is the simplest way to force a re-diff, and now the destructive one: mid-sentence
+	// it takes the caret with it, so an edit echoing back must not count as a reason
 	$effect(() => {
 		const o = lf(original);
 		const m = lf(modified);
 		const lay = layout;
-		void langExt; // rebuild when the resolved language arrives
+		const lang = langExt; // rebuild when the resolved language arrives
 		if (!host) return;
+		// an edit flows out to the buffer and a later snapshot brings the same text back
+		if (modifiedView && o === builtOriginal && lay === builtLayout && lang === builtLang && m === modifiedView.state.doc.toString()) {
+			return;
+		}
 		current?.destroy();
 		// eslint-disable-next-line svelte/no-dom-manipulating -- the div is an empty mount point Svelte never renders into; MergeView owns its children
 		host.replaceChildren();
 		if (lay === 'split') {
-			current = new MergeView({
+			const mv = new MergeView({
 				parent: host,
-				a: { doc: o, extensions: baseExts() }, // original (HEAD)
-				b: { doc: m, extensions: baseExts() }, // modified (working)
+				a: { doc: o, extensions: versionExts() }, // the saved version
+				b: { doc: m, extensions: workingExts() }, // the working copy
 				orientation: 'a-b',
 				gutter: true,
 				highlightChanges: true,
 				collapseUnchanged: COLLAPSE
 			});
+			current = mv;
+			modifiedView = mv.b;
 		} else {
-			current = new EditorView({
+			const view = new EditorView({
 				parent: host,
 				state: EditorState.create({
 					doc: m,
-					extensions: [...baseExts(), unifiedMergeView({ original: o, mergeControls: false, gutter: true, collapseUnchanged: COLLAPSE })]
+					extensions: [...workingExts(), unifiedMergeView({ original: o, mergeControls: false, gutter: true, collapseUnchanged: COLLAPSE })]
 				})
 			});
+			current = view;
+			modifiedView = view;
 		}
+		builtOriginal = o;
+		builtLayout = lay;
+		builtLang = lang;
 	});
 
-	onDestroy(() => current?.destroy());
+	onDestroy(() => {
+		current?.destroy();
+		modifiedView = null;
+	});
 </script>
 
 <div bind:this={host} class="diff-panel h-full"></div>

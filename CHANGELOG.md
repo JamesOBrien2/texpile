@@ -5,26 +5,16 @@ Release notes for Texpile Desktop. Add notes under `## [Unreleased]` as you work
 
 ## [Unreleased]
 
-- fix: citation keys now also come from the folder's .bbl files (biber and classic bibtex formats), so arXiv-style projects that ship a .bbl without a .bib get \cite completion, hover info, and citation chips; .bbl files open with LaTeX highlighting and completions in the source editor
-- fix: every dialog closes on Escape and on a click outside it; pressing Escape on the AI setup instructions no longer also closes Preferences underneath
-- fix: the start screen no longer grows a scrollbar with a long recent-folder history; it shows the five newest, a "Show all" popup holds the rest, and the history now remembers ten folders
-- fix: live mode now renders typing-from-scratch instantly: new sections and paragraphs appear as you type instead of waiting for a pause and a full pass
-- fix: half-typed inline math renders live in new paragraphs, both $ ... $ and \( ... \) forms, closing the math for the preview while you type
-- fix: live mode places edits in numbered theorems, equations, and align blocks instantly, refining the number in the background instead of falling back to a full compile
-- fix: live mode could briefly show a wrong theorem or equation number while claiming the render was final
-- fix: live mode no longer flashes "Refining page N" for background passes that finish quickly; the label only appears when refinement actually takes a while
-- fix: the first compile after picking a Typst main file in the confirmation dialog could run the LaTeX command instead
-- fix: a compile that finishes without writing its PDF or log now says where Texpile looked, instead of silently claiming success
-- feat: switching workspace shows the new workspace immediately; the file explorer and project fill in as they load
-- fix: a clean Typst compile behind a cd command now clears old entries from the Problems panel
-- fix: the source editor's right-click menu showed macOS shortcut symbols on Windows and Linux
-- fix: live mode renders edits in paragraphs that straddle a column or page break instantly, refining in the background instead of recompiling
-- fix: live mode renders edits in full-width tables and figures of two-column documents instantly
-- fix: adding or deleting a list item renders instantly in live mode instead of waiting for a full compile
-- fix: a new paragraph typed at the very top of the document or right below a table or figure renders instantly in live mode
-- fix: editing a comment, a label, or the preamble no longer announces "Compiling project" in live mode; the page holds and the pass runs quietly in the background
-- fix: text painted by a live-mode instant patch no longer looks thinner than the settled page
-- fix: in two-column documents, live mode now flows overflowing text into the next column of the same page, matching where the real compile puts it; only the last column spills to the next page
+- fix: improved launch speed
+- fix: editor now correctly handles bbl files
+- fix: various improvements in the visual editor
+- fix: live preview reads section, footnote and list numbers from the engine, so more edits render exactly instead of provisionally
+- fix: live preview no longer stalls on paragraphs with \verb or \url
+- fix: editing an abstract or other narrowed block now patches instantly instead of waiting for a full recompile
+- fix: edits that need a full recompile now highlight where the change will land while it runs
+- fix: the table of contents and cross-references no longer stay empty or show ?? in live preview
+- fix: instant patches now ask the engine whether the edited page still fits and read stretched spacing from it, instead of guessing
+- fix: the engine fit check now works on many more document classes instead of refusing pages with invisible layout rules
 
 ## [0.17.1] - 2026-08-19
 

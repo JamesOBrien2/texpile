@@ -4,6 +4,8 @@
 // The same code drives the app and the headless edit-class matrix (tests/live).
 import { paraTex, splitParaLines, stripTexComments, wrapHead, wrapItem, type Para } from './splitParas';
 import { daemonReady, repairForPreview } from './repairForPreview';
+import { scanAlignment, type Align } from './alignScan';
+import { bodyLineFor, counterBefore, isFloatEnv } from '../engineTruth';
 
 export { splitParas, stripTexComments, wrapItem, type Para } from './splitParas';
 export { daemonReady, repairForPreview } from './repairForPreview';
@@ -67,17 +69,20 @@ export type EditDecision =
 	// exactly one block changed: dispatch to the instant path
 	| ({ kind: 'patch' } & PatchAction);
 
-function refOf(p: Para): ParaRef {
+function refOf(p: Para, file?: string): ParaRef {
 	return {
 		line: p.startLine,
 		endLine: p.startLine + p.text.split('\n').length - 1,
-		text: paraTex(p),
+		text: paraTex(p, file),
 		listItem: !!p.wrap || !!p.env || !!p.head
 	};
 }
 
-/** ONE decision point per edit: diff the buffer against the last-compiled baseline. */
-export function decideEdit(baseline: string, src: string): EditDecision {
+/** ONE decision point per edit: diff the buffer against the last-compiled baseline.
+ * `file` (root-relative) keys the engine-truth lookups: counter pins, the \begin{document}
+ * line, the float set -- omitted (the harness, older callers), every truth lookup falls
+ * back to the standard-LaTeX assumption and the result stays provisional-grade. */
+export function decideEdit(baseline: string, src: string, file?: string): EditDecision {
 	const base = baselineOf(baseline);
 	const oldP = base.paras;
 	const srcLines = src.split('\n');
@@ -94,11 +99,11 @@ export function decideEdit(baseline: string, src: string): EditDecision {
 		// unreconciled patch left the baseline behind) must recompile.
 		if (changed.length === 1) {
 			if (cutEq(srcLines, newP[changed[0]], base.lines, oldP[changed[0]])) single = changed[0];
-			else return structuralOf(base.lines, oldP, newP, 'para+boundary');
+			else return structuralOf(base.lines, oldP, newP, 'para+boundary', file);
 		}
 	}
-	if (single < 0) return structuralOf(base.lines, oldP, newP, oldP.length !== newP.length ? 'para-count' : 'multi-para');
-	return buildPatch(base.lines, oldP[single], newP[single]);
+	if (single < 0) return structuralOf(base.lines, oldP, newP, oldP.length !== newP.length ? 'para-count' : 'multi-para', file);
+	return buildPatch(base.lines, oldP[single], newP[single], file);
 }
 
 // the full \caption[short]{...} by brace count: real captions nest ({\tt {\small ...}})
@@ -128,11 +133,12 @@ function captionOf(s: string): string | null {
 // the compound structural path: an exact patch never advances the baseline, so the routine
 // "type in a paragraph, then open a new one" reads as modified+inserted -- the modified
 // pair goes through here while the insert splices provisionally.
-function buildPatch(baseLines: string[], oP: Para, nP: Para): EditDecision {
+function buildPatch(baseLines: string[], oP: Para, nP: Para, file?: string): EditDecision {
 	// a preamble block (above \begin{document}) parses as prose but typesets nothing a
 	// band could match: route it straight to the boundary pass instead of a doomed
-	// patch -> abandon round trip
-	const docAt = baseLines.findIndex((l) => /^\s*\\begin\{document\}/.test(l)) + 1;
+	// patch -> abandon round trip. The line the engine executed \begin{document} at wins
+	// over the regex (a macro-wrapped or oddly-spaced one).
+	const docAt = bodyLineFor(file) ?? baseLines.findIndex((l) => /^\s*\\begin\{document\}/.test(l)) + 1;
 	if (docAt > 0 && oP.startLine <= docAt) return { kind: 'boundary' };
 	// text ships VERBATIM (comments, line structure): the engine's catcodes decide what
 	// they mean. Mid-command (unbalanced braces / open math): raw dispatch would hang the
@@ -163,10 +169,10 @@ function buildPatch(baseLines: string[], oP: Para, nP: Para): EditDecision {
 	// float material), but the inner tabular alone typesets fine: dispatch just the tabular
 	// when the change is confined to it. Caption/placement edits keep the whole-block
 	// dispatch, which cal-empties into the full pass.
-	let dispatchText = wrapHead(wrapItem(sendText, nP.wrap), nP.head);
-	let dispatchOrig = paraTex(oP);
+	let dispatchText = wrapHead(wrapItem(sendText, nP.wrap, oP.startLine, file), nP.head, oP.startLine, file);
+	let dispatchOrig = paraTex(oP, file);
 	let floatInner = false;
-	if (nP.env && /^(table|figure)\*?$/.test(nP.env)) {
+	if (nP.env && isFloatEnv(nP.env)) {
 		const TAB = /\\begin\{(tabular\*?|tabularx|array)\}[\s\S]*?\\end\{\1\}/;
 		const oSub = dispatchOrig.match(TAB)?.[0] ?? null;
 		const nSub = dispatchText.match(TAB)?.[0] ?? null;
@@ -182,29 +188,33 @@ function buildPatch(baseLines: string[], oP: Para, nP: Para): EditDecision {
 		}
 		// a \caption edit: typeset JUST the caption (float material cal-empties). \@captype is
 		// what \caption reads to know its float type; the counter pin makes the daemon's number
-		// deterministic ("Figure 1") -- the real number rides the fuzzy tier into a provisional
-		// patch and the reconcile paints it, same as section numbers.
+		// deterministic. The TRUE value from the compile's counter log renders the page's own
+		// number ("Figure 4") and can certify; the 0 fallback rides the fuzzy tier into a
+		// provisional patch and the reconcile paints it, same as section numbers.
 		if (!floatInner) {
 			const oCap = captionOf(dispatchOrig);
 			const nCap = captionOf(dispatchText);
 			if (oCap && nCap && dispatchOrig.replace(oCap, ' ') === dispatchText.replace(nCap, ' ')) {
 				const type = nP.env.replace('*', '');
-				const pin = `\\makeatletter\\def\\@captype{${type}}\\makeatother\\setcounter{${type}}{0}`;
+				const capPin = counterBefore(type, oP.startLine, file) ?? 0;
+				const pin = `\\makeatletter\\def\\@captype{${type}}\\makeatother\\setcounter{${type}}{${capPin}}`;
 				dispatchText = pin + nCap;
 				dispatchOrig = pin + oCap;
 				floatInner = true;
 			}
 		}
 	}
-	// footnote counter pin: FIXED value like the heading pins -- the engine's own counter
-	// accumulates across requests, so a pin is needed purely for determinism. The (likely
-	// wrong) mark digit fails exact verification and the patch rides the provisional tier;
-	// the reconcile paints the true number. (A JS re-count of earlier \footnote marks used
-	// to guess the real value: deleted -- that's TeX counter state reconstructed in JS.)
+	// footnote counter pin: the engine's own counter accumulates across requests, so a pin
+	// is needed for determinism. The TRUE value from the compile's counter log renders the
+	// page's own mark and can certify; the 0 fallback's wrong digit fails exact
+	// verification and rides the provisional tier until the reconcile. (A JS re-count of
+	// earlier \footnote marks used to guess it: deleted -- TeX counter state
+	// reconstructed in JS.)
 	const FN = /\\footnote(?:mark)?\s*[[{]/;
 	if (FN.test(dispatchText) || FN.test(dispatchOrig)) {
-		dispatchText = '\\setcounter{footnote}{0}' + dispatchText;
-		dispatchOrig = '\\setcounter{footnote}{0}' + dispatchOrig;
+		const fnPin = counterBefore('footnote', oP.startLine, file) ?? 0;
+		dispatchText = `\\setcounter{footnote}{${fnPin}}` + dispatchText;
+		dispatchOrig = `\\setcounter{footnote}{${fnPin}}` + dispatchOrig;
 	}
 	function cmdsOf(s: string) {
 		return (s.match(/\\[a-zA-Z@]+/g) || [])
@@ -223,7 +233,9 @@ function buildPatch(baseLines: string[], oP: Para, nP: Para): EditDecision {
 		// env blocks and headings ride the listItem pathway: paraLeft = column left (their
 		// records carry their own centering/indent) and no \parindent calibration variant
 		listItem: !!nP.wrap || !!nP.env || !!nP.head,
-		cmdChanged: cmdsOf(sendText) !== cmdsOf(stripTexComments(oP.text))
+		// both sides stripped: a \cmd inside a comment or a verb body never executes, so it
+		// must not read as a command-set change on either side
+		cmdChanged: cmdsOf(stripTexComments(sendText)) !== cmdsOf(stripTexComments(oP.text))
 	};
 }
 
@@ -231,7 +243,8 @@ function structuralOf(
 	baseLines: string[],
 	oldP: Para[],
 	newP: Para[],
-	reason: 'para-count' | 'multi-para' | 'para+boundary'
+	reason: 'para-count' | 'multi-para' | 'para+boundary',
+	file?: string
 ): EditDecision {
 	let fi = 0;
 	const minLen = Math.min(oldP.length, newP.length);
@@ -239,24 +252,13 @@ function structuralOf(
 	let bi = 0;
 	while (bi < minLen - fi && oldP[oldP.length - 1 - bi].text === newP[newP.length - 1 - bi].text) bi++;
 	const t = newP[Math.min(fi, newP.length - 1)];
-	const out: EditDecision = { kind: 'structural', reason, focus: t ? refOf(t) : null };
-	// shared-prefix + shared-suffix length: which unmatched paragraph is the EDIT of which
-	function sim(a: Para, b: Para) {
-		const x = a.text;
-		const y = b.text;
-		const n = Math.min(x.length, y.length);
-		let p = 0;
-		while (p < n && x[p] === y[p]) p++;
-		let s = 0;
-		while (s < n - p && x[x.length - 1 - s] === y[y.length - 1 - s]) s++;
-		return p + s;
-	}
+	const out: EditDecision = { kind: 'structural', reason, focus: t ? refOf(t, file) : null };
 	function plainProse(p: Para) {
 		return !p.head && !p.wrap && !p.env;
 	}
 	// a merge anchor must live in the BODY: a preamble "paragraph" (\documentclass,
 	// \newcommand runs) parses as prose but typesets nothing a band could match
-	const bodyAt = baseLines.findIndex((l) => /^\s*\\begin\{document\}/.test(l)) + 1;
+	const bodyAt = bodyLineFor(file) ?? baseLines.findIndex((l) => /^\s*\\begin\{document\}/.test(l)) + 1;
 	function inBody(p: Para) {
 		return bodyAt <= 0 || p.startLine > bodyAt;
 	}
@@ -265,7 +267,7 @@ function structuralOf(
 	// list item re-wrapped with an appended \par would render INSIDE the list). Nothing
 	// here decides layout -- it only gates WHAT rides one engine typeset.
 	function mergeable(p: Para) {
-		return inBody(p) && (plainProse(p) || !!p.head || (!!p.env && !/^(table|figure)\*?$/.test(p.env) && !p.wrap));
+		return inBody(p) && (plainProse(p) || !!p.head || (!!p.env && !isFloatEnv(p.env) && !p.wrap));
 	}
 	// an unclosed \begin{env} swallows the buffer tail into one block; typesetting that
 	// (with \end{document} inside) can never render -- hold it back from the merged run.
@@ -274,33 +276,8 @@ function structuralOf(
 	function insertable(p: Para) {
 		return mergeable(p) && (daemonReady(p.text) || repairForPreview(p.text) !== null) && !/\\end\{document\}/.test(p.text);
 	}
-	// Alignment scan: try every insert (or delete) position j inside the unmatched window and
-	// accept it when the rest of the window agrees except AT MOST ONE modified pair -- the
-	// pending-patch paragraph that never advanced the baseline (the normal state
-	// mid-writing). Among valid alignments prefer no-modification, then the pairing whose
-	// modified texts are most similar (a transposed pairing would splice swapped content).
-	// `short` = the side without the extra paragraphs, `long` = with them; j indexes the
-	// start of the inserted/deleted RUN of length k in LONG, mod the modified one in SHORT.
-	type Align = { j: number; mod: number | null; score: number };
 	function scan(ins: boolean, k: number): Align | null {
-		const short = ins ? oldP : newP;
-		const long = ins ? newP : oldP;
-		let best: Align | null = null;
-		for (let j = fi; j <= long.length - k - bi; j++) {
-			let mod: number | null = null;
-			let ok = true;
-			for (let i = fi; i <= short.length - 1 - bi && ok; i++) {
-				const li = i < j ? i : i + k;
-				if (short[i].text !== long[li].text) {
-					if (mod !== null) ok = false;
-					else mod = i;
-				}
-			}
-			if (!ok) continue;
-			const score = mod === null ? Infinity : sim(short[mod], long[mod < j ? mod : mod + k]);
-			if (!best || score > best.score) best = { j, mod, score };
-		}
-		return best;
+		return scanAlignment(ins ? oldP : newP, ins ? newP : oldP, fi, bi, k);
 	}
 	// a run of list items rides its neighbouring item as ONE re-wrapped list typeset; the
 	// pinned counter makes labels deterministic-but-wrong, so the patch is provisional and
@@ -332,12 +309,12 @@ function structuralOf(
 				const prev = a.j > 0 ? oldP[a.j - 1] : null;
 				if (prev && itemRun(run, prev)) {
 					const merged: Para = { ...prev, text: joinItems(prev, run) };
-					const one = buildPatch(baseLines, prev, merged);
+					const one = buildPatch(baseLines, prev, merged, file);
 					if (one.kind === 'patch') return one;
 				}
 				if (prev && runProse && mergeable(prev)) {
 					const merged: Para = { ...prev, text: `${prev.text}\n\\par ${joined}` };
-					const one = buildPatch(baseLines, prev, merged);
+					const one = buildPatch(baseLines, prev, merged, file);
 					if (one.kind === 'patch') return one;
 				}
 				// no previous block to ride (top of document) or an unmergeable one (a float):
@@ -346,7 +323,7 @@ function structuralOf(
 				const nxt = a.j < oldP.length ? oldP[a.j] : null;
 				if (nxt && runProse && mergeable(nxt) && (!prev || !mergeable(prev))) {
 					const merged: Para = { ...nxt, text: `${joined}\n\\par ${nxt.text}` };
-					const one = buildPatch(baseLines, nxt, merged);
+					const one = buildPatch(baseLines, nxt, merged, file);
 					if (one.kind === 'patch') return one;
 				}
 			} else if (a.mod === a.j - 1) {
@@ -358,7 +335,7 @@ function structuralOf(
 				// "\sect" -> "\section{...", and prose typed after it must not go structural
 				if (mergeable(modOld) && insertable(modNew) && runProse) {
 					const merged: Para = { ...modNew, text: `${modNew.text}\n\\par ${joined}` };
-					const one = buildPatch(baseLines, modOld, merged);
+					const one = buildPatch(baseLines, modOld, merged, file);
 					if (one.kind === 'patch') return one;
 				}
 			}
@@ -374,12 +351,12 @@ function structuralOf(
 			const prev = a.j > 0 ? oldP[a.j - 1] : null;
 			if (prev && itemRun(gone, prev)) {
 				const mergedOrig: Para = { ...prev, text: joinItems(prev, gone) };
-				const one = buildPatch(baseLines, mergedOrig, prev);
+				const one = buildPatch(baseLines, mergedOrig, prev, file);
 				if (one.kind === 'patch') return one;
 			}
 			if (prev && mergeable(prev) && gone.every((p) => mergeable(p) || (plainProse(p) && daemonReady(p.text)))) {
 				const mergedOrig: Para = { ...prev, text: `${prev.text}\n\\par ${gone.map((p) => p.text).join('\n\\par ')}` };
-				const one = buildPatch(baseLines, mergedOrig, prev);
+				const one = buildPatch(baseLines, mergedOrig, prev, file);
 				if (one.kind === 'patch') return one;
 			}
 			// deleted from the top (or from under a float): close up against the NEXT block
@@ -391,7 +368,7 @@ function structuralOf(
 				gone.every((p) => mergeable(p) || (plainProse(p) && daemonReady(p.text)))
 			) {
 				const mergedOrig: Para = { ...nxt, text: `${gone.map((p) => p.text).join('\n\\par ')}\n\\par ${nxt.text}` };
-				const one = buildPatch(baseLines, mergedOrig, nxt);
+				const one = buildPatch(baseLines, mergedOrig, nxt, file);
 				if (one.kind === 'patch') return one;
 			}
 		}

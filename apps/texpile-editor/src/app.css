@@ -37,6 +37,16 @@ html[data-mode='dark'] {
 	--mathfield-focus-border: var(--color-surface-400);
 }
 
+/* mathlive's caret defaults to its blue accent in both schemes; follow the page text color
+   instead (the var pierces the shadow root, and an explicit value beats both of its
+   prefers-color-scheme fallbacks, which track the OS rather than the app toggle) */
+math-field {
+	--caret-color: var(--color-surface-950);
+}
+html[data-mode='dark'] math-field {
+	--caret-color: var(--color-surface-50);
+}
+
 /* the theme's error reds are tuned for white backgrounds and lose contrast as text on dark;
    lift the text-relevant steps while preserving the scale's ordering */
 html[data-mode='dark'] {
@@ -169,6 +179,58 @@ html[data-mode='dark'] .ProseMirror {
 }
 [data-mode='dark'] .cm-completionMatchedText {
 	color: var(--color-primary-300);
+}
+
+/* mathlive's \command suggestion popover (light DOM in <body>) ships one hardcoded gray look
+   with no color variables or layout hooks; restyled to a compact themed list (command left,
+   rendered glyph right, soft tint on the selection), sized like the spell-check suggestion
+   card. layout is only densified - position, animation and the flex row structure stay
+   mathlive's. pairing tokens (light-dark()) carry the mode flip, since color-scheme follows
+   data-mode above. the html prefix is load-bearing: mathlive's sheet is adopted
+   (document.adoptedStyleSheets cascades after ours), so every override must out-rank it */
+html #mathlive-suggestion-popover {
+	background-color: var(--color-surface-50-950);
+	color: var(--color-surface-950-50);
+	border: 1px solid var(--color-surface-300-700);
+	border-radius: var(--radius-container, 0.25rem);
+	box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+	text-align: left;
+	font-size: 0.75rem;
+	min-width: 12.5rem;
+	max-width: 17.5rem;
+}
+/* the caret-pointing arrow doesn't fit the flat-card look */
+html #mathlive-suggestion-popover.top-tip::after,
+html #mathlive-suggestion-popover.bottom-tip::after {
+	display: none;
+}
+html #mathlive-suggestion-popover ul {
+	align-items: stretch; /* rows span the panel; mathlive sizes each to its content */
+	padding: 4px;
+}
+html #mathlive-suggestion-popover li {
+	width: auto;
+	margin: 0;
+	padding: 4px 8px;
+	border-radius: var(--radius-base, 0.25rem);
+}
+/* the rendered symbol rides its own KaTeX sizing; 1.6rem made three rows fill the panel */
+html #mathlive-suggestion-popover .ML__popover__command {
+	font-size: 1rem;
+}
+html #mathlive-suggestion-popover li:hover,
+html #mathlive-suggestion-popover li.is-pressed,
+html #mathlive-suggestion-popover li.is-active {
+	background: var(--color-surface-200-800);
+}
+/* after the hover rule: the tie-break keeps the selection tinted while hovered */
+html #mathlive-suggestion-popover li.ML__popover__current {
+	background: light-dark(var(--color-primary-100), color-mix(in oklab, var(--color-primary-500) 30%, transparent));
+	color: inherit;
+}
+html #mathlive-suggestion-popover li a,
+html #mathlive-suggestion-popover li a:hover {
+	color: light-dark(var(--color-primary-500), var(--color-primary-300));
 }
 
 /* Skeleton's .input transparent bg leaks the OS-default white on <select> (native form chrome
@@ -1203,11 +1265,10 @@ html[data-mode='dark'] .cm-comment-add:hover {
 }
 
 /* missing image source: bundled placeholder with a clear marker (imageNodeView.ts) */
+/* the generated missing-image card carries its own frame; !important beats the inline pixel
+   sizing the resize path wrote before the load failed */
 .image-not-found {
-	outline: 2px dashed var(--color-error-500);
-	outline-offset: 2px;
-	opacity: 0.7;
-	max-width: 240px;
+	max-width: min(480px, 100%);
 	height: auto !important;
 	width: auto !important;
 }
@@ -1244,6 +1305,74 @@ html[data-mode='dark'] .cm-comment-add:hover {
 .mode-sync-flash {
 	animation: synctex-flash 1.4s ease-out;
 	border-radius: 4px;
+}
+
+/* Visual diff: what changed since a saved version, drawn on the rendered document. Added text is
+   tinted rather than underlined so it survives inside headings, maths and table cells, where an
+   underline would collide with the node view's own chrome. Same success/error pair the source
+   diff uses, so the two representations of one comparison read as the same colours. */
+.texpile-diff-added {
+	background-color: color-mix(in srgb, var(--color-success-500) 22%, transparent);
+	border-radius: 2px;
+}
+/* The same change on a node that renders its OWN content - a CodeMirror island, a formula, a
+   citation chip, a figure. ProseMirror draws nothing inside those, so an inline decoration there
+   has no span to attach to and the node carries the mark instead. An outline as well as a fill,
+   because a figure covers its own background - an outline paints above the content, which an
+   inset shadow would not.
+
+   The offset is NEGATIVE so the ring stays inside the node's own box. Outset, two marked blocks
+   standing next to each other overlap in the gap between them and the lower one paints over the
+   upper one's edge, which reads as one box losing a side.
+
+   Two colours, because the node cannot say WHAT changed and the colour is all the detail there
+   is: green for a formula that is new, amber for one that is no longer what it was. Same pair the
+   file tree uses for added and modified. */
+.texpile-diff-added-node {
+	background-color: color-mix(in srgb, var(--color-success-500) 16%, transparent);
+	outline: 2px solid color-mix(in srgb, var(--color-success-500) 45%, transparent);
+	outline-offset: -2px;
+	border-radius: 4px;
+}
+.texpile-diff-changed-node {
+	background-color: color-mix(in srgb, var(--color-warning-500) 16%, transparent);
+	outline: 2px solid color-mix(in srgb, var(--color-warning-500) 45%, transparent);
+	outline-offset: -2px;
+	border-radius: 4px;
+}
+/* What was deleted, shown rather than hidden behind a hover. It was a 3px hairline with the text
+   on its title, which collapsed a deleted paragraph - and a deleted FILE - into a sliver.
+
+   Struck through and tinted, so it reads as gone at a glance and is never mistaken for text that
+   is still in the document. user-select is left on: the reason to look at deleted text is often to
+   take a sentence back out of it. */
+.texpile-diff-removed,
+.texpile-diff-removed-block {
+	background-color: color-mix(in srgb, var(--color-error-500) 14%, transparent);
+	color: color-mix(in srgb, var(--color-error-500) 55%, var(--color-surface-950));
+	text-decoration: line-through;
+	text-decoration-color: color-mix(in srgb, var(--color-error-500) 70%, transparent);
+	border-radius: 2px;
+	white-space: pre-wrap; /* multi-paragraph removals keep their breaks */
+}
+[data-mode='dark'] .texpile-diff-removed,
+[data-mode='dark'] .texpile-diff-removed-block {
+	color: color-mix(in srgb, var(--color-error-500) 45%, var(--color-surface-50));
+}
+/* inside a paragraph: sits in the line where the words were */
+.texpile-diff-removed {
+	padding: 0 2px;
+}
+/* between paragraphs: the removal WAS whole blocks, so it takes a block of its own rather than
+   being crammed into the line beside it.
+
+   No rule down the side: it read as a blockquote, which is a thing the document HAS, and the
+   tint and the strikethrough already say removed. The negative margin lets the tint bleed into
+   the padding so the struck text still lines up with the body text above and below it. */
+.texpile-diff-removed-block {
+	display: block;
+	margin: 0.35em -0.3em;
+	padding: 0.15em 0.3em;
 }
 
 /* svelte-pdf-view exposes --pdf-* hooks with light defaults; set them so the viewer chrome follows

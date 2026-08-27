@@ -5,6 +5,7 @@
 // Injected fs so the whole thing runs headless in tests.
 
 import type * as Y from 'yjs';
+import { LATEX_SIDECAR_RE } from '$lib/workspace/buildArtifacts';
 import { manifestOf, locksOf, textOf, type ManifestEntry } from './session';
 
 export type MaterializeFs = {
@@ -24,8 +25,7 @@ export type MaterializeFs = {
 // Generated build products are rewritten wholesale by every compile, and a Y.Doc keeps history -
 // routing them through the CRDT would grow every participant's session memory with dead compile
 // output. They stay in the fetch-on-demand binary tier (guests still get the log and friends).
-const GENERATED_EXT =
-	/\.(log|aux|toc|lof|lot|out|bbl|blg|bcf|fls|fdb_latexmk|synctex|synctex\.gz|xdv|dvi|run\.xml|nav|snm|vrb|idx|ilg|ind|glo|gls|glg|ist|spl)$/i;
+const GENERATED_EXT = LATEX_SIDECAR_RE;
 // never shared: VCS internals and dependency trees (credentials + noise). Everything else is shared,
 // gated by size, so a guest can pull the output folder for local intellisense, the log, and the PDF.
 const EXCLUDE = /(^|\/)(\.git|\.svn|node_modules|__pycache__)(\/|$)/i;

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Github, Globe, Check } from '@lucide/svelte';
-	import LogoDark from '$lib/assets/Logo-dark.svg';
-	import LogoLight from '$lib/assets/Logo-light.svg';
+	import LogoDark from '$branding/Logo-dark.svg';
+	import LogoLight from '$branding/Logo-light.svg';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { base } from '$app/paths';

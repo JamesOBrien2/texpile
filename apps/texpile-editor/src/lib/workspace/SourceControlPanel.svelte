@@ -1,8 +1,12 @@
 <script lang="ts">
-	// source control panel, purely presentational: WorkspaceView implements the callbacks
-	import { GitBranch, Check, Plus, Minus, Undo2, RefreshCw, GitCommitHorizontal, Info } from '@lucide/svelte';
-	import { isTexpileManaged } from '$lib/comments/managed';
-	import type { GitStatusEntry, GitBadge } from '$lib/workspace/git';
+	// History panel, purely presentational: WorkspaceView implements the callbacks. No
+	// staged/unstaged split - the tick boxes ARE the staging, so a version's scope is visible.
+	import { GitBranch, RefreshCw, Check, GitCommitHorizontal } from '@lucide/svelte';
+	import ChangeList from './history/ChangeList.svelte';
+	import HistoryTimeline from './history/HistoryTimeline.svelte';
+	import { pathLabels } from './history/pathLabels';
+	import { isBuildArtifact } from '$lib/workspace/buildArtifacts';
+	import type { GitStatusEntry, GitLogEntry, GitFileChange } from '$lib/workspace/git';
 	import { modLabel } from '$lib/platform';
 	import { m } from '$lib/paraglide/messages';
 
@@ -11,131 +15,98 @@
 		isRepo: boolean;
 		branch: string | null;
 		changes: GitStatusEntry[];
+		history: GitLogEntry[];
+		/** could not be read at all, as against having nothing in it */
+		historyError?: string | null;
+		/** the history runs past what was fetched */
+		historyHasMore?: boolean;
+		onShowMoreHistory?: () => void;
 		busy?: boolean;
 		onInit: () => void;
-		onStage: (paths: string[]) => void;
-		onUnstage: (paths: string[]) => void;
 		onDiscard: (changes: GitStatusEntry[]) => void;
-		onCommit: (message: string) => Promise<boolean>;
+		onCommit: (message: string, paths: string[]) => Promise<boolean>;
+		onRestore: (entry: GitLogEntry) => void;
+		onCompare: (entry: GitLogEntry, path: string) => void;
+		/** what differs between a version and the working copy, read when that version is opened */
+		onLoadChanges: (hash: string) => Promise<GitFileChange[]>;
+		/** the timeline's share of the panel (0..1) */
+		historyFraction: number;
+		splitEl?: HTMLDivElement;
+		onStartHistoryResize: (e: MouseEvent) => void;
+		onResizeHistoryByKey: (e: KeyboardEvent) => void;
 		onOpenDiff: (path: string) => void;
 		onRefresh: () => void;
+		onIgnoreArtifacts: (() => void) | null;
 	};
 	let {
 		root,
 		isRepo,
 		branch,
 		changes,
+		history,
+		historyError = null,
+		historyHasMore = false,
+		onShowMoreHistory,
 		busy = false,
 		onInit,
-		onStage,
-		onUnstage,
 		onDiscard,
 		onCommit,
+		onRestore,
+		onCompare,
+		onLoadChanges,
+		historyFraction,
+		splitEl = $bindable(),
+		onStartHistoryResize,
+		onResizeHistoryByKey,
 		onOpenDiff,
-		onRefresh
+		onRefresh,
+		onIgnoreArtifacts
 	}: Props = $props();
 
-	let commitMessage = $state('');
+	let message = $state('');
 
-	// staged = index column set (and not untracked); unstaged = working-dir column dirty
-	// (covers modified/deleted and untracked, whose y is '?')
-	function isStaged(c: GitStatusEntry) {
-		return c.x !== ' ' && c.x !== '?';
-	}
-	function isUnstaged(c: GitStatusEntry) {
-		return c.y !== ' ';
-	}
-	const staged = $derived(changes.filter(isStaged));
-	const unstaged = $derived(changes.filter(isUnstaged));
+	// one implementation of how a path is written, shared by the changes and a version's files
+	const labels = $derived(pathLabels(root));
 
-	const LETTER_COLOR: Record<GitBadge, string> = {
-		M: 'text-amber-500',
-		A: 'text-green-500',
-		D: 'text-red-500',
-		U: 'text-sky-500',
-		R: 'text-violet-500'
-	};
-	function letter(c: GitStatusEntry, stagedRow: boolean): GitBadge {
-		if (c.x === '?') return 'U';
-		const ch = stagedRow ? c.x : c.y;
-		if (ch === 'A') return 'A';
-		if (ch === 'D') return 'D';
-		if (ch === 'R') return 'R';
-		return 'M';
-	}
+	// what the author wrote vs what the compiler wrote
+	const artifacts = $derived(changes.filter((c) => isBuildArtifact(c.path)));
+	const sources = $derived(changes.filter((c) => !isBuildArtifact(c.path)));
 
-	const rootN = $derived(root.replace(/\\/g, '/').replace(/\/+$/, ''));
-	function relPath(p: string): string {
-		const a = p.replace(/\\/g, '/');
-		return a.startsWith(rootN + '/') ? a.slice(rootN.length + 1) : a;
-	}
-	function baseName(p: string) {
-		return p.split(/[\\/]/).pop() ?? p;
-	}
-	function dirName(p: string): string {
-		const r = relPath(p);
-		const i = r.lastIndexOf('/');
-		return i >= 0 ? r.slice(0, i) : '';
+	/** Paths the user has UNticked. Exclusions rather than inclusions, so a file that changes while
+	 *  the panel is open joins the next version by default instead of being silently left out. */
+	let excluded = $state<string[]>([]);
+	// build output starts unticked without being "excluded by the user": it is off by default and
+	// stays off through a refresh, but ticking one is remembered rather than undone on the next scan
+	let artifactsOptedIn = $state<string[]>([]);
+
+	const selected = $derived([
+		...sources.filter((c) => !excluded.includes(c.path)).map((c) => c.path),
+		...artifacts.filter((c) => artifactsOptedIn.includes(c.path)).map((c) => c.path)
+	]);
+
+	function toggle(path: string) {
+		if (artifacts.some((a) => a.path === path)) {
+			artifactsOptedIn = artifactsOptedIn.includes(path) ? artifactsOptedIn.filter((p) => p !== path) : [...artifactsOptedIn, path];
+			return;
+		}
+		excluded = excluded.includes(path) ? excluded.filter((p) => p !== path) : [...excluded, path];
 	}
 
-	async function doCommit() {
-		if (await onCommit(commitMessage)) commitMessage = '';
+	async function save() {
+		if (!message.trim() || selected.length === 0) return;
+		if (await onCommit(message, selected)) {
+			message = '';
+			excluded = [];
+			artifactsOptedIn = [];
+		}
 	}
-	function commitKeydown(e: KeyboardEvent) {
+	function onKeydown(e: KeyboardEvent) {
 		if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
 			e.preventDefault();
-			doCommit();
+			void save();
 		}
 	}
 </script>
-
-{#snippet fileRow(c: GitStatusEntry, stagedRow: boolean)}
-	{@const b = letter(c, stagedRow)}
-	<div class="group hover:bg-surface-200-800 flex items-center rounded px-2 py-0.5 text-sm">
-		<button class="flex min-w-0 flex-1 items-center gap-1.5 text-left" onclick={() => onOpenDiff(c.path)} title={relPath(c.path)}>
-			<span class="truncate">{baseName(c.path)}</span>
-			{#if dirName(c.path)}<span class="text-surface-500 truncate text-xs">{dirName(c.path)}</span>{/if}
-			<!-- .texpile is hidden from the file tree, so this is the first place anyone meets the
-			     file. Unexplained, it reads as junk to discard rather than review notes to commit. -->
-			{#if isTexpileManaged(relPath(c.path))}
-				<span class="badge preset-tonal-primary shrink-0 gap-1 px-1 py-0 text-[10px]" title={m.texpile_managed_note()}>
-					<Info class="size-3" />
-					{m.vcs_texpile_managed()}
-				</span>
-			{/if}
-		</button>
-		<div class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
-			{#if stagedRow}
-				<button
-					class="hover:preset-tonal rounded p-0.5"
-					title={m.vcs_unstage_changes()}
-					aria-label={m.vcs_unstage_changes()}
-					onclick={() => onUnstage([c.path])}
-				>
-					<Minus class="size-3.5" />
-				</button>
-			{:else}
-				<button
-					class="hover:preset-tonal-error rounded p-0.5"
-					title={m.vcs_discard_changes()}
-					aria-label={m.vcs_discard_changes()}
-					onclick={() => onDiscard([c])}
-				>
-					<Undo2 class="size-3.5" />
-				</button>
-				<button
-					class="hover:preset-tonal rounded p-0.5"
-					title={m.vcs_stage_changes()}
-					aria-label={m.vcs_stage_changes()}
-					onclick={() => onStage([c.path])}
-				>
-					<Plus class="size-3.5" />
-				</button>
-			{/if}
-		</div>
-		<span class="ml-1 w-4 shrink-0 text-center font-mono text-xs font-bold {LETTER_COLOR[b]}" title={b}>{b}</span>
-	</div>
-{/snippet}
 
 {#if !isRepo}
 	<div class="flex flex-col items-center gap-3 p-6 text-center">
@@ -148,6 +119,8 @@
 	</div>
 {:else}
 	<div class="flex h-full min-h-0 flex-col">
+		<!-- refresh belongs beside the branch: both are the state of the repository, and parked above
+		     an unrelated heading it read as a stray duplicate of the file tree's own refresh -->
 		<div class="text-surface-600-300 flex h-7 shrink-0 items-center gap-1.5 px-3 text-xs">
 			<GitBranch class="size-3.5 shrink-0" />
 			<span class="truncate font-medium">{branch ?? m.vcs_no_branch()}</span>
@@ -161,71 +134,80 @@
 			</button>
 		</div>
 
-		<div class="border-surface-200-800 space-y-2 border-b px-2 pb-2">
-			<textarea
-				class="input resize-none text-sm"
-				rows="2"
-				placeholder={m.vcs_commit_placeholder({ modLabel })}
-				bind:value={commitMessage}
-				onkeydown={commitKeydown}></textarea>
-			<button
-				class="btn btn-xs preset-filled-primary-500 w-full gap-1.5"
-				onclick={doCommit}
-				disabled={busy || !commitMessage.trim() || (staged.length === 0 && unstaged.length === 0)}
-				title={staged.length ? m.vcs_commit_staged_title() : m.vcs_commit_all_title()}
-			>
-				<Check class="size-4" />
-				{staged.length ? m.vcs_commit_button() : m.vcs_commit_all_button()}
-			</button>
-		</div>
-
-		<div class="min-h-0 flex-1 overflow-y-auto p-1.5">
-			{#if staged.length}
-				<div class="text-surface-500 group/hdr flex items-center gap-1 px-2 py-1 text-xs font-semibold uppercase">
-					<span>{m.vcs_staged_changes_heading()}</span>
-					<span class="bg-surface-300-700 rounded-full px-1.5 text-[10px]">{staged.length}</span>
-					<button
-						class="hover:preset-tonal ml-auto rounded p-0.5 opacity-0 group-hover/hdr:opacity-100"
-						title={m.vcs_unstage_all()}
-						aria-label={m.vcs_unstage_all()}
-						onclick={() => onUnstage(staged.map((c) => c.path))}
-					>
-						<Minus class="size-3.5" />
-					</button>
+		<!-- which half matters depends on what you are doing, so it is not the scrollbar's decision -->
+		<div class="flex min-h-0 flex-1 flex-col" bind:this={splitEl}>
+			<div class="flex min-h-0 flex-col" style="flex: {1 - historyFraction} 1 0%">
+				<div class="scroll-inset-r min-h-0 flex-1 overflow-y-auto pb-2">
+					{#if changes.length}
+						<!-- The total, then the groups it is made of. Deliberately not a group row itself: no
+						     tick box and no chevron, so a summary cannot be mistaken for what it summarises. -->
+						<div class="border-surface-200-800 text-surface-500 flex items-center gap-2 border-t px-3 py-1 text-xs">
+							<span class="font-medium">{m.vcs_total_changes()}</span>
+							<span class="tabular-nums">{changes.length}</span>
+						</div>
+						<div class="px-1.5">
+							<ChangeList {root} {sources} {artifacts} {selected} onToggle={toggle} {onOpenDiff} {onDiscard} {onIgnoreArtifacts} />
+						</div>
+					{:else}
+						<div class="text-surface-500 mt-6 mb-2 flex flex-col items-center gap-1 text-center text-sm">
+							<GitCommitHorizontal class="size-6 opacity-60" />
+							{m.vcs_no_changes()}
+						</div>
+					{/if}
 				</div>
-				{#each staged as c (c.path)}{@render fileRow(c, true)}{/each}
-			{/if}
 
-			{#if unstaged.length}
-				<div class="text-surface-500 group/hdr flex items-center gap-1 px-2 py-1 text-xs font-semibold uppercase">
-					<span>{m.vcs_changes_heading()}</span>
-					<span class="bg-surface-300-700 rounded-full px-1.5 text-[10px]">{unstaged.length}</span>
-					<button
-						class="hover:preset-tonal-error ml-auto rounded p-0.5 opacity-0 group-hover/hdr:opacity-100"
-						title={m.vcs_discard_all()}
-						aria-label={m.vcs_discard_all()}
-						onclick={() => onDiscard(unstaged)}
-					>
-						<Undo2 class="size-3.5" />
-					</button>
-					<button
-						class="hover:preset-tonal rounded p-0.5 opacity-0 group-hover/hdr:opacity-100"
-						title={m.vcs_stage_all()}
-						aria-label={m.vcs_stage_all()}
-						onclick={() => onStage(unstaged.map((c) => c.path))}
-					>
-						<Plus class="size-3.5" />
-					</button>
-				</div>
-				{#each unstaged as c (c.path)}{@render fileRow(c, false)}{/each}
-			{/if}
+				<!-- outside the scroller: what you are about to save must not scroll away from its list -->
+				{#if changes.length}
+					<div class="border-surface-200-800 shrink-0 space-y-2 border-t px-2 py-2">
+						<textarea
+							class="input resize-none text-sm"
+							rows="2"
+							placeholder={m.vcs_save_placeholder()}
+							title={m.vcs_commit_placeholder({ modLabel })}
+							bind:value={message}
+							onkeydown={onKeydown}></textarea>
+						<button
+							class="btn btn-xs preset-filled-primary-500 w-full gap-1.5"
+							onclick={save}
+							disabled={busy || !message.trim() || selected.length === 0}
+						>
+							<Check class="size-4" />
+							{selected.length === 1 ? m.vcs_save_version_one() : m.vcs_save_version_count({ count: selected.length })}
+						</button>
+					</div>
+				{/if}
+			</div>
 
-			{#if !staged.length && !unstaged.length}
-				<div class="text-surface-500 mt-8 flex flex-col items-center gap-1 text-center text-sm">
-					<GitCommitHorizontal class="size-6 opacity-60" />
-					{m.vcs_no_changes()}
+			<!-- arrow keys resize when focused: the WAI-ARIA window-splitter pattern (role=separator + tabindex) -->
+			<!-- eslint-disable-next-line svelte/valid-compile -->
+			<div
+				class="hover:bg-primary-500/40 active:bg-primary-500/60 relative z-20 -my-[3px] h-1.5 shrink-0 cursor-row-resize bg-transparent transition-colors"
+				onmousedown={onStartHistoryResize}
+				onkeydown={onResizeHistoryByKey}
+				role="separator"
+				aria-orientation="horizontal"
+				aria-label={m.vcs_resize_history_aria()}
+				tabindex="0"
+			></div>
+
+			<div class="border-surface-200-800 flex min-h-0 flex-col border-t" style="flex: {historyFraction} 1 0%">
+				<div class="text-surface-500 shrink-0 px-2 py-1 text-sm">{m.vcs_history_heading()}</div>
+				<div class="scroll-inset-r min-h-0 flex-1 overflow-y-auto pb-2">
+					<HistoryTimeline
+						{history}
+						{busy}
+						{branch}
+						error={historyError}
+						hasMore={historyHasMore}
+						onShowMore={onShowMoreHistory}
+						{onLoadChanges}
+						{onCompare}
+						{onRestore}
+						baseName={labels.baseName}
+						dirName={labels.dirName}
+					/>
 				</div>
-			{/if}
+			</div>
 		</div>
 	</div>
 {/if}

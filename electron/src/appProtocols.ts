@@ -73,7 +73,8 @@ const RENDERER_CSP = [
  */
 export function registerPrivilegedSchemes(): void {
 	protocol.registerSchemesAsPrivileged([
-		{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+		// codeCache: without it V8 recompiles the whole renderer bundle on every launch
+		{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, codeCache: true } },
 		{ scheme: 'texfile', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true } }
 	]);
 }

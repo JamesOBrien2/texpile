@@ -78,7 +78,9 @@ export default defineConfig(({ mode }) => ({
 		...(mode === 'test' ? { conditions: ['browser'] } : {}),
 		// 90+ source files (and the vitest suite) import through $lib, so keep it as a plain alias
 		alias: {
-			$lib: path.resolve(__dirname, 'src/lib')
+			$lib: path.resolve(__dirname, 'src/lib'),
+			// the repo-level brand assets (see TRADEMARK.md); one canonical copy, no per-app duplicates
+			$branding: path.resolve(__dirname, '../../branding')
 		},
 		// dynamically-loaded language packages must share one @codemirror/state instance
 		// (avoids instanceof failures)

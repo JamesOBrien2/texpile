@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { decideEdit } from '$lib/draft/dispatch';
+import { decideEdit } from '$lib/draft/heuristics/dispatch';
 
 // exact storm phase-2 state: intro paragraph extended (pending patch) + first junk
 // paragraph typed before \section{Switching -- must merge into ONE patch

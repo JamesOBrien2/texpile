@@ -3,6 +3,7 @@
 // directory-by-directory disk walk, the flat list already fuzzy-matches a whole relative path in
 // one step, so there's no separate "select a directory to see its contents" chaining to port.
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
+import { LATEX_SIDECAR_RE } from '$lib/workspace/buildArtifacts';
 import { filePathStore } from '$lib/stores/editorStore';
 
 /** exported for the markdown source completion, which offers the same figures from the same store */
@@ -32,7 +33,7 @@ const STRIP_EXT = new Set(['include', 'includeonly', 'excludeonly', 'bibliograph
 
 // build junk hidden from the commands that take any extension (lstinputlisting etc.). Shared with
 // the markdown source completion: a .md file sits in the same project and sees the same artifacts.
-export const JUNK_PATH = /\.(?:aux|log|out|toc|lof|lot|bbl|blg|fls|fdb_latexmk|synctex(?:\.gz)?|xdv|nav|snm|vrb)$/i;
+export const JUNK_PATH = LATEX_SIDECAR_RE;
 
 const CMD_NAMES = [...Object.keys(FILE_CMD_EXTS), 'lstinputlisting', 'verbatiminput', 'inputminted'];
 const FILEPATH_BEFORE = new RegExp(`\\\\(${CMD_NAMES.join('|')})\\*?(?:\\[[^\\]]*\\])*\\{[^{}]*$`);

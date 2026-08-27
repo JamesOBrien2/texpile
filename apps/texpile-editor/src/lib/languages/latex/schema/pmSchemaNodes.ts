@@ -77,6 +77,9 @@ export const nodes = {
 		},
 		code: true,
 		defining: true,
+		// a gap cursor may sit against this block: with no synthetic trailing paragraph any more,
+		// the boundary itself is where an arrow-key exit lands (gapSelection.ts)
+		createGapCursor: true,
 		parseDOM: [{ tag: 'pre', preserveWhitespace: 'full' }],
 		toDOM() {
 			return preDom;
@@ -90,6 +93,7 @@ export const nodes = {
 		group: 'block',
 		code: true,
 		defining: true,
+		createGapCursor: true, // same boundary contract as code_block above
 		parseDOM: [{ tag: 'div.raw-latex-block', preserveWhitespace: 'full' }],
 		toDOM() {
 			return ['div', { class: 'raw-latex-block' }, ['code', 0]];
@@ -176,8 +180,10 @@ export const nodes = {
 		inline: false,
 		code: true,
 		defining: true,
+		// atom alone makes gap cursors valid AGAINST this block (gapcursor's needsGap);
+		// allowGapCursor was set here for years but governs gaps INSIDE the node it is on,
+		// where text* content makes them impossible - it was never consulted
 		atom: true,
-		allowGapCursor: true,
 		attrs: {
 			label: { default: null },
 			numbered: { default: false },

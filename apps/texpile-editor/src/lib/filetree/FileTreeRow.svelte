@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { ChevronRight, ChevronDown, FilePlus, Pencil, Trash2, Star } from '@lucide/svelte';
+	import { ChevronRight, ChevronDown, MoreHorizontal, Star } from '@lucide/svelte';
 	import FileIcon from './FileIcon.svelte';
 	import FileTreeRow from './FileTreeRow.svelte';
 	import type { TreeEntry } from '$lib/workspace/fileSystem';
@@ -8,7 +8,7 @@
 	import type { FileTreeState } from './treeState.svelte';
 	import type { FileTreeDnd } from './treeDnd.svelte';
 	import type { TreeNameEditor } from './treeNameEditor.svelte';
-	import { gitBadgeOf, BADGE_COLOR, BADGE_TITLE } from './treeBadges';
+	import { gitBadgeOf, STATUS_COLOR, STATUS_TITLE } from './treeBadges';
 	import { focusSelect } from './focusSelect';
 	import { m } from '$lib/paraglide/messages';
 
@@ -25,12 +25,10 @@
 		isMain: (e: TreeEntry) => boolean;
 		onOpen: (entry: TreeEntry) => void;
 		openCtx: (e: MouseEvent, entry: TreeEntry) => void;
-		confirmDelete: (e: TreeEntry) => void;
 		createInput: Snippet<[number]>;
 	};
 
-	let { entry, depth, sel, dnd, editor, focused, gitStatus, isActive, isMain, onOpen, openCtx, confirmDelete, createInput }: Props =
-		$props();
+	let { entry, depth, sel, dnd, editor, focused, gitStatus, isActive, isMain, onOpen, openCtx, createInput }: Props = $props();
 </script>
 
 <div>
@@ -52,7 +50,7 @@
 		oncontextmenu={(e) => openCtx(e, entry)}
 	>
 		<button
-			class="flex min-w-0 flex-1 items-center gap-1 py-0.5"
+			class="flex flex-1 items-center gap-1 py-0.5"
 			style="padding-left: {depth * 12 + 4}px"
 			onclick={(e) => sel.handleRowClick(e, entry)}
 			ondblclick={() => entry.type === 'file' && onOpen(entry)}
@@ -63,7 +61,13 @@
 					/>{/if}
 				<FileIcon name={entry.name} folder={sel.expanded[entry.path] ? 'open' : 'closed'} class="size-4 shrink-0" />
 			{:else}
-				<span class="w-3.5 shrink-0"></span>
+				<!-- the slot a directory puts its chevron in; for a file it holds the main-file star, so
+				     the mark sits in one column instead of trailing a name of whatever length -->
+				<span class="flex w-3.5 shrink-0 items-center justify-center">
+					{#if isMain(entry)}
+						<Star class="fill-primary-500 text-primary-500 size-3" aria-label={m.filetree_main_file_label()} />
+					{/if}
+				</span>
 				<FileIcon name={entry.name} class="size-4 shrink-0" />
 			{/if}
 			{#if editor.renaming === entry.path}
@@ -85,39 +89,35 @@
 					onblur={(e) => editor.blurRename(e, entry)}
 				/>
 			{:else}
-				<span class="truncate">{entry.name}</span>
-				{#if isMain(entry)}
-					<Star class="fill-primary-500 text-primary-500 size-3 shrink-0" aria-label={m.filetree_main_file_label()} />
-				{/if}
-				{#if gitBadgeOf(gitStatus, entry)}
-					{@const b = gitBadgeOf(gitStatus, entry)}
-					<!-- pushed left by the hover buttons rather than faded out, which read as a flicker -->
-					<span class="ml-auto shrink-0 pr-1 font-mono text-xs font-bold {b ? BADGE_COLOR[b] : ''}" title={b ? BADGE_TITLE[b] : ''}
-						>{b}</span
-					>
-				{/if}
+				{@const status = gitBadgeOf(gitStatus, entry)}
+				<!-- names are never trimmed; the tree scrolls sideways instead (see FileTree's min-w-max).
+				     git status is the name's own colour, so it needs no column of its own -->
+				<span class="whitespace-nowrap {status ? STATUS_COLOR[status] : ''}" title={status ? STATUS_TITLE[status] : undefined}
+					>{entry.name}</span
+				>
 			{/if}
 		</button>
 		{#if editor.renaming !== entry.path}
-			<!-- `hidden`, not opacity-0: laid out permanently it reserved width on every row and held
-			     the git badge in off the right edge -->
-			<div class="hidden shrink-0 items-center gap-0.5 pr-1 group-hover:flex">
-				{#if entry.type === 'dir'}
-					<button
-						class="btn-icon btn-icon-xs hover:preset-tonal"
-						title={m.filetree_new_file_title()}
-						onclick={() => editor.startCreate(entry.path, 'file')}
-					>
-						<FilePlus class="size-3.5" />
-					</button>
-				{/if}
-				<button class="btn-icon btn-icon-xs hover:preset-tonal" title={m.filetree_rename()} onclick={() => editor.startRename(entry)}>
-					<Pencil class="size-3.5" />
+			<!-- one slot, not three: the row's actions live in the context menu this opens, so hovering
+			     never widens the row. `hidden`, not opacity-0, so it reserves no width when not hovered.
+			     sticky: rows can be wider than the pane, and parked at the row's end this would sit off
+			     screen until you scrolled to it.
+			     The opaque fill belongs to this wrapper rather than the button, because preset-tonal is
+			     a 10% mix over transparent - a button painting its own hover fill would let the name it
+			     is sitting on top of show straight through. -->
+			<span class="bg-surface-200-800 sticky right-0 z-10 hidden shrink-0 items-center pr-1 group-hover:flex">
+				<button
+					class="btn-icon btn-icon-xs hover:preset-tonal"
+					title={m.filetree_row_actions()}
+					aria-label={m.filetree_row_actions()}
+					onclick={(e) => {
+						e.stopPropagation();
+						openCtx(e, entry);
+					}}
+				>
+					<MoreHorizontal class="size-3.5" />
 				</button>
-				<button class="btn-icon btn-icon-xs hover:preset-tonal-error" title={m.filetree_delete()} onclick={() => confirmDelete(entry)}>
-					<Trash2 class="size-3.5" />
-				</button>
-			</div>
+			</span>
 		{/if}
 	</div>
 
@@ -136,7 +136,6 @@
 				{isMain}
 				{onOpen}
 				{openCtx}
-				{confirmDelete}
 				{createInput}
 			/>
 		{/each}

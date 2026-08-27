@@ -2,8 +2,10 @@
 // The single-band reflow arithmetic behind an instant patch: how much the paragraph grew or
 // shrank (delta), how much room the column has (slack), and the resulting patch object.
 import { glyphRows } from '../geometry/glyphRows';
+import { FLOW_GAP, UNDERFLOW_FRACTION } from './tolerances';
+import { flowShiftSteps, flowDyAt, type FlowStep } from '../patch/glueShift';
 import type { Cal } from '../locate/locate.types';
-import type { Patch } from './patch.types';
+import type { Patch } from '../patch/patch.types';
 
 export function lineExtents(lineRecs: any[]): { h1: number; dk: number } {
 	return { h1: (lineRecs[0] as any).h ?? 7, dk: (lineRecs[lineRecs.length - 1] as any).d ?? 2 };
@@ -58,12 +60,12 @@ export function computeReflow(
 	].sort((a, b) => a - b);
 	let lastBelow = cal.bk;
 	for (const y of belowBases) {
-		if (y - lastBelow > cal.medGap * 2.5) break; // jumped to the footer/header
+		if (y - lastBelow > cal.medGap * FLOW_GAP) break; // jumped to the footer/header
 		lastBelow = y;
 	}
 	const slack = d.colBottom - (lastBelow + d.dk);
 	const overflow = delta > 0 && delta > slack + 1;
-	const underflow = delta < -0.7 * cal.medGap;
+	const underflow = delta < -UNDERFLOW_FRACTION * cal.medGap;
 	return { y0, delta, slack, overflow, underflow, belowBases, lastBelow };
 }
 
@@ -73,23 +75,44 @@ export function computeReflow(
 export function buildBandPatch(
 	cal: Cal,
 	records: any[],
-	d: { y0: number; h1: number; dk: number; delta: number; floorA: number; pageRecords: (n: number) => any[] }
+	d: {
+		y0: number;
+		h1: number;
+		dk: number;
+		delta: number;
+		floorA: number;
+		stretchy?: boolean;
+		pageRecords: (n: number) => any[];
+		// engine page-break certificate: the caller pre-mapped the band records onto the
+		// certified baselines; the column follows the certified steps with NO rigid delta
+		cert?: { steps: FlowStep[] };
+	}
 ): Patch {
+	// on a stretched (flushbottom) page the delta distributes over the column's real glue
+	// -- TeX's vpack arithmetic -- instead of shifting the flow rigidly off the grid.
+	// With a certificate the steps ARE the engine's own repack; nothing is derived.
+	const steps: FlowStep[] | null = d.cert
+		? d.cert.steps
+		: d.stretchy
+			? flowShiftSteps(d.pageRecords(cal.pageNo), cal.bk, d.floorA, cal.colL, cal.colR, d.delta)
+			: null;
+	const flowDelta = d.cert ? 0 : d.delta;
 	return {
 		top: cal.b1 - d.y0,
 		dropTop: cal.b1 - Math.max(d.h1, d.y0) - 2,
 		dropBottom: cal.bk + d.dk + 2,
-		delta: d.delta,
+		delta: flowDelta,
 		paraLeft: cal.paraLeft,
 		colL: cal.colL,
 		colR: cal.colR,
 		newRecs: records,
 		flowBottom: d.floorA,
+		flowSteps: steps ?? undefined,
 		flowPred: glyphRows(
 			d.pageRecords(cal.pageNo).filter((x) => x.t === 'g' && x.x >= cal.colL && x.x <= cal.colR && x.y > cal.bk + 0.5 && x.y <= d.floorA),
 			cal.medGap
 		)
 			.slice(0, 10)
-			.map((rw) => ({ y: rw.y + d.delta, cs: rw.cs }))
+			.map((rw) => ({ y: rw.y + flowDyAt(steps, rw.y, flowDelta), cs: rw.cs }))
 	};
 }

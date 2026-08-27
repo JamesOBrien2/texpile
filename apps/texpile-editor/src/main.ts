@@ -5,6 +5,7 @@ import { mount } from 'svelte';
 import './app.css';
 import '$lib/theme'; // side-effect: applies the saved appearance and watches OS changes
 import { loadSettings } from '$lib/settings';
+import { adoptBootOpen, bootOpen } from '$lib/workspace/openWorkspace';
 import { focusDoctor } from '$lib/debug/focusDoctor';
 import App from './App.svelte';
 
@@ -23,6 +24,14 @@ console.log = (...args: unknown[]) => {
 
 window.addEventListener('error', (e) => console.error('[client error]', (e.error && e.error.stack) || e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => console.error('[client error]', e.reason));
+
+// adopt before mount, or the start screen renders first and is thrown away
+const boot = bootOpen();
+if (boot) {
+	// head start only; App's own loader owns the retry and the error path
+	void import('./views/workspace/WorkspaceView.svelte').catch(() => {});
+	adoptBootOpen(boot);
+}
 
 // wait for the persisted uiLocale before the first render, so a non-English user never sees a
 // flash of English UI (settings.ts applies the locale as soon as this resolves). top-level await

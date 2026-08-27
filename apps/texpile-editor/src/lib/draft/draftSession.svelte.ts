@@ -11,9 +11,11 @@ import type { Patch, PatchReq } from './patch/patch.types';
 import { DraftFonts } from './draftFonts';
 import { DraftBitmaps } from './draftBitmaps';
 import { paintRecords, splitPatchRecords, type PaintDeps } from './draftPaint';
+import { flowDyAt } from './patch/glueShift';
 import { DraftViewport } from './draftViewport.svelte';
 import { DraftPatcher } from './draftPatcher.svelte';
 import { DraftCompiler } from './draftCompiler.svelte';
+import { resetEngineTruth, updateEngineTruth } from './engineTruth';
 import { wordAt } from './draftWordAt';
 import { BP2PT } from './texUnits';
 import { nativeBridge } from '$lib/workspace/fileSystem';
@@ -30,7 +32,7 @@ type SessionOpts = {
 
 export class DraftSession {
 	pages = $state<DraftPage[]>([]);
-	paper = $state<PaperMetrics>({ w: 595, h: 842, colW: 0, textW: 0, fs: 0, mx: 72.27, my: 72.27 });
+	paper = $state<PaperMetrics>({ w: 595, h: 842, colW: 0, textW: 0, fs: 0, mx: 72.27, my: 72.27, colSep: 0, blSkip: 0, parSkip: 0 });
 	canvasEls = $state<HTMLCanvasElement[]>([]);
 	savingPdf = $state(false);
 
@@ -49,6 +51,7 @@ export class DraftSession {
 	private locateCtx: LocateContext;
 
 	constructor(private opts: SessionOpts) {
+		resetEngineTruth(); // a fresh session's document owns the truth; never inherit another's
 		this.bitmaps = new DraftBitmaps({
 			root: opts.root,
 			paper: () => this.paper,
@@ -95,13 +98,25 @@ export class DraftSession {
 			pageRecords: (n) => this.pageRecords(n),
 			colBottomOf: (p) => this.colBottomOf(p),
 			contentFloor: (p) => this.contentFloor(p),
+			paper: () => this.paper,
+			// a page is stretched when its glue records show effective != natural width --
+			// the OUTER shipout box always packs exactly (gsn 0 on every class tested), the
+			// stretching happens on the inner output box, and the vg records carry its result
+			pageStretchy: (p) => this.pageRecords(p).some((r: any) => r.t === 'vg' && r.nw !== undefined && Math.abs(r.w - r.nw) > 0.05),
 			missingInk: (records) => this.fonts.missingInk(records),
 			applyPatch: async (n, p) => {
 				this.activePatch.set(n, p);
 				await this.renderPage(n, p);
 				this.patchedPages.add(n);
 			},
-			showEditBand: (b) => this.vp.showEditBand(b),
+			showEditBand: (b, holdMs) => this.vp.showEditBand(b, holdMs),
+			synctex: (b) => nativeBridge()!.synctex(b as any),
+			pdfPath: () => this.opts.root() + '/_draft/draft.pdf',
+			splitSkeleton: (items, targetPt) => {
+				const nb = nativeBridge();
+				if (!nb?.draftSkeleton) return Promise.resolve({ ok: false as const, error: 'no-bridge' });
+				return nb.draftSkeleton({ root: this.opts.root(), mainFile: this.opts.mainFile(), items, targetPt });
+			},
 			followEdit: (page, top, bottom, colL, colR) => this.vp.followEdit(page, top, bottom, colL, colR),
 			emit: (k, d) => this.ev(k, d)
 		});
@@ -211,7 +226,13 @@ export class DraftSession {
 		const { unchanged, shifted } = splitPatchRecords(records, patches, contentBottom);
 		paintRecords(ctx, unchanged, S, 0, n, this.paintDeps());
 		patches.forEach((p, i) => {
-			paintRecords(ctx, shifted[i], S, p.delta, n, this.paintDeps());
+			// glue-distributed shift (stretched pages): per-record dy from the flow steps
+			if (p.flowSteps?.length) {
+				const flowed = shifted[i].map((r: any) => (r.y === undefined ? r : { ...r, y: r.y + flowDyAt(p.flowSteps, r.y, p.delta) }));
+				paintRecords(ctx, flowed, S, 0, n, this.paintDeps());
+			} else {
+				paintRecords(ctx, shifted[i], S, p.delta, n, this.paintDeps());
+			}
 			paintRecords(
 				ctx,
 				p.newRecs.map((r) => (r.t === 'font' ? r : { ...r, x: (r.x ?? 0) + p.paraLeft, y: (r.y ?? 0) + p.top })),
@@ -225,9 +246,22 @@ export class DraftSession {
 
 	private async applyCompiled(r: any): Promise<void> {
 		if (r.paperW > 0) {
-			this.paper = { w: r.paperW, h: r.paperH, colW: r.colW, textW: r.textW || 0, fs: r.footSkip || 0, mx: r.marginX, my: r.marginY };
+			this.paper = {
+				w: r.paperW,
+				h: r.paperH,
+				colW: r.colW,
+				textW: r.textW || 0,
+				fs: r.footSkip || 0,
+				mx: r.marginX,
+				my: r.marginY,
+				colSep: r.colSep || 0,
+				blSkip: r.blSkip || 0,
+				parSkip: r.parSkip || 0
+			};
 			if (this.vp.fitMode) this.vp.fitToWidth(); // size to the pane now that the paper dims are known
 		}
+		// counter truth + the executed \begin{document} line: the decision layer pins to these
+		updateEngineTruth({ counters: r.counters ?? [], bodyLine: r.bodyLine, mainRel: this.opts.mainFile() });
 		this.pages = r.pages;
 		this.parsedPages.clear();
 		this.patcher.geometryChanged(); // geometry changed; paragraphs re-locate on next patch

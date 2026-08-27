@@ -1,3 +1,4 @@
+import { ROW_CLUSTER } from '../heuristics/tolerances';
 import type { GlyphRow, PageRecord } from './geometry.types';
 
 // Group glyphs into visual text rows (script baselines clustered like colBase), each a
@@ -16,7 +17,7 @@ export function glyphRows(glyphs: PageRecord[], gap: number): GlyphRow[] {
 		let j = i,
 			rep = rawYs[i];
 		let all = yc.get(rawYs[i])!.slice();
-		while (j + 1 < rawYs.length && rawYs[j + 1] - rawYs[j] <= gap * 0.45) {
+		while (j + 1 < rawYs.length && rawYs[j + 1] - rawYs[j] <= gap * ROW_CLUSTER) {
 			j++;
 			const cur = yc.get(rawYs[j])!;
 			if (cur.length > yc.get(rep)!.length) rep = rawYs[j];

@@ -47,7 +47,6 @@ import { createWordCountPlugin } from '$lib/editor/visual/extensions/wordcount/w
 import { createTocPlugin } from '$lib/editor/visual/extensions/tableofcontents/tocPlugin';
 import { createPersistentSelectionPlugin } from '$lib/editor/visual/extensions/persistentSelection/persistentSelectionPlugin';
 import { proofreadPlugin, spellClickBoundaryPlugin } from '$lib/editor/spellcheck/spellcheckplugin';
-import { createTrailingParagraphPlugin } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
 import { createBoundaryClickPlugin } from '$lib/editor/visual/extensions/boundary-click-plugin';
 import { createBlockHandlePlugin } from '$lib/editor/visual/extensions/block-handle-plugin.svelte';
 import { createNodeFlashPlugin } from '$lib/editor/visual/extensions/flash-plugin';
@@ -196,7 +195,6 @@ export function typstEditorPlugins(setup: TypstEditorSetup): Plugin[] {
 		createPersistentSelectionPlugin(),
 		spellClickBoundaryPlugin, // must precede proofreadPlugin; see its comment
 		proofreadPlugin,
-		createTrailingParagraphPlugin(),
 		createBoundaryClickPlugin(),
 		// the Notion-style + / drag / delete gutter, with the typst insert set
 		createBlockHandlePlugin({ items: TYP_BLOCK_INSERT_ITEMS }),

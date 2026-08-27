@@ -2,7 +2,6 @@
 import { EditorState, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { Node as PmNode, Schema } from 'prosemirror-model';
-import { buildTrailingParagraphTr } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
 
 function scrollParent(el: HTMLElement | null): HTMLElement | null {
 	let cur = el?.parentElement ?? null;
@@ -22,10 +21,7 @@ export function swapParsedDoc(editorView: EditorView, schema: Schema, next: PmNo
 	const savedTop = scroller?.scrollTop ?? 0;
 	const prevAnchor = editorView.state.selection.anchor;
 
-	let base = EditorState.create({ schema, plugins: editorView.state.plugins, doc: next });
-	// same trailing-paragraph normalization as at mount
-	const trail = buildTrailingParagraphTr(base);
-	if (trail) base = base.apply(trail.setMeta('addToHistory', false));
+	const base = EditorState.create({ schema, plugins: editorView.state.plugins, doc: next });
 	let restored = base;
 	try {
 		const pos = Math.min(Math.max(1, prevAnchor), base.doc.content.size);

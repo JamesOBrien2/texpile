@@ -6,8 +6,8 @@ import { SavePipeline } from '$lib/workspace/savePipeline.svelte';
 import { ExternalChangeWatcher } from '$lib/workspace/externalChange.svelte';
 import { UnsavedGuard } from '$lib/workspace/unsavedGuard.svelte';
 import { diskChangedSince, recordDiskStamp } from '$lib/workspace/diskStamp';
-import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
-import { tabs } from '$lib/workspace/tabs.svelte';
+import { activeFilePath, activeCompare, isDirty } from '$lib/workspace/workspaceStore';
+import { tabs, tabKey, type Tab } from '$lib/workspace/tabs.svelte';
 import { saveVisualPosition } from '$lib/workspace/visualPositions';
 import { bodyOffsetOf } from '$lib/workspace/latexRoundtrip';
 import { editorViewStore } from '$lib/stores/editorStore';
@@ -89,10 +89,15 @@ export class WorkspaceEditFlow {
 			clearPendingTabClose: () => (this.pendingTabClose = null)
 		});
 
-		// every file that opens gains a tab (file tree, SyncTeX jumps, include links, restores)
+		// Every file that opens gains a tab (file tree, SyncTeX jumps, include links, restores).
+		//
+		// Skipped while the focused tab is a COMPARISON: activating one already placed its tab, and
+		// it holds the preview slot. Noting the file here would put a plain file tab into that same
+		// slot and evict the comparison, leaving a diff on screen with no tab of its own.
 		$effect(() => {
 			const p = activeFilePath.current;
-			if (p) tabs.noteOpened(p);
+			const comparing = activeCompare.current;
+			if (p && !comparing) tabs.noteOpened(p);
 		});
 		// the first edit promotes the preview tab: from here on it is a file you are working on, not
 		// one you glanced at, so the next file opened gets a tab of its own instead of taking this slot
@@ -166,17 +171,36 @@ export class WorkspaceEditFlow {
 		return this.unsaved.confirmLeave();
 	}
 
-	activateTab(path: string): void {
-		activeFilePath.current = path;
+	/** focus a tab. The path drives the whole app; `compare` only decides what the pane renders. */
+	activateTab(tab: Tab): void {
+		activeCompare.current = tab.compare ?? null;
+		activeFilePath.current = tab.path;
 	}
 
-	closeTab(path: string): void {
-		const active = activeFilePath.current;
-		if (active && samePath(active, path)) {
-			if (!this.autosaveActive() && this.saver.pending && samePath(this.saver.pending.path, path)) this.pendingTabClose = path;
-			activeFilePath.current = tabs.neighborOf(path);
+	closeTab(tab: Tab): void {
+		const key = tabKey(tab);
+		if (this.isFocused(tab)) {
+			// Only a FILE tab can hold an unsaved buffer, so only it can be held open by a pending
+			// save. A comparison is read-only and closes immediately.
+			if (!tab.compare && !this.autosaveActive() && this.saver.pending && samePath(this.saver.pending.path, tab.path)) {
+				this.pendingTabClose = tab.path;
+			}
+			this.focusNeighbourOf(key);
 			if (this.pendingTabClose) return;
 		}
-		tabs.close(path);
+		tabs.close(key);
+	}
+
+	/** is this exact tab the focused one: same file AND the same version, or the lack of one */
+	private isFocused(tab: Tab): boolean {
+		const active = activeFilePath.current;
+		const sameCompare = (activeCompare.current?.hash ?? null) === (tab.compare?.hash ?? null);
+		return !!active && samePath(active, tab.path) && sameCompare;
+	}
+
+	private focusNeighbourOf(key: string): void {
+		const next = tabs.neighborOf(key);
+		activeCompare.current = next?.compare ?? null;
+		activeFilePath.current = next?.path ?? null;
 	}
 }

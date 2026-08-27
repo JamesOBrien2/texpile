@@ -5,7 +5,7 @@
 	import WorkspaceChrome from './WorkspaceChrome.svelte';
 	import GlobalSearch from '$lib/search/GlobalSearch.svelte';
 	import TutorialConfirmModal from '$lib/modals/start/TutorialConfirmModal.svelte';
-	import { tabs } from '$lib/workspace/tabs.svelte';
+	import { tabs, tabKey } from '$lib/workspace/tabs.svelte';
 	import { makeMainActions, makeChromeActions, makePaletteActions, type ActionSurfaceDeps } from './workspaceActionSurfaces';
 	import { collabHost } from '$lib/collab/hostStore.svelte';
 	import { visualCollabBridge } from '$lib/collab/workspaceSession';
@@ -28,7 +28,7 @@
 	import { PaneLayout } from '$lib/workspace/paneLayout.svelte';
 	import { TerminalDockState } from '$lib/workspace/terminalDockState.svelte';
 	import { createKeydownHandler } from '$lib/workspace/shortcuts';
-	import { workspaceRoot, texFiles } from '$lib/workspace/workspaceStore';
+	import { workspaceRoot, texFiles, activeCompare } from '$lib/workspace/workspaceStore';
 	import ZoteroCitationDialog from '$lib/zotero/ZoteroCitationDialog.svelte';
 	import LibraryPickerDialog from '$lib/library/LibraryPickerDialog.svelte';
 	import LibraryManagerDialog from '$lib/library/LibraryManagerDialog.svelte';
@@ -61,7 +61,8 @@
 		guest: () => guest,
 		visualCollab: () => visualCollab,
 		saver: () => editFlow.saver,
-		clearStaleGoto: (path) => nav.clearStaleGoto(path)
+		clearStaleGoto: (path) => nav.clearStaleGoto(path),
+		startCompare: () => integrations.scm.openDiff(doc.path ?? '')
 	});
 	const editFlow: WorkspaceEditFlow = new WorkspaceEditFlow({ provider, session: () => session, guest: () => guest, wsdoc });
 	const { doc, parser, modes, diff } = wsdoc;
@@ -247,7 +248,7 @@
 	// shortcut table + UI zoom live in lib/workspace/shortcuts.ts
 	const onKeydown = createKeydownHandler({
 		getLoadedPath: () => doc.path,
-		closeTab: (p: string) => editFlow.closeTab(p),
+		closeTab: (t) => editFlow.closeTab(t),
 		isGuest: () => guest,
 		save: () => wsdoc.save(),
 		openGlobalSearch: () => void openSearchPanel(searchDeps),
@@ -323,6 +324,7 @@
 			onPickMain={() => void files.mainPrompt.prompt()}
 			panes={{
 				openTabs: tabs.list,
+				activeTabKey: doc.path ? tabKey({ path: doc.path, compare: activeCompare.current ?? undefined }) : null,
 				previewTab: tabs.preview,
 				applyingStarter: files.starters.applying,
 				allReferences: integrations.allReferences,

@@ -4,6 +4,7 @@
 
 let resolveUrl: ((path: string) => string) | null = null;
 let writeBinary: ((path: string, blob: Blob) => Promise<void>) | null = null;
+let graphicDirs: (() => string[]) | null = null;
 
 export function setEditorFileAccess(
 	resolve: ((path: string) => string) | null,
@@ -11,6 +12,22 @@ export function setEditorFileAccess(
 ): void {
 	resolveUrl = resolve;
 	writeBinary = write;
+}
+
+/**
+ * Where a relative \includegraphics could resolve to, in LaTeX's own search order.
+ *
+ * Injected rather than computed here because it needs the project root, the open file and the
+ * source's \graphicspath - none of which the image extension has. The hover tooltip already
+ * resolves graphics this way; sharing one resolver is what stops a thumbnail and the rendered
+ * image disagreeing about where a file is.
+ */
+export function setEditorGraphicDirs(fn: (() => string[]) | null): void {
+	graphicDirs = fn;
+}
+
+export function editorGraphicDirs(): string[] {
+	return graphicDirs?.() ?? [];
 }
 
 /** bytes URL for a workspace path; '' outside a workspace (img just stays broken). */

@@ -41,6 +41,8 @@ const localizedDocs = NON_BASE_LOCALES.flatMap((l) => DOC_SLUGS.map((s) => `/${l
 const config = {
 	preprocess: [vitePreprocess()],
 	kit: {
+		// the repo-level brand assets (see TRADEMARK.md); one canonical copy, no per-app duplicates
+		alias: { $branding: '../branding' },
 		// Fully static site (single landing page) — deployable to any static host at a domain root.
 		adapter: adapter({ fallback: undefined }),
 		// '*' crawls real <a href> tags for the locale variants; the Navbar's language switcher is a

@@ -59,7 +59,13 @@ c & d \\
 	});
 });
 
-describe('center-wrapped table float composes (preserving the original structure)', () => {
+// a center-wrapped float used to stay on the generic-environment path to preserve its exact
+// structure, but that path has no caption chrome and no scroll container, so a wide table
+// crushed its last columns (the BERT GLUE table). extractTableComponents now sees through the
+// center env; the wrapper serializer re-emits \centering, and spacing tweaks like \vspace are
+// owned by the wrapper (dropped on parse, its own \vspace{2mm} emitted after the caption) -
+// the same normalization every \centering-style float already gets.
+describe('center-wrapped table float adopts the table wrapper (center normalized to \\centering)', () => {
 	const SRC = String.raw`\begin{table}[t]\caption{Op complexities.}
 \label{tab:op} \begin{center}\vspace{-1mm}
 \begin{tabular}{lcc}\toprule A & B & C \\ \hline \rule{0pt}{2.0ex}Self-Attention & 1 & 2 \\
@@ -67,28 +73,22 @@ Recurrent & 3 & 4 \\
 \bottomrule\end{tabular}
 \end{center}\end{table}`;
 
-	it('models the nested tabular as a real table inside an environment(center), not raw', () => {
+	it('models the float as a table_wrapper with an editable table, not environments or raw', () => {
 		const doc = parse(SRC);
 		expect(has(doc, 'raw_latex')).toBe(false); // not dumped as one raw block
+		expect(has(doc, 'environment')).toBe(false); // not the generic-environment fallback
+		expect(has(doc, 'table_wrapper')).toBe(true);
 		expect(has(doc, 'table')).toBe(true); // editable table
 		expect(count(doc, 'table_row')).toBe(3);
-		// the \begin{table} and \begin{center} survive as environment nodes
-		let envs = '';
-		doc.descendants((n) => {
-			if (n.type.name === 'environment') envs += n.attrs.name + ' ';
-			return true;
-		});
-		expect(envs).toContain('table');
-		expect(envs).toContain('center');
 	});
 
-	it('round-trips to a fixed point and preserves caption / label / center / strut / placement', () => {
+	it('round-trips to a fixed point, preserving caption / label / strut / placement', () => {
 		const out = rt(SRC);
 		expect(out).toContain('\\begin{table}[t]'); // float placement kept
-		expect(out).toContain('\\begin{center}'); // not rewritten to \centering
+		expect(out).toContain('\\centering'); // the center env, normalized
+		expect(out).not.toContain('\\begin{center}');
 		expect(out).toContain('\\caption{Op complexities.}');
 		expect(out).toContain('\\label{tab:op}');
-		expect(out).toContain('\\vspace{-1mm}');
 		expect(out).toContain('\\rule{0pt}{2.0ex}');
 		expect(rt(out)).toBe(out); // fixed point
 	});

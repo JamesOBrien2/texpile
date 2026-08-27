@@ -2,13 +2,14 @@
 // its raw text (doc.texSource), the whole file. The visual editor is a view over it: entry
 // parses into doc.visualDoc + doc.docMeta, every visual edit serializes straight back into
 // doc.texSource, and source mode binds to it directly. No rival copy can drift.
+import { untrack } from 'svelte';
 import { DocumentBuffer, fileKind, formatOf, hasVisualMode } from '$lib/workspace/documentBuffer.svelte';
 import { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
 import { DiffMode } from '$lib/workspace/diffMode.svelte';
 import { FileOpener } from '$lib/workspace/fileOpener';
 import { VisualParser, type ParseFailure } from '$lib/workspace/visualParse.svelte';
 import { detectMainFile, gatherProjectMacros } from '$lib/workspace/project';
-import { workspaceRoot } from '$lib/workspace/workspaceStore';
+import { workspaceRoot, activeCompare, activeFilePath } from '$lib/workspace/workspaceStore';
 import { editorViewStore } from '$lib/stores/editorStore';
 import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
 import type { EditSession } from '$lib/collab/editSession';
@@ -24,6 +25,8 @@ type DocDeps = {
 	saver: () => SavePipeline;
 	/** a jump asked for the incoming file survives the switch; older ones must not */
 	clearStaleGoto: (loadedPath: string | null) => void;
+	/** compare the open file against the last saved version, in a tab of its own */
+	startCompare: () => void;
 };
 
 export class WorkspaceDoc {
@@ -58,14 +61,17 @@ export class WorkspaceDoc {
 			getLastParsedSource: () => this.parser.lastParsedSource,
 			rebuildVisual: () => this.rebuildVisualFromSource(),
 			captureDiffSnapshot: () => void this.diff.snapshot(),
+			startCompare: () => d.startCompare(),
 			scheduleSave: (path, text) => d.saver().schedule(path, text)
 		});
-		// HEAD-vs-working-copy view; state and snapshotting live in lib/workspace/diffMode.svelte.ts
-		// diff view (read-only): committed HEAD vs the live buffer, snapshotted (not bound)
-		// on entry / file switch / manual refresh so it never re-diffs per keystroke
+		// state and snapshotting live in lib/workspace/diffMode.svelte.ts. The version is
+		// snapshotted, not bound - it is the half that cannot change.
 		this.diff = new DiffMode({
 			getLoadedPath: () => this.doc.path,
-			getWorkingText: () => (hasVisualMode(this.doc.kind) ? this.doc.texSource : this.doc.rawContent)
+			getWorkingText: () => (hasVisualMode(this.doc.kind) ? this.doc.texSource : this.doc.rawContent),
+			// same macro context as the live document, or the diff reports the difference between two
+			// parsers rather than between two versions
+			getMacros: () => this.projectMacros
 		});
 		// opening the active file into the buffers lives in lib/workspace/fileOpener.ts
 		this.opener = new FileOpener({
@@ -75,7 +81,7 @@ export class WorkspaceDoc {
 			whenIdle: () => d.saver().whenIdle(),
 			isVisualMode: () => this.modes.mode === 'visual',
 			isSourceMode: () => this.modes.mode === 'source',
-			isDiffMode: () => this.modes.mode === 'diff',
+			isDiffMode: () => !!activeCompare.current,
 			claimVisualLock: (path) => {
 				const session = d.session();
 				if (session.active) session.setVisualLock(this.hostHoldsExclusively(fileKind(path), this.modes.mode, path) ? path : null);
@@ -93,8 +99,7 @@ export class WorkspaceDoc {
 			closeOpenFile: () => this.closeOpenFile()
 		});
 
-		// mirror to the global store so menuBarCommands can route Insert/Format;
-		// diff is read-only, so routing it as source is harmless
+		// mirror to the global store so menuBarCommands can route Insert/Format
 		$effect(() => this.modes.syncStore());
 		// the doc.visualDoc dep re-fires this when an async re-parse lands (the doc swap itself is untracked)
 		$effect(() => {
@@ -107,7 +112,28 @@ export class WorkspaceDoc {
 		// guests never enter diff (no disk/git to diff against); visual is fine, it runs on the
 		// shared Y.Text like everything else
 		$effect(() => {
-			if (d.guest() && this.modes.mode === 'diff') this.modes.mode = 'source';
+			if (d.guest() && activeCompare.current) activeCompare.current = null;
+		});
+		/**
+		 * Depends on the COMPARISON alone. The snapshot is untracked: as a dependency the working
+		 * buffer would re-diff on every keystroke, and the path would fire on a file SWITCH while
+		 * the incoming buffer is still loading, capturing the outgoing file. FileOpener covers that.
+		 */
+		$effect(() => {
+			const compare = activeCompare.current;
+			untrack(() => {
+				this.diff.setCompareRef(compare);
+				if (compare && activeFilePath.current) void this.diff.snapshot();
+			});
+		});
+		// Waits for visual mode to be showing: a source comparison never needs the version parsed.
+		$effect(() => {
+			void this.diff.original; // the dependency: a new version's bytes start a new parse
+			const kind = this.doc.kind;
+			if (!activeCompare.current || this.modes.mode !== 'visual' || !hasVisualMode(kind)) return;
+			// self-correcting: ensureVersionDoc keys on the text it parsed, so firing early costs one
+			// empty parse and re-runs when the version lands
+			untrack(() => void this.diff.ensureVersionDoc(kind as 'tex' | 'md' | 'typ'));
 		});
 		// shared session: a file the host holds in a NON-Y-bound editor is host-exclusive (guests go
 		// read-only), else concurrent guest edits to that file's Y.Text would be clobbered.

@@ -20,6 +20,7 @@ applyAppIdentity();
 fixShellPath();
 registerPrivilegedSchemes();
 
+// only what a window needs before it can paint; the rest is in deferredIpc
 registerSettingsIpc();
 // before every other surface: preload calls it synchronously while the window is still loading
 registerBootstrapIpc();

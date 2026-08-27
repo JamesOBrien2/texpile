@@ -19,7 +19,6 @@
 	import '$lib/editor/visual/styles/cursor.css';
 	import 'prosemirror-flat-list/dist/style.css';
 	import 'prosemirror-search/style/search.css';
-	import { buildTrailingParagraphTr } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
 	import { syncPmComments } from '$lib/editor/visual/extensions/pmCommentsSync.svelte';
 	import type { CommentAnchor } from '$lib/comments/anchor';
 	import type { CommentThread } from '$lib/comments/log';
@@ -116,10 +115,6 @@
 		});
 		const fix = fixTables(editorState);
 		if (fix) editorState = editorState.apply(fix.setMeta('addToHistory', false));
-		// insert trailing paragraphs at load, not lazily on first edit, or the first keystroke grows the
-		// doc and jumps the scroll. byte-neutral: empty paragraphs serialize to nothing.
-		const trail = buildTrailingParagraphTr(editorState);
-		if (trail) editorState = editorState.apply(trail.setMeta('addToHistory', false));
 
 		editorView = new EditorView(editor, {
 			// data-show-section-numbers drives the heading CSS counters; data-unnumbered headings are skipped

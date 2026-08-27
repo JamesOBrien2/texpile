@@ -38,7 +38,6 @@
 	import { createTocPlugin } from '$lib/editor/visual/extensions/tableofcontents/tocPlugin';
 	import { createPersistentSelectionPlugin } from '$lib/editor/visual/extensions/persistentSelection/persistentSelectionPlugin';
 	import { proofreadPlugin, spellClickBoundaryPlugin } from '$lib/editor/spellcheck/spellcheckplugin';
-	import { createTrailingParagraphPlugin, buildTrailingParagraphTr } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
 	import { createBoundaryClickPlugin } from '$lib/editor/visual/extensions/boundary-click-plugin';
 	import { createBlockHandlePlugin } from '$lib/editor/visual/extensions/block-handle-plugin.svelte';
 	import { createNodeFlashPlugin } from '$lib/editor/visual/extensions/flash-plugin';
@@ -178,7 +177,6 @@
 			createPersistentSelectionPlugin(),
 			spellClickBoundaryPlugin, // must precede proofreadPlugin; see its comment
 			proofreadPlugin,
-			createTrailingParagraphPlugin(),
 			createBoundaryClickPlugin(),
 			// the Notion-style + / drag / delete gutter, with the markdown insert set
 			createBlockHandlePlugin({ items: MD_BLOCK_INSERT_ITEMS }),
@@ -195,10 +193,6 @@
 		let editorState = EditorState.create({ schema: mdSchema, plugins, doc: localValue ?? undefined });
 		const fix = fixTables(editorState);
 		if (fix) editorState = editorState.apply(fix.setMeta('addToHistory', false));
-		// trailing paragraphs at load, not lazily on first edit (byte-neutral; empty paragraphs
-		// serialize to nothing)
-		const trail = buildTrailingParagraphTr(editorState);
-		if (trail) editorState = editorState.apply(trail.setMeta('addToHistory', false));
 
 		editorView = new EditorView(editor, {
 			attributes: { class: 'TexpileEditor MarkdownEditor', spellcheck: 'false' },
@@ -262,8 +256,6 @@
 		const prevAnchor = editorView.state.selection.anchor;
 
 		let base = EditorState.create({ schema: mdSchema, plugins: editorView.state.plugins, doc: next });
-		const trail = buildTrailingParagraphTr(base);
-		if (trail) base = base.apply(trail.setMeta('addToHistory', false));
 		let restored = base;
 		try {
 			const pos = Math.min(Math.max(1, prevAnchor), base.doc.content.size);

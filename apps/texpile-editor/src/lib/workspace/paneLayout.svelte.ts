@@ -8,16 +8,18 @@
 import { browser } from '$lib/runtime';
 import { layout as layoutStore, updateLayout } from '$lib/storage/layout';
 import { startDrag, nudgeOnKey, clampTo, SNAP_SLACK } from '$lib/workspace/paneResize';
-const SIDEBAR_MIN = 180;
-const SIDEBAR_MAX = 600;
+// the launch skeleton lays the same panes out from these, so they live where both can reach them
+import { SIDEBAR_MIN, SIDEBAR_MAX, PDF_MIN, pdfMaxWidth, pdfWidthOf } from '$lib/workspace/paneGeometry';
 const TOC_MIN = 0.1;
 const TOC_MAX = 0.9;
-const PDF_MIN = 280;
-/** keep this much room for the editor no matter how wide the preview was saved */
-const EDITOR_RESERVE = 360;
+// the same kind of split one level in: what has changed, against the versions behind it. Bounded
+// tighter than the TOC's, because either half stops being worth showing below a couple of rows.
+const HISTORY_MIN = 0.15;
+const HISTORY_MAX = 0.85;
 
 const clampSidebar = clampTo(SIDEBAR_MIN, SIDEBAR_MAX);
 const clampToc = clampTo(TOC_MIN, TOC_MAX);
+const clampHistory = clampTo(HISTORY_MIN, HISTORY_MAX);
 
 export class PaneLayout {
 	sidebarWidth = $state(256);
@@ -27,6 +29,9 @@ export class PaneLayout {
 	/** TOC share of the sidebar's lower region (0..1) */
 	tocFraction = $state(0.5);
 	splitEl = $state<HTMLDivElement>();
+	/** the timeline's share of the source control panel (0..1) */
+	historyFraction = $state(0.5);
+	scmSplitEl = $state<HTMLDivElement>();
 
 	pdfPaneOpen = $state(false);
 	pdfPaneWidth = $state(480);
@@ -46,10 +51,8 @@ export class PaneLayout {
 		if (s.sidebarWidth >= SIDEBAR_MIN && s.sidebarWidth <= SIDEBAR_MAX) this.sidebarWidth = s.sidebarWidth;
 		this.sidebarOpen = s.sidebarOpen;
 		if (s.tocFraction >= TOC_MIN && s.tocFraction <= TOC_MAX) this.tocFraction = s.tocFraction;
-		if (browser && typeof window !== 'undefined') {
-			const frac = s.pdfPaneFraction;
-			this.pdfPaneWidth = this.clampPdf((frac > 0 && frac < 1 ? frac : 0.4) * window.innerWidth);
-		}
+		if (s.historyFraction >= HISTORY_MIN && s.historyFraction <= HISTORY_MAX) this.historyFraction = s.historyFraction;
+		if (browser && typeof window !== 'undefined') this.pdfPaneWidth = pdfWidthOf(s, window.innerWidth);
 		this.pdfPaneOpen = s.pdfPaneOpen;
 	}
 
@@ -117,12 +120,35 @@ export class PaneLayout {
 			commit: this.commitToc
 		});
 
+	// source control split: changes above, versions below
+
+	private setHistory = (f: number) => (this.historyFraction = clampHistory(f));
+	private commitHistory = () => updateLayout({ historyFraction: this.historyFraction });
+
+	startHistoryResize = (e: MouseEvent) => {
+		const rect = this.scmSplitEl?.getBoundingClientRect();
+		// drag up = more timeline; measured against the split container, so it is a fraction not a delta
+		startDrag(e, {
+			compute: (ev) => (rect ? (rect.bottom - ev.clientY) / rect.height : null),
+			apply: this.setHistory,
+			commit: this.commitHistory
+		});
+	};
+
+	resizeHistoryByKey = (e: KeyboardEvent) =>
+		nudgeOnKey(e, {
+			keys: ['ArrowDown', 'ArrowUp'],
+			step: 0.02,
+			current: () => this.historyFraction,
+			apply: this.setHistory,
+			commit: this.commitHistory
+		});
+
 	// PDF preview pane
 
-	/** cap: whatever is left after the sidebar, keeping room for the editor */
 	private pdfMaxWidth(): number {
 		const win = typeof window !== 'undefined' ? window.innerWidth : 1280;
-		return Math.max(320, win - (this.sidebarOpen ? this.sidebarWidth : 0) - EDITOR_RESERVE);
+		return pdfMaxWidth(this.sidebarOpen ? this.sidebarWidth : 0, win);
 	}
 
 	clampPdf = (w: number) => Math.min(this.pdfMaxWidth(), Math.max(PDF_MIN, w));

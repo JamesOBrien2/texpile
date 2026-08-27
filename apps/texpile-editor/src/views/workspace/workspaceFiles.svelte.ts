@@ -97,7 +97,7 @@ export class WorkspaceFiles {
 			loadRefs: (root) => this.loadRefs(root),
 			// source-mode users write their own preamble (the editor's ghost offers the skeleton);
 			// visual mode has no ghost and no way to write a preamble, so it gets one up front
-			wantsStarter: () => d.modes.lastEditMode !== 'source',
+			wantsStarter: () => d.modes.mode !== 'source',
 			isTypstProject: d.typstProject,
 			insertIncludeAtCursor: (path) => this.insertInclude(path),
 			afterRename: (oldPath, newPath) => void this.afterRename(oldPath, newPath),

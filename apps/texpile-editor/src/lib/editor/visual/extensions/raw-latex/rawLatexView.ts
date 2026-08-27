@@ -4,7 +4,10 @@ import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { cmSyntaxHighlight } from '$lib/editor/source/cmHighlight';
 import { exitCode } from 'prosemirror-commands';
 import { undo, redo } from 'prosemirror-history';
-import { TextSelection, Selection } from 'prosemirror-state';
+import { TextSelection } from 'prosemirror-state';
+import { GapCursor } from 'prosemirror-gapcursor';
+import { gapAwareSelectionNear } from '$lib/editor/visual/gapSelection';
+import { withPinnedScroll } from '$lib/editor/visual/scrollPin';
 import type { Node } from 'prosemirror-model';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
 import { languages as cmlangdata } from '@codemirror/language-data';
@@ -204,7 +207,17 @@ export class RawLatexView {
 		if (unit === 'line') main = state.doc.lineAt(main.head) as never;
 		if (dir < 0 ? main.from > 0 : main.to < state.doc.length) return false;
 		const targetPos = this.getPos() + (dir < 0 ? 0 : this.node.nodeSize);
-		const selection = Selection.near(this.view.state.doc.resolve(targetPos), dir);
+		// gap-aware: Selection.near alone lands back inside this block when nothing follows. a gap
+		// landing is adjacent and already on screen, so hold the viewport still through the
+		// dispatch/refocus instead of scrolling
+		const selection = gapAwareSelectionNear(this.view.state.doc.resolve(targetPos), dir);
+		if (selection instanceof GapCursor) {
+			withPinnedScroll(this.view.dom, () => {
+				this.view.dispatch(this.view.state.tr.setSelection(selection));
+				this.view.focus();
+			});
+			return true;
+		}
 		const tr = this.view.state.tr.setSelection(selection).scrollIntoView();
 		this.view.dispatch(tr);
 		this.view.focus();

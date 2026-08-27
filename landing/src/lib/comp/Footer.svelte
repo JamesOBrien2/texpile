@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
-	import LogoLight from '$lib/assets/Logo-light.svg';
+	import LogoLight from '$branding/Logo-light.svg';
 </script>
 
 <footer class="bg-ink-950 text-surface-100 py-14">

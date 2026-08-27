@@ -52,7 +52,6 @@ import {
 import { BibliographyNodeView } from '$lib/editor/visual/extensions/bibliography/bibliographyNodeView.svelte';
 import { environmentView } from '$lib/languages/latex/visual/extensions/environment/environmentView.svelte';
 import { IncludeDocView } from '$lib/editor/visual/extensions/includedoc/includeDocView.svelte';
-import { createTrailingParagraphPlugin } from '$lib/editor/visual/extensions/trailing-paragraph-plugin';
 import { createBoundaryClickPlugin } from '$lib/editor/visual/extensions/boundary-click-plugin';
 import { createBlockHandlePlugin } from '$lib/editor/visual/extensions/block-handle-plugin.svelte';
 import { createNodeFlashPlugin } from '$lib/editor/visual/extensions/flash-plugin';
@@ -149,7 +148,6 @@ export function latexEditorPlugins(setup: LatexEditorSetup): Plugin[] {
 		createPersistentSelectionPlugin(),
 		spellClickBoundaryPlugin, // must precede proofreadPlugin; see its comment
 		proofreadPlugin,
-		createTrailingParagraphPlugin(),
 		createBoundaryClickPlugin(),
 		createBlockHandlePlugin(),
 		createNodeFlashPlugin(),

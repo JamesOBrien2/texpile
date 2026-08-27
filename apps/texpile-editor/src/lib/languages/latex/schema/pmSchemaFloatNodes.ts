@@ -102,6 +102,10 @@ export const tableFamilyNodes = {
 	table_wrapper: {
 		content: 'table_caption table table_notes?',
 		group: 'block',
+		// a gap cursor may sit against the float (gapSelection.ts). load-bearing detail: needsGap
+		// checks THIS spec before descending, so even a wrapper ending in inline-content
+		// table_notes - which no plain position after it could ever satisfy - admits the gap
+		createGapCursor: true,
 		attrs: {
 			label: { default: null },
 			// a table with several \label{}s keeps the last in `label` (what the reference-manager UI

@@ -2,6 +2,7 @@
 // The full-compile lifecycle: cancel-on-supersede compiles, the daemon warm-up, and the
 // one-live-preview engine ownership (engine-busy pause + takeover).
 import { nativeBridge } from '$lib/workspace/fileSystem';
+import { updateEngineTruth } from './engineTruth';
 import { m } from '$lib/paraglide/messages';
 
 type CompilerHooks = {
@@ -51,10 +52,17 @@ export class DraftCompiler {
 
 	// all daemon typesets funnel through here so an 'engine-busy' from ANY path (another
 	// window holds the warm engine) pauses this preview instead of surfacing a raw error
-	async daemonTypeset(body: { text: string; hsize?: number }): Promise<any> {
+	async daemonTypeset(body: { text: string; hsize?: number; splitTo?: number }): Promise<any> {
 		const r = await nativeBridge()!.draftTypeset({ root: this.hooks.root(), mainFile: this.hooks.mainFile(), ...body });
 		// cast, not narrow: svelte-check doesn't reliably narrow this cross-module union
 		if (!r.ok && (r as { error?: string }).error === 'engine-busy') this.busyElsewhere = true;
+		// the warm-up announce rides every result: this document's float set + catcode table
+		if (r.ok) {
+			const t: Parameters<typeof updateEngineTruth>[0] = {};
+			if (r.floats) t.floats = new Set(r.floats);
+			if (r.cats) t.catcodes = r.cats;
+			if (t.floats || t.catcodes) updateEngineTruth(t);
+		}
 		return r;
 	}
 

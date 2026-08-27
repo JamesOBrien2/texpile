@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { route, navigate } from '$lib/router.svelte';
-	import { nativeBridge, claimWorkspace, scanTexFiles, statFile, dirname, openNewWindow } from '$lib/workspace/fileSystem';
-	import { workspaceRoot, texFiles, activeFilePath, addRecentFolder, savedLastFile } from '$lib/workspace/workspaceStore';
+	import { route } from '$lib/router.svelte';
+	import { nativeBridge, openNewWindow } from '$lib/workspace/fileSystem';
+	import { openFileInWindow, openFolderInWindow } from '$lib/workspace/openWorkspace';
 	import { settings, loadSettings } from '$lib/settings';
 	import { checkForUpdate, updateModalOpen } from '$lib/updates';
 	import UpdateAvailableModal from '$lib/modals/window/UpdateAvailableModal.svelte';
@@ -16,6 +16,7 @@
 
 	import StartView from './views/StartView.svelte';
 	import ErrorView from './views/ErrorView.svelte';
+	import WorkspaceSkeleton from '$lib/chrome/WorkspaceSkeleton.svelte';
 
 	// route-split: StartView stays static (first paint), the editor views load on demand so the
 	// boot chunk stays small
@@ -64,67 +65,41 @@
 		else if (route.path === '/session') loadSession();
 	});
 
-	onMount(async () => {
-		const s = await loadSettings();
-		// once per app SESSION, not per window: without this every new window would re-check
-		// for updates (claim falls back to true in browser dev)
-		const primary = (await nativeBridge()?.claimStartupTasks?.()) ?? true;
-		if (!primary || !s.checkForUpdates) return;
-		// a failed silent check stays silent; the manual Help-menu check surfaces errors
-		if ((await checkForUpdate()) === 'update') updateModalOpen.current = true;
+	// not during the launch itself: this is a DNS lookup, a TLS handshake and an HTTP round trip,
+	// and nothing about it is worth putting in front of the document opening
+	onMount(() => {
+		const t = setTimeout(async () => {
+			const s = await loadSettings();
+			// once per app SESSION, not per window: without this every new window would re-check
+			// for updates (claim falls back to true in browser dev)
+			const primary = (await nativeBridge()?.claimStartupTasks?.()) ?? true;
+			if (!primary || !s.checkForUpdates) return;
+			// a failed silent check stays silent; the manual Help-menu check surfaces errors
+			if ((await checkForUpdate()) === 'update') updateModalOpen.current = true;
+		}, 3000);
+		return () => clearTimeout(t);
 	});
 
-	// OS "Open With" hands us a .tex via the main process; open its folder and activate the file
+	// OS "Open With" hands us a .tex via the main process; open its folder and activate the file.
+	// A folder handed over at LAUNCH never comes through here: preload answers it synchronously and
+	// src/main.ts adopts it before the first render (see openWorkspace).
 	onMount(() => {
 		const n = nativeBridge();
 		if (!n?.onOpenPath) return;
-		return n.onOpenPath(async (filePath) => {
-			try {
-				loadWorkspace(); // stream the workspace chunk while the folder scans
-				const root = dirname(filePath);
-				// main routes files to the window already owning the folder, so a failed claim
-				// (folder open elsewhere) only happens in odd races; that window was focused
-				if (!(await claimWorkspace(root)).ok) return;
-				// show the workspace immediately with the target file; the scan backfills the rest
-				workspaceRoot.current = root;
-				texFiles.current = [];
-				activeFilePath.current = filePath;
-				addRecentFolder(root);
-				navigate('/workspace');
-				const { files } = await scanTexFiles(root);
-				const match = files.find((f) => f.path === filePath || f.path.toLowerCase() === filePath.toLowerCase());
-				texFiles.current = files;
-				if (match) activeFilePath.current = match.path;
-			} catch {
-				/* ignore an OS open we can't honor */
-			}
+		return n.onOpenPath((filePath) => {
+			loadWorkspace(); // stream the workspace chunk while the folder scans
+			void openFileInWindow(filePath);
 		});
 	});
 
-	// session restore + "Open Folder in New Window": the main process pushes a folder for this
-	// window to open (the StartView-side auto-reopen is gone; it would misfire in new windows)
+	// "Open Folder in New Window" and the palette's workspace reload push a folder at a window that
+	// is already running (the StartView-side auto-reopen is gone; it would misfire in new windows)
 	onMount(() => {
 		const n = nativeBridge();
 		if (!n?.onOpenFolder) return;
-		return n.onOpenFolder(async (root) => {
-			try {
-				loadWorkspace(); // stream the workspace chunk while the folder scans
-				if (!(await claimWorkspace(root)).ok) return;
-				// show the workspace immediately; the scan and last-file restore backfill it
-				workspaceRoot.current = root;
-				texFiles.current = [];
-				activeFilePath.current = null;
-				addRecentFolder(root);
-				navigate('/workspace');
-				const { files } = await scanTexFiles(root);
-				// reopen the file the user last had open in this folder, like the old restore did
-				const saved = savedLastFile(root);
-				const active = saved && (await statFile(saved)).exists ? saved : (files[0]?.path ?? null);
-				texFiles.current = files;
-				activeFilePath.current = active;
-			} catch {
-				/* folder is gone or unreadable: stay on the start screen */
-			}
+		return n.onOpenFolder((root) => {
+			loadWorkspace(); // stream the workspace chunk while the folder scans
+			void openFolderInWindow(root);
 		});
 	});
 
@@ -164,8 +139,7 @@
 {#if route.path === '/'}
 	<StartView />
 {:else if route.path === '/workspace'}
-	<!-- null-render while the chunk loads; usually preloaded by the open handlers already -->
-	{#if WorkspaceView}<WorkspaceView />{:else if chunkError}<ErrorView status={500} />{/if}
+	{#if WorkspaceView}<WorkspaceView />{:else if chunkError}<ErrorView status={500} />{:else}<WorkspaceSkeleton />{/if}
 {:else if route.path === '/session'}
 	{#if SessionRoute}<SessionRoute />{:else if chunkError}<ErrorView status={500} />{/if}
 {:else}

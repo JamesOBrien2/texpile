@@ -7,12 +7,13 @@ import { attachMcpCommands } from '$lib/workspace/mcpCommands';
 import { attachSessionHandlers } from '$lib/collab/workspaceSession';
 import { DocRegistries } from '$lib/workspace/docRegistries.svelte';
 import { ScmActions } from '$lib/workspace/scmActions.svelte';
+import { gitignoreLines } from '$lib/workspace/buildArtifacts';
 import { refreshProjectIntel } from '$lib/workspace/projectIntel';
 import { bibPathsFrom } from '$lib/collab/compileIntelBridge';
 import { flattenPaths } from '$lib/workspace/refUpdate';
 import { setGraphicResolver } from '$lib/languages/latex/intellisense/hover';
-import { graphicCandidateUrls } from '$lib/editor/visual/graphicsCandidates';
-import { setEditorFileAccess } from '$lib/editor/visual/fileAccess';
+import { graphicCandidateUrls, graphicSearchDirs } from '$lib/editor/visual/graphicsCandidates';
+import { setEditorFileAccess, setEditorGraphicDirs } from '$lib/editor/visual/fileAccess';
 import { insertCitationFromZotero, zoteroAvailable } from '$lib/zotero/insertFromZotero';
 import { libraryAvailable, libraryStore } from '$lib/library/libraryStore.svelte';
 import { libraryPicker } from '$lib/library/libraryPickerState.svelte';
@@ -22,7 +23,17 @@ import { pdfStore } from '$lib/stores/pdfStore';
 import { filePathStore } from '$lib/stores/editorStore';
 import { references } from '$lib/workspace/citations';
 import { tabs } from '$lib/workspace/tabs.svelte';
-import { workspaceRoot, texFiles, fileTree, activeFilePath, isDirty, mainFile, setLastFile } from '$lib/workspace/workspaceStore';
+import {
+	workspaceRoot,
+	texFiles,
+	fileTree,
+	activeFilePath,
+	activeCompare,
+	isDirty,
+	mainFile,
+	setLastFile,
+	effectiveCompileFormat
+} from '$lib/workspace/workspaceStore';
 import { settings } from '$lib/settings';
 import type { WorkspaceProvider } from '$lib/workspace/workspaceProvider';
 import type { EditSession } from '$lib/collab/editSession';
@@ -75,8 +86,20 @@ export class WorkspaceIntegrations {
 			refreshTree: () => d.files().refreshTree(),
 			loadFile: (path) => d.wsdoc.loadFile(path),
 			captureDiffSnapshot: () => void d.wsdoc.diff.snapshot(),
-			isDiffMode: () => modes.mode === 'diff',
-			enterDiffMode: () => (modes.mode = 'diff')
+			isDiffMode: () => !!activeCompare.current,
+			openCompareTab: (path, compare) => {
+				const key = tabs.openCompare(path, compare);
+				d.editFlow().activateTab(tabs.find(key) ?? { path, compare });
+			},
+			ignoreLines: () => gitignoreLines(effectiveCompileFormat(mainFile.current)),
+			writeText: (p, content) => d.provider.writeText(p, content),
+			readTextIfPresent: async (p) => {
+				try {
+					return await d.provider.readText(p);
+				} catch {
+					return null; // no .gitignore yet: this is the first one
+				}
+			}
 		});
 
 		// Keep main's cache of what this window shows current, for the MCP get_editor_state tool.
@@ -196,16 +219,14 @@ export class WorkspaceIntegrations {
 				(p) => d.provider.fileUrl(p),
 				(p, blob) => d.provider.writeBinary(p, blob)
 			);
-			setGraphicResolver((rel) =>
-				graphicCandidateUrls(rel, {
-					root: workspaceRoot.current,
-					loadedPath: doc.path,
-					source: doc.texSource,
-					fileUrl: (p) => d.provider.fileUrl(p)
-				})
-			);
+			const searchOpts = () => ({ root: workspaceRoot.current, loadedPath: doc.path, source: doc.texSource });
+			setGraphicResolver((rel) => graphicCandidateUrls(rel, { ...searchOpts(), fileUrl: (p) => d.provider.fileUrl(p) }));
+			// the rendered image node resolves through the same directories, so a figure cannot
+			// preview on hover and 403 in the document
+			setEditorGraphicDirs(() => graphicSearchDirs(searchOpts()));
 			return () => {
 				setGraphicResolver(null);
+				setEditorGraphicDirs(null);
 				setEditorFileAccess(null, null);
 			};
 		});

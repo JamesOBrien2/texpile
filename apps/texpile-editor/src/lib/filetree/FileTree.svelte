@@ -270,12 +270,14 @@
 	</div>
 {/snippet}
 
-<!-- empty space targets the workspace root -->
+<!-- empty space targets the workspace root. min-w-max: the box grows to the widest row so long names
+     scroll sideways rather than being trimmed, and every row's hover/selection fill still spans the
+     full scrollable width -->
 <div
 	bind:this={treeEl}
 	role="presentation"
 	tabindex="-1"
-	class="min-h-full rounded outline-none {dnd.dropTarget === ROOT ? 'ring-primary-500 ring-2 ring-inset' : ''}"
+	class="min-h-full min-w-max rounded outline-none {dnd.dropTarget === ROOT ? 'ring-primary-500 ring-2 ring-inset' : ''}"
 	onfocusin={() => (focused = true)}
 	onfocusout={(e) => {
 		// relatedTarget is where focus is HEADING; moving between two rows must not read as leaving
@@ -291,21 +293,7 @@
 >
 	{#if editor.creatingIn === rootPath}{@render createInput(0)}{/if}
 	{#each tree as entry (entry.path)}
-		<FileTreeRow
-			{entry}
-			depth={0}
-			{sel}
-			{dnd}
-			{editor}
-			{focused}
-			{gitStatus}
-			{isActive}
-			{isMain}
-			{onOpen}
-			{openCtx}
-			{confirmDelete}
-			{createInput}
-		/>
+		<FileTreeRow {entry} depth={0} {sel} {dnd} {editor} {focused} {gitStatus} {isActive} {isMain} {onOpen} {openCtx} {createInput} />
 	{/each}
 </div>
 

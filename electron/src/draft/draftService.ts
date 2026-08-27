@@ -7,6 +7,7 @@
 import { execFile } from 'node:child_process';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import * as crypto from 'node:crypto';
 import { resolveType1Line } from '../fontT1Map';
 import { seedBbl, auxCycle } from './draftBib';
 import { exportDaemonRefs } from './draftRefs';
@@ -17,7 +18,19 @@ import { readImageUses, attachImageFiles } from './draftImages';
 // patch shifts (h additionally includes the box depth below that baseline)
 // unc = the walker's certification reasons for this page (comma-joined: literal, transform,
 // escape, dir), absent when it is fully record-renderable
-export type DraftPage = { n: number; w: number; h: number; ht?: number; unc?: string; records: string };
+// gs/gsn/go = the shipped vpack's glue_set/sign/order: gsn 1 means the page was stretched
+// to \textheight (flushbottom) and a patch's delta distributes over its vg records
+export type DraftPage = {
+	n: number;
+	w: number;
+	h: number;
+	ht?: number;
+	gs?: number;
+	gsn?: number;
+	go?: number;
+	unc?: string;
+	records: string;
+};
 export type DraftResult =
 	| {
 			ok: true;
@@ -29,6 +42,14 @@ export type DraftResult =
 			colW: number;
 			textW: number;
 			footSkip: number;
+			// engine registers the renderer used to guess: \columnsep, \baselineskip, \parskip
+			colSep: number;
+			blSkip: number;
+			parSkip: number;
+			// the line \begin{document} executed at (in the main file), from the hook itself
+			bodyLine?: number;
+			// per-line counter snapshots (see page-extract.lua): the daemon pins to these
+			counters: { l: number; f?: string; s: Record<string, number> }[];
 			marginX: number;
 			marginY: number;
 			pages: DraftPage[];
@@ -93,7 +114,7 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 	}
 	// clear stale page files so a shorter document doesn't keep orphaned pages
 	for (const f of fs.readdirSync(outAbs))
-		if (/^page-\d+\.jsonl$/.test(f) || f === 'pages.json') {
+		if (/^page-\d+\.jsonl$/.test(f) || f === 'pages.json' || f === 'counters.jsonl') {
 			try {
 				fs.rmSync(path.join(outAbs, f));
 			} catch {
@@ -104,7 +125,20 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 	// forward-slash the input path for TeX; keep it relative to the compile cwd (root)
 	const mainRel = mainFile.replace(/\\/g, '/');
 	const setup = `\\directlua{TEXPILE_ENGINE_DIR='${engineDir}'; TEXPILE_DRAFT_OUT='${OUT}'; dofile('${engineDir}/page-extract.lua')}`;
-	const hooks = `\\AtBeginDocument{\\AddToHook{shipout/before}{\\directlua{page_extract(\\the\\ShipoutBox)}}\\AtEndDocument{\\directlua{page_extract_finish()}}}`;
+	// counter-truth wraps live in a FILE, not the job string: their bodies carry #1/#2,
+	// which \AtBeginDocument would need doubled (hook code is stored in a macro), while a
+	// file input at hook time reads them plainly. \the\inputlineno for begindoc expands
+	// BEFORE the input, so it names the main file's \begin{document} line.
+	fs.writeFileSync(
+		path.join(outAbs, 'texpile-hooks.tex'),
+		'\\let\\TexpileOrigStep\\stepcounter\n' +
+			'\\renewcommand\\stepcounter[1]{\\TexpileOrigStep{#1}\\directlua{texpile_counters(\\the\\inputlineno)}}\n' +
+			'\\let\\TexpileOrigSetC\\setcounter\n' +
+			'\\renewcommand\\setcounter[2]{\\TexpileOrigSetC{#1}{#2}\\directlua{texpile_counters(\\the\\inputlineno)}}\n'
+	);
+	const hooks =
+		`\\AtBeginDocument{\\directlua{texpile_begindoc(\\the\\inputlineno)}\\input{${OUT}/texpile-hooks.tex}` +
+		`\\AddToHook{shipout/before}{\\directlua{page_extract(\\the\\ShipoutBox)}}\\AtEndDocument{\\directlua{page_extract_finish()}}}`;
 	// \pdfoutput is a pdfTeX primitive luatex lacks; many arXiv preambles set it unguarded
 	// (\pdfoutput=1) and crash lualatex. Define it as a dummy count if absent so the assignment
 	// is a harmless no-op. Injected before \input so it runs before the main preamble; a no-op
@@ -135,8 +169,20 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 		});
 	}
 
+	// the pass products a rerun would read differently: cross-refs and the contents listings
+	const REF_FILES = ['draft.aux', 'draft.toc', 'draft.lof', 'draft.lot'];
+	function refState(): string {
+		return REF_FILES.map((f) => {
+			try {
+				return crypto.createHash('sha1').update(fs.readFileSync(path.join(outAbs, f))).digest('hex');
+			} catch {
+				return '';
+			}
+		}).join(' ');
+	}
 	const t0 = Date.now();
 	const auxExisted = fs.existsSync(path.join(outAbs, 'draft.aux'));
+	const refsBefore = refState();
 	seedBbl(root, outAbs, mainFile);
 	await enginePass();
 	if (superseded()) return { ok: false, error: 'superseded', ms: Date.now() - t0, superseded: true };
@@ -151,6 +197,25 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 	for (let i = 0; i < extra && !superseded(); i++) {
 		await enginePass();
 		passes++;
+	}
+	if (superseded()) return { ok: false, error: 'superseded', ms: Date.now() - t0, superseded: true };
+	// engine-announced rerun: the last pass complained about products it writes itself (a
+	// \tableofcontents with no .toc yet -- a stale aux from an aborted run skips the
+	// missing-aux pass above -- moved labels, undefined \ref/\cite) AND those files
+	// actually changed. One bounded pass; the changed-guard keeps a genuinely broken
+	// \ref from rerunning forever.
+	{
+		let log = '';
+		try {
+			log = fs.readFileSync(path.join(outAbs, 'draft.log'), 'utf8');
+		} catch {
+			// no log, no signal
+		}
+		const complained = /No file draft\.(toc|lof|lot)\.|Label\(s\) may have changed|There were undefined references/.test(log);
+		if (complained && refState() !== refsBefore) {
+			await enginePass();
+			passes++;
+		}
 	}
 	if (superseded()) return { ok: false, error: 'superseded', ms: Date.now() - t0, superseded: true };
 	exportDaemonRefs(outAbs);
@@ -177,12 +242,25 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 		paperW?: number;
 		paperH?: number;
 		colW?: number;
-		pages: { n: number; w: number; h: number; ht?: number; unc?: string }[];
+		bodyLine?: number;
+		pages: { n: number; w: number; h: number; ht?: number; gs?: number; gsn?: number; go?: number; unc?: string }[];
 	};
 	try {
 		manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 	} catch (e) {
 		return { ok: false, error: 'Draft manifest unreadable: ' + (e instanceof Error ? e.message : String(e)), ms };
+	}
+
+	// counter-truth sidecar: per-line snapshots the renderer pins daemon typesets to
+	let counters: { l: number; f?: string; s: Record<string, number> }[] = [];
+	try {
+		counters = fs
+			.readFileSync(path.join(outAbs, 'counters.jsonl'), 'utf8')
+			.split('\n')
+			.filter(Boolean)
+			.map((ln) => JSON.parse(ln));
+	} catch {
+		/* older engine bridge or an empty log: pins fall back to fixed values */
 	}
 
 	const imageUses = readImageUses(outAbs);
@@ -202,7 +280,7 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 			);
 			records = lines.join('\n');
 		}
-		pages.push({ n, w: meta.w, h: meta.h, ht: meta.ht, unc: meta.unc, records });
+		pages.push({ n, w: meta.w, h: meta.h, ht: meta.ht, gs: meta.gs, gsn: meta.gsn, go: meta.go, unc: meta.unc, records });
 	}
 
 	// some classes never set the engine's page-dimension registers, leaving paperW/H = 0 in the
@@ -220,6 +298,11 @@ export async function compileDraft(body: DraftBody): Promise<DraftResult> {
 		colW: manifest.colW || 0,
 		textW: (manifest as { textW?: number }).textW || 0,
 		footSkip: (manifest as { footSkip?: number }).footSkip || 0,
+		colSep: (manifest as { colSep?: number }).colSep || 0,
+		blSkip: (manifest as { blSkip?: number }).blSkip || 0,
+		parSkip: (manifest as { parSkip?: number }).parSkip || 0,
+		bodyLine: manifest.bodyLine,
+		counters,
 		marginX: ONE_INCH_PT,
 		marginY: ONE_INCH_PT,
 		pages
