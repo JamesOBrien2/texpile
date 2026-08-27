@@ -1,7 +1,6 @@
 // environment name completion inside \begin{…}/\end{…}, plus two LaTeX-Workshop-style extras:
 // "ForBegin" (accepting a fresh \begin{name} immediately builds the whole block + matching \end)
 // and close-environment (finishing \begin{name} by hand offers the matching \end{name} next).
-import { get } from 'svelte/store';
 import { snippetCompletion, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { environmentInfo } from '@unified-latex/unified-latex-ctan';
 import { projectIntelStore } from '$lib/stores/projectIntel';
@@ -139,7 +138,7 @@ export function environmentCompletionSource(ctx: CompletionContext): CompletionR
 	const text = ctx.state.doc.toString();
 	const fromBuffer = bufferEnvNames(text);
 	const bufferSet = new Set(fromBuffer);
-	const fromProject = [...new Set(get(projectIntelStore).envs.map((e) => e.name))].filter(
+	const fromProject = [...new Set(projectIntelStore.current.envs.map((e) => e.name))].filter(
 		(n) => !ENV_SIGNATURE_MAP.has(n) && !bufferSet.has(n)
 	);
 	let options = [

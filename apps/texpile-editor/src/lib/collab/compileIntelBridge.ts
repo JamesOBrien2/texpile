@@ -4,7 +4,6 @@
 // than syncing the artifacts wholesale: they rewrite on every compile and would bloat the shared
 // doc's history. The raw log never crosses the wire; the guest rebuilds the parsed shape so its
 // Problems panel is the same UI the host has.
-import { get } from 'svelte/store';
 import { workspaceRoot } from '$lib/workspace/workspaceStore';
 import { projectIntelStore } from '$lib/stores/projectIntel';
 import { compileLog, resolveLogPath } from '$lib/stores/compileLogStore';
@@ -17,10 +16,10 @@ type Level = 'error' | 'warning' | 'badbox';
 /** host -> guests. Shares every error/warning/badbox, line-anchored or not: line-less warnings
  * (undefined \ref/\cite, package warnings) still belong in the guest's Problems panel. */
 export function shareCompileState(session: EditSession, isGuest: boolean): void {
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	if (isGuest || !root || !session.active) return;
-	const intel = get(projectIntelStore);
-	const log = get(compileLog);
+	const intel = projectIntelStore.current;
+	const log = compileLog.current;
 	const entries = (log?.entries ?? [])
 		.filter((e) => e.level !== 'info')
 		.map((e) => {

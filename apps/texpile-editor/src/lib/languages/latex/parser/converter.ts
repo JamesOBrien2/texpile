@@ -6,7 +6,7 @@ import type { ParseOptions } from './types';
 import { listNewcommands } from '@unified-latex/unified-latex-util-macros';
 import { attachMacroArgs } from '@unified-latex/unified-latex-util-arguments';
 import { mergeAdjacentRawBlocks } from '$lib/editor/visual/mergeRawBlocks';
-import { el, txt, createDefaultContext, collapseTextNodes, type PmNode, type PmMark, type ConversionOptions } from './builders';
+import { buildNode, textNode, createDefaultContext, collapseTextNodes, type PmNode, type PmMark, type ConversionOptions } from './builders';
 
 import { MACRO_SIGNATURES, ENV_SIGNATURES, stripSamelineComments } from './macros';
 import {
@@ -122,7 +122,7 @@ export function convertNodesToBlocks(nodes: Node[], options: ConversionOptions):
 			currentParagraphContent.pop();
 		}
 		if (currentParagraphContent.length > 0) {
-			pushBlocks([el('paragraph', pendingIndent !== 'auto' ? { indent: pendingIndent } : null, currentParagraphContent)], paraExt);
+			pushBlocks([buildNode('paragraph', pendingIndent !== 'auto' ? { indent: pendingIndent } : null, currentParagraphContent)], paraExt);
 		}
 		paraExt = null;
 		pendingIndent = 'auto';
@@ -179,7 +179,7 @@ export function convertNodesToBlocks(nodes: Node[], options: ConversionOptions):
 			// already buffered it falls through (TeX's % doesn't break a paragraph, so block-
 			// ifying it would split the paragraph).
 			const text = '%' + ((node as { content?: string }).content ?? '');
-			pushBlocks([el('raw_latex', null, [txt(text)])], nodeExtent(node, cap?.prevEnd ?? 0));
+			pushBlocks([buildNode('raw_latex', null, [textNode(text)])], nodeExtent(node, cap?.prevEnd ?? 0));
 		} else if (
 			node.type === 'macro' &&
 			((node as Macro).content === 'indent' || (node as Macro).content === 'noindent') &&
@@ -208,7 +208,7 @@ export function convertNodesToBlocks(nodes: Node[], options: ConversionOptions):
 	}
 
 	flushParagraph();
-	if (result.length === 0) result.push(el('paragraph'));
+	if (result.length === 0) result.push(buildNode('paragraph'));
 	// a container whose ENTIRE content is one all-raw paragraph collapses to a single raw_latex
 	// block: a wall of adjacent inline chips can't be selected/edited as a unit. sole-block only,
 	// so a caption/label paragraph beside a table stays an editable paragraph.
@@ -219,7 +219,7 @@ export function convertNodesToBlocks(nodes: Node[], options: ConversionOptions):
 	if (raw !== null) {
 		// the promoted block covers exactly the paragraph's source, so its orig transfers
 		const porig = (sole!.attrs as { orig?: Record<string, unknown> | null }).orig;
-		const rawBlock = el('raw_latex', null, [txt(raw)]);
+		const rawBlock = buildNode('raw_latex', null, [textNode(raw)]);
 		return [porig ? withOrig(rawBlock, porig) : rawBlock];
 	}
 	return result;
@@ -323,7 +323,7 @@ export function latexToProseMirror(latex: string, options: ConversionOptions = {
 	if (cap && cap.prevEnd < cap.source.length) {
 		docAttrs = { docTail: { text: cap.source.slice(cap.prevEnd, cap.source.length), afterSeq: cap.seq - 1 } };
 	}
-	const doc = mergeAdjacentRawBlocks(el('doc', docAttrs, blocks.length > 0 ? blocks : [el('paragraph')]));
+	const doc = mergeAdjacentRawBlocks(buildNode('doc', docAttrs, blocks.length > 0 ? blocks : [buildNode('paragraph')]));
 
 	return { doc, ast };
 }

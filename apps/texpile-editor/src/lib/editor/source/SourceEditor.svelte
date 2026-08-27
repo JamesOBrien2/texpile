@@ -167,7 +167,7 @@
 					wrapConf,
 					lspConf,
 					keymapConf,
-					lineWrap: $settings.sourceLineWrap !== false,
+					lineWrap: settings.current.sourceLineWrap !== false,
 					onAddComment,
 					onSelectComment,
 					onJumpToFile,
@@ -190,7 +190,7 @@
 		setSourceSelectionCount(null);
 		if (initialScrollPos != null) applyModeSwitchAnchor(view, initialScrollPos);
 		// publish this CM as the source-mode editor so menuBarCommands can route Insert/Format to it
-		sourceCmView.set(view);
+		sourceCmView.current = view;
 		applySourceLanguage(() => view, fileFor, langConf);
 		// never awaited: a missing or slow tinymist must not delay the editor appearing. started by
 		// the FILE, not the compile command, so a Makefile-driven Typst project still gets intellisense
@@ -198,12 +198,12 @@
 	});
 
 	$effect(() => {
-		lsp.onServerGen($typstServerGen, fileFor);
+		lsp.onServerGen(typstServerGen.current, fileFor);
 	});
 
 	// follow the Preferences toggle in the open editor rather than only at mount
 	$effect(() => {
-		const wrap = $settings.sourceLineWrap !== false;
+		const wrap = settings.current.sourceLineWrap !== false;
 		view?.dispatch({ effects: wrapConf.reconfigure(wrap ? EditorView.lineWrapping : []) });
 	});
 
@@ -276,7 +276,7 @@
 		// this teardown IS the tab switch: last chance to record where the user was, and the
 		// debounce below is about to be cancelled, so take the snapshot synchronously first
 		positions.remember(view, docPath, !!collab);
-		sourceCmView.set(null);
+		sourceCmView.current = null;
 		lsp.release();
 		unbindKeymap?.();
 		unbindKeymap = null;

@@ -40,7 +40,7 @@
 		setColspec
 	}: Props = $props();
 
-	const tableCaptionEnabled = $derived($templateFeaturesStore?.tableCaption ?? true);
+	const tableCaptionEnabled = $derived(templateFeaturesStore.current?.tableCaption ?? true);
 
 	let settingsOpen = $state(false);
 	let tooltipOpen = $state(false);
@@ -96,7 +96,12 @@
 			positioning={{ placement: 'bottom-end', offset: { mainAxis: 4 } }}
 		>
 			<Popover.Trigger class="table-settings-btn">
-				<button aria-label={m.tablewrap_settings_button()} title={m.tablewrap_settings_button()} type="button" disabled={$isReadOnly}>
+				<button
+					aria-label={m.tablewrap_settings_button()}
+					title={m.tablewrap_settings_button()}
+					type="button"
+					disabled={isReadOnly.current}
+				>
 					<Settings class="h-4 w-4" />
 				</button>
 			</Popover.Trigger>

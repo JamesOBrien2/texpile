@@ -23,7 +23,7 @@
 	const keys = $derived(splitCitationKeys(node.textContent));
 	// project refs plus the personal library, so a library-only key still displays and offers
 	// its entry in the key dropdown
-	const allRefs = $derived(citationRefsWithLibrary($referenceStore ?? []));
+	const allRefs = $derived(citationRefsWithLibrary(referenceStore.current ?? []));
 	const reference = $derived(allRefs.find((ref) => ref.key === key));
 
 	// dropdown label, capped so long titles don't blow out the select
@@ -60,7 +60,7 @@
 	];
 
 	const variantOptions = $derived(
-		$templateFeaturesStore?.citationVariants?.length ? $templateFeaturesStore.citationVariants : defaultVariantOptions
+		templateFeaturesStore.current?.citationVariants?.length ? templateFeaturesStore.current.citationVariants : defaultVariantOptions
 	);
 
 	const showCitationStyleSelector = $derived(variantOptions.length > 1);

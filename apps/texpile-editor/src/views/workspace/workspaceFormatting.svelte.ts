@@ -1,6 +1,5 @@
 // The compile-command dialog and the Format-document modal: opening rules, gating, and the
 // run itself (latexindent for LaTeX through the provider, typstyle through tinymist).
-import { get } from 'svelte/store';
 import { CompileSettings } from '$lib/workspace/compileSettings.svelte';
 import { runFormat } from '$lib/workspace/editorCommands';
 import { formatTypstDocument, typstBridgeAvailable } from '$lib/languages/typst/intellisense/lspClient';
@@ -29,9 +28,10 @@ export class WorkspaceFormatting {
 	formatting = $state(false);
 
 	constructor(private d: FormattingDeps) {
+		const { cc } = d;
 		this.compileSettings = new CompileSettings(
-			() => d.cc().command,
-			(c) => (d.cc().command = c),
+			() => cc().command,
+			(c) => (cc().command = c),
 			() => d.compiler().runCompile()
 		);
 	}
@@ -45,7 +45,7 @@ export class WorkspaceFormatting {
 	 * guest has no main file to set (compiling is the host's).
 	 */
 	openCompileModal(): void {
-		if (this.d.hostMode() && !get(mainFile) && get(texFiles).length > 0 && !this.d.mainPrompt().open) {
+		if (this.d.hostMode() && !mainFile.current && texFiles.current.length > 0 && !this.d.mainPrompt().open) {
 			void this.d.mainPrompt().prompt(() => this.compileSettings.open());
 			return;
 		}
@@ -86,7 +86,9 @@ export class WorkspaceFormatting {
 			getEol: () => doc.eol,
 			flushSaves: () => this.d.saver().flushAndWait(),
 			format:
-				doc.kind === 'typ' ? (p, text) => formatTypstDocument(get(workspaceRoot), p, text) : (p, text) => this.d.provider.format!(p, text),
+				doc.kind === 'typ'
+					? (p, text) => formatTypstDocument(workspaceRoot.current, p, text)
+					: (p, text) => this.d.provider.format!(p, text),
 			applyFormatted: (text) => doc.replaceSource(text, { dirty: true }),
 			setBusy: (b) => (this.formatting = b)
 		});

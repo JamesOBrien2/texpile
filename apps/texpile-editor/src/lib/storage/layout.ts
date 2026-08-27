@@ -11,7 +11,7 @@
 // NOTE: app.html's pre-paint script reads this key directly (theme, to avoid a flash); keep the
 // `theme` field's name and values in step with it.
 
-import { writable, get } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 
 export type LayoutState = {
 	v: 1;
@@ -71,12 +71,12 @@ function read(): LayoutState {
 }
 
 /** reactive layout state, hydrated synchronously at module load. */
-export const layout = writable<LayoutState>(read());
+export const layout = box<LayoutState>(read());
 
 /** merge a partial update and persist it. */
 export function updateLayout(partial: Partial<Omit<LayoutState, 'v'>>): void {
-	const next = { ...get(layout), ...partial, v: 1 as const };
-	layout.set(next);
+	const next = { ...layout.current, ...partial, v: 1 as const };
+	layout.current = next;
 	if (typeof localStorage === 'undefined') return;
 	try {
 		localStorage.setItem(KEY, JSON.stringify(next));

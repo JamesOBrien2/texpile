@@ -1,7 +1,6 @@
 // glossary/acronym completion for \gls/\glspl/\acs/\acl/\acf/etc, sourced from
 // \newglossaryentry/\newacronym definitions in the buffer, other project files (projectIntel),
 // and bib2gls-style .bib entries already loaded into referenceStore.
-import { get } from 'svelte/store';
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { referenceStore } from '$lib/stores/editorStore';
 import { projectIntelStore } from '$lib/stores/projectIntel';
@@ -71,8 +70,8 @@ export function glossaryCompletionSource(ctx: CompletionContext): CompletionResu
 	// buffer first, then definitions in other project files, then bib2gls .bib entries
 	const merged = new Map<string, { description: string; acronym: boolean }>();
 	for (const e of cache.entries) merged.set(e.key, e);
-	for (const e of get(projectIntelStore).glossary) if (!merged.has(e.key)) merged.set(e.key, e);
-	for (const r of get(referenceStore) ?? []) {
+	for (const e of projectIntelStore.current.glossary) if (!merged.has(e.key)) merged.set(e.key, e);
+	for (const r of referenceStore.current ?? []) {
 		if (!GLOSSARY_BIB_TYPES.has(r.entrytype) || merged.has(r.key)) continue;
 		const description = typeof r.description === 'string' ? r.description : typeof r.short === 'string' ? r.short : '';
 		merged.set(r.key, { description, acronym: r.entrytype.includes('acronym') || r.entrytype.includes('abbreviation') });

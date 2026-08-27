@@ -101,7 +101,7 @@
 		const refsByKey = new Map(refs.map((r) => [r.key, r]));
 		const text = serializeBibtex(tokens, refsByKey);
 		lastSerialized = text;
-		if (publishReferences) referenceStore.set([...refs]);
+		if (publishReferences) referenceStore.current = [...refs];
 		onInput?.(text);
 	}
 
@@ -201,7 +201,7 @@
 		tokens = result.tokens;
 		parseError = null;
 		lastSerialized = fileRawText;
-		if (publishReferences) referenceStore.set([...refs]);
+		if (publishReferences) referenceStore.current = [...refs];
 		onInput?.(fileRawText);
 	}
 

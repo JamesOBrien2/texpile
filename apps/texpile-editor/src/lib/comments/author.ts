@@ -10,7 +10,7 @@
 //
 // Resolved once per workspace and cached. It cannot change under us without a Preferences edit or
 // a folder change, both of which call this again.
-import { native } from '$lib/workspace/fileSystem';
+import { nativeBridge } from '$lib/workspace/fileSystem';
 
 /** shown when there is no configured name anywhere */
 const UNKNOWN = 'Unknown';
@@ -34,7 +34,7 @@ export function forgetAuthor(): void {
 async function gitName(root: string | null): Promise<string | null> {
 	if (!root) return null;
 	try {
-		return (await native()?.gitUserName?.(root))?.name ?? null;
+		return (await nativeBridge()?.gitUserName?.(root))?.name ?? null;
 	} catch {
 		// no bridge, no git, not a repo - all the same answer here, and none of them is an error
 		return null;

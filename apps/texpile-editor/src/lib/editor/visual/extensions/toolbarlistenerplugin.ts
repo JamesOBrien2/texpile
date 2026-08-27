@@ -6,7 +6,7 @@ export function menuUpdatePlugin() {
 		view() {
 			return {
 				update: (view) => {
-					editorviewstore.set(view);
+					editorviewstore.current = view;
 				}
 			};
 		}

@@ -81,7 +81,7 @@ function validateName(name: string): void {
 	if (RESERVED_WIN.test(name)) throw new Error(`"${name}" is a reserved file name`);
 }
 
-export async function op(body: FsOpBody): Promise<FsOpResult> {
+export async function applyFileOp(body: FsOpBody): Promise<FsOpResult> {
 	const action = body?.action;
 	if (action === 'create') {
 		const path = body.path;

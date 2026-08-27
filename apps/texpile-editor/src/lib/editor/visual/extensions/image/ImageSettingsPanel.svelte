@@ -26,7 +26,7 @@
 
 	// figure* spanning both columns is a LaTeX two-column-template feature; markdown has no
 	// counterpart, and templateFeatures is never populated for an md doc anyway
-	const columnSpanningEnabled = $derived(latexControls && ($templateFeaturesStore?.columnSpanningFigures ?? false));
+	const columnSpanningEnabled = $derived(latexControls && (templateFeaturesStore.current?.columnSpanningFigures ?? false));
 
 	let showAdvanced = $state(false);
 	// first-paint snapshot by design: the $effect below re-syncs on node changes
@@ -64,7 +64,7 @@
 	}
 
 	// size slider: width as a fraction of \textwidth
-	const sizeStep = $derived($settings.figureResizeStep || 0.25);
+	const sizeStep = $derived(settings.current.figureResizeStep || 0.25);
 	// fraction from a prior resize (width/maxWidth), else parsed \includegraphics options, else full width
 	const sizePercent = $derived(Math.round(currentFraction() * 100));
 

@@ -18,7 +18,7 @@
 	import { m } from '$lib/paraglide/messages';
 
 	// autosave is forced on (shown disabled) while live mode or a hosted session is active
-	const autosaveForced = $derived($compileConfig.latex.liveMode || collabHost.active);
+	const autosaveForced = $derived(compileConfig.current.latex.liveMode || collabHost.active);
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -81,10 +81,10 @@
 	// re-run this effect forever.
 	$effect(() => {
 		if (!open) return;
-		const want = $preferencesTab;
+		const want = preferencesTab.current;
 		if (!want) return;
 		if (categories.some((c) => c.id === want)) category = want as Category;
-		preferencesTab.set(null);
+		preferencesTab.current = null;
 	});
 
 	/** every row is the same shape: name and explanation on the left, the control on the right */
@@ -182,7 +182,7 @@
 					<div class="bg-surface-200-800 rounded-base flex shrink-0 gap-1 p-0.5">
 						{#each themeOptions() as t (t.value)}
 							<button
-								class="rounded-base px-3 py-1 text-sm {$themeChoice === t.value
+								class="rounded-base px-3 py-1 text-sm {themeChoice.current === t.value
 									? 'bg-surface-50-950 font-medium shadow-sm'
 									: 'text-surface-600-400 hover:text-surface-950-50'}"
 								onclick={() => setTheme(t.value)}
@@ -199,7 +199,7 @@
 						<Languages class="text-surface-500 size-4 shrink-0" />
 						{@render label(m.prefs_language(), '')}
 					</div>
-					<select class="select w-32 shrink-0 text-sm" value={$settings.uiLocale} onchange={changeUiLocale}>
+					<select class="select w-32 shrink-0 text-sm" value={settings.current.uiLocale} onchange={changeUiLocale}>
 						{#each uiLocaleOptions() as l (l.value)}
 							<option value={l.value}>{l.label}</option>
 						{/each}
@@ -207,7 +207,7 @@
 				</div>
 				<!-- the whole of what a "PDF preview" tab held: one switch, and one about how the
 						     document LOOKS, which is the question this tab already answers -->
-				{@render toggleRow(m.prefs_dark_pdf_pages(), m.prefs_dark_pdf_pages_note(), $layout.pdfDarkPages, (v) =>
+				{@render toggleRow(m.prefs_dark_pdf_pages(), m.prefs_dark_pdf_pages_note(), layout.current.pdfDarkPages, (v) =>
 					updateLayout({ pdfDarkPages: v })
 				)}
 			{:else if category === 'editor'}
@@ -217,16 +217,16 @@
 					m.prefs_autosave(),
 					collabHost.active
 						? m.prefs_autosave_note_session()
-						: $compileConfig.latex.liveMode
+						: compileConfig.current.latex.liveMode
 							? m.prefs_autosave_note_live()
 							: m.prefs_autosave_note_off(),
-					autosaveForced || $settings.autosave,
+					autosaveForced || settings.current.autosave,
 					(v) => updateSettings({ autosave: v }),
 					autosaveForced,
 					autosaveForced ? m.prefs_autosave_hint_forced() : ''
 				)}
-				{@render toggleRow(m.prefs_spellcheck(), '', $settings.spellcheck, (v) => setSpellcheckEnabled(v))}
-				{@render toggleRow(m.prefs_comment_pill(), m.prefs_comment_pill_note(), $settings.commentPill !== false, (v) =>
+				{@render toggleRow(m.prefs_spellcheck(), '', settings.current.spellcheck, (v) => setSpellcheckEnabled(v))}
+				{@render toggleRow(m.prefs_comment_pill(), m.prefs_comment_pill_note(), settings.current.commentPill !== false, (v) =>
 					updateSettings({ commentPill: v })
 				)}
 				<!-- off silences BOTH compile-time dock opens - the terminal on start and Problems on
@@ -235,18 +235,22 @@
 				{@render toggleRow(
 					m.prefs_open_dock_on_compile(),
 					m.prefs_open_dock_on_compile_note(),
-					$settings.openDockOnCompile !== false,
+					settings.current.openDockOnCompile !== false,
 					(v) => updateSettings({ openDockOnCompile: v })
 				)}
-				{@render selectRow(m.prefs_keybindings(), m.prefs_keybindings_note(), $settings.editorKeymap ?? 'default', keymapOptions(), (v) =>
-					updateSettings({ editorKeymap: v as AppSettings['editorKeymap'] })
+				{@render selectRow(
+					m.prefs_keybindings(),
+					m.prefs_keybindings_note(),
+					settings.current.editorKeymap ?? 'default',
+					keymapOptions(),
+					(v) => updateSettings({ editorKeymap: v as AppSettings['editorKeymap'] })
 				)}
 				{@render sectionHeading(m.prefs_group_source())}
 				<div class={SUB}>
-					{@render toggleRow(m.prefs_source_line_wrap(), m.prefs_source_line_wrap_note(), $settings.sourceLineWrap !== false, (v) =>
+					{@render toggleRow(m.prefs_source_line_wrap(), m.prefs_source_line_wrap_note(), settings.current.sourceLineWrap !== false, (v) =>
 						updateSettings({ sourceLineWrap: v })
 					)}
-					{@render toggleRow(m.prefs_math_preview(), m.prefs_math_preview_note(), $settings.mathPreview !== false, (v) =>
+					{@render toggleRow(m.prefs_math_preview(), m.prefs_math_preview_note(), settings.current.mathPreview !== false, (v) =>
 						updateSettings({ mathPreview: v })
 					)}
 				</div>
@@ -255,7 +259,7 @@
 					<div class={ROW}>
 						{@render label(m.prefs_visual_width(), m.prefs_visual_width_note())}
 						<div class="w-48 shrink-0">
-							<div class="text-surface-500 mb-1 text-right text-xs tabular-nums">{$settings.visualMaxWidth ?? 768}px</div>
+							<div class="text-surface-500 mb-1 text-right text-xs tabular-nums">{settings.current.visualMaxWidth ?? 768}px</div>
 							<!-- oninput, not onchange: a width slider is only useful if the column moves under
 									     the cursor. updateSettingsLive applies each value, writing only the settled one. -->
 							<input
@@ -264,7 +268,7 @@
 								min="560"
 								max="1600"
 								step="16"
-								value={$settings.visualMaxWidth ?? 768}
+								value={settings.current.visualMaxWidth ?? 768}
 								oninput={(e) => updateSettingsLive({ visualMaxWidth: Number((e.currentTarget as HTMLInputElement).value) })}
 								aria-label={m.prefs_visual_width()}
 							/>
@@ -273,7 +277,7 @@
 					{@render selectRow(
 						m.prefs_image_resize_step(),
 						m.prefs_image_resize_step_note(),
-						$settings.figureResizeStep,
+						settings.current.figureResizeStep,
 						resizeStepOptions(),
 						(v) => updateSettings({ figureResizeStep: Number(v) }),
 						'w-24'
@@ -287,23 +291,25 @@
 						     Typst's preview switch was never duplicated here for the same reason. -->
 				<PrefsToolchainPanel />
 			{:else if category === 'integrations'}
-				{@render toggleRow(m.prefs_zotero(), m.prefs_zotero_note(), $settings.zoteroEnabled !== false, (v) =>
+				{@render toggleRow(m.prefs_zotero(), m.prefs_zotero_note(), settings.current.zoteroEnabled !== false, (v) =>
 					updateSettings({ zoteroEnabled: v })
 				)}
 			{:else if category === 'startup'}
-				{@render toggleRow(m.prefs_reopen_last_folder(), '', $settings.reopenLastFolder, (v) => updateSettings({ reopenLastFolder: v }))}
-				{@render toggleRow(m.prefs_check_updates(), '', $settings.checkForUpdates, (v) => updateSettings({ checkForUpdates: v }))}
+				{@render toggleRow(m.prefs_reopen_last_folder(), '', settings.current.reopenLastFolder, (v) =>
+					updateSettings({ reopenLastFolder: v })
+				)}
+				{@render toggleRow(m.prefs_check_updates(), '', settings.current.checkForUpdates, (v) => updateSettings({ checkForUpdates: v }))}
 			{:else if category === 'ai'}
 				<div class={ROW}>
 					<!-- persisted through the main process, not updateSettings: flipping this also has to
 							     start or stop the loopback server, and main owns it -->
 					{@render label(m.prefs_mcp(), m.prefs_mcp_note())}
-					<Switch checked={$settings.mcpEnabled === true} onCheckedChange={(d) => void onMcpToggle(d.checked)}>
+					<Switch checked={settings.current.mcpEnabled === true} onCheckedChange={(d) => void onMcpToggle(d.checked)}>
 						<Switch.Control><Switch.Thumb /></Switch.Control>
 						<Switch.HiddenInput />
 					</Switch>
 				</div>
-				{#if $settings.mcpEnabled === true && mcp}
+				{#if settings.current.mcpEnabled === true && mcp}
 					<div class="border-surface-200-800 flex items-center justify-between gap-3 border-b py-3">
 						{#if mcp.running && mcp.port}
 							<span class="text-surface-500 text-xs">{m.prefs_mcp_status({ addr: `127.0.0.1:${mcp.port}` })}</span>
@@ -319,7 +325,7 @@
 					{@render toggleRow(
 						m.prefs_mcp_compile_command(),
 						m.prefs_mcp_compile_command_note(),
-						$settings.mcpAllowCompileCommand === true,
+						settings.current.mcpAllowCompileCommand === true,
 						(v) => updateSettings({ mcpAllowCompileCommand: v })
 					)}
 				{/if}

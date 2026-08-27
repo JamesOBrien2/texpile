@@ -1,7 +1,6 @@
 // subscript/superscript completion: mines every ^{...} / _{...} already used in the buffer and
 // the other project files (projectIntel) and offers them again — a pure repetition aid, no
 // bundled data (LW mines the same set from its include-tree AST).
-import { get } from 'svelte/store';
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { projectIntelStore } from '$lib/stores/projectIntel';
 
@@ -43,7 +42,7 @@ export function subsuperscriptCompletionSource(ctx: CompletionContext): Completi
 	const text = ctx.state.doc.toString();
 	if (!cache || cache.text !== text) cache = { text, ...scanScripts(text) };
 	const isSup = match.text.startsWith('^');
-	const intel = get(projectIntelStore);
+	const intel = projectIntelStore.current;
 	const values = [...new Set(isSup ? [...cache.sup, ...intel.sup] : [...cache.sub, ...intel.sub])];
 	if (!values.length) return null;
 	const options: Completion[] = values.map((v) => ({ label: v, type: 'text' }));

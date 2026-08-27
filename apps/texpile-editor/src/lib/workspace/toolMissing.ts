@@ -1,4 +1,3 @@
-import { get } from 'svelte/store';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { openToolchainPrefs } from '$lib/stores/dialogStore';
 import { workspaceRoot } from './workspaceStore';
@@ -112,7 +111,7 @@ export async function reportMissingTool(opts: {
 	// in the redirect file while the pipeline read a path that was never written. The lane
 	// path stays as the fallback for redirect shapes the parser does not model (&>, >&).
 	if (!program && redirectsStderr(cmd)) {
-		const base = opts.baseDir ?? get(workspaceRoot);
+		const base = opts.baseDir ?? workspaceRoot.current;
 		const target = typstLogArg(cmd); // generic 2>/2>> parsing despite the home module
 		const stderrPath = target && base ? resolveOutputPath(base, target) : opts.logPath;
 		if (stderrPath) {

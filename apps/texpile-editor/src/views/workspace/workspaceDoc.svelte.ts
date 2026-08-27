@@ -2,7 +2,6 @@
 // its raw text (doc.texSource), the whole file. The visual editor is a view over it: entry
 // parses into doc.visualDoc + doc.docMeta, every visual edit serializes straight back into
 // doc.texSource, and source mode binds to it directly. No rival copy can drift.
-import { fromStore } from 'svelte/store';
 import { DocumentBuffer, fileKind, formatOf, hasVisualMode } from '$lib/workspace/documentBuffer.svelte';
 import { ViewModeSwitch } from '$lib/workspace/viewModeSwitch.svelte';
 import { DiffMode } from '$lib/workspace/diffMode.svelte';
@@ -37,9 +36,6 @@ export class WorkspaceDoc {
 	readonly modes: ViewModeSwitch;
 	readonly diff: DiffMode;
 	private opener: FileOpener;
-
-	#root = fromStore(workspaceRoot);
-	#editorView = fromStore(editorViewStore);
 
 	constructor(private d: DocDeps) {
 		// the open file's buffers and edit handlers live in lib/workspace/documentBuffer.svelte.ts
@@ -102,7 +98,7 @@ export class WorkspaceDoc {
 		$effect(() => this.modes.syncStore());
 		// the doc.visualDoc dep re-fires this when an async re-parse lands (the doc swap itself is untracked)
 		$effect(() => {
-			void this.#editorView.current;
+			void editorViewStore.current;
 			void this.doc.visualDoc;
 			void this.modes.pendingVisualAnchor;
 			void this.modes.mode;
@@ -126,7 +122,7 @@ export class WorkspaceDoc {
 		$effect(() => {
 			if (!d.guest() || !d.session().active) return;
 			void d.session().manifestRev;
-			const root = this.#root.current;
+			const root = workspaceRoot.current;
 			if (!root) return;
 			void (async () => {
 				try {

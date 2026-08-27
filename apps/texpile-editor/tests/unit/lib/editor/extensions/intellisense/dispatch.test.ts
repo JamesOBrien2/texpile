@@ -13,20 +13,20 @@ const labels = (r: Awaited<ReturnType<typeof completeAt>>) => (r?.options ?? [])
 
 describe('latex completion source', () => {
 	beforeEach(() => {
-		referenceStore.set(null as never);
-		labelStore.set([]);
-		filePathStore.set([]);
-		projectIntelStore.set(EMPTY_PROJECT_INTEL);
+		referenceStore.current = null as never;
+		labelStore.current = [];
+		filePathStore.current = [];
+		projectIntelStore.current = EMPTY_PROJECT_INTEL;
 	});
 
 	it('offers labels and macros from other project files, with resolved .aux numbers', async () => {
-		projectIntelStore.set({
+		projectIntelStore.current = {
 			...EMPTY_PROJECT_INTEL,
 			labels: [{ name: 'fig:remote', file: 'C:/proj/chapters/two.tex', line: 4, context: '' }],
 			macros: [{ name: 'projmacro', signature: 'm', file: 'C:/proj/defs.tex', line: 2 }],
 			auxNumbers: { 'fig:remote': '3.2' },
 			auxPages: { 'fig:remote': '14' }
-		});
+		};
 		const ref = await completeAt('\\ref{fig');
 		const remote = (ref?.options ?? []).find((o) => o.label === 'fig:remote');
 		expect(remote?.detail).toBe('3.2, p.14 · two.tex');
@@ -83,14 +83,14 @@ describe('latex completion source', () => {
 	});
 
 	it('completes bib keys inside \\cite{…} from referenceStore', async () => {
-		referenceStore.set([{ key: 'knuth1984', title: 'The TeXbook' }] as never);
+		referenceStore.current = [{ key: 'knuth1984', title: 'The TeXbook' }] as never;
 		const r = await completeAt('\\cite{kn');
 		expect(r?.from).toBe('\\cite{'.length);
 		expect((r?.options ?? []).map((o) => o.apply)).toEqual(['knuth1984']);
 	});
 
 	it('matches citations on author/title text, inserting just the key', async () => {
-		referenceStore.set([{ key: 'vaswani2017', title: 'Attention Is All You Need', author: 'Vaswani' }] as never);
+		referenceStore.current = [{ key: 'vaswani2017', title: 'Attention Is All You Need', author: 'Vaswani' }] as never;
 		const r = await completeAt('\\cite{');
 		const item = (r?.options ?? [])[0];
 		expect(item?.label).toContain('Vaswani'); // matched by CodeMirror's filter
@@ -99,14 +99,14 @@ describe('latex completion source', () => {
 	});
 
 	it('completes the last key after a comma in a multi-key cite', async () => {
-		referenceStore.set([{ key: 'a1' }, { key: 'b2' }] as never);
+		referenceStore.current = [{ key: 'a1' }, { key: 'b2' }] as never;
 		const r = await completeAt('\\citep{a1, b');
 		expect(r?.from).toBe('\\citep{a1, '.length); // skips the space after the comma
 		expect((r?.options ?? []).map((o) => o.apply)).toEqual(['a1', 'b2']);
 	});
 
 	it('completes \\label keys inside \\ref / \\eqref / \\cref from labelStore', async () => {
-		labelStore.set(['fig:one', 'eq:main', 'sec:intro']);
+		labelStore.current = ['fig:one', 'eq:main', 'sec:intro'];
 		expect(labels(await completeAt('\\ref{fig'))).toContain('fig:one');
 		expect(labels(await completeAt('\\eqref{eq'))).toEqual(['fig:one', 'eq:main', 'sec:intro']);
 		const cref = await completeAt('\\cref{sec:intro, fig'); // last token after a comma
@@ -115,32 +115,32 @@ describe('latex completion source', () => {
 	});
 
 	it('completes labels in ref-like macros outside the classic list (\\vpageref, user \\fooref)', async () => {
-		labelStore.set(['fig:one']);
+		labelStore.current = ['fig:one'];
 		expect(labels(await completeAt('\\vpageref{'))).toContain('fig:one');
 		expect(labels(await completeAt('\\myfancyref{'))).toContain('fig:one');
 	});
 
 	it('completes image file paths inside \\includegraphics (filtered to image types)', async () => {
-		filePathStore.set(['images/plot.png', 'chapters/intro.tex', 'images/diagram.pdf']);
+		filePathStore.current = ['images/plot.png', 'chapters/intro.tex', 'images/diagram.pdf'];
 		const r = await completeAt('\\includegraphics{im');
 		expect(r?.from).toBe('\\includegraphics{'.length);
 		expect(labels(r)).toEqual(['images/plot.png', 'images/diagram.pdf']); // .tex excluded
 	});
 
 	it('completes .tex files inside \\input, and handles an optional [..] arg first', async () => {
-		filePathStore.set(['chapters/intro.tex', 'images/plot.png']);
+		filePathStore.current = ['chapters/intro.tex', 'images/plot.png'];
 		expect(labels(await completeAt('\\input{'))).toEqual(['chapters/intro.tex']);
 		expect(labels(await completeAt('\\includegraphics[width=5cm]{'))).toEqual(['images/plot.png']);
 	});
 
 	it('completes the file arg of the \\import family (second brace group)', async () => {
-		filePathStore.set(['chapters/two.tex', 'main.tex']);
+		filePathStore.current = ['chapters/two.tex', 'main.tex'];
 		const r = await completeAt('\\import{chapters/}{t');
 		expect(labels(r)).toContain('chapters/two.tex');
 	});
 
 	it('strips the extension \\include and \\bibliography insert (LaTeX appends its own)', async () => {
-		filePathStore.set(['chapters/intro.tex', 'refs/main.bib']);
+		filePathStore.current = ['chapters/intro.tex', 'refs/main.bib'];
 		const inc = await completeAt('\\include{');
 		expect((inc?.options ?? [])[0]?.apply).toBe('chapters/intro');
 		const bib = await completeAt('\\bibliography{');
@@ -148,7 +148,7 @@ describe('latex completion source', () => {
 	});
 
 	it('does not offer labels for \\href (not a cross-reference)', async () => {
-		labelStore.set(['fig:one']);
+		labelStore.current = ['fig:one'];
 		expect(await completeAt('\\href{')).toBeNull();
 	});
 

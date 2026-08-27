@@ -21,7 +21,7 @@ console.log = (...args: unknown[]) => {
 // some pre-bundler libraries probe a Node-style `global`
 (window as unknown as { global: Window }).global = window;
 
-window.addEventListener('error', (e) => console.error('[client error]', e.error ?? e.message));
+window.addEventListener('error', (e) => console.error('[client error]', (e.error && e.error.stack) || e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => console.error('[client error]', e.reason));
 
 // wait for the persisted uiLocale before the first render, so a non-English user never sees a

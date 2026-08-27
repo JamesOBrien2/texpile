@@ -8,7 +8,7 @@
 // never auto-opens on null, so it cannot flash while initProject is still scanning. Storage is
 // consulted SYNCHRONOUSLY on folder open (resolve()), so a folder with a saved choice is already
 // confirmed before the first render.
-import { get } from 'svelte/store';
+import { untrack } from 'svelte';
 import { workspaceRoot, texFiles, mainFile, savedMainFile, setMainFile } from '$lib/workspace/workspaceStore';
 import { detectMainFile, findDocRoots, gatherProjectMacros } from '$lib/workspace/project';
 import { samePath, type TexFile } from '$lib/workspace/fileSystem';
@@ -37,7 +37,9 @@ export class MainFilePrompt {
 	 * picking a different radio does not reshuffle the list under the pointer. */
 	candidates = $derived.by(() => {
 		const score = (f: TexFile) => (this.detected && samePath(f.path, this.detected) ? 0 : this.docRoots.has(f.path) ? 1 : 2);
-		return [...get(texFiles)].sort((a, b) => score(a) - score(b) || a.relPath.localeCompare(b.relPath));
+		// untracked on purpose: the list is frozen at open time (detected/docRoots changing is what
+		// recomputes it); tracking texFiles would reshuffle the open dialog under the pointer
+		return [...untrack(() => texFiles.current)].sort((a, b) => score(a) - score(b) || a.relPath.localeCompare(b.relPath));
 	});
 
 	/** synchronous storage check on folder open */
@@ -46,12 +48,12 @@ export class MainFilePrompt {
 	}
 
 	async prompt(then?: () => void): Promise<void> {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root || this.open) return;
 		this.open = true;
 		this.then = then ?? null;
-		const files = get(texFiles);
-		this.detected = get(mainFile) ?? (await detectMainFile(files));
+		const files = texFiles.current;
+		this.detected = mainFile.current ?? (await detectMainFile(files));
 		this.choice = this.detected;
 		this.docRoots = await findDocRoots(files);
 	}
@@ -67,7 +69,7 @@ export class MainFilePrompt {
 	}
 
 	private async settle(chosen: string | null): Promise<void> {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root || !chosen) {
 			this.finish();
 			return;
@@ -81,7 +83,7 @@ export class MainFilePrompt {
 	private finish() {
 		this.open = false;
 		this.confirmed = true;
-		if (get(compileConfig).latex.liveMode) this.deps.releaseHeldDraftCompile();
+		if (compileConfig.current.latex.liveMode) this.deps.releaseHeldDraftCompile();
 		const k = this.then;
 		this.then = null;
 		k?.();

@@ -9,7 +9,7 @@
 	type Ref = Record<string, string | undefined>;
 
 	const refs = $derived.by<Ref[]>(() => {
-		const list = (($referenceStore ?? []) as unknown as Ref[]).slice();
+		const list = ((referenceStore.current ?? []) as unknown as Ref[]).slice();
 		list.sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
 		return list;
 	});

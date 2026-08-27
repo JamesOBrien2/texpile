@@ -4,7 +4,7 @@
 // The file tree is a SNAPSHOT, so it is rescanned on window focus and on the fs-changed event our
 // own writes dispatch. Any on-disk change also rescans references, so \cite autocompletion and
 // the citation nodes see fresh keys immediately.
-import { native } from '$lib/workspace/fileSystem';
+import { nativeBridge } from '$lib/workspace/fileSystem';
 
 export type WindowWiringDeps = {
 	refreshTree(): void;
@@ -44,7 +44,7 @@ export function attachWindowListeners(deps: WindowWiringDeps): () => void {
 	// the conflict check - this one exists precisely because someone ELSE wrote, so the open file
 	// must be conflict-checked as well. Without it, the check waited for the next window focus,
 	// which with an agent or second editor writing mid-session was too late.
-	const detachNativeWatch = native()?.onWorkspaceFsChanged?.(() => {
+	const detachNativeWatch = nativeBridge()?.onWorkspaceFsChanged?.(() => {
 		onFsChanged();
 		if (deps.isHost()) deps.checkExternalChange();
 		// .texpile/ is watched for this: a pulled comment log or compile config is someone else's
@@ -80,17 +80,17 @@ export type CloseGuardDeps = {
  * edit the modal can outlive the hold, so we release the close NOW and re-issue it after the
  * answer, at which point the pending edit is settled and the fast path applies. */
 export function attachCloseGuard(deps: CloseGuardDeps): (() => void) | undefined {
-	return native()?.onBeforeClose?.(async () => {
+	return nativeBridge()?.onBeforeClose?.(async () => {
 		if (deps.promptIsOpen()) {
-			native()?.closeDecision?.(false);
+			nativeBridge()?.closeDecision?.(false);
 			return;
 		}
 		if (deps.canCloseSilently()) {
 			await deps.flushSaves();
-			native()?.closeDecision?.(true);
+			nativeBridge()?.closeDecision?.(true);
 			return;
 		}
-		native()?.closeDecision?.(false);
+		nativeBridge()?.closeDecision?.(false);
 		if (await deps.confirmLeaveUnsaved()) {
 			await deps.flushSaves();
 			window.close();

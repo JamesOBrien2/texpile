@@ -2,7 +2,6 @@
 // adopt, the per-engine Problems lane, the shared-session compile intel, and loading an
 // existing log on folder open.
 import { untrack } from 'svelte';
-import { fromStore, get } from 'svelte/store';
 import { compileLog } from '$lib/stores/compileLogStore';
 import {
 	shareCompileState as shareHostCompileState,
@@ -31,16 +30,11 @@ export class WorkspaceCompileState {
 	// the compile command; {main} expands to the main file's path
 	command = $state('');
 
-	#root = fromStore(workspaceRoot);
-	#main = fromStore(mainFile);
-	#texFiles = fromStore(texFiles);
-	#log = fromStore(compileLog);
-
 	// Problems are per-engine: switching the main between LaTeX and Typst would otherwise leave the
 	// old engine's entries on the panel until the next compile happens to overwrite them. Cleared on
 	// the lane change and re-shared, so a session's guests drop them at the same moment. Host-only:
 	// a guest's panel mirrors the host's shared intel, never its own lane.
-	private problemsLane = effectiveCompileFormat(get(mainFile));
+	private problemsLane = effectiveCompileFormat(mainFile.current);
 	// share the current pdf + log once when we start hosting (see CompilePipeline.shareExistingOutputs)
 	private outputsSharedForSession = false;
 	private existingLogLoadedFor: string | null = null;
@@ -49,7 +43,7 @@ export class WorkspaceCompileState {
 		// .texpile/config.json: the project's own build settings, adopted on open and written back on
 		// every change. Its compile command needs accepting once per project - see projectConfig.ts.
 		$effect(() => {
-			const root = d.guest() ? null : this.#root.current;
+			const root = d.guest() ? null : workspaceRoot.current;
 			// adopt() writes through workspaceStore, which the live command was ALREADY derived
 			// from when the folder opened - so without re-resolving here the config landed in storage
 			// and the editor went on using whatever it had worked out before reading the file.
@@ -59,22 +53,22 @@ export class WorkspaceCompileState {
 		// project would otherwise sit on the inherited LaTeX command until something else re-resolved
 		// it. Folders with a saved command of their own are unaffected (resolveCompileCommand prefers it).
 		$effect(() => {
-			const main = this.#main.current;
+			const main = mainFile.current;
 			if (main) this.command = resolveCompileCommand(main);
 		});
 		$effect(() => {
-			const lane = effectiveCompileFormat(this.#main.current);
+			const lane = effectiveCompileFormat(mainFile.current);
 			if (d.guest() || lane === this.problemsLane) return;
 			this.problemsLane = lane;
 			d.typstPreview().clearLiveDiags();
-			compileLog.set(null);
+			compileLog.current = null;
 			this.share();
 		});
 		// guests: surface the host's shared compile diagnostics through the same Problems UI the host
 		// has (the raw log never crosses the wire; see lib/collab/compileIntelBridge.ts)
 		$effect(() => {
 			if (!d.guest()) return;
-			compileLog.set(guestCompileLog(d.session().compileIntel, Date.now()));
+			compileLog.current = guestCompileLog(d.session().compileIntel, Date.now());
 		});
 		$effect(() => {
 			if (d.session().active && !d.session().isGuest) {
@@ -90,19 +84,19 @@ export class WorkspaceCompileState {
 		// problems on open so they show without a recompile. Re-runs as the command + main file resolve
 		// (they fix the log path); a real compile that fills the log first wins.
 		$effect(() => {
-			const root = this.#root.current;
+			const root = workspaceRoot.current;
 			void this.command; // dep: the log path depends on the resolved command
-			void this.#main.current; // dep: and on the detected main file
+			void mainFile.current; // dep: and on the detected main file
 			if (d.guest() || !root) {
 				this.existingLogLoadedFor = null;
 				return;
 			}
 			// mid folder-switch (root flipped, scan pending): the fallbacks below would resolve the
 			// PREVIOUS folder's log and publish its problems here. The scan landing re-runs this.
-			if (!this.#main.current && this.#texFiles.current.length === 0) return;
+			if (!mainFile.current && texFiles.current.length === 0) return;
 			if (this.existingLogLoadedFor === root) return;
 			untrack(() => {
-				if (get(compileLog)) {
+				if (compileLog.current) {
 					this.existingLogLoadedFor = root; // a compile already populated it
 					return;
 				}
@@ -111,7 +105,7 @@ export class WorkspaceCompileState {
 				this.existingLogLoadedFor = root;
 				void (async () => {
 					const s = await d.statFile(logPath);
-					if (s.exists && s.size > 0 && get(workspaceRoot) === root && !get(compileLog)) {
+					if (s.exists && s.size > 0 && workspaceRoot.current === root && !compileLog.current) {
 						await d.compiler().publishLogDiagnostics(logPath, s.mtimeMs, true);
 					}
 				})();
@@ -133,12 +127,12 @@ export class WorkspaceCompileState {
 	get sourceDiagnostics() {
 		return this.d.guest()
 			? guestDiagnosticsFor(this.d.session().compileIntel, this.d.doc.path)
-			: hostDiagnosticsFor(this.#log.current, this.#root.current, this.d.doc.path);
+			: hostDiagnosticsFor(compileLog.current, workspaceRoot.current, this.d.doc.path);
 	}
 
 	/** re-derive the command from the current main file (folder switches, accepted config) */
 	resolveNow(): void {
-		this.command = resolveCompileCommand(get(mainFile));
+		this.command = resolveCompileCommand(mainFile.current);
 	}
 
 	share() {

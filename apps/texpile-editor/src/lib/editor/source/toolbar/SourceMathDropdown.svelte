@@ -41,7 +41,7 @@
 	}
 
 	function insert(latex: string) {
-		const view = $sourceCmView;
+		const view = sourceCmView.current;
 		if (!view) return;
 		open = false;
 		// toSourceBlock breaks matrices and cases over lines; the snippet then lays out the tab stops,

@@ -4,7 +4,7 @@
 // switch part of the feature, and these cover the switch rather than the placement (jsdom lays
 // nothing out, so the coordinates the pill computes are not meaningful here).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { get } from 'svelte/store';
+import { flushSync } from 'svelte';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { schema } from '$lib/languages/latex/schema/latexPMSchema';
@@ -30,7 +30,7 @@ const press = (el: Element) => el.dispatchEvent(new MouseEvent('mousedown', { bu
 beforeEach(() => {
 	host = document.createElement('div');
 	document.body.appendChild(host);
-	settings.set({ ...get(settings), commentPill: true });
+	settings.current = { ...settings.current, commentPill: true };
 	// ResizeObserver is not in jsdom, and the plugin observes the editor to reposition
 	vi.stubGlobal(
 		'ResizeObserver',
@@ -61,22 +61,24 @@ describe('comment pill', () => {
 	it('the dismiss control turns the setting off, not just this one showing', () => {
 		const row = mountWithSelection();
 		press(row.querySelectorAll('button')[1]);
-		expect(get(settings).commentPill).toBe(false);
+		expect(settings.current.commentPill).toBe(false);
 		// and it leaves immediately rather than lingering until the next selection change
 		expect(row.style.display).toBe('none');
 	});
 
 	it('stays away entirely once turned off', () => {
-		settings.set({ ...get(settings), commentPill: false });
+		settings.current = { ...settings.current, commentPill: false };
 		const row = mountWithSelection();
 		expect(row.style.display).toBe('none');
 	});
 
 	it('comes back when the setting is turned on again, without a new selection', () => {
-		settings.set({ ...get(settings), commentPill: false });
+		settings.current = { ...settings.current, commentPill: false };
 		const row = mountWithSelection();
 		expect(row.style.display).toBe('none');
-		settings.set({ ...get(settings), commentPill: true });
+		settings.current = { ...settings.current, commentPill: true };
+		// the pill follows the setting through an effect, which flushes on the microtask
+		flushSync();
 		expect(row.style.display).toBe('flex');
 	});
 });

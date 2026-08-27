@@ -3,7 +3,6 @@
 // tinymist must not delay the editor appearing.
 import type { EditorView } from '@codemirror/view';
 import type { Compartment } from '@codemirror/state';
-import { get } from 'svelte/store';
 import { releaseTypstLsp, typstLspExtension } from '$lib/languages/typst/intellisense/lspClient';
 import { typstGuestLspExtension, releaseGuestTypstLsp } from '$lib/languages/typst/intellisense/guestLspExtension';
 import { collabGuest } from '$lib/collab/guestStore.svelte';
@@ -56,7 +55,7 @@ export class TypstLspBinding {
 			});
 			return;
 		}
-		void typstLspExtension(get(workspaceRoot), fileFor)
+		void typstLspExtension(workspaceRoot.current, fileFor)
 			.then((ext) => {
 				if (!ext) return;
 				const view = this.getView();

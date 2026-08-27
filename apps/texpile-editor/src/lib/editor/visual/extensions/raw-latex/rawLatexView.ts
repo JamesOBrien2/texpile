@@ -105,11 +105,11 @@ export class RawLatexView {
 	private lastCommentKey = '[]';
 
 	handleFocus() {
-		rawEditorActiveStore.set(true); // toolbar swaps to the raw-LaTeX bar
+		rawEditorActiveStore.current = true; // toolbar swaps to the raw-LaTeX bar
 	}
 
 	handleBlur() {
-		rawEditorActiveStore.set(false);
+		rawEditorActiveStore.current = false;
 		this.deselectNode();
 	}
 

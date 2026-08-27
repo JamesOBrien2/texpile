@@ -10,7 +10,6 @@
 //
 // A provider without trash support (a guest session) simply removes and records nothing, so undo is
 // never offered for something that cannot be reversed.
-import { get } from 'svelte/store';
 import { workspaceRoot, activeFilePath, mainFile } from './workspaceStore';
 import { tabs } from './tabs.svelte';
 import { docPositions } from './docPositions';
@@ -63,7 +62,7 @@ export class TreeOps {
 
 	/** true when deletes can be taken back, which is also what gates recording any history at all */
 	get undoable(): boolean {
-		return this.#canTrash() && !!get(workspaceRoot);
+		return this.#canTrash() && !!workspaceRoot.current;
 	}
 
 	#canTrash(): boolean {
@@ -95,8 +94,8 @@ export class TreeOps {
 			// does not reach into a buffer the user may have kept editing since.
 			this.#recordAdditions([path], m.filehistory_op_create({ name: finalName }));
 			await this.deps.refreshTree();
-			if (name.toLowerCase().endsWith('.bib')) await this.deps.loadRefs(get(workspaceRoot) ?? parentDir);
-			if (isTex) activeFilePath.set(path);
+			if (name.toLowerCase().endsWith('.bib')) await this.deps.loadRefs(workspaceRoot.current ?? parentDir);
+			if (isTex) activeFilePath.current = path;
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			toaster.error({
@@ -283,16 +282,16 @@ export class TreeOps {
 
 	/** a path is going away: drop the buffers, tabs and stored caret that pointed at it. */
 	#detach(path: string): void {
-		const active = get(activeFilePath);
+		const active = activeFilePath.current;
 		const sep = path.includes('\\') ? '\\' : '/';
 		// the open file is gone if it IS this entry, or lives inside this folder
 		if (!!active && (samePath(active, path) || active.startsWith(path + sep))) {
 			this.deps.discardPendingSave(); // don't let a queued autosave write the file back after we delete it
-			activeFilePath.set(null); // clears the editor buffers via the load effect
+			activeFilePath.current = null; // clears the editor buffers via the load effect
 		}
 		// deleting the main file clears the choice: a pointer at a deleted path fails every
 		// compile lane silently, while a cleared one brings the pick-a-main flow back
-		const main = get(mainFile);
+		const main = mainFile.current;
 		if (main && (samePath(main, path) || main.startsWith(path + sep))) this.deps.retargetMainFile?.(null);
 		tabs.closeUnder(path);
 		docPositions.forget(path);
@@ -304,21 +303,21 @@ export class TreeOps {
 		tabs.rename(from, to);
 		docPositions.rename(from, to);
 		this.deps.afterPathMoved?.(from, to);
-		const active = get(activeFilePath);
+		const active = activeFilePath.current;
 		const sep = from.includes('\\') ? '\\' : '/';
-		if (active === from) activeFilePath.set(to);
-		else if (active && active.startsWith(from + sep)) activeFilePath.set(to + active.slice(from.length));
+		if (active === from) activeFilePath.current = to;
+		else if (active && active.startsWith(from + sep)) activeFilePath.current = to + active.slice(from.length);
 		// the main-file pointer follows too: compile, draft mode and the typst preview all target
 		// it, and a rename that left it on the dead path failed every lane with no way to recover
 		// short of re-picking. Covers the file itself and a main inside a renamed folder.
-		const main = get(mainFile);
+		const main = mainFile.current;
 		if (main && samePath(main, from)) this.deps.retargetMainFile?.(to);
 		else if (main && main.startsWith(from + sep)) this.deps.retargetMainFile?.(to + main.slice(from.length));
 	}
 
 	/** delete one entry, backing it up first when that is possible. */
 	async #trash(path: string): Promise<{ backup: string | null; recycled: boolean }> {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!this.#canTrash() || !root) {
 			// no undo support at all (a guest session): the old unconditional remove. Reported as
 			// recycled so it does not masquerade as the destroyed-outright case, which is about a

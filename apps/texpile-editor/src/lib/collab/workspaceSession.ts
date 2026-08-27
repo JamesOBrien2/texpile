@@ -3,7 +3,7 @@
 //
 // VisualCollab owns the remote-patch and presence machinery for the visual editor; it just needs
 // read/write access to the workspace's document state, which is what `visualCollabBridge` hands it.
-import { get } from 'svelte/store';
+import { observe } from '$lib/runes/observe.svelte';
 import { workspaceRoot, isDirty } from '$lib/workspace/workspaceStore';
 import { collabHost } from '$lib/collab/hostStore.svelte';
 import { previewRelay } from '$lib/collab/previewRelay.svelte';
@@ -61,7 +61,7 @@ export function visualCollabBridge(deps: VisualCollabBridgeDeps) {
 			doc.lastDoc = liveDoc;
 		},
 		commit(path: string, content: string) {
-			isDirty.set(true);
+			isDirty.current = true;
 			deps.scheduleSave(path, content);
 		}
 	};
@@ -100,7 +100,7 @@ export function attachSessionHandlers(session: EditSession, deps: SessionHandler
 	collabHost.onCommentEvent = (event) => deps.applyCommentEvent(event);
 	collabHost.commentLog = () => deps.commentLog();
 	session.onSyncRequest = async (payload, from) => {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		const pdf = deps.expectedPdfPath();
 		if (!root || !pdf) return;
 		const reply = await resolveGuestSyncRequest(payload, root, pdf);
@@ -117,12 +117,15 @@ export function attachSessionHandlers(session: EditSession, deps: SessionHandler
 	// unheld, and the host closing its last .typ tab reclaims it under the guests - the same
 	// works-then-stops the reference exists to prevent. Gen bumps only on genuine death, so this
 	// simply marks the reference as needing re-taking.
-	const stopGenWatch = typstServerGen.subscribe(() => {
-		guestLspHeld = false;
-	});
+	const stopGenWatch = observe(
+		() => typstServerGen.current,
+		() => {
+			guestLspHeld = false;
+		}
+	);
 	collabHost.onLspRequest = async (payload, from) => {
 		if (payload.kind !== 'lsp-request') return;
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root) return;
 		if (!guestLspHeld) {
 			guestLspHeld = true;
@@ -140,7 +143,7 @@ export function attachSessionHandlers(session: EditSession, deps: SessionHandler
 	// request path. Broadcast: which guest is looking at which file is not tracked, and a
 	// diagnostic for a file nobody has open is a few bytes.
 	const stopDiagnostics = addTypstDiagnosticsListener((path, diags) => {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root) return;
 		const frame = diagnosticsNotificationForGuest(path, diags, root);
 		if (frame) collabHost.broadcastControl(frame);

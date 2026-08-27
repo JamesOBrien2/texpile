@@ -69,7 +69,7 @@
 	];
 </script>
 
-<Modal bind:open={$shortcutsOpen} title={m.menubar_keyboard_shortcuts()}>
+<Modal bind:open={shortcutsOpen.current} title={m.menubar_keyboard_shortcuts()}>
 	<div class="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
 		{#each SHORTCUTS as grp (grp.group)}
 			<div>

@@ -8,7 +8,7 @@
 // N items becomes N flat-list nodes sharing one group (same model as itemize), so substitution
 // stays all-or-nothing and an item edit regenerates the whole list.
 import type { Token } from 'markdown-it';
-import { el, txtNodes, collapseTextNodes, type PmNode, type PmMark, realMarks } from './builders';
+import { buildNode, textNodes, collapseTextNodes, type PmNode, type PmMark, realMarks } from './builders';
 import { type Cap, buildLineStarts, offsetOfLine, sliceEnd, constructEnd } from './sourceSlices';
 import { attrStr, dest, imageMarkdown, imageBlock } from './tokenAttrs';
 import { createMarkdownEngine } from '../engine';
@@ -51,32 +51,32 @@ function convertInline(children: Token[], marks: PmMark[]): PmNode[] {
 
 		switch (tok.type) {
 			case 'text':
-				out.push(...txtNodes(tok.content, marks));
+				out.push(...textNodes(tok.content, marks));
 				break;
 			case 'softbreak':
-				out.push(...txtNodes(' ', marks)); // a source line-wrap is semantically a space
+				out.push(...textNodes(' ', marks)); // a source line-wrap is semantically a space
 				break;
 			case 'hardbreak':
-				out.push(el('hard_break', { lineBreak: true }));
+				out.push(buildNode('hard_break', { lineBreak: true }));
 				break;
 			case 'code_inline':
-				out.push(...txtNodes(tok.content, [...marks, { type: 'code' }]));
+				out.push(...textNodes(tok.content, [...marks, { type: 'code' }]));
 				break;
 			case 'math_inline':
-				out.push(withMarks(el('inline_math', null, txtNodes(tok.content)), marks));
+				out.push(withMarks(buildNode('inline_math', null, textNodes(tok.content)), marks));
 				break;
 			case 'html_inline':
 				// chip per tag (not per element): the prose between <span> and </span> stays
 				// editable text instead of getting swallowed into one opaque chip
-				out.push(withMarks(el('inline_latex', { lang: 'html' }, txtNodes(tok.content)), marks));
+				out.push(withMarks(buildNode('inline_latex', { lang: 'html' }, textNodes(tok.content)), marks));
 				break;
 			case 'image':
 				// image mixed into a text line: no block figure can sit here, keep it literal
-				out.push(withMarks(el('inline_latex', { lang: 'markdown' }, txtNodes(imageMarkdown(tok))), marks));
+				out.push(withMarks(buildNode('inline_latex', { lang: 'markdown' }, textNodes(imageMarkdown(tok))), marks));
 				break;
 			default:
 				// unknown inline token: keep its content as a literal chip rather than dropping it
-				if (tok.content) out.push(withMarks(el('inline_latex', { lang: 'markdown' }, txtNodes(tok.content)), marks));
+				if (tok.content) out.push(withMarks(buildNode('inline_latex', { lang: 'markdown' }, textNodes(tok.content)), marks));
 		}
 	}
 	return collapseTextNodes(out);
@@ -98,7 +98,7 @@ function detectTask(blocks: PmNode[]): { blocks: PmNode[]; checked: boolean | nu
 	const kids: PmNode[] = [];
 	if (rest) kids.push(lead.type.schema.text(rest, lead.marks));
 	for (let i = 1; i < first.childCount; i++) kids.push(first.child(i));
-	const para = el('paragraph', { ...first.attrs }, kids);
+	const para = buildNode('paragraph', { ...first.attrs }, kids);
 	return { blocks: [para, ...blocks.slice(1)], checked: m[1] !== ' ' };
 }
 
@@ -115,9 +115,9 @@ function listItems(tokens: Token[], i: number, j: number): PmNode[] {
 		}
 		const e = constructEnd(tokens, k);
 		const inner = convertTokens(tokens, k + 1, e);
-		const { blocks, checked } = detectTask(inner.length > 0 ? inner : [el('paragraph')]);
+		const { blocks, checked } = detectTask(inner.length > 0 ? inner : [buildNode('paragraph')]);
 		items.push(
-			el(
+			buildNode(
 				'list',
 				{
 					kind: checked != null ? 'task' : kind,
@@ -132,7 +132,8 @@ function listItems(tokens: Token[], i: number, j: number): PmNode[] {
 		);
 		k = e + 1;
 	}
-	if (items.length === 0) items.push(el('list', { kind, order: null, checked: null, collapsed: false, preBody: null }, [el('paragraph')]));
+	if (items.length === 0)
+		items.push(buildNode('list', { kind, order: null, checked: null, collapsed: false, preBody: null }, [buildNode('paragraph')]));
 	return items;
 }
 
@@ -154,7 +155,7 @@ function tableNode(tokens: Token[], i: number, j: number): PmNode {
 				cells = [];
 				break;
 			case 'tr_close':
-				rows.push(el('table_row', { topRules: '' }, cells));
+				rows.push(buildNode('table_row', { topRules: '' }, cells));
 				break;
 			case 'th_open':
 			case 'td_open': {
@@ -165,14 +166,14 @@ function tableNode(tokens: Token[], i: number, j: number): PmNode {
 					const align = style.includes('right') ? '---:' : style.includes('center') ? ':--:' : style.includes('left') ? ':---' : '---';
 					aligns.push(align);
 				}
-				cells.push(el(inHead ? 'table_header' : 'table_cell', null, [el('paragraph', null, paragraphContent(inline))]));
+				cells.push(buildNode(inHead ? 'table_header' : 'table_cell', null, [buildNode('paragraph', null, paragraphContent(inline))]));
 				k = e;
 				break;
 			}
 		}
 	}
 	// the delimiter row isn't tokenized; rebuild it from cell alignment so regeneration keeps it
-	return el('table', { env: null, colspec: aligns.join('|') || null }, rows);
+	return buildNode('table', { env: null, colspec: aligns.join('|') || null }, rows);
 }
 
 function fenceNode(tok: Token): PmNode {
@@ -180,7 +181,11 @@ function fenceNode(tok: Token): PmNode {
 	const content = tok.content.replace(/\n$/, '');
 	// no infoString string means NO language: highlighting a bare fence as Markdown painted noise over
 	// plain text, and the settings chip claimed a language the source never recorded
-	return el('code_block', { lang: infoString, env: tok.type === 'fence' ? 'fence' : 'indented', args: infoString }, txtNodes(content));
+	return buildNode(
+		'code_block',
+		{ lang: infoString, env: tok.type === 'fence' ? 'fence' : 'indented', args: infoString },
+		textNodes(content)
+	);
 }
 
 /** one construct starting at tokens[i] (ending at j inclusive) -> block nodes. */
@@ -191,14 +196,14 @@ function convertConstruct(tokens: Token[], i: number, j: number, cap: Cap | null
 			const inline = tokens[i + 1]?.type === 'inline' ? tokens[i + 1] : undefined;
 			// a paragraph that IS one image becomes a block figure
 			if (inline?.children?.length === 1 && inline.children[0].type === 'image') return [imageBlock(inline.children[0])];
-			return [el('paragraph', { indent: 'auto' }, paragraphContent(inline))];
+			return [buildNode('paragraph', { indent: 'auto' }, paragraphContent(inline))];
 		}
 		case 'heading_open': {
 			const inline = tokens[i + 1]?.type === 'inline' ? tokens[i + 1] : undefined;
-			return [el('heading', { level: Number(tok.tag.slice(1)) || 1, numbered: true }, paragraphContent(inline))];
+			return [buildNode('heading', { level: Number(tok.tag.slice(1)) || 1, numbered: true }, paragraphContent(inline))];
 		}
 		case 'blockquote_open':
-			return [el('blockquote', null, ensureBlocks(convertTokens(tokens, i + 1, j)))];
+			return [buildNode('blockquote', null, ensureBlocks(convertTokens(tokens, i + 1, j)))];
 		case 'bullet_list_open':
 		case 'ordered_list_open':
 			return listItems(tokens, i, j);
@@ -208,25 +213,25 @@ function convertConstruct(tokens: Token[], i: number, j: number, cap: Cap | null
 		case 'code_block':
 			return [fenceNode(tok)];
 		case 'hr':
-			return [el('horizontal_rule')];
+			return [buildNode('horizontal_rule')];
 		case 'html_block':
-			return [el('raw_latex', { lang: 'html' }, txtNodes(tok.content.replace(/\n$/, '')))];
+			return [buildNode('raw_latex', { lang: 'html' }, textNodes(tok.content.replace(/\n$/, '')))];
 		case 'math_block':
-			return [el('block_math', { label: null, numbered: false, environment: null, lineLabels: [] }, txtNodes(tok.content.trim()))];
+			return [buildNode('block_math', { label: null, numbered: false, environment: null, lineLabels: [] }, textNodes(tok.content.trim()))];
 		default: {
 			// unknown block construct: preserve its exact source lines as a raw markdown block
 			if (cap && tok.map) {
 				const min = offsetOfLine(cap, tok.map[0]);
 				const end = sliceEnd(cap, tok.map[1]);
-				if (end > min) return [el('raw_latex', { lang: 'markdown' }, txtNodes(cap.source.slice(min, end)))];
+				if (end > min) return [buildNode('raw_latex', { lang: 'markdown' }, textNodes(cap.source.slice(min, end)))];
 			}
-			return tok.content ? [el('raw_latex', { lang: 'markdown' }, txtNodes(tok.content.replace(/\n$/, '')))] : [];
+			return tok.content ? [buildNode('raw_latex', { lang: 'markdown' }, textNodes(tok.content.replace(/\n$/, '')))] : [];
 		}
 	}
 }
 
 function ensureBlocks(blocks: PmNode[]): PmNode[] {
-	return blocks.length > 0 ? blocks : [el('paragraph')];
+	return blocks.length > 0 ? blocks : [buildNode('paragraph')];
 }
 
 /** nested walker (blockquote bodies, list items): no orig stamping below the top level. */
@@ -296,5 +301,5 @@ export function markdownToProseMirror(source: string): MarkdownParseResult {
 	if (result.length > 0) {
 		docAttrs = { docTail: { text: source.slice(cap.prevEnd), afterSeq: cap.seq - 1 } };
 	}
-	return { doc: el('doc', docAttrs, ensureBlocks(result)) };
+	return { doc: buildNode('doc', docAttrs, ensureBlocks(result)) };
 }

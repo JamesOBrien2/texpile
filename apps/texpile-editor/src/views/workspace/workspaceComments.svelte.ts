@@ -3,10 +3,9 @@
 // anchors are re-resolved whenever a file opens or its text is replaced from outside, never
 // per keystroke - see the controller.
 import { untrack } from 'svelte';
-import { fromStore, get } from 'svelte/store';
 import { CommentsController } from '$lib/workspace/commentsController.svelte';
 import { workspaceRoot, fileTree } from '$lib/workspace/workspaceStore';
-import { users } from '$lib/storage/users';
+import { userData } from '$lib/storage/userData';
 import { collabGuest } from '$lib/collab/guestStore.svelte';
 import { collabHost } from '$lib/collab/hostStore.svelte';
 import { isSafeRel } from '$lib/collab/protocol';
@@ -28,16 +27,12 @@ type CommentsDeps = {
 export class WorkspaceComments {
 	readonly ctl: CommentsController;
 
-	#root = fromStore(workspaceRoot);
-	#tree = fromStore(fileTree);
-	#users = fromStore(users);
-
 	constructor(private d: CommentsDeps) {
 		this.ctl = new CommentsController({
-			root: () => this.#root.current,
+			root: () => workspaceRoot.current,
 			// a guest has no git repo to fall back to (its root is the 'session' sentinel), but it DOES
 			// have the name it joined with - that is what every peer already sees on its cursor
-			preferredAuthor: () => this.#users.current.commentAuthor || (d.guest() ? collabGuest.selfName : ''),
+			preferredAuthor: () => userData.current.commentAuthor || (d.guest() ? collabGuest.selfName : ''),
 			// new anchors and event resolution read the LIVE buffer; the reanchor snapshot goes stale
 			// under remote edits in a shared session (see the controller's activeText comment)
 			activeText: () => this.activeText(),
@@ -51,7 +46,7 @@ export class WorkspaceComments {
 			// openFileAt above takes over unchanged.
 			revealInVisual: (id) => {
 				if (d.modes.mode !== 'visual' || !hasVisualMode(d.kind())) return false;
-				const v = get(editorViewStore);
+				const v = editorViewStore.current;
 				return !!v && revealPmComment(v, id);
 			},
 			// a guest's events go up to the host, which owns the log; a host's go out to every guest.
@@ -72,7 +67,7 @@ export class WorkspaceComments {
 			// null for a guest: their workspaceRoot is the sentinel 'session', not a path, and the log
 			// lives on the host's disk. Comments in a shared session need the session protocol to carry
 			// their events; until it does, a guest has no log rather than a broken one.
-			void this.ctl.load(d.guest() ? null : this.#root.current);
+			void this.ctl.load(d.guest() ? null : workspaceRoot.current);
 		});
 		// A guest has no disk, so its log arrives over the wire: single events as they happen, and the
 		// whole thing once on join. load(null) above leaves it empty until then rather than reading a
@@ -129,8 +124,8 @@ export class WorkspaceComments {
 	 * null while no folder is open - "unknown", drawing no badges, rather than "everything missing".
 	 */
 	get filesPresent(): Set<string> | null {
-		const root = this.#root.current;
+		const root = workspaceRoot.current;
 		if (!root) return null;
-		return new Set(flatFiles(this.#tree.current).map((p) => relativeTo(root, p)));
+		return new Set(flatFiles(fileTree.current).map((p) => relativeTo(root, p)));
 	}
 }

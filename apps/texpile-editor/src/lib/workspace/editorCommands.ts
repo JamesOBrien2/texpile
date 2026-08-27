@@ -1,7 +1,6 @@
 // Commands that act on whichever editor is currently showing: focus handoff, Find in Files,
 // running the formatter, and the two \input helpers (insert one at the cursor, jump to one).
 import { tick } from 'svelte';
-import { get } from 'svelte/store';
 import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
 import { typSchema } from '$lib/languages/typst/visual/schema';
 import { activeFilePath, workspaceRoot } from '$lib/workspace/workspaceStore';
@@ -15,16 +14,16 @@ const SEED_MAX = 200;
 /** return keyboard focus to whichever editor is showing (Esc from panels) */
 export function focusEditor(isSourceMode: boolean): void {
 	if (isSourceMode) {
-		const cm = get(sourceCmView);
+		const cm = sourceCmView.current;
 		if (cm && cm.dom.isConnected) cm.focus();
 	} else {
-		get(editorViewStore)?.focus();
+		editorViewStore.current?.focus();
 	}
 }
 
 /** a single-line source selection seeds the Find in Files query */
 export function searchSeed(): string | undefined {
-	const cm = get(sourceCmView);
+	const cm = sourceCmView.current;
 	if (!cm || !cm.dom.isConnected) return undefined;
 	const { from, to } = cm.state.selection.main;
 	if (to <= from || to - from >= SEED_MAX) return undefined;
@@ -91,7 +90,7 @@ export async function runFormat(deps: FormatDeps): Promise<void> {
  * insert into. */
 export function insertIncludeAtCursor(newFilePath: string, loadedPath: string | null, isVisualMode: boolean): boolean {
 	if (!loadedPath || !isVisualMode) return false;
-	const v = get(editorViewStore);
+	const v = editorViewStore.current;
 	const type = v?.state.schema.nodes.includedoc;
 	if (!v || !type) return false;
 	const rel = relativeTo(dirname(loadedPath), newFilePath).replace(/\.tex$/i, '');
@@ -108,13 +107,13 @@ export function insertIncludeAtCursor(newFilePath: string, loadedPath: string | 
 export function insertTypstIncludeAtCursor(newFilePath: string, loadedPath: string | null): boolean {
 	if (!loadedPath) return false;
 	const rel = relativeTo(dirname(loadedPath), newFilePath).replace(/\\/g, '/');
-	const v = get(editorViewStore);
+	const v = editorViewStore.current;
 	if (v?.dom.isConnected && v.state.schema === typSchema) {
 		v.dispatch(v.state.tr.replaceSelectionWith(typSchema.nodes.includedoc.create({ path: rel, command: 'typst' })).scrollIntoView());
 		v.focus();
 		return true;
 	}
-	const cm = get(sourceCmView);
+	const cm = sourceCmView.current;
 	if (!cm || !cm.dom.isConnected) return false;
 	const insert = `#include "${rel}"\n`;
 	const { from, to } = cm.state.selection.main;
@@ -135,7 +134,7 @@ export async function jumpToInclude(
 	stat: (p: string) => Promise<{ exists: boolean }>,
 	guest = false
 ): Promise<void> {
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	const base = loadedPath ? dirname(loadedPath) : null;
 	const cand = name.trim().replace(/\\/g, '/');
 	if (!cand) return;
@@ -145,7 +144,7 @@ export async function jumpToInclude(
 		for (const n of names) {
 			const path = normalizePath(joinPath(dir, n));
 			if ((await stat(path)).exists) {
-				activeFilePath.set(path);
+				activeFilePath.current = path;
 				return;
 			}
 		}

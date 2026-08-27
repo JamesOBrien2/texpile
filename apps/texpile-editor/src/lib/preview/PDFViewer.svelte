@@ -6,7 +6,7 @@
 	import { savePdfBytes } from '$lib/workspace/fileSystem';
 	import { resolvedMode } from '$lib/theme';
 	import { layout } from '$lib/storage/layout';
-	import { onMount } from 'svelte';
+	import { untrack } from 'svelte';
 
 	type Props = {
 		filename?: string;
@@ -89,9 +89,10 @@
 	});
 
 	// no src given: follow pdfStore
-	onMount(() => {
+	$effect(() => {
 		if (src !== undefined) return;
-		return pdfStore.subscribe((pdf) => apply(pdf));
+		const pdf = pdfStore.current;
+		untrack(() => apply(pdf));
 	});
 </script>
 
@@ -100,7 +101,7 @@
 {:else if error}
 	<div class="text-error-500 flex h-full w-full items-center justify-center p-4 text-center text-sm">{error}</div>
 {:else if pdfSource}
-	{@const dark = $resolvedMode === 'dark'}
+	{@const dark = resolvedMode.current === 'dark'}
 	<div class="flex h-full w-full flex-col">
 		<!-- the viewer holds the bytes but not the native bridge, so the save dialog is injected here -->
 		<PdfViewer src={pdfSource} documentKey={docKey} downloadFilename={filename} onSavePdf={savePdfBytes}>
@@ -111,7 +112,7 @@
 			     pill in dark (that global rule can't reach into the shadow DOM). -->
 			<PdfRenderer
 				{onPageClick}
-				darkMode={dark && $layout.pdfDarkPages}
+				darkMode={dark && layout.current.pdfDarkPages}
 				backgroundColor={dark ? 'var(--color-surface-950, #131316)' : '#f5f5f5'}
 				pageShadow={dark ? '0 2px 8px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4)' : undefined}
 				scrollbarThumbColor={dark ? 'var(--color-surface-700, #4a4a52)' : undefined}

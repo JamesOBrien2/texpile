@@ -4,7 +4,6 @@
 // user has local edits that differ, we surface a modal and let them pick. Everything waits on the
 // save pipeline going idle first, so we never read our own half-written file and mistake it for
 // an external edit.
-import { get } from 'svelte/store';
 import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
 import { toLf, detectEol, type Eol } from '$lib/workspace/fileSystem';
 import { recordDiskStamp } from '$lib/workspace/diskStamp';
@@ -55,9 +54,9 @@ export class ExternalChangeWatcher {
 			return;
 		}
 		const disk = toLf(raw); // compare in LF against our LF baseline/buffers
-		if (get(activeFilePath) !== path || disk === d.getDiskBaseline()) return; // unchanged on disk
+		if (activeFilePath.current !== path || disk === d.getDiskBaseline()) return; // unchanged on disk
 		const eol = detectEol(raw); // the external writer may have changed the ending
-		if (!get(isDirty) || d.getBuffer() === disk) this.applyDiskReload(disk, eol);
+		if (!isDirty.current || d.getBuffer() === disk) this.applyDiskReload(disk, eol);
 		else this.conflict = { path, disk, eol };
 	}
 
@@ -72,7 +71,7 @@ export class ExternalChangeWatcher {
 		} else {
 			d.setRawContent(disk);
 		}
-		isDirty.set(false);
+		isDirty.current = false;
 		// the buffer now matches disk: drop any queued autosave of the edits we just replaced, or a
 		// later flush would clobber the version the user chose to keep
 		d.discardQueuedSave();

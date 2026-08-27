@@ -5,24 +5,6 @@ declare global {
 	/** injected by Vite `define`: every released CHANGELOG.md entry, newest first. */
 	const __WHATS_NEW__: { version: string; date?: string; notes: string[] }[];
 
-	namespace App {
-		type DocMeta = {
-			title: string;
-			folderId: string;
-			docref: string;
-			created: number;
-			updated: number;
-			contentPreview: string;
-			ownerUserId?: string; // optional for back-compat
-		};
-		type Folder = {
-			id: string;
-			name: string;
-			parent: string;
-			children: string[];
-		};
-	}
-
 	type TexpileTerminalBridge = {
 		/** False if node-pty failed to load (needs `pnpm electron:rebuild`). */
 		available(): Promise<boolean>;

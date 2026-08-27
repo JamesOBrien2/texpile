@@ -4,7 +4,6 @@
 // the main file declares, append what is missing, toast, cite - is the same. The toast messages
 // are shared too: the zotero_* keys they read say nothing Zotero-specific ("Added 1 reference",
 // "Created refs.bib").
-import { get } from 'svelte/store';
 import type { Node as PMNode } from 'prosemirror-model';
 import { editorViewStore, sourceCmView } from '$lib/stores/editorStore';
 import { typSchema } from '$lib/languages/typst/visual/schema';
@@ -39,7 +38,7 @@ export type BibliographyLanding = {
  * references.bib next to the main file.
  */
 export async function insertBibliographyEntries(bibText: string, keys: string[], deps: CitationInsertDeps): Promise<BibliographyLanding> {
-	const main = get(mainFile);
+	const main = mainFile.current;
 	if (!main || !keys.length) return { added: [], skipped: [], undeclared: false };
 	try {
 		// the main file as the user sees it: the open buffer when the main IS the open file
@@ -96,7 +95,7 @@ export async function insertBibliographyEntries(bibText: string, keys: string[],
 
 /** citation at the caret: a node in the visual editor when its schema has one, text in source */
 export function insertCitationAtCaret(keys: string[], kind: 'tex' | 'typ'): void {
-	const v = get(editorViewStore);
+	const v = editorViewStore.current;
 	if (v?.dom.isConnected) {
 		// branch off the MOUNTED schema, never the file extension (see referenceManagerPlugin)
 		if (kind === 'typ' && v.state.schema === typSchema) {
@@ -118,7 +117,7 @@ export function insertCitationAtCaret(keys: string[], kind: 'tex' | 'typ'): void
 			return;
 		}
 	}
-	const cm = get(sourceCmView);
+	const cm = sourceCmView.current;
 	if (!cm || !cm.dom.isConnected) return;
 	const insert = citationTextFor(keys, kind);
 	const { from, to } = cm.state.selection.main;

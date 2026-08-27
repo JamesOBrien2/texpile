@@ -3,7 +3,6 @@
 import { EditorView, keymap, showTooltip, type Tooltip, type TooltipView } from '@codemirror/view';
 import { StateEffect, StateField, type EditorState, type Extension, type Transaction } from '@codemirror/state';
 import { convertLatexToMarkup } from 'mathlive';
-import { get } from 'svelte/store';
 import 'mathlive/static.css';
 import 'mathlive/fonts.css';
 import { settings, updateSettings } from '$lib/settings';
@@ -34,7 +33,7 @@ function scan(state: EditorState): MathRegion[] {
 }
 
 function regionsFor(state: EditorState): MathRegion[] {
-	if (get(settings).mathPreview === false) return []; // preview off: never pay for a scan
+	if (settings.current.mathPreview === false) return []; // preview off: never pay for a scan
 	const cell = state.field(regionsField);
 	if (cell.regions === null) cell.regions = scan(state);
 	return cell.regions;
@@ -208,7 +207,7 @@ const tooltipField = StateField.define<Tooltip | null>({
 });
 
 function tooltipFor(state: EditorState): Tooltip | null {
-	if (get(settings).mathPreview === false || state.field(dismissedField)) return null;
+	if (settings.current.mathPreview === false || state.field(dismissedField)) return null;
 	if (!activeRegion(state)) return null;
 	return { pos: state.selection.main.head, above: true, create: createPreview };
 }

@@ -8,7 +8,7 @@
 	// source mode reads headings parsed from the raw .tex (char offsets); visual reads the PM plugin's.
 	// onOpenFile routes clicks on entries merged in from other files (source-mode project outline).
 	let { mode = 'visual', onOpenFile }: { mode?: 'visual' | 'source'; onOpenFile?: (file: string, line: number) => void } = $props();
-	const items = $derived(mode === 'source' ? $sourceTocStore : $tocStore);
+	const items = $derived(mode === 'source' ? sourceTocStore.current : tocStore.current);
 
 	function goTo(item: TocItem) {
 		if (item.file && onOpenFile) {
@@ -16,13 +16,13 @@
 			return;
 		}
 		if (mode === 'source') {
-			const view = $sourceCmView;
+			const view = sourceCmView.current;
 			if (!view) return;
 			const p = Math.min(item.pos, view.state.doc.length);
 			view.dispatch({ selection: { anchor: p }, effects: EditorView.scrollIntoView(p, { y: 'start', yMargin: 20 }) });
 			view.focus();
 		} else {
-			const view = $editorViewStore;
+			const view = editorViewStore.current;
 			if (!view) return;
 			const sel = TextSelection.near(view.state.doc.resolve(Math.min(item.pos + 1, view.state.doc.content.size)));
 			view.dispatch(view.state.tr.setSelection(sel).scrollIntoView());

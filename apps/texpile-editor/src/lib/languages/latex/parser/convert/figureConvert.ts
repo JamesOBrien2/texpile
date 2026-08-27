@@ -3,7 +3,7 @@
 import type { Node, Macro, Environment } from '@unified-latex/unified-latex-types';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
 import { getTextContent, getMacroFirstArg } from '../ast-utils';
-import { el, txt, nodeToLatexString, type PmNode, type ConversionContext, type ConversionOptions } from '../builders';
+import { buildNode, textNode, nodeToLatexString, type PmNode, type ConversionContext, type ConversionOptions } from '../builders';
 import { convertNodesToInline } from './inlineConvert';
 import { nodeRawSource } from './origCapture';
 import { macroHandlers } from './macroHandlers';
@@ -61,7 +61,7 @@ export function createFigureWrapper(env: Environment, ctx: ConversionContext, _o
 			const figureTemplate = nodeToLatexString(slotifyFigure(env));
 			// bareOriginal is about a STANDALONE call: false here, this one came from a real figure
 			return [
-				el(
+				buildNode(
 					'image',
 					{ ...imageAttrs, label, figureTemplate, captionOpt, bareOriginal: false },
 					captionNodes.length > 0 ? captionNodes : null
@@ -73,5 +73,5 @@ export function createFigureWrapper(env: Environment, ctx: ConversionContext, _o
 	// tier 2/3 (subfigures, tikz, no graphic): preserve the float verbatim. NB: the tier-1
 	// figureTemplate must STAY on nodeToLatexString: slotifyFigure's sentinel nodes don't exist
 	// in the source, so slicing it would be wrong.
-	return [el('raw_latex', null, [txt(nodeRawSource(env) ?? nodeToLatexString(env))])];
+	return [buildNode('raw_latex', null, [textNode(nodeRawSource(env) ?? nodeToLatexString(env))])];
 }

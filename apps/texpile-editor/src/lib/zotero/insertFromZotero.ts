@@ -5,7 +5,6 @@
 // bib, how to append, the caret insert) is shared with the personal-library flow and lives in
 // lib/workspace/insertBibliography.ts; this file is the Zotero-specific glue: probe, search, and
 // the Better BibTeX export that turns picked keys into bib text.
-import { get } from 'svelte/store';
 import { mainFile } from '$lib/workspace/workspaceStore';
 import { readTextFile, samePath } from '$lib/workspace/fileSystem';
 import { toaster } from '$lib/modals/toaster-svelte';
@@ -24,7 +23,7 @@ export type ZoteroInsertDeps = CitationInsertDeps;
 /** entry point: check Zotero is reachable, then hand off to the in-app picker dialog */
 export async function insertCitationFromZotero(deps: ZoteroInsertDeps): Promise<void> {
 	const bridge = window.texpileZotero;
-	if (!bridge || !get(mainFile)) return;
+	if (!bridge || !mainFile.current) return;
 	const probe = await bridge.probe();
 	if (!probe.running) {
 		toaster.error({ title: m.zotero_not_running_title(), description: m.zotero_not_running_desc() });
@@ -40,7 +39,7 @@ export async function insertCitationFromZotero(deps: ZoteroInsertDeps): Promise<
 /** the dialog confirmed a selection: entries into the bib, citation at the caret, toasts out */
 export async function applyPickedCitations(keys: string[], deps: ZoteroInsertDeps): Promise<void> {
 	const bridge = window.texpileZotero;
-	const main = get(mainFile);
+	const main = mainFile.current;
 	if (!bridge || !main || !keys.length) return;
 	try {
 		// the main file as the user sees it, for the translator decision only; the landing helper

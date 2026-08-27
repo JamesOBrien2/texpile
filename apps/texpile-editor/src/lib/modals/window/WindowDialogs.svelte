@@ -16,6 +16,6 @@
 	import { preferencesOpen, dictionaryOpen } from '$lib/stores/dialogStore';
 </script>
 
-<PreferencesDialog bind:open={$preferencesOpen} />
-<SpellcheckDictionary bind:open={$dictionaryOpen} />
+<PreferencesDialog bind:open={preferencesOpen.current} />
+<SpellcheckDictionary bind:open={dictionaryOpen.current} />
 <ShortcutsDialog />

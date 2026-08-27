@@ -42,7 +42,7 @@ export function registerFsIpc(): void {
 	handleFs('fs:writeBinary', fsService.writeBinary);
 	handleFs('fs:tree', tree);
 	handleFs('fs:treeScan', treeScan);
-	handleFs('fs:op', fsService.op);
+	handleFs('fs:op', fsService.applyFileOp);
 	handleFs('fs:search', search);
 	handleFs('fs:stat', fsService.statFile);
 	handleFs('fs:formatLatex', formatLatex);
@@ -71,7 +71,7 @@ export function registerFsIpc(): void {
 			// recycle bin" is the one thing we must not claim when it is not. With no backup either,
 			// this is the only path in the app that destroys something outright.
 			recycled = false;
-			await fsService.op({ action: 'delete', path: body.path });
+			await fsService.applyFileOp({ action: 'delete', path: body.path });
 		}
 		return { backup, recycled };
 	});
@@ -79,7 +79,7 @@ export function registerFsIpc(): void {
 	// Drop a folder's backups. Called when that workspace is opened: the undo stack that could reach
 	// them is memory-only, so anything left from a previous session is already unreachable.
 	handleFs('fs:purgeUndo', async (root: string) => {
-		await fsService.op({ action: 'delete', path: undoDir(root) });
+		await fsService.applyFileOp({ action: 'delete', path: undoDir(root) });
 		return { ok: true };
 	});
 

@@ -64,9 +64,9 @@
 	function keepEditorFocus(cmd: Cmd) {
 		return (e: MouseEvent) => {
 			e.preventDefault();
-			if (!$editorViewStore) return;
-			cmd($editorViewStore.state, $editorViewStore.dispatch);
-			$editorViewStore.focus();
+			if (!editorViewStore.current) return;
+			cmd(editorViewStore.current.state, editorViewStore.current.dispatch);
+			editorViewStore.current.focus();
 		};
 	}
 	// keep the caret in the editor when the toolbar chrome itself is clicked
@@ -77,8 +77,8 @@
 	let active = $state<{ strong?: boolean; em?: boolean; s?: boolean; code?: boolean; link?: boolean }>({});
 	let headingLevel = $state(0);
 	$effect(() => {
-		if (!$editorViewStore) return;
-		const st = $editorViewStore.state;
+		if (!editorViewStore.current) return;
+		const st = editorViewStore.current.state;
 		active = {
 			strong: markIsActive(st, mdSchema.marks.strong),
 			em: markIsActive(st, mdSchema.marks.em),
@@ -91,9 +91,9 @@
 	});
 
 	function applyHeading(level: number) {
-		if (!$editorViewStore) return;
-		setHeadingLevel(level)($editorViewStore.state, $editorViewStore.dispatch);
-		$editorViewStore.focus();
+		if (!editorViewStore.current) return;
+		setHeadingLevel(level)(editorViewStore.current.state, editorViewStore.current.dispatch);
+		editorViewStore.current.focus();
 	}
 
 	function insertHr(state: EditorState, dispatch?: (tr: Transaction) => void): boolean {
@@ -122,7 +122,7 @@
 				<li class="toolbarButton hover:preset-tonal">
 					<button
 						onclick={() => {
-							displaySearchBarStore.set(!$displaySearchBarStore);
+							displaySearchBarStore.current = !displaySearchBarStore.current;
 						}}
 						class="flex items-center p-1"
 					>
@@ -144,7 +144,7 @@
 				</li>
 			</ul>
 
-			{#if $rawEditorActiveStore}
+			{#if rawEditorActiveStore.current}
 				<!-- a raw CM island is focused: prose formatting doesn't apply -->
 				<div class="text-surface-600-300 hidden min-h-9 min-w-0 items-center gap-2 text-sm whitespace-nowrap @sm:flex">
 					<Code class="size-4 shrink-0" />

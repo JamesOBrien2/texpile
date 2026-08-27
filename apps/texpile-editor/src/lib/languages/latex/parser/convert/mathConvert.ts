@@ -2,7 +2,7 @@
 import type { Node, Macro, Environment } from '@unified-latex/unified-latex-types';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
 import { getTextContent } from '../ast-utils';
-import { el, txt, type PmNode } from '../builders';
+import { buildNode, textNode, type PmNode } from '../builders';
 import { mathBodyRawSource } from './origCapture';
 
 export function createBlockMath(env: Environment, starred: boolean, environment?: string): PmNode[] {
@@ -59,7 +59,9 @@ export function createBlockMath(env: Environment, starred: boolean, environment?
 	const label = lineLabels.length > 0 ? lineLabels[0] : null;
 
 	return [
-		el('block_math', { label, numbered: !starred, environment: environment || null, lineLabels }, [txt(String(mathContent || '').trim())])
+		buildNode('block_math', { label, numbered: !starred, environment: environment || null, lineLabels }, [
+			textNode(String(mathContent || '').trim())
+		])
 	];
 }
 

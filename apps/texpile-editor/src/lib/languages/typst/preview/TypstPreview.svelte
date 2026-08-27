@@ -64,7 +64,7 @@
 	let zoom = $state<number | null>(null);
 	let frame = $state<HTMLIFrameElement | null>(null);
 
-	const dark = $derived($resolvedMode === 'dark');
+	const dark = $derived(resolvedMode.current === 'dark');
 
 	// The surround behind the pages, and it has to CONTRAST with them: the viewer draws white paper
 	// and nothing else, so a near-white surround makes the page edges vanish and the document reads
@@ -192,14 +192,14 @@
 	// deliberate jumps (the sync button, Show in preview), whose sends do not bump this tick.
 	// 500ms comfortably covers the LSP round trip and data-plane push that follow the tick.
 	$effect(() => {
-		if ($followScrollTick === 0) return;
+		if (followScrollTick.current === 0) return;
 		frame?.contentWindow?.postMessage({ channel: CHANNEL, type: 'quiet', value: 500 }, '*');
 	});
 
 	// A guest's forward-sync is about to make tinymist broadcast a jump aimed at that guest; this
 	// pane's direct socket would receive it too, so the bridge swallows jump/cursor frames briefly.
 	$effect(() => {
-		if ($guestJumpFreezeTick === 0) return;
+		if (guestJumpFreezeTick.current === 0) return;
 		frame?.contentWindow?.postMessage({ channel: CHANNEL, type: 'freeze', value: 1500 }, '*');
 	});
 </script>
@@ -248,13 +248,13 @@
 		<!-- follow-always lives here; its one-shot sibling rides the pane splitter (PreviewPane) -->
 		<button
 			class="hover:preset-tonal rounded p-1 disabled:opacity-40"
-			class:preset-tonal={$settings.typstPreviewFollow === true}
-			class:text-primary-500={$settings.typstPreviewFollow === true}
-			onclick={() => updateSettings({ typstPreviewFollow: $settings.typstPreviewFollow !== true })}
+			class:preset-tonal={settings.current.typstPreviewFollow === true}
+			class:text-primary-500={settings.current.typstPreviewFollow === true}
+			onclick={() => updateSettings({ typstPreviewFollow: settings.current.typstPreviewFollow !== true })}
 			disabled={!frameUrl}
-			title={$settings.typstPreviewFollow === true ? m.typst_preview_follow_on() : m.typst_preview_follow_off()}
+			title={settings.current.typstPreviewFollow === true ? m.typst_preview_follow_on() : m.typst_preview_follow_off()}
 			aria-label={m.typst_preview_follow_aria()}
-			aria-pressed={$settings.typstPreviewFollow === true}
+			aria-pressed={settings.current.typstPreviewFollow === true}
 		>
 			<Crosshair class="size-4" />
 		</button>

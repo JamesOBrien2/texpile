@@ -5,13 +5,13 @@
 // knows which is which, and the sender (WorkspaceView's caret debounce) has no reference to the
 // frame. This store is the wire between them: the sender bumps it, TypstPreview forwards a
 // `quiet` message into the frame, and the bridge there swallows ripples for the next half second.
-import { writable } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 
 /** bumped once per follow scroll actually sent (after every guard has passed) */
-export const followScrollTick = writable(0);
+export const followScrollTick = box(0);
 
 export function noteFollowScroll(): void {
-	return followScrollTick.update((n) => n + 1);
+	followScrollTick.current += 1;
 }
 
 /**
@@ -21,8 +21,8 @@ export function noteFollowScroll(): void {
  * forwards this as a `freeze` message and the page bridge swallows jump/cursor frames for the
  * window - so a guest following its caret does not drag the host's view around.
  */
-export const guestJumpFreezeTick = writable(0);
+export const guestJumpFreezeTick = box(0);
 
 export function noteGuestJumpFreeze(): void {
-	return guestJumpFreezeTick.update((n) => n + 1);
+	guestJumpFreezeTick.current += 1;
 }

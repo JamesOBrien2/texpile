@@ -16,11 +16,11 @@ function collectHeadings(doc: Node): TocItem[] {
 /** Keeps `tocStore` in sync with the document's headings (for the right-rail table of contents).
  * Display-only, so the full-doc walk runs debounced instead of per transaction. */
 export function createTocPlugin() {
-	const deferredCollect = trailingDebounce(300, (doc: Node) => tocStore.set(collectHeadings(doc)));
+	const deferredCollect = trailingDebounce(300, (doc: Node) => (tocStore.current = collectHeadings(doc)));
 	return new Plugin({
 		state: {
 			init(_, state) {
-				tocStore.set(collectHeadings(state.doc));
+				tocStore.current = collectHeadings(state.doc);
 				return null;
 			},
 			apply(tr) {

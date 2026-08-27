@@ -86,7 +86,7 @@
 	}: Props = $props();
 
 	$effect(() => {
-		referenceStore.set(localReferences);
+		referenceStore.current = localReferences;
 	});
 
 	let editor: HTMLElement | null = $state(null);
@@ -147,7 +147,7 @@
 			}
 		});
 
-		$editorViewStore = editorView;
+		editorViewStore.current = editorView;
 
 		editor?.classList?.remove('hidden');
 		editorView.focus();
@@ -211,7 +211,7 @@
 
 	onDestroy(() => {
 		editorView?.destroy();
-		editorViewStore.set(null);
+		editorViewStore.current = null;
 		// don't clear referenceStore here, the workspace owns it; clearing blanked citations
 		// in source mode and across editor remounts
 	});

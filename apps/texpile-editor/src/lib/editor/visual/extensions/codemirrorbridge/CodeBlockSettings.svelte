@@ -64,7 +64,7 @@
 			class="codeblock-settings-btn"
 			title={m.codeblock_settings_button_label()}
 			aria-label={m.codeblock_settings_button_label()}
-			disabled={$isReadOnly}
+			disabled={isReadOnly.current}
 		>
 			<Settings class="h-4 w-4" />
 		</Popover.Trigger>

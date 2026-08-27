@@ -3,7 +3,6 @@
 // through the session and only the resulting scroll happens locally.
 //
 // SyncTeX needs the document compiled with -synctex=1; the default compile command does it.
-import { get } from 'svelte/store';
 import { synctexForward, synctexInverse } from '$lib/workspace/synctex';
 import { collabGuest } from '$lib/collab/guestStore.svelte';
 import type { ControlPayload } from '$lib/collab/protocol';
@@ -32,7 +31,7 @@ export type SyncTexDeps = {
 
 /** normalize a path out of synctex to the workspace separator so it matches the open file */
 export function normSyncPath(p: string): string {
-	const root = get(workspaceRoot) ?? '';
+	const root = workspaceRoot.current ?? '';
 	const sep = root.includes('\\') ? '\\' : '/';
 	return p.replace(/[\\/]+/g, sep);
 }
@@ -52,7 +51,7 @@ export class SyncTexNav {
 			d.scrollPdfTo(res.page, res.x, res.y, res.w ?? 0, res.h ?? 0);
 			return;
 		}
-		const live = get(compileConfig).latex.liveMode;
+		const live = compileConfig.current.latex.liveMode;
 		const pdf = live ? d.getDraftRoot() + '/_draft/draft.pdf' : d.expectedPdfPath();
 		const path = d.getLoadedPath();
 		if (!path || !d.isTex() || !pdf) return;
@@ -71,7 +70,7 @@ export class SyncTexNav {
 
 	/** forward from the current cursor (the header "Sync to PDF" button) */
 	async forwardFromCursor(): Promise<void> {
-		const cm = get(sourceCmView);
+		const cm = sourceCmView.current;
 		if (!cm || !cm.dom.isConnected) return;
 		await this.forwardToLine(cm.state.doc.lineAt(cm.state.selection.main.head).number);
 	}
@@ -117,11 +116,11 @@ export async function resolveGuestSyncRequest(payload: ControlPayload, root: str
  * off, else activeFilePath -> the Y.Text binding keys on 'session/foo.tex' and opens an empty
  * buffer instead of the real shared file. No-op for host absolute paths. */
 export function sessionRelativeTarget(file: string, isGuest: boolean): string {
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	return isGuest && root && file.startsWith(root + '/') ? file.slice(root.length + 1) : file;
 }
 
 /** true when the target differs from what is already active and so needs an open */
 export function needsActivate(target: string): boolean {
-	return !samePath(get(activeFilePath) ?? '', target);
+	return !samePath(activeFilePath.current ?? '', target);
 }

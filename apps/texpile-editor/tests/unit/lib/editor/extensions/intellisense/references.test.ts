@@ -11,7 +11,7 @@ function completeAt(doc: string) {
 const labels = (r: ReturnType<typeof completeAt>) => (r?.options ?? []).map((o) => o.label);
 
 describe('reference completion: label= key-value extras', () => {
-	beforeEach(() => labelStore.set([]));
+	beforeEach(() => (labelStore.current = []));
 
 	it('picks up label=name inside an environment optional arg', () => {
 		const doc = '\\begin{figure}[label=fig:x]\n\\end{figure}\n\\ref{fig:';
@@ -29,7 +29,7 @@ describe('reference completion: label= key-value extras', () => {
 	});
 
 	it('merges with labels already in labelStore', () => {
-		labelStore.set(['sec:intro']);
+		labelStore.current = ['sec:intro'];
 		const doc = '\\begin{figure}[label=fig:x]\n\\end{figure}\n\\ref{';
 		const found = labels(completeAt(doc));
 		expect(found).toContain('sec:intro');

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
 	import { Terminal } from '@xterm/xterm';
 	import { FitAddon } from '@xterm/addon-fit';
 	import '@xterm/xterm/css/xterm.css';
@@ -56,7 +55,7 @@
 	}
 
 	function withSentinel(command: string, onDone: (output: string) => void): string {
-		if (!get(compileConfig).completionMarker) return command;
+		if (!compileConfig.current.completionMarker) return command;
 		if (endsWithChainOperator(command) || hasStopParsingToken(command)) return command;
 		// no shell name: don't guess, syntax the actual shell can't parse could fail the whole line
 		const shell = shellName.toLowerCase().replace(/\.exe$/, '');
@@ -82,7 +81,7 @@
 	/** runs a command in the shell, queued if not ready; onDone fires once the command line
 	 * finishes, receiving the command's captured output (escape-stripped, capped) so callers can
 	 * parse tool diagnostics that only go to stdout (dvipdfmx etc.). */
-	export function run(command: string, onDone?: (output: string) => void): void {
+	export function runCommand(command: string, onDone?: (output: string) => void): void {
 		const b = bridge();
 		if (b && status === 'ready') b.write(id, (onDone ? withSentinel(command, onDone) : command) + '\r');
 		else pending = { command, onDone };

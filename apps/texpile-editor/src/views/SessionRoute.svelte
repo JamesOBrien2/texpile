@@ -1,7 +1,6 @@
 <script lang="ts">
 	// The /session route: the join screen until connected, then the SAME WorkspaceView the host
 	// uses, driven by the CRDT-backed provider + guest session (no separate guest editor to drift).
-	import { get } from 'svelte/store';
 	import { collabGuest } from '$lib/collab/guestStore.svelte';
 	import { guestSession } from '$lib/collab/guestSession';
 	import { sessionProvider, GUEST_ROOT } from '$lib/collab/sessionProvider';
@@ -13,28 +12,28 @@
 
 	$effect(() => {
 		if (joined) {
-			if (get(workspaceRoot) !== GUEST_ROOT) workspaceRoot.set(GUEST_ROOT);
+			if (workspaceRoot.current !== GUEST_ROOT) workspaceRoot.current = GUEST_ROOT;
 			// open the first shared text file so the guest lands on something editable
-			if (!get(activeFilePath)) {
+			if (!activeFilePath.current) {
 				const first = collabGuest.files.find((f) => f.kind === 'text');
-				if (first) activeFilePath.set(first.rel);
+				if (first) activeFilePath.current = first.rel;
 			}
 		} else {
 			// left/ended: don't leak session state into a later host workspace
-			if (get(workspaceRoot) === GUEST_ROOT) {
+			if (workspaceRoot.current === GUEST_ROOT) {
 				// the LSP client's "server" was this session; fail anything still in flight rather
 				// than leave an editor waiting on a host that is gone
 				dropGuestTypstLsp();
-				workspaceRoot.set(null);
-				activeFilePath.set(null);
-				fileTree.set([]);
-				texFiles.set([]);
+				workspaceRoot.current = null;
+				activeFilePath.current = null;
+				fileTree.current = [];
+				texFiles.current = [];
 			}
 		}
 	});
 </script>
 
-{#if joined && $workspaceRoot === GUEST_ROOT}
+{#if joined && workspaceRoot.current === GUEST_ROOT}
 	{#key 'guest-session'}
 		<WorkspaceView provider={sessionProvider} session={guestSession} />
 	{/key}

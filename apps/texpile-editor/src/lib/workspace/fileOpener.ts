@@ -4,7 +4,6 @@
 // buffers swap now, so the tab bar, mode toggle and window title reflect the new file at once.
 // Visual mode then shows its loading pane until the background parse lands, and Source is one
 // click away the whole time - the parse never holds the UI.
-import { get } from 'svelte/store';
 import { activeFilePath, isDirty } from '$lib/workspace/workspaceStore';
 import { toLf, detectEol } from '$lib/workspace/fileSystem';
 import { recordDiskStamp } from '$lib/workspace/diskStamp';
@@ -43,7 +42,7 @@ export class FileOpener {
 
 	/** still the file the user asked for? every await is a chance for a newer switch to win */
 	private current(path: string): boolean {
-		return get(activeFilePath) === path;
+		return activeFilePath.current === path;
 	}
 
 	/** the open-time parse finishes here: fill the visual pane (the spinner branch yields to the
@@ -87,7 +86,7 @@ export class FileOpener {
 				d.doc.openTex(path, text, detectEol(raw)); // detectEol so a CRLF file isn't rewritten to LF
 				void recordDiskStamp(path); // arm the external-write guard: disk is known as of this read
 				d.parser.lastParsedSource = null;
-				isDirty.set(false);
+				isDirty.current = false;
 				d.resetHistory(text); // the on-disk content is the floor of the cross-mode undo history
 				d.clearPerFileViewState();
 				if (d.isDiffMode()) d.captureDiffSnapshot(); // re-diff the newly-opened file
@@ -96,7 +95,7 @@ export class FileOpener {
 				if (!this.current(path)) return;
 				d.doc.openRaw(path, toLf(raw), detectEol(raw));
 				void recordDiskStamp(path);
-				isDirty.set(false);
+				isDirty.current = false;
 				d.disableHistory(); // no cross-mode history for these kinds
 				d.clearPerFileViewState();
 				if (d.isDiffMode()) d.captureDiffSnapshot();
@@ -106,7 +105,7 @@ export class FileOpener {
 				d.doc.openOpaque(path);
 				d.clearPerFileViewState();
 				d.disableHistory();
-				isDirty.set(false);
+				isDirty.current = false;
 			}
 		} catch (e) {
 			if (!this.current(path)) return;

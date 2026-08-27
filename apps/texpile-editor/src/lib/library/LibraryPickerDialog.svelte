@@ -50,7 +50,7 @@
 	// has). The library follows; entries the project already has stay under their project
 	// heading only.
 	const projectHits = $derived(
-		$references.slice(0, 200).map((r): Hit => ({
+		references.current.slice(0, 200).map((r): Hit => ({
 			citekey: r.key,
 			title: display(r.title ?? ''),
 			author: display((r.author ?? '').split(' and ')[0] ?? ''),

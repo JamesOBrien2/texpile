@@ -3,7 +3,7 @@
 import type { Node, Macro } from '@unified-latex/unified-latex-types';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
 import { type RawStamped } from '../ast-utils';
-import { el, txt, txtNodes, collapseTextNodes, realMarks, type PmNode, type ConversionContext } from '../builders';
+import { buildNode, textNode, textNodes, collapseTextNodes, realMarks, type PmNode, type ConversionContext } from '../builders';
 import { ignoredMacros, SCOPED_SWITCHES } from '../macros';
 import { macroHandlers } from './macroHandlers';
 import { schema } from '../../schema/latexPMSchema';
@@ -40,7 +40,7 @@ export function groupAfterRawChip(node: Node, prevAst: Node | null, lastPm: PmNo
 	if (node.type !== 'group' || prevAst?.type !== 'macro') return null;
 	// lexical control-word tail test on serialized chip text (no AST exists there any more)
 	if (!lastPm || lastPm.type.name !== 'inline_latex' || !/\\[a-zA-Z@]+$/.test(lastPm.textContent)) return null;
-	return el('inline_latex', null, [txt(nodeRawSource(node) ?? printRaw(node))]);
+	return buildNode('inline_latex', null, [textNode(nodeRawSource(node) ?? printRaw(node))]);
 }
 
 export function convertNodesToInline(nodes: Node[], ctx: ConversionContext): PmNode[] {
@@ -70,16 +70,16 @@ export function convertNodeToInline(node: Node, ctx: ConversionContext): PmNode[
 	switch (node.type) {
 		case 'string':
 			if (node.content) {
-				return txtNodes(node.content, ctx.marks.length > 0 ? ctx.marks : null);
+				return textNodes(node.content, ctx.marks.length > 0 ? ctx.marks : null);
 			}
 			return null;
 		case 'whitespace':
-			return txtNodes(' ', ctx.marks.length > 0 ? ctx.marks : null);
+			return textNodes(' ', ctx.marks.length > 0 ? ctx.marks : null);
 		case 'macro': {
 			const macro = node as Macro;
 			// a commented call captured verbatim by the heuristics: emit as-is
 			const rawMacro = macro as RawStamped<Macro>;
-			if (rawMacro._raw != null) return [el('inline_latex', null, [txt(String(rawMacro._raw))])];
+			if (rawMacro._raw != null) return [buildNode('inline_latex', null, [textNode(String(rawMacro._raw))])];
 			if (ignoredMacros.has(macro.content)) return null;
 			const handler = macroHandlers[macro.content];
 			if (handler) {
@@ -94,7 +94,7 @@ export function convertNodeToInline(node: Node, ctx: ConversionContext): PmNode[
 			// \par: greedy macros (\bibitem) swallow the \par we emitted last save into their own
 			// args, and left in it compounds every round-trip; the serializer re-adds exactly one.
 			const rawLatex = (nodeRawSource(macro) ?? printRaw(macro)).replace(/\s*\\par(?![a-zA-Z])\s*$/, '');
-			const chip = el('inline_latex', null, [txt(rawLatex)]);
+			const chip = buildNode('inline_latex', null, [textNode(rawLatex)]);
 			// a mark from an enclosing \textbf{...} must attach to THIS chip: inline_latex is an
 			// atomic leaf with no text child to carry it, so \textbf{\dataset} silently lost its
 			// bold without this.
@@ -107,14 +107,14 @@ export function convertNodeToInline(node: Node, ctx: ConversionContext): PmNode[
 			// surrounding \texttt mark), same reasoning as the unknown-macro chip above.
 			const firstMeaningful = gcontent.find((n) => !(n.type === 'whitespace' || n.type === 'parbreak' || n.type === 'comment'));
 			if (firstMeaningful && firstMeaningful.type === 'macro' && SCOPED_SWITCHES.has((firstMeaningful as Macro).content)) {
-				const chip = el('inline_latex', null, [txt(printRaw(node))]);
+				const chip = buildNode('inline_latex', null, [textNode(printRaw(node))]);
 				return [ctx.marks.length > 0 ? chip.mark(realMarks(ctx.marks)) : chip];
 			}
 			// a group wrapping a tabular (e.g. {\resizebox{...}{\begin{tabular}...}}) must NOT
 			// flatten to inline: convertNodesToInline has no environment handler, so the WHOLE
 			// table would silently drop. preserve the group verbatim; nothing is lost.
 			if (containsTabular(gcontent)) {
-				const chip = el('inline_latex', null, [txt(printRaw(node))]);
+				const chip = buildNode('inline_latex', null, [textNode(printRaw(node))]);
 				return [ctx.marks.length > 0 ? chip.mark(realMarks(ctx.marks)) : chip];
 			}
 			return convertNodesToInline(gcontent, ctx);
@@ -122,7 +122,7 @@ export function convertNodeToInline(node: Node, ctx: ConversionContext): PmNode[
 		case 'inlinemath': {
 			// slice the exact source between the delimiters when trustworthy; printRaw fallback
 			const mathContent = mathBodyRawSource(node, ['$', '\\('], ['$', '\\)']) ?? printRaw(node.content || []);
-			return [el('inline_math', null, [txt(mathContent)])];
+			return [buildNode('inline_math', null, [textNode(mathContent)])];
 		}
 		case 'comment': {
 			// a mid-paragraph comment must be kept as an inline chip: dropped from PM content it
@@ -131,7 +131,7 @@ export function convertNodeToInline(node: Node, ctx: ConversionContext): PmNode[
 			// with %, so the chip's own text stays single-line - a newline baked in here rendered
 			// as a bogus empty second line in the chip.
 			const text = '%' + ((node as { content?: string }).content ?? '');
-			return [el('inline_latex', null, [txt(text)])];
+			return [buildNode('inline_latex', null, [textNode(text)])];
 		}
 		case 'verb': {
 			// \verb<delim>content<delim> is its OWN AST node type, not 'macro', so it fell through
@@ -139,7 +139,7 @@ export function convertNodeToInline(node: Node, ctx: ConversionContext): PmNode[
 			// rather than as \texttt-with-code-mark: \verb content is truly unescaped (\, %, _, {)
 			// which \texttt can't tolerate.
 			const v = node as unknown as { escape?: string; content?: string };
-			const verbChip = el('inline_latex', null, [txt(`\\verb${v.escape ?? '|'}${v.content ?? ''}${v.escape ?? '|'}`)]);
+			const verbChip = buildNode('inline_latex', null, [textNode(`\\verb${v.escape ?? '|'}${v.content ?? ''}${v.escape ?? '|'}`)]);
 			return [ctx.marks.length > 0 ? verbChip.mark(realMarks(ctx.marks)) : verbChip];
 		}
 		default:
@@ -184,7 +184,7 @@ export function mergeAdjacentInlineLatex(nodes: PmNode[]): PmNode[] {
 				break;
 			}
 		}
-		out.push(merged ? el('inline_latex', null, [txt(raw)]) : nodes[i]);
+		out.push(merged ? buildNode('inline_latex', null, [textNode(raw)]) : nodes[i]);
 		i = j;
 	}
 	return out;

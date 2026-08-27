@@ -26,7 +26,7 @@
 	];
 
 	function handleInsert(option: (typeof mathOptions)[0]) {
-		const view = $editorViewStore;
+		const view = editorViewStore.current;
 		if (view && view.state && view.dispatch) {
 			const success = option.command(view.state, view.dispatch);
 			if (success) {

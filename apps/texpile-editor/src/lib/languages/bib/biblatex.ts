@@ -8,9 +8,12 @@ export {
 	referencesToBib,
 	findDuplicateKeys,
 	isKeyUnique
-} from './parser.new';
-export type { ParseBibtexResult } from './parser.new';
+} from './bibtexRoundtrip';
+export type { ParseBibtexResult } from './bibtexRoundtrip';
 export type { BibToken } from './bibtexParser';
+
+// the generated-artifact side: keys and display fields scraped from a .bbl
+export { parseBblEntries, sliceBblBibitems, type BblBibItem } from './bblScan';
 
 // schema validation is opt-in, used only by the visual add/edit form on save
 export { BibEntrySchema, biblatexReferenceSchema } from './schema';

@@ -11,7 +11,6 @@
 //
 //   in - a selection, as the same `menu:value` string the in-app menu would have produced, routed
 //   into the very same handlers. One implementation, two front ends.
-import { get } from 'svelte/store';
 import { browser } from '$lib/runtime';
 import { isMac } from '$lib/platform';
 import { recentFolders } from './workspaceStore';
@@ -208,5 +207,5 @@ export function attachNativeMenu(handlers: NativeMenuHandlers): () => void {
 
 /** the recent folder list as main should show it; kept here so the shape stays with the labels */
 export function currentRecentFolders(): string[] {
-	return get(recentFolders);
+	return recentFolders.current;
 }

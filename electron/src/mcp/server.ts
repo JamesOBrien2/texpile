@@ -14,7 +14,7 @@ import { writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { buildServer } from './tools';
-import type { snapshot } from './state';
+import type { snapshotWindows } from './windowState';
 
 export type McpHost = {
 	/** where the endpoint file goes (app.getPath('userData')) */
@@ -26,13 +26,13 @@ export type McpHost = {
 	/** the workspace root claimed by a window, or null */
 	rootFor(wcId: number): string | null;
 	/** raw BrowserWindow list for the state snapshot */
-	windowObjects(): Parameters<typeof snapshot>[0];
+	windowObjects(): Parameters<typeof snapshotWindows>[0];
 	/**
 	 * The window to act on for a given workspace root, or the focused one when root is omitted.
 	 * Resolving by root matters more than it looks: focus follows the user's clicks, so a tool that
 	 * always targeted the focused window would steer whichever project they happened to look at.
 	 */
-	windowFor(root?: string): { win: Parameters<typeof snapshot>[0][number]; root: string | null } | null;
+	windowFor(root?: string): { win: Parameters<typeof snapshotWindows>[0][number]; root: string | null } | null;
 	/** told when a client connects or the last one goes away, for the topbar indicator */
 	onConnectionChange?(client: string | null): void;
 };

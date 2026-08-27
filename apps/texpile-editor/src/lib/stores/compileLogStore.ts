@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 import type { LatexLogParseResult } from '$lib/compileLog/compileLog';
 
 /** parse result of the latest compile's .log; null before the first compile. set by WorkspaceView's log watcher. */
@@ -8,7 +8,7 @@ export type CompileLogState = {
 	updatedAt: number;
 } & LatexLogParseResult;
 
-export const compileLog = writable<CompileLogState | null>(null);
+export const compileLog = box<CompileLogState | null>(null);
 
 /** collapse "." and ".." segments; ".." never climbs past the first segment (a drive or the root) */
 function collapse(path: string): string {

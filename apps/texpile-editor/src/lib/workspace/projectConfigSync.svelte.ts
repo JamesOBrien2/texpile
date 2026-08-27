@@ -12,7 +12,7 @@
 // Every local edit writes straight back to the file, so in steady state file and adopted state
 // agree; they diverge exactly when a git pull brings someone else's command. Deleting the file is
 // a true project reset: nothing here resurrects it uninvited.
-import { get, writable } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 import {
 	savedMainFile,
 	savedMainFileRel,
@@ -50,7 +50,7 @@ function defaults(): CompileConfigState {
 }
 
 /** the adopted state, reactive; defaults between folders and for guests (who never compile). */
-export const compileConfig = writable<CompileConfigState>(defaults());
+export const compileConfig = box<CompileConfigState>(defaults());
 
 export class ProjectConfigSync {
 	/** a command the project asks for that this machine has not accepted; drives the bar */
@@ -59,7 +59,7 @@ export class ProjectConfigSync {
 	/** folder closed or switched: back to defaults so nothing leaks across roots. */
 	reset(): void {
 		this.pending = null;
-		compileConfig.set(defaults());
+		compileConfig.current = defaults();
 	}
 
 	/**
@@ -115,7 +115,7 @@ export class ProjectConfigSync {
 			else if (format === effectiveCompileFormat(savedMainFile(root))) pending = { root, format, command: fc.command };
 		}
 		this.pending = pending;
-		compileConfig.set(state);
+		compileConfig.current = state;
 	}
 
 	/**
@@ -149,7 +149,7 @@ export class ProjectConfigSync {
 			trustCommand(root, 'latex', stashed.command);
 		}
 		if (stashed?.outputs) state.latex.outputs = stashed.outputs;
-		compileConfig.set(state);
+		compileConfig.current = state;
 		if (stashed) {
 			const next = { ...stash!, folders: { ...stash!.folders } };
 			delete next.folders![folderKey(root)];
@@ -165,7 +165,7 @@ export class ProjectConfigSync {
 		if (!p) return;
 		this.pending = null;
 		trustCommand(p.root, p.format, p.command);
-		compileConfig.update((s) => ({ ...s, [p.format]: { ...s[p.format], command: p.command } }));
+		compileConfig.current = { ...compileConfig.current, [p.format]: { ...compileConfig.current[p.format], command: p.command } };
 	}
 
 	// setters: every mutation lands in the store AND the file
@@ -173,7 +173,7 @@ export class ProjectConfigSync {
 	/** save (or clear, with null) one lane's command; a command the user typed here is trusted by
 	 *  definition, or reopening the folder would ask them to approve their own command. */
 	setCommand(root: string | null, format: 'latex' | 'typst', command: string | null): void {
-		compileConfig.update((s) => ({ ...s, [format]: { ...s[format], command } }));
+		compileConfig.current = { ...compileConfig.current, [format]: { ...compileConfig.current[format], command } };
 		if (root && command) trustCommand(root, format, command);
 		this.pending = null; // saving settles the question the bar was asking, whatever was typed
 		void this.save(root);
@@ -183,22 +183,22 @@ export class ProjectConfigSync {
 		const clean: CompileOutputs = {};
 		if (outputs.pdf) clean.pdf = outputs.pdf;
 		if (outputs.log) clean.log = outputs.log;
-		compileConfig.update((s) => ({ ...s, [format]: { ...s[format], outputs: clean } }));
+		compileConfig.current = { ...compileConfig.current, [format]: { ...compileConfig.current[format], outputs: clean } };
 		void this.save(root);
 	}
 
 	setLiveMode(root: string | null, on: boolean): void {
-		compileConfig.update((s) => ({ ...s, latex: { ...s.latex, liveMode: on } }));
+		compileConfig.current = { ...compileConfig.current, latex: { ...compileConfig.current.latex, liveMode: on } };
 		void this.save(root);
 	}
 
 	setTypstPreview(root: string | null, on: boolean): void {
-		compileConfig.update((s) => ({ ...s, typst: { ...s.typst, preview: on } }));
+		compileConfig.current = { ...compileConfig.current, typst: { ...compileConfig.current.typst, preview: on } };
 		void this.save(root);
 	}
 
 	setCompletionMarker(root: string | null, on: boolean): void {
-		compileConfig.update((s) => ({ ...s, completionMarker: on }));
+		compileConfig.current = { ...compileConfig.current, completionMarker: on };
 		void this.save(root);
 	}
 
@@ -215,7 +215,7 @@ export class ProjectConfigSync {
 	async save(root: string | null): Promise<void> {
 		if (!root) return;
 		const prev = await readProjectConfig(root);
-		const state = get(compileConfig);
+		const state = compileConfig.current;
 		const cfg: ProjectConfig = { v: 1 };
 		const main = savedMainFileRel(root);
 		if (main) cfg.main = main.replace(/\\/g, '/');

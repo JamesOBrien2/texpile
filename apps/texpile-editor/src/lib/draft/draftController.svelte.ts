@@ -1,14 +1,13 @@
 // Draft mode's stateful controller: root/main derivation, compile triggers, pause state,
 // the per-edit dispatcher, and the warm-engine lifecycle. The workspace constructs ONE of
 // these and the preview chain passes it down whole -- no per-field prop threading.
-import { fromStore } from 'svelte/store';
 import type DraftView from './DraftView.svelte';
 import { DraftDispatcher } from './draftDispatcher';
 import { workspaceRoot, mainFile } from '$lib/workspace/workspaceStore';
 import { compileConfig } from '$lib/workspace/projectConfigSync.svelte';
 import { compileBaseDir } from '$lib/workspace/compileCommand';
 import { relFromRoot } from '$lib/workspace/compilePipeline.svelte';
-import { native } from '$lib/workspace/fileSystem';
+import { nativeBridge } from '$lib/workspace/fileSystem';
 
 export type DraftControllerDeps = {
 	/** the resolved shell compile command; its `-cd` decides where the engine runs */
@@ -35,21 +34,17 @@ export class DraftController {
 	// assigned first thing in the constructor; the $derived fields only read it lazily
 	#deps!: DraftControllerDeps;
 
-	#ws = fromStore(workspaceRoot);
-	#main = fromStore(mainFile);
-	#cfg = fromStore(compileConfig);
-
 	// The draft engine runs where the SHELL compile would run: under `latexmk -cd` the
 	// project's relative \input/\includegraphics paths are authored against the main file's
 	// folder, so the warm lualatex must resolve them from there too - and everything
 	// downstream (the _draft/ build dir, synctex paths, bib seeding, image resolution) keys
 	// off this same base. Without -cd this IS the workspace root, unchanged.
-	root = $derived(compileBaseDir(this.#deps.compileCommand(), this.#ws.current, this.#main.current) ?? '');
+	root = $derived(compileBaseDir(this.#deps.compileCommand(), workspaceRoot.current, mainFile.current) ?? '');
 	mainRel = $derived.by(() => {
 		if (!this.#deps.mainConfirmed()) return '';
 		// the MAIN file only - never the focused one: a mainless project shows the pane's
 		// pick-a-main message instead of re-targeting the warm engine at the focused file
-		const target = this.#main.current;
+		const target = mainFile.current;
 		return this.root && target ? relFromRoot(target, this.root) : '';
 	});
 
@@ -60,7 +55,7 @@ export class DraftController {
 		this.dispatcher = new DraftDispatcher({
 			getSource: () => deps.getSource(),
 			getLoadedPath: () => deps.getLoadedPath(),
-			isActive: () => this.#cfg.current.latex.liveMode && deps.pdfPaneOpen() && !!deps.getLoadedPath() && !this.paused,
+			isActive: () => compileConfig.current.latex.liveMode && deps.pdfPaneOpen() && !!deps.getLoadedPath() && !this.paused,
 			flushSaves: () => deps.flushSaves(),
 			triggerFullCompile: () => this.trigger++,
 			triggerQuietCompile: () => this.quietTrigger++,
@@ -73,11 +68,11 @@ export class DraftController {
 		let daemonActive = false;
 		let daemonRoot: string | null = null;
 		$effect(() => {
-			const active = this.#cfg.current.latex.liveMode && deps.pdfPaneOpen() && !this.paused;
+			const active = compileConfig.current.latex.liveMode && deps.pdfPaneOpen() && !this.paused;
 			// the DRAFT root, not the workspace root: under -cd it is the main file's folder,
 			// so re-pointing the main at another folder must reap the old warm daemon too
 			const root = this.root;
-			if (daemonActive && (!active || root !== daemonRoot)) native()?.draftStop?.();
+			if (daemonActive && (!active || root !== daemonRoot)) nativeBridge()?.draftStop?.();
 			daemonActive = active;
 			daemonRoot = root;
 		});

@@ -16,7 +16,7 @@ import { DraftPatcher } from './draftPatcher.svelte';
 import { DraftCompiler } from './draftCompiler.svelte';
 import { wordAt } from './draftWordAt';
 import { BP2PT } from './texUnits';
-import { native } from '$lib/workspace/fileSystem';
+import { nativeBridge } from '$lib/workspace/fileSystem';
 import type { DraftPage } from '$lib/workspace/fileSystem';
 import { m } from '$lib/paraglide/messages';
 
@@ -85,7 +85,7 @@ export class DraftSession {
 			emit: (k, d) => this.ev(k, d)
 		});
 		this.patcher = new DraftPatcher({
-			hasNative: () => !!native(),
+			hasNative: () => !!nativeBridge(),
 			pageCount: () => this.pages.length,
 			compiling: () => this.compiler.compiling,
 			setStatus: (s) => (this.compiler.status = s),
@@ -114,7 +114,7 @@ export class DraftSession {
 			pageCount: () => this.pages.length,
 			pageRecords: (n) => this.pageRecords(n),
 			rtlPage: (n) => this.rtlPage(n),
-			synctex: (b) => native()!.synctex(b as any),
+			synctex: (b) => nativeBridge()!.synctex(b as any),
 			typesetParagraph: ({ text, hsize }) => this.compiler.daemonTypeset({ text, hsize }),
 			emit: (k, d) => this.ev(k, d)
 		};
@@ -298,7 +298,7 @@ export class DraftSession {
 
 	// inverse: double-click a page -> source location via the reconcile PDF's synctex
 	async onCanvasDblClick(n: number, e: MouseEvent): Promise<void> {
-		const nat = native();
+		const nat = nativeBridge();
 		const inverse = this.opts.onInverseSync();
 		if (!nat || !inverse) return;
 		const xPt = e.offsetX / this.vp.dispScale;
@@ -328,7 +328,7 @@ export class DraftSession {
 	// or in-flight compile means the PDF is behind the preview: flush/refresh it first so
 	// the saved file never trails the last edit.
 	async savePdf(): Promise<void> {
-		const nat = native();
+		const nat = nativeBridge();
 		if (!nat || this.savingPdf || !this.pages.length) return;
 		this.savingPdf = true;
 		try {

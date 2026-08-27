@@ -1,7 +1,6 @@
 // Renderer end of the MCP tools: answering requests main cannot serve from its state cache, and
 // carrying out the steer commands. Nothing here writes a document - the connected agent has its own
 // file tools for that, and keeping writes out is what makes this surface safe.
-import { get } from 'svelte/store';
 import { browser } from '$lib/runtime';
 import { workspaceRoot, isDirty, mainFile, texFiles, fileTree, effectiveCompileFormat } from './workspaceStore';
 import type { TreeEntry } from './fileSystem';
@@ -53,7 +52,7 @@ type NativeMcp = {
 	mcpRespond?: (id: number, payload: unknown) => void;
 	onMcpCommand?: (cb: (cmd: Record<string, unknown>) => void) => () => void;
 };
-function native(): NativeMcp | undefined {
+function nativeBridge(): NativeMcp | undefined {
 	if (!browser) return undefined;
 	return (window as unknown as { texpileNative?: NativeMcp }).texpileNative;
 }
@@ -63,22 +62,22 @@ const MAX_DIAGNOSTICS = 50;
 
 function unsavedPayload(deps: McpCommandDeps) {
 	const path = deps.getLoadedPath();
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	// Only the active file has a buffer, so it is the only one that can be dirty. Clean means disk
 	// is authoritative, and saying so explicitly is more useful than an empty string the agent has
 	// to guess about.
-	if (!path || !get(isDirty)) return { dirty: false, content: null, path: path && root ? relativeTo(root, path) : path };
+	if (!path || !isDirty.current) return { dirty: false, content: null, path: path && root ? relativeTo(root, path) : path };
 	return { dirty: true, path: root ? relativeTo(root, path) : path, content: deps.getBuffer() };
 }
 
 /** ISO stamp of the log the published diagnostics were parsed from; null before any compile */
 function publishedAt(): string | null {
-	const log = get(compileLog);
+	const log = compileLog.current;
 	return log ? new Date(log.updatedAt).toISOString() : null;
 }
 
 function diagnosticsPayload(deps: McpCommandDeps) {
-	const log = get(compileLog);
+	const log = compileLog.current;
 	// THE field this tool turns on. `compile` returns the moment it dispatches, and the log is only
 	// republished once it has settled seconds later - so an agent polling in between reads the
 	// PREVIOUS run's numbers with nothing marking them as such. Errors seldom differ between two runs
@@ -87,15 +86,15 @@ function diagnosticsPayload(deps: McpCommandDeps) {
 	// how trustworthy compiling:false is. With the completion marker on, the end comes from the
 	// shell reporting the command exited; with it off, it is inferred from the log going quiet and
 	// can fire during a long between-pass pause (biber, on-the-fly package installs).
-	const endSignal = get(compileConfig).completionMarker ? 'shell-exit' : 'log-quiet';
+	const endSignal = compileConfig.current.completionMarker ? 'shell-exit' : 'log-quiet';
 	// Live mode does NOT write this: its incremental engine keeps its own diagnostics and never
 	// touches a .log. So what is here is whatever the last SHELL compile left behind - or, if there
 	// hasn't been one, the .log found sitting in the folder when it was opened, which can be
 	// arbitrarily old. Saying so beats letting a caller read `status.pages` off a stale run.
-	const live = get(compileConfig).latex.liveMode;
+	const live = compileConfig.current.latex.liveMode;
 	if (!log) return { compiled: false, compiling, endSignal, live, errors: [], warnings: [] };
 	const parsedLog = log;
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	function trim(list: typeof parsedLog.errors) {
 		return list.slice(0, MAX_DIAGNOSTICS).map((e) => ({ message: e.message, file: e.file ?? null, line: e.line ?? null }));
 	}
@@ -121,7 +120,7 @@ function diagnosticsPayload(deps: McpCommandDeps) {
  * containment boundary for the whole server: the only path a client can supply arrives here, and it
  * can only ever name a file already known to this workspace. */
 function resolveInWorkspace(rel: string): string | null {
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	if (!root || !rel) return null;
 	if (rel.includes('\0')) return null;
 	const abs = joinPath(root, rel.replace(/\\/g, '/'));
@@ -146,9 +145,9 @@ async function viewModePayload(deps: McpCommandDeps, mode: unknown) {
 	if (mode !== 'visual' && mode !== 'source' && mode !== 'diff') return { ok: false, reason: 'unknown mode', viewMode: deps.getViewMode() };
 	if (mode === 'diff') {
 		if (!deps.getLoadedPath()) return { ok: false, reason: 'no file is open', viewMode: deps.getViewMode() };
-		const root = get(workspaceRoot);
-		if (root && !get(isGitRepo)) await refreshGitStatus(root);
-		if (!get(isGitRepo))
+		const root = workspaceRoot.current;
+		if (root && !isGitRepo.current) await refreshGitStatus(root);
+		if (!isGitRepo.current)
 			return {
 				ok: false,
 				reason: 'this workspace is not a git repository, so there is nothing to diff against',
@@ -165,7 +164,7 @@ function inOpenTree(abs: string): boolean {
 	function walk(nodes: TreeEntry[]): boolean {
 		return nodes.some((n) => (n.type === 'file' && samePath(n.path, abs)) || (n.children ? walk(n.children) : false));
 	}
-	return walk(get(fileTree));
+	return walk(fileTree.current);
 }
 
 /**
@@ -177,7 +176,7 @@ function inOpenTree(abs: string): boolean {
  * later compile a failure whose cause is nowhere near where it surfaces.
  */
 async function mainFilePayload(deps: McpCommandDeps, path: unknown) {
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	if (!root) return { ok: false, reason: 'no folder is open' };
 	const rel = typeof path === 'string' && path ? path : null;
 	if (!rel) {
@@ -192,7 +191,7 @@ async function mainFilePayload(deps: McpCommandDeps, path: unknown) {
 	// caused it. .tex is matched against the scanned list (extension check for free); .typ against
 	// the open tree, since the scan is .tex-only. Setting a .typ main flips the Auto compile
 	// format to Typst, same as the file tree's "Set as main file".
-	const known = get(texFiles).find((f) => samePath(f.path, abs));
+	const known = texFiles.current.find((f) => samePath(f.path, abs));
 	const typOk = !known && /\.typ$/i.test(abs) && inOpenTree(abs);
 	if (!known && !typOk)
 		return {
@@ -206,7 +205,7 @@ async function mainFilePayload(deps: McpCommandDeps, path: unknown) {
 
 /** the main file as the caller sees paths: workspace-relative, or null when none is set */
 function relOrNull(root: string): string | null {
-	const m = get(mainFile);
+	const m = mainFile.current;
 	return m ? relativeTo(root, m) : null;
 }
 
@@ -219,15 +218,15 @@ function relOrNull(root: string): string | null {
  * result is how a caller ends up confidently reading a PDF nobody is looking at.
  */
 function compileConfigPayload(deps: McpCommandDeps) {
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	const cmd = deps.getCompileCommand();
-	const main = get(mainFile);
+	const main = mainFile.current;
 	const format = effectiveCompileFormat(main);
-	const ov = get(compileConfig)[format].outputs;
+	const ov = compileConfig.current[format].outputs;
 	function rel(p: string | null) {
 		return p && root ? relativeTo(root, p) : p;
 	}
-	const s = get(settings);
+	const s = settings.current;
 	return {
 		command: cmd,
 		// the typesetter in effect, from the main file's extension and nothing else. Change it by
@@ -243,7 +242,7 @@ function compileConfigPayload(deps: McpCommandDeps) {
 		// null rather than absent, so "no override, this was detected" is distinguishable from
 		// "an override happens to match what would have been detected"
 		overrides: { pdf: ov.pdf ?? null, log: ov.log ?? null },
-		live: get(compileConfig).latex.liveMode,
+		live: compileConfig.current.latex.liveMode,
 		// so a caller can tell "you may not do that" apart from "that failed", without trying it
 		canSetCommand: s.mcpAllowCompileCommand === true
 	};
@@ -258,7 +257,7 @@ function compileConfigPayload(deps: McpCommandDeps) {
  * have to be single real files of the right kind.
  */
 function setOutputPathsPayload(deps: McpCommandDeps, a: Record<string, unknown>) {
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	if (!root) return { ok: false, reason: 'no folder is open' };
 	function str(v: unknown) {
 		return typeof v === 'string' ? v : undefined;
@@ -304,7 +303,7 @@ function setOutputPathsPayload(deps: McpCommandDeps, a: Record<string, unknown>)
  * failing in a way a caller would work around by editing the settings file itself.
  */
 function setCompileCommandPayload(deps: McpCommandDeps, command: unknown) {
-	if (!get(settings).mcpAllowCompileCommand)
+	if (!settings.current.mcpAllowCompileCommand)
 		return {
 			ok: false,
 			reason:
@@ -331,7 +330,7 @@ function syncTexPayload(deps: McpCommandDeps, line: unknown) {
 
 /** wire the MCP request/command channels; returns the detach function */
 export function attachMcpCommands(deps: McpCommandDeps): () => void {
-	const api = native();
+	const api = nativeBridge();
 	const offRequest = api?.onMcpRequest?.((req) => {
 		const a = req.args ?? {};
 		function reply(payload: unknown) {
@@ -349,7 +348,7 @@ export function attachMcpCommands(deps: McpCommandDeps): () => void {
 			// it got. In live mode runCompile() drives the incremental draft engine, the preview is
 			// already refreshing on its own, and diagnostics come from that engine rather than a .log a
 			// shell wrote - so "I compiled, now poll get_diagnostics" is the wrong mental model there.
-			const live = get(compileConfig).latex.liveMode;
+			const live = compileConfig.current.latex.liveMode;
 			deps.runCompile();
 			// Dispatch only either way. A terminal compile is seconds to minutes, so waiting here would
 			// just time out.

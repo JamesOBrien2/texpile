@@ -1,7 +1,6 @@
 // The workspace's file-management wiring: tree rescans, create/rename/delete/move ops,
 // starter templates, the folder lifecycle, the main-file choice, and the repoint-references
 // offer after a rename.
-import { fromStore, get } from 'svelte/store';
 import { StarterActions } from '$lib/workspace/starterActions.svelte';
 import { TreeOps } from '$lib/workspace/treeOps';
 import { FolderLifecycle } from '$lib/workspace/folderLifecycle';
@@ -66,11 +65,6 @@ export class WorkspaceFiles {
 	// treeRoot is the root the tree on screen currently reflects; plain, not $state, so
 	// recording it cannot retrigger the root-follow effect below.
 	private treeRoot: string | null = null;
-
-	#root = fromStore(workspaceRoot);
-	#main = fromStore(mainFile);
-	#texFiles = fromStore(texFiles);
-	#cfg = fromStore(compileConfig);
 
 	constructor(private d: FilesDeps) {
 		const { provider } = d;
@@ -144,7 +138,7 @@ export class WorkspaceFiles {
 		// No double scan on the FolderLifecycle path: it awaits refreshTree itself, which records
 		// treeRoot, so by the time this runs the root already matches and it stands down.
 		$effect(() => {
-			const root = this.#root.current;
+			const root = workspaceRoot.current;
 			if (!root || root === this.treeRoot) return;
 			void this.refreshTree();
 		});
@@ -158,17 +152,17 @@ export class WorkspaceFiles {
 		// land AFTER initProject had already recorded "not confirmed", leaving a starred main that still
 		// opened the picker on the first compile. Same symptom as the detection bug, different cause.
 		$effect(() => {
-			if (this.#main.current) this.mainPrompt.confirmed = true;
+			if (mainFile.current) this.mainPrompt.confirmed = true;
 		});
 		// live mode compiles on its own as soon as the pane is open; surface the question then.
 		// Strictly `=== false`: null means initProject is still resolving, never a modal.
 		$effect(() => {
 			const wants =
-				this.#cfg.current.latex.liveMode &&
+				compileConfig.current.latex.liveMode &&
 				d.layout().pdfPaneOpen &&
 				!this.draftPaused() &&
-				!!this.#root.current &&
-				this.#texFiles.current.length > 1;
+				!!workspaceRoot.current &&
+				texFiles.current.length > 1;
 			if (wants && this.mainPrompt.confirmed === false && !this.mainPrompt.open) void this.mainPrompt.prompt();
 		});
 	}
@@ -183,7 +177,7 @@ export class WorkspaceFiles {
 
 	// tree rescan + manifest sync + git refresh live in lib/workspace/treeRefresh.ts
 	async refreshTree(): Promise<void> {
-		this.treeRoot = get(workspaceRoot);
+		this.treeRoot = workspaceRoot.current;
 		await refreshTreeState({
 			provider: this.d.provider,
 			session: this.d.session(),
@@ -193,7 +187,7 @@ export class WorkspaceFiles {
 
 	openEntry(entry: TreeEntry): void {
 		if (entry.type !== 'file') return;
-		activeFilePath.set(entry.path);
+		activeFilePath.current = entry.path;
 	}
 
 	/** File menu "New": inline create in the tree, pre-named for the chosen type */
@@ -204,7 +198,7 @@ export class WorkspaceFiles {
 
 	/** the file tree's star: clicking the current main again clears it */
 	toggleMainFile(path: string): Promise<void> {
-		const main = this.#main.current;
+		const main = mainFile.current;
 		return this.applyMainFile(main && samePath(main, path) ? null : path);
 	}
 
@@ -213,7 +207,7 @@ export class WorkspaceFiles {
 	// Takes the value to APPLY, not the file that was clicked: the toggle belongs to the click, and
 	// an MCP caller naming the file that is already main must not have it cleared out from under them.
 	async applyMainFile(next: string | null): Promise<void> {
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		if (!root) return;
 		setMainFile(root, next);
 		// the main file is the project's, not this machine's: out to .texpile/config.json
@@ -221,7 +215,7 @@ export class WorkspaceFiles {
 		this.mainPrompt.confirmed = true; // an explicit choice (set or clear) settles the first-compile question
 		void this.d.compiler().loadExistingPdf(); // the main file changed -> its expected PDF did too
 		this.d.setProjectMacros(next ? await gatherProjectMacros(next, root) : '');
-		if (get(workspaceRoot) !== root) return;
+		if (workspaceRoot.current !== root) return;
 		if (this.d.doc.path && this.d.kind() === 'tex' && this.d.modes.mode === 'visual') this.d.rebuildVisual();
 	}
 
@@ -238,11 +232,11 @@ export class WorkspaceFiles {
 			getSourceText: () => doc.texSource,
 			setSourceText: (t: string) => (doc.texSource = t),
 			readText: (p: string) => provider.readText(p),
-			scanFiles: async (exts: string[]) => (await provider.scanFiles(this.#root.current ?? '', exts)).map((f) => f.path),
+			scanFiles: async (exts: string[]) => (await provider.scanFiles(workspaceRoot.current ?? '', exts)).map((f) => f.path),
 			writeText: (p: string, content: string) => provider.writeText(p, content),
 			onActiveFileEdited: () => {
 				if (modes.mode === 'visual') this.d.rebuildVisual();
-				isDirty.set(true);
+				isDirty.current = true;
 				this.d.saver().schedule(doc.path, doc.texSource);
 			}
 		};

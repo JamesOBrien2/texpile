@@ -24,7 +24,7 @@
 	const labelExists = $derived.by(() => {
 		// void reads register reactivity on both triggers
 		void updateTrigger;
-		void $refUpdateTrigger;
+		void refUpdateTrigger.current;
 
 		let exists = false;
 		const state = view.state;
@@ -54,7 +54,7 @@
 
 	const targetNumber = $derived.by(() => {
 		void updateTrigger;
-		void $refUpdateTrigger;
+		void refUpdateTrigger.current;
 
 		if (!labelExists) return '?';
 

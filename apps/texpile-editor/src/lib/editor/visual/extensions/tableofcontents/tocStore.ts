@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 
 export type TocItem = {
 	level: number;
@@ -15,7 +15,7 @@ export type TocItem = {
 };
 
 /** Headings of the current document, kept in sync by the TOC plugin (createTocPlugin). Visual mode. */
-export const tocStore = writable<TocItem[]>([]);
+export const tocStore = box<TocItem[]>([]);
 
 /** Headings parsed from the raw .tex source; `pos` is a CodeMirror char offset. Source mode. */
-export const sourceTocStore = writable<TocItem[]>([]);
+export const sourceTocStore = box<TocItem[]>([]);

@@ -12,7 +12,7 @@
 
 	let open = $state(false);
 
-	const textColorDisabled = $derived($templateFeaturesStore?.textColor === false);
+	const textColorDisabled = $derived(templateFeaturesStore.current?.textColor === false);
 
 	const textColors = [
 		{ name: m.tbar_color_default(), value: 'default' },
@@ -27,7 +27,7 @@
 	] as const;
 
 	function setTextColor(color: string) {
-		const view = $editorViewStore;
+		const view = editorViewStore.current;
 		if (view) {
 			const { state, dispatch } = view;
 			const { from, to } = state.selection;

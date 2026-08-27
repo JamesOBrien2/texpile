@@ -2,7 +2,7 @@
 // sub/superscripts, bib entry positions, and .aux reference numbers gathered from every OTHER
 // project file (the active buffer's own contents stay live in the editor). populated by
 // workspace/projectIntel.ts; consumed by completion/hover/definition and the outline.
-import { writable } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 import type { RawOutlineItem } from '$lib/editor/visual/extensions/tableofcontents/latexHeadings';
 
 export type ProjectLabel = {
@@ -67,4 +67,4 @@ export const EMPTY_PROJECT_INTEL: ProjectIntel = {
 	outlines: {}
 };
 
-export const projectIntelStore = writable<ProjectIntel>(EMPTY_PROJECT_INTEL);
+export const projectIntelStore = box<ProjectIntel>(EMPTY_PROJECT_INTEL);

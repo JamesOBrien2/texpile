@@ -1,7 +1,6 @@
 import type { EditorView, NodeView } from 'prosemirror-view';
 import type { Node as PMNode } from 'prosemirror-model';
 import { mount, unmount } from 'svelte';
-import { get } from 'svelte/store';
 import { activeFilePath, texFiles } from '$lib/workspace/workspaceStore';
 import IncludeDocDisplay from './IncludeDocDisplay.svelte';
 
@@ -60,8 +59,8 @@ export class IncludeDocView implements NodeView {
 		function norm(p: string) {
 			return p.replace(/\\/g, '/').toLowerCase();
 		}
-		const match = get(texFiles).find((f) => norm(f.path) === norm(resolved));
-		activeFilePath.set(match ? match.path : resolved);
+		const match = texFiles.current.find((f) => norm(f.path) === norm(resolved));
+		activeFilePath.current = match ? match.path : resolved;
 	}
 
 	update(node: PMNode) {

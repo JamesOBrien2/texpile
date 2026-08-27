@@ -1,7 +1,7 @@
 import type { Node, Schema } from 'prosemirror-model';
 import type { ImagePluginSettings } from './types';
 
-// schema.ts builds this object by hand (createDefaultSettings pulls in svelte/the DOM, which
+// schema.ts builds this object by hand (the imageplugin.svelte settings creators pull in svelte/the DOM, which
 // breaks the parser worker); the narrowed type makes a forgotten field a compile error, not a silent schema change.
 export type SchemaImageSettings = Pick<ImagePluginSettings, 'hasTitle' | 'extraAttributes' | 'isBlock'>;
 

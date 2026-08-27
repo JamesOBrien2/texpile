@@ -2,7 +2,7 @@
 // cells hold full markup, so this module and the markup walker in converter.ts are mutually
 // recursive; ESM live bindings make the circular import safe (nothing runs at module init).
 import type { SyntaxNode } from '@lezer/common';
-import { el, type PmNode } from './builders';
+import { buildNode, type PmNode } from './builders';
 import { children, childOf, convertInline } from './inlineConvert';
 import { ensureBlocks, restOnlySpace } from './converter';
 import { convertMarkup, type Seg } from './converter';
@@ -18,12 +18,12 @@ export const ARG_PUNCT = ['LeftParen', 'RightParen', 'Comma', 'Space'];
  */
 function contentBlockCell(cb: SyntaxNode, src: string, headerCell: boolean, attrs: Record<string, unknown> | null = null): PmNode | null {
 	const type = headerCell ? 'table_header' : 'table_cell';
-	if (cb.name === 'Equation') return el(type, attrs, [el('paragraph', null, convertInline([cb], src, []))]);
+	if (cb.name === 'Equation') return buildNode(type, attrs, [buildNode('paragraph', null, convertInline([cb], src, []))]);
 	if (cb.name !== 'ContentBlock') return null;
 	const markup = childOf(cb, 'Markup');
 	const blocks = markup ? convertMarkup(children(markup), src).flatMap((s) => s.blocks) : [];
 	const body = cellBlocks(blocks);
-	return body ? el(type, attrs, body) : null;
+	return body ? buildNode(type, attrs, body) : null;
 }
 
 /**
@@ -45,7 +45,7 @@ function cellBlocks(blocks: PmNode[]): PmNode[] | null {
 		} else if (b.type.name === 'block_math') {
 			const inner: PmNode[] = [];
 			b.forEach((k) => inner.push(k as PmNode));
-			out.push(el('paragraph', null, [el('inline_math', { typst: b.attrs.typst, latexOrig: b.attrs.latexOrig }, inner)]));
+			out.push(buildNode('paragraph', null, [buildNode('inline_math', { typst: b.attrs.typst, latexOrig: b.attrs.latexOrig }, inner)]));
 		} else {
 			return null;
 		}
@@ -197,7 +197,7 @@ export function tableParts(call: SyntaxNode, src: string): TableParts | null {
 		}
 		if (width > cols) return null;
 		while (width < cols) {
-			header.push(el('table_header', null, [el('paragraph')]));
+			header.push(buildNode('table_header', null, [buildNode('paragraph')]));
 			width++;
 		}
 		idx++;
@@ -263,7 +263,7 @@ export function tableParts(call: SyntaxNode, src: string): TableParts | null {
 		let width = rows[lastRow].reduce((w, cell) => w + Number(cell.attrs.colspan ?? 1), 0);
 		for (let cc = 0; cc < cols; cc++) if (covered.has(at(lastRow, cc))) width++;
 		while (width < cols) {
-			rows[lastRow].push(el('table_cell', null, [el('paragraph')]));
+			rows[lastRow].push(buildNode('table_cell', null, [buildNode('paragraph')]));
 			width++;
 		}
 	}
@@ -272,10 +272,14 @@ export function tableParts(call: SyntaxNode, src: string): TableParts | null {
 
 export function buildTableNode(t: TableParts): PmNode | null {
 	const rowNodes: PmNode[] = [];
-	if (t.header) rowNodes.push(el('table_row', { topRules: '' }, t.header));
-	t.rows.forEach((cells, i) => rowNodes.push(el('table_row', { topRules: '', typRules: t.rowRules[i] ?? [] }, cells)));
+	if (t.header) rowNodes.push(buildNode('table_row', { topRules: '' }, t.header));
+	t.rows.forEach((cells, i) => rowNodes.push(buildNode('table_row', { topRules: '', typRules: t.rowRules[i] ?? [] }, cells)));
 	if (rowNodes.length === 0) return null;
-	return el('table', { env: null, colspec: t.colspec, typAlign: t.align, typArgs: t.extraArgs, typBottomRules: t.bottomRules }, rowNodes);
+	return buildNode(
+		'table',
+		{ env: null, colspec: t.colspec, typAlign: t.align, typArgs: t.extraArgs, typBottomRules: t.bottomRules },
+		rowNodes
+	);
 }
 /** a `#table(...)` standing alone in its paragraph becomes a real, editable table node. */
 export function tableSeg(kids: SyntaxNode[], i: number, src: string): { seg: Seg; next: number } | null {

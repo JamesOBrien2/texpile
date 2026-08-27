@@ -21,7 +21,7 @@
 	// \cite{a, b, c} is ONE command with a shared note, so it stays one chip; each key resolves
 	// on its own and an unresolved one shows as its raw key (the red state says it's broken)
 	const displayText = $derived.by(() => {
-		const loaded = $referenceStore;
+		const loaded = referenceStore.current;
 		const references = citationRefsWithLibrary(loaded ?? []);
 
 		if (!loaded) return '(loading...)';
@@ -45,7 +45,7 @@
 	});
 
 	const isValid = $derived.by(() => {
-		const loaded = $referenceStore;
+		const loaded = referenceStore.current;
 		if (!loaded) return false;
 		const references = citationRefsWithLibrary(loaded);
 		const keys = splitCitationKeys(node.textContent);

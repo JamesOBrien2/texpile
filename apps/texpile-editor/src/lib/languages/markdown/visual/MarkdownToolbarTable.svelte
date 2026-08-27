@@ -27,7 +27,7 @@
 	}
 
 	function insert(r: number, c: number) {
-		const view = $editorViewStore;
+		const view = editorViewStore.current;
 		if (!view) return;
 		open = false;
 		view.dispatch(view.state.tr.replaceSelectionWith(mdTableNode(mdSchema, r, c)).scrollIntoView());

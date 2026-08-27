@@ -33,7 +33,7 @@
 	function run(build: (state: EditorState) => TransactionSpec) {
 		return (e: MouseEvent) => {
 			e.preventDefault(); // keep focus (and the caret) in the CodeMirror view
-			const view = $sourceCmView;
+			const view = sourceCmView.current;
 			if (!view) return;
 			view.dispatch(build(view.state));
 			view.focus();

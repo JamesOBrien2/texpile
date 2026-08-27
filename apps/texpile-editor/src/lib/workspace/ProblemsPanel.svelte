@@ -10,7 +10,7 @@
 
 	let showBadboxes = $state(false);
 
-	const log = $derived($compileLog);
+	const log = $derived(compileLog.current);
 	const rows = $derived(log ? [...log.errors, ...log.warnings, ...(showBadboxes ? log.badboxes : [])] : []);
 
 	function target(e: LogEntry): { file: string; line: number } | null {
@@ -29,7 +29,7 @@
 	{#if !log}
 		<div class="text-surface-500-400 flex flex-1 items-center justify-center gap-2 p-4">
 			<Info class="size-4" />
-			{effectiveCompileFormat($mainFile) === 'typst' ? m.problems_empty_state_typst() : m.problems_empty_state()}
+			{effectiveCompileFormat(mainFile.current) === 'typst' ? m.problems_empty_state_typst() : m.problems_empty_state()}
 		</div>
 	{:else}
 		<div class="border-surface-200-800 flex h-7 shrink-0 items-center gap-3 border-b px-2">

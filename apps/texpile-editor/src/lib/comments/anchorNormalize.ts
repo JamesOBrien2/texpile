@@ -1,8 +1,5 @@
 // the dialect-aware canonicalizer: strips markup so a rendered-side quote and the marked-up
 // source meet in one comparable form, with a map back to raw offsets
-/* eslint-disable max-lines -- one closed-set scanner pass: the strip layers share one loop and one
-   offset map, and splitting them into files would reorder rules that only work in this order */
-
 /** which markup family the normalizer strips; derived from the commented file, never stored */
 export type AnchorDialect = 'tex' | 'md' | 'typ';
 

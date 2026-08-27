@@ -7,7 +7,7 @@
 	import { updateState, updateModalOpen, startDownload, installNow } from '$lib/updates';
 	import { m } from '$lib/paraglide/messages';
 
-	const u = $derived($updateState);
+	const u = $derived(updateState.current);
 	const pkexec = $derived(u.installMode === 'package-manager');
 	const title = $derived(
 		u.phase === 'downloading'
@@ -20,7 +20,7 @@
 	);
 
 	function close() {
-		updateModalOpen.set(false);
+		updateModalOpen.current = false;
 	}
 	function openDownloadPage() {
 		close();
@@ -32,7 +32,7 @@
 </script>
 
 {#if u.phase !== 'idle'}
-	<Modal bind:open={$updateModalOpen} {title} icon={Download} card="flex max-h-full max-w-md flex-col p-5">
+	<Modal bind:open={updateModalOpen.current} {title} icon={Download} card="flex max-h-full max-w-md flex-col p-5">
 		{#if u.phase === 'available'}
 			<p class="text-surface-600-300 mb-4 text-sm">{m.updatemodal_version_available({ version: u.version ?? '' })}</p>
 			{#if u.notes?.length}
@@ -44,7 +44,7 @@
 			{/if}
 			<div class="mb-4 flex items-center justify-between gap-4">
 				<span class="text-sm">{m.updatemodal_check_updates_on_launch()}</span>
-				<Switch checked={$settings.checkForUpdates} onCheckedChange={(d) => updateSettings({ checkForUpdates: d.checked })}>
+				<Switch checked={settings.current.checkForUpdates} onCheckedChange={(d) => updateSettings({ checkForUpdates: d.checked })}>
 					<Switch.Control><Switch.Thumb /></Switch.Control>
 					<Switch.HiddenInput />
 				</Switch>

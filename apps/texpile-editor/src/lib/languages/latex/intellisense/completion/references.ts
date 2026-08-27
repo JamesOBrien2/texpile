@@ -1,7 +1,6 @@
 // \ref-family completion: labelStore (the active buffer's \label{}s via extractDocRefs), a light
 // supplementary scan for the \begin{fig}[label=name] key-value form, labels from every other
 // project file (projectIntel), and resolved numbers from the main .aux when one exists.
-import { get } from 'svelte/store';
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { labelStore } from '$lib/stores/editorStore';
 import { projectIntelStore } from '$lib/stores/projectIntel';
@@ -40,7 +39,7 @@ function keyValueLabels(text: string): string[] {
 
 /** labelStore plus any label= key-value labels found in the current buffer text. */
 export function allLabels(bufferText: string): string[] {
-	const fromStore = get(labelStore) ?? [];
+	const fromStore = labelStore.current ?? [];
 	const fromKeyVal = keyValueLabels(bufferText);
 	return fromKeyVal.length ? [...new Set([...fromStore, ...fromKeyVal])] : fromStore;
 }
@@ -52,7 +51,7 @@ export function referenceCompletionSource(ctx: CompletionContext): CompletionRes
 	// and \href{…} (url/text args) must not
 	const braceArg = /\\([a-zA-Z]+)\*?(?:\[[^\]]*\])?\{[^{}]*$/.exec(ref.text);
 	if (braceArg && NOT_REFS.has(braceArg[1])) return null;
-	const intel = get(projectIntelStore);
+	const intel = projectIntelStore.current;
 	function basename(p: string) {
 		return p.replace(/\\/g, '/').split('/').pop() ?? p;
 	}

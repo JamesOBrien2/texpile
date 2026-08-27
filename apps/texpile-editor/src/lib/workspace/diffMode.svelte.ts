@@ -4,7 +4,6 @@
 // keystroke. The layout choice persists; the mode itself does not, so a reload always restores
 // the last visual/source choice rather than dropping the user back into a diff.
 import { browser } from '$lib/runtime';
-import { get } from 'svelte/store';
 import { layout, updateLayout } from '$lib/storage/layout';
 import { gitShowHead } from '$lib/workspace/git';
 import { m } from '$lib/paraglide/messages';
@@ -29,7 +28,7 @@ export class DiffMode {
 
 	/** restore the persisted layout; call once at mount */
 	restoreLayout() {
-		if (browser && get(layout).diffLayout === 'split') this.layout = 'split';
+		if (browser && layout.current.diffLayout === 'split') this.layout = 'split';
 	}
 
 	toggleLayout() {

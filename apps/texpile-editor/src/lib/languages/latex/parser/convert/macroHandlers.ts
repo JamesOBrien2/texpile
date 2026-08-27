@@ -3,7 +3,15 @@
 import type { Macro, Environment } from '@unified-latex/unified-latex-types';
 import { printRaw } from '@unified-latex/unified-latex-util-print-raw';
 import { getTextContent, getMacroFirstArg } from '../ast-utils';
-import { el, txt, txtNodes, createDefaultContext, type PmNode, type ConversionContext, type ConversionOptions } from '../builders';
+import {
+	buildNode,
+	textNode,
+	textNodes,
+	createDefaultContext,
+	type PmNode,
+	type ConversionContext,
+	type ConversionOptions
+} from '../builders';
 import { convertNodesToInline } from './inlineConvert';
 
 export type MacroHandler = (macro: Macro, ctx: ConversionContext) => PmNode[] | null;
@@ -44,7 +52,7 @@ export const macroHandlers: Record<string, MacroHandler> = {
 	abstract: (macro, ctx) => {
 		const content = getMacroFirstArg(macro);
 		const inline = convertNodesToInline(content, ctx);
-		return [el('abstract', { sourceForm: 'macro' }, [el('paragraph', null, inline)])];
+		return [buildNode('abstract', { sourceForm: 'macro' }, [buildNode('paragraph', null, inline)])];
 	},
 	textsubscript: (macro, ctx) => {
 		const content = getMacroFirstArg(macro);
@@ -53,7 +61,7 @@ export const macroHandlers: Record<string, MacroHandler> = {
 	},
 	verb: (macro) => {
 		const content = getTextContent(getMacroFirstArg(macro));
-		return txtNodes(content, [{ type: 'code' }]);
+		return textNodes(content, [{ type: 'code' }]);
 	},
 
 	textcolor: (macro, ctx) => {
@@ -78,13 +86,13 @@ export const macroHandlers: Record<string, MacroHandler> = {
 	url: (macro, ctx) => {
 		const href = getTextContent(getMacroFirstArg(macro));
 		// bare: true, see the attr's doc comment in schema.ts / applyMarks in latexSerializer.ts.
-		return txtNodes(href, [...ctx.marks, { type: 'link', attrs: { href, title: null, bare: true } }]);
+		return textNodes(href, [...ctx.marks, { type: 'link', attrs: { href, title: null, bare: true } }]);
 	},
 	href: (macro, ctx) => {
 		const mandatoryArgs = macro.args?.filter((arg) => arg.openMark === '{') || [];
 		const href = mandatoryArgs[0] ? getTextContent(mandatoryArgs[0].content) : '';
 		const text = mandatoryArgs[1] ? getTextContent(mandatoryArgs[1].content) : href;
-		return txtNodes(text, [...ctx.marks, { type: 'link', attrs: { href, title: null } }]);
+		return textNodes(text, [...ctx.marks, { type: 'link', attrs: { href, title: null } }]);
 	},
 
 	section: (macro) => createHeading(macro, 1),
@@ -98,29 +106,29 @@ export const macroHandlers: Record<string, MacroHandler> = {
 	// special characters all pass ctx.marks through: they're ordinary inline content, often
 	// inside \textbf{...} (\textbf{90.1\%}); without this the enclosing mark silently dropped
 	// for exactly that token.
-	LaTeX: (_m, ctx) => txtNodes('LaTeX', ctx.marks.length > 0 ? ctx.marks : null),
-	TeX: (_m, ctx) => txtNodes('TeX', ctx.marks.length > 0 ? ctx.marks : null),
-	'\\': () => [el('hard_break', { lineBreak: true })], // serializes back to \\
-	newline: () => [el('hard_break', { lineBreak: true })],
-	'%': (_m, ctx) => txtNodes('%', ctx.marks.length > 0 ? ctx.marks : null),
-	'&': (_m, ctx) => txtNodes('&', ctx.marks.length > 0 ? ctx.marks : null),
-	$: (_m, ctx) => txtNodes('$', ctx.marks.length > 0 ? ctx.marks : null),
-	'#': (_m, ctx) => txtNodes('#', ctx.marks.length > 0 ? ctx.marks : null),
-	_: (_m, ctx) => txtNodes('_', ctx.marks.length > 0 ? ctx.marks : null),
-	'{': (_m, ctx) => txtNodes('{', ctx.marks.length > 0 ? ctx.marks : null),
-	'}': (_m, ctx) => txtNodes('}', ctx.marks.length > 0 ? ctx.marks : null),
-	textbackslash: (_m, ctx) => txtNodes('\\', ctx.marks.length > 0 ? ctx.marks : null),
-	'~': (_m, ctx) => txtNodes('\u00A0', ctx.marks.length > 0 ? ctx.marks : null),
-	ldots: (_m, ctx) => txtNodes('…', ctx.marks.length > 0 ? ctx.marks : null),
-	dots: (_m, ctx) => txtNodes('…', ctx.marks.length > 0 ? ctx.marks : null),
-	textendash: (_m, ctx) => txtNodes('–', ctx.marks.length > 0 ? ctx.marks : null),
-	textemdash: (_m, ctx) => txtNodes('—', ctx.marks.length > 0 ? ctx.marks : null),
+	LaTeX: (_m, ctx) => textNodes('LaTeX', ctx.marks.length > 0 ? ctx.marks : null),
+	TeX: (_m, ctx) => textNodes('TeX', ctx.marks.length > 0 ? ctx.marks : null),
+	'\\': () => [buildNode('hard_break', { lineBreak: true })], // serializes back to \\
+	newline: () => [buildNode('hard_break', { lineBreak: true })],
+	'%': (_m, ctx) => textNodes('%', ctx.marks.length > 0 ? ctx.marks : null),
+	'&': (_m, ctx) => textNodes('&', ctx.marks.length > 0 ? ctx.marks : null),
+	$: (_m, ctx) => textNodes('$', ctx.marks.length > 0 ? ctx.marks : null),
+	'#': (_m, ctx) => textNodes('#', ctx.marks.length > 0 ? ctx.marks : null),
+	_: (_m, ctx) => textNodes('_', ctx.marks.length > 0 ? ctx.marks : null),
+	'{': (_m, ctx) => textNodes('{', ctx.marks.length > 0 ? ctx.marks : null),
+	'}': (_m, ctx) => textNodes('}', ctx.marks.length > 0 ? ctx.marks : null),
+	textbackslash: (_m, ctx) => textNodes('\\', ctx.marks.length > 0 ? ctx.marks : null),
+	'~': (_m, ctx) => textNodes('\u00A0', ctx.marks.length > 0 ? ctx.marks : null),
+	ldots: (_m, ctx) => textNodes('…', ctx.marks.length > 0 ? ctx.marks : null),
+	dots: (_m, ctx) => textNodes('…', ctx.marks.length > 0 ? ctx.marks : null),
+	textendash: (_m, ctx) => textNodes('–', ctx.marks.length > 0 ? ctx.marks : null),
+	textemdash: (_m, ctx) => textNodes('—', ctx.marks.length > 0 ? ctx.marks : null),
 
-	quad: (_m, ctx) => txtNodes('  ', ctx.marks.length > 0 ? ctx.marks : null),
-	qquad: (_m, ctx) => txtNodes('    ', ctx.marks.length > 0 ? ctx.marks : null),
-	',': (_m, ctx) => txtNodes(' ', ctx.marks.length > 0 ? ctx.marks : null), // thin space
-	';': (_m, ctx) => txtNodes(' ', ctx.marks.length > 0 ? ctx.marks : null), // medium space
-	':': (_m, ctx) => txtNodes(' ', ctx.marks.length > 0 ? ctx.marks : null), // thick space
+	quad: (_m, ctx) => textNodes('  ', ctx.marks.length > 0 ? ctx.marks : null),
+	qquad: (_m, ctx) => textNodes('    ', ctx.marks.length > 0 ? ctx.marks : null),
+	',': (_m, ctx) => textNodes(' ', ctx.marks.length > 0 ? ctx.marks : null), // thin space
+	';': (_m, ctx) => textNodes(' ', ctx.marks.length > 0 ? ctx.marks : null), // medium space
+	':': (_m, ctx) => textNodes(' ', ctx.marks.length > 0 ? ctx.marks : null), // thick space
 	'!': () => null, // negative thin space
 	// spacing commands (\vspace, \hspace, \vfill, ...) are deliberately NOT handled here: they
 	// affect layout, so they fall through to raw inline_latex and round-trip verbatim.
@@ -141,17 +149,17 @@ export const macroHandlers: Record<string, MacroHandler> = {
 	// \par flushes the current paragraph (null signals it)
 	par: () => null,
 
-	hrule: () => [el('horizontal_rule')],
+	hrule: () => [buildNode('horizontal_rule')],
 	// \rule{\linewidth}{0.4pt} is exactly what our horizontal_rule emits, so map it back. any
 	// other \rule is a sized box/strut (e.g. row-height struts): preserve verbatim rather than
 	// collapse to a generic full-width line (which also compounded).
 	rule: (macro) => {
 		const dims = (macro.args ?? []).filter((a) => a.openMark === '{').map((a) => printRaw(a.content).trim());
-		if (dims.length === 2 && dims[0] === '\\linewidth' && dims[1] === '0.4pt') return [el('horizontal_rule')];
+		if (dims.length === 2 && dims[0] === '\\linewidth' && dims[1] === '0.4pt') return [buildNode('horizontal_rule')];
 		// strip a swallowed trailing \par; (?![a-zA-Z]) is TeX's control-word terminator, so
 		// \paragraph can never false-match.
 		const rawLatex = printRaw(macro).replace(/\s*\\par(?![a-zA-Z])\s*$/, '');
-		return [el('inline_latex', null, [txt(rawLatex)])];
+		return [buildNode('inline_latex', null, [textNode(rawLatex)])];
 	},
 
 	// the original command is carried through (createCitation reads macro.content) so
@@ -176,7 +184,7 @@ export const macroHandlers: Record<string, MacroHandler> = {
 	vspace: (macro) => {
 		// lexical trailing-\par strip, same as the `rule` handler
 		const rawLatex = printRaw(macro).replace(/\s*\\par(?![a-zA-Z])\s*$/, '');
-		return [el('inline_latex', null, [txt(rawLatex)])];
+		return [buildNode('inline_latex', null, [textNode(rawLatex)])];
 	},
 
 	// \input/\include/\subfile: a clickable chip; path kept verbatim, `command` records which
@@ -208,7 +216,7 @@ export const macroHandlers: Record<string, MacroHandler> = {
 		const options = optArg ? printRaw(optArg.content) : '';
 		// bareOriginal: this handler only runs for a STANDALONE \includegraphics (figures go via
 		// createFigureWrapper), so regeneration must not synthesize a figure wrapper. see schema.ts.
-		return [el('image', { src, alt: null, title: null, label: null, options, bareOriginal: true })];
+		return [buildNode('image', { src, alt: null, title: null, label: null, options, bareOriginal: true })];
 	}
 
 	// \footnote is NOT inlined as "[text]": that reflows the document and drops the real
@@ -230,7 +238,7 @@ export function createHeading(macro: Macro, level: number): PmNode[] {
 	const textNodes = convertNodesToInline(content, createDefaultContext());
 	// starred sectioning commands (\section*) are unnumbered
 	const numbered = !macroHasStar(macro);
-	return [el('heading', { level, numbered }, textNodes)];
+	return [buildNode('heading', { level, numbered }, textNodes)];
 }
 
 export function createIncludeDoc(macro: Macro): PmNode[] | null {
@@ -239,7 +247,7 @@ export function createIncludeDoc(macro: Macro): PmNode[] | null {
 	const path = mandatoryArgs[0] ? getTextContent(mandatoryArgs[0].content).trim() : '';
 	if (!path) return null; // no argument captured: let it fall through to raw
 	const command = typeof macro.content === 'string' && macro.content ? macro.content : 'input';
-	return [el('includedoc', { path, command })];
+	return [buildNode('includedoc', { path, command })];
 }
 
 export function createCitation(macro: Macro): PmNode[] {
@@ -260,7 +268,7 @@ export function createCitation(macro: Macro): PmNode[] {
 
 	// keep the original command so \citep{x} doesn't come back as \autocite{x}
 	const variant = typeof macro.content === 'string' && macro.content ? macro.content : 'autocite';
-	return [el('citation', { variant, prenote, postnote }, key ? [txt(key)] : null)];
+	return [buildNode('citation', { variant, prenote, postnote }, key ? [textNode(key)] : null)];
 }
 
 export type EnvHandler = (env: Environment, ctx: ConversionContext, options: ConversionOptions) => PmNode[];
@@ -286,7 +294,7 @@ export function createRef(macro: Macro, refType: string | null): PmNode[] {
 	// to \autoref.
 	const command = typeof macro.content === 'string' && macro.content ? macro.content : 'autoref';
 	// unknown target kind: the general 'reference' type
-	return [el('ref', { refType: kind ?? 'reference', command }, label ? [txt(label)] : null)];
+	return [buildNode('ref', { refType: kind ?? 'reference', command }, label ? [textNode(label)] : null)];
 }
 
 // only `document` is truly transparent: center/flushleft/flushright change the rendered

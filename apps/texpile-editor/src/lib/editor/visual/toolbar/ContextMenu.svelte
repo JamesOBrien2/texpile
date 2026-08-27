@@ -38,7 +38,7 @@
 	let cursorY: number = $state(0);
 
 	function detectSelectionType(): 'cell' | 'column' | 'row' | null {
-		const { state } = $editorViewStore!;
+		const { state } = editorViewStore.current!;
 		const { selection } = state;
 
 		if (selection instanceof CellSelection) {
@@ -106,10 +106,10 @@
 		event.preventDefault();
 
 		const coords = { left: event.clientX, top: event.clientY };
-		const pos = $editorViewStore!.posAtCoords(coords);
+		const pos = editorViewStore.current!.posAtCoords(coords);
 
 		if (pos) {
-			const Resolvedpos = $editorViewStore!.state.doc.resolve(pos.pos);
+			const Resolvedpos = editorViewStore.current!.state.doc.resolve(pos.pos);
 			isOnTable = false;
 			for (let i = Resolvedpos.depth; i > 0; i--) {
 				if (Resolvedpos.node(i).type.name === 'table') {
@@ -122,7 +122,7 @@
 		if (isOnTable) {
 			selectionType = detectSelectionType();
 			// calling the commands without dispatch just tests applicability
-			const { state } = $editorViewStore!;
+			const { state } = editorViewStore.current!;
 			canMerge = mergeCells(state);
 			canSplit = splitCell(state);
 		} else {
@@ -130,7 +130,7 @@
 			canMerge = false;
 			canSplit = false;
 		}
-		const sel = $editorViewStore!.state.selection;
+		const sel = editorViewStore.current!.state.selection;
 		hasTextSelection = sel instanceof TextSelection && !sel.empty;
 
 		isVisible = true;
@@ -139,8 +139,8 @@
 
 		// empty transaction keeps the selection visible while the editor is blurred
 		requestAnimationFrame(() => {
-			if ($editorViewStore && !$editorViewStore!.hasFocus()) {
-				const { state, dispatch } = $editorViewStore;
+			if (editorViewStore.current && !editorViewStore.current!.hasFocus()) {
+				const { state, dispatch } = editorViewStore.current;
 				const tr = state.tr;
 				dispatch(tr);
 			}
@@ -156,7 +156,7 @@
 	function handleItemClick(action: () => void): void {
 		action();
 		isVisible = false;
-		$editorViewStore!.focus();
+		editorViewStore.current!.focus();
 	}
 
 	onMount(() => {
@@ -221,7 +221,7 @@
 							disabled={!hasTextSelection}
 							onclick={() =>
 								handleItemClick(() => {
-									const view = $editorViewStore!;
+									const view = editorViewStore.current!;
 									const sel = view.state.selection;
 									if (!(sel instanceof TextSelection) || sel.empty) return;
 									const anchor = buildPmAnchor(view.state.doc, sel.from, sel.to);

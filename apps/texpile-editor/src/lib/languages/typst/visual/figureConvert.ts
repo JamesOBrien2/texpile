@@ -1,6 +1,6 @@
 // #figure / #image conversion; a figure wrapping a table delegates to tableConvert
 import type { SyntaxNode } from '@lezer/common';
-import { el, type PmNode } from './builders';
+import { buildNode, type PmNode } from './builders';
 import { children, childOf, convertInline, unquote } from './inlineConvert';
 import { tableParts, buildTableNode, type TableParts } from './tableConvert';
 import { aloneWithLabel } from './segConvert';
@@ -98,7 +98,7 @@ export function figureSeg(kids: SyntaxNode[], i: number, src: string): { seg: Se
 	let node: PmNode;
 	if (parts) {
 		const caption = parts.captionMarkup ? convertInline(children(parts.captionMarkup), src, []) : [];
-		node = el(
+		node = buildNode(
 			'image',
 			{
 				src: parts.img.src,
@@ -113,7 +113,7 @@ export function figureSeg(kids: SyntaxNode[], i: number, src: string): { seg: Se
 		const table = buildTableNode(tParts!.table);
 		if (!table) return null;
 		const caption = tParts!.captionMarkup ? convertInline(children(tParts!.captionMarkup), src, []) : [];
-		node = el('table_wrapper', { label, showNotes: false }, [el('table_caption', null, caption), table]);
+		node = buildNode('table_wrapper', { label, showNotes: false }, [buildNode('table_caption', null, caption), table]);
 	}
 	const to = (labelNode ?? call).to;
 	return { seg: { blocks: [node], from: hash.from, to }, next: alone.next };

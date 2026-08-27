@@ -29,7 +29,7 @@
 	}
 
 	function insert(r: number, c: number) {
-		const view = $sourceCmView;
+		const view = sourceCmView.current;
 		if (!view) return;
 		open = false;
 		insertSnippetAtCursor(view, tableLatex({ rows: r, cols: c, float, rules, header }));

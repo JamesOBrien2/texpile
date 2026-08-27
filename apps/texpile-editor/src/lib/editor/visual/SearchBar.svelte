@@ -15,7 +15,7 @@
 	let current = $state(0);
 
 	function runSearch(reset = false) {
-		const view = $editorViewStore;
+		const view = editorViewStore.current;
 		if (!view?.state) return;
 		if (reset) current = 0;
 		const query = new SearchQuery({ search: searchTerm });
@@ -43,20 +43,20 @@
 	}
 
 	function gotoPrev() {
-		if (!$editorViewStore?.state) return;
-		findPrev($editorViewStore.state, $editorViewStore.dispatch);
+		if (!editorViewStore.current?.state) return;
+		findPrev(editorViewStore.current.state, editorViewStore.current.dispatch);
 		decrementCurrent();
 		scrollToSelection();
 	}
 	function gotoNext() {
-		if (!$editorViewStore?.state) return;
-		findNext($editorViewStore.state, $editorViewStore.dispatch);
+		if (!editorViewStore.current?.state) return;
+		findNext(editorViewStore.current.state, editorViewStore.current.dispatch);
 		incrementCurrent();
 		scrollToSelection();
 	}
 
 	function scrollToSelection() {
-		const view = $editorViewStore;
+		const view = editorViewStore.current;
 		if (!view?.state) return;
 		const { from } = view.state.selection;
 		const coords = view.coordsAtPos(from);
@@ -69,8 +69,8 @@
 	}
 
 	function closeBar() {
-		$display = false;
-		const view = $editorViewStore;
+		display.current = false;
+		const view = editorViewStore.current;
 		if (view?.state) view.dispatch(setSearchState(view.state.tr, new SearchQuery({ search: '' })));
 	}
 
@@ -78,23 +78,23 @@
 		// ignore Ctrl/Cmd+Shift+F, that's Find in Files (handled elsewhere)
 		if (e.key.toLowerCase() === 'f' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
 			e.preventDefault();
-			if ($display) closeBar();
-			else $display = true;
+			if (display.current) closeBar();
+			else display.current = true;
 			setTimeout(() => searchInput?.focus(), 0);
 		}
-		if (e.key === 'Escape' && $display) closeBar();
+		if (e.key === 'Escape' && display.current) closeBar();
 	}
 
 	// focus the input whenever the bar becomes visible
 	$effect(() => {
-		if ($display) setTimeout(() => searchInput?.focus(), 0);
+		if (display.current) setTimeout(() => searchInput?.focus(), 0);
 	});
 
 	onMount(() => window.addEventListener('keydown', handleKeydown));
 	onDestroy(() => window.removeEventListener('keydown', handleKeydown));
 </script>
 
-{#if $display}
+{#if display.current}
 	<!-- anchored to the editor pane's top-right (the WorkspaceView wrapper is relative), matching the source editor's search panel -->
 	<div
 		transition:slide={{ duration: 180 }}

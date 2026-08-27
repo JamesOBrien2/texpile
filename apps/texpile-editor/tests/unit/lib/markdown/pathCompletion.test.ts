@@ -15,7 +15,7 @@ const labels = (r: ReturnType<typeof complete>) => (r?.options ?? []).map((o) =>
 /** what would actually be typed into the document for an option */
 const inserts = (r: ReturnType<typeof complete>) => (r?.options ?? []).map((o) => o.apply as string);
 
-beforeEach(() => filePathStore.set(FILES));
+beforeEach(() => (filePathStore.current = FILES));
 
 describe('markdown link-target completion', () => {
 	it('offers every project file inside a link target', () => {
@@ -50,7 +50,7 @@ describe('markdown link-target completion', () => {
 
 	// a path containing '(' would break a naive lastIndexOf('(') boundary
 	it('gets the boundary right when the filename itself contains a bracket', () => {
-		filePathStore.set(['figures/fig(1).png']);
+		filePathStore.current = ['figures/fig(1).png'];
 		const doc = '![alt](figures/fig(1';
 		const r = complete(doc);
 		expect(r!.from).toBe(doc.indexOf('figures/fig(1'));
@@ -84,12 +84,12 @@ describe('markdown link-target completion', () => {
 		});
 
 		it('when the project has no files scanned yet', () => {
-			filePathStore.set([]);
+			filePathStore.current = [];
 			expect(complete('![](')).toBeNull();
 		});
 
 		it('when an image target has no figures to offer', () => {
-			filePathStore.set(['main.tex', 'notes.md']);
+			filePathStore.current = ['main.tex', 'notes.md'];
 			expect(complete('![](')).toBeNull();
 		});
 	});

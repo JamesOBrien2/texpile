@@ -6,7 +6,6 @@
 // stays proportional across window sizes, and it is re-clamped on every window resize: a width
 // saved on a wide screen must not squeeze the editor out in a small window.
 import { browser } from '$lib/runtime';
-import { get } from 'svelte/store';
 import { layout as layoutStore, updateLayout } from '$lib/storage/layout';
 import { startDrag, nudgeOnKey, clampTo, SNAP_SLACK } from '$lib/workspace/paneResize';
 const SIDEBAR_MIN = 180;
@@ -43,7 +42,7 @@ export class PaneLayout {
 
 	/** restore persisted geometry (texpile:layout); call once at mount */
 	restore() {
-		const s = get(layoutStore);
+		const s = layoutStore.current;
 		if (s.sidebarWidth >= SIDEBAR_MIN && s.sidebarWidth <= SIDEBAR_MAX) this.sidebarWidth = s.sidebarWidth;
 		this.sidebarOpen = s.sidebarOpen;
 		if (s.tocFraction >= TOC_MIN && s.tocFraction <= TOC_MAX) this.tocFraction = s.tocFraction;

@@ -1,6 +1,5 @@
 // The workspace's three callback surfaces: the editor-column actions WorkspaceMain hands
 // down, the chrome actions the menu bar and sidebar get, and the Ctrl+K palette commands.
-import { get } from 'svelte/store';
 import { tabs } from '$lib/workspace/tabs.svelte';
 import { collabGuest } from '$lib/collab/guestStore.svelte';
 import { normSyncPath } from '$lib/workspace/syncTexNav';
@@ -103,7 +102,8 @@ export function makeMainActions(d: ActionSurfaceDeps) {
 		 * affordance pointing at the thread and a click on it opens the panel too.
 		 */
 		selectComment: (id: string, from: 'text' | 'gutter' | 'visual') => {
-			d.commentsCtl.selected = id;
+			const ctl = d.commentsCtl;
+			ctl.selected = id;
 			if (from === 'text') return;
 			d.setDockView('comments');
 			d.termDock().show();
@@ -214,7 +214,7 @@ export function makeChromeActions(d: ActionSurfaceDeps) {
 		// the main file is a property of the project, so it goes in .texpile/config.json with the rest
 		setMain: (entry: TreeEntry) => void d.files().toggleMainFile(entry.path),
 		revealEntry: (entry: TreeEntry) => void revealItem(entry.path),
-		refreshGit: () => void toastAfter(m.wsview_toast_git_refreshed(), () => refreshGitStatus(get(workspaceRoot)))
+		refreshGit: () => void toastAfter(m.wsview_toast_git_refreshed(), () => refreshGitStatus(workspaceRoot.current))
 	};
 }
 
@@ -246,7 +246,9 @@ export function makePaletteActions(d: ActionSurfaceDeps) {
 		openCompileModal: () => d.fmt.openCompileModal(),
 		openFormatModal: () => d.fmt.openFormatModal(),
 		openGlobalSearch: () => void d.openGlobalSearch(),
-		openPreferences: () => preferencesOpen.set(true),
+		openPreferences: () => {
+			preferencesOpen.current = true;
+		},
 		// same condition the app-icon menu uses: desktop only, and never for a guest
 		openShareSession: isDesktop() && !d.guest() ? () => d.setShareModalOpen(true) : undefined,
 		newFile: (ext?: string) => d.files().newFileOfType(ext),

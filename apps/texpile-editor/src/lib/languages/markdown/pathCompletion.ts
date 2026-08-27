@@ -5,7 +5,6 @@
 // CodeMirror's fuzzy matcher finds it by basename as well as by full path. What LaTeX and markdown
 // do not share is the TRIGGER: the LaTeX source looks for \includegraphics{…, and this looks for an
 // unclosed link target. So the trigger is the only thing written here.
-import { get } from 'svelte/store';
 import { autocompletion, completionStatus, startCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
@@ -28,7 +27,7 @@ export function mdPathCompletionSource(ctx: CompletionContext): CompletionResult
 	if (!m) return null;
 	const isImage = m[1] === '!';
 
-	let paths = get(filePathStore);
+	let paths = filePathStore.current;
 	if (!paths.length) return null;
 	// an image link can only sensibly point at a figure; a plain link at anything but build output
 	paths = isImage ? paths.filter((p) => IMG_EXTS.some((e) => p.toLowerCase().endsWith('.' + e))) : paths.filter((p) => !JUNK_PATH.test(p));

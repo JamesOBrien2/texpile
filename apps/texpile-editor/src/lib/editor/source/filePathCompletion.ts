@@ -2,7 +2,6 @@
 // filePathStore (a flat, project-wide, root-relative file list). unlike LaTeX Workshop's
 // directory-by-directory disk walk, the flat list already fuzzy-matches a whole relative path in
 // one step, so there's no separate "select a directory to see its contents" chaining to port.
-import { get } from 'svelte/store';
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { filePathStore } from '$lib/stores/editorStore';
 
@@ -68,7 +67,7 @@ export function filePathCompletionSource(ctx: CompletionContext): CompletionResu
 		if (!file) return null;
 		cmd = 'input'; // import-family file args take \input semantics (tex, extension optional)
 	}
-	let paths = get(filePathStore);
+	let paths = filePathStore.current;
 	if (!paths.length) return null;
 	const exts = FILE_CMD_EXTS[cmd];
 	paths = exts ? paths.filter((p) => exts.some((e) => p.toLowerCase().endsWith('.' + e))) : paths.filter((p) => !JUNK_PATH.test(p));

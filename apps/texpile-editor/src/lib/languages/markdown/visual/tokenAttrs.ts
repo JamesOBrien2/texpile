@@ -1,6 +1,6 @@
 // token attribute readers and the image-token builders
 import type { Token } from 'markdown-it';
-import { el, txtNodes, type PmNode } from './builders';
+import { buildNode, textNodes, type PmNode } from './builders';
 
 export function attrStr(tok: Token, name: string): string {
 	const v = tok.attrGet(name);
@@ -39,7 +39,7 @@ export function imageMarkdown(tok: Token): string {
 /** `![alt](src "title")` alone in a paragraph: a block figure. title becomes the caption. */
 export function imageBlock(tok: Token): PmNode {
 	const title = attrStr(tok, 'title');
-	return el(
+	return buildNode(
 		'image',
 		{
 			src: dest(tok, 'src'),
@@ -47,6 +47,6 @@ export function imageBlock(tok: Token): PmNode {
 			numbered: false,
 			showCaption: !!title
 		},
-		title ? txtNodes(title) : null
+		title ? textNodes(title) : null
 	);
 }

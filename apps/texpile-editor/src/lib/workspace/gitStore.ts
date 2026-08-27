@@ -1,17 +1,17 @@
 // reactive git state for the open folder. refreshed from WorkspaceView's refreshTree()
 // (every tree-refresh trigger updates it for free) and after each Source Control write.
-import { writable } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 import { gitStatus as fetchGitStatus, type GitBadge, type GitStatusEntry } from './git';
 
-export const isGitRepo = writable<boolean>(false);
+export const isGitRepo = box<boolean>(false);
 
-export const gitBranch = writable<string | null>(null);
+export const gitBranch = box<string | null>(null);
 
 /** single-letter badges keyed by gitKey(absolutePath); drives the file tree. */
-export const gitStatusMap = writable<Record<string, GitBadge>>({});
+export const gitStatusMap = box<Record<string, GitBadge>>({});
 
 /** raw staged/unstaged porcelain codes; drives the Source Control panel. */
-export const gitChanges = writable<GitStatusEntry[]>([]);
+export const gitChanges = box<GitStatusEntry[]>([]);
 
 /** canonical key matching tree paths to badges; guards against separator/casing drift. */
 export function gitKey(path: string): string {
@@ -38,26 +38,26 @@ export function takeNoGitHint(): boolean {
 /** refreshes git state for the open folder; never throws. missingGit lets the caller show the install hint. */
 export async function refreshGitStatus(root: string | null): Promise<{ missingGit: boolean }> {
 	if (!root) {
-		isGitRepo.set(false);
-		gitBranch.set(null);
-		gitStatusMap.set({});
-		gitChanges.set([]);
+		isGitRepo.current = false;
+		gitBranch.current = null;
+		gitStatusMap.current = {};
+		gitChanges.current = [];
 		return { missingGit: false };
 	}
 	const res = await fetchGitStatus(root);
 	if (!res.ok) {
-		isGitRepo.set(false);
-		gitBranch.set(null);
-		gitStatusMap.set({});
-		gitChanges.set([]);
+		isGitRepo.current = false;
+		gitBranch.current = null;
+		gitStatusMap.current = {};
+		gitChanges.current = [];
 		return { missingGit: res.reason === 'no-git' };
 	}
-	isGitRepo.set(true);
-	gitBranch.set(res.branch ?? null);
+	isGitRepo.current = true;
+	gitBranch.current = res.branch ?? null;
 	const list = res.entries ?? [];
-	gitChanges.set(list);
+	gitChanges.current = list;
 	const map: Record<string, GitBadge> = {};
 	for (const e of list) map[gitKey(e.path)] = badgeOf(e.x, e.y);
-	gitStatusMap.set(map);
+	gitStatusMap.current = map;
 	return { missingGit: false };
 }

@@ -3,8 +3,7 @@
 // with a 30-day half-life and mapped to CodeMirror's boost, which tie-breaks equal matches.
 import { pickedCompletion, type Completion } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
-import { get } from 'svelte/store';
-import { users, updateUsers } from '$lib/storage/users';
+import { userData, updateUserData } from '$lib/storage/userData';
 
 type UsageEntry = {
 	/** decayed accept score as of t */
@@ -21,12 +20,12 @@ const MAX_BOOST = 30;
 let usage: Record<string, UsageEntry> | null = null;
 
 function load(): Record<string, UsageEntry> {
-	usage ??= { ...get(users).completionUsage };
+	usage ??= { ...userData.current.completionUsage };
 	return usage;
 }
 
 function save(store: Record<string, UsageEntry>) {
-	updateUsers({ completionUsage: { ...store } });
+	updateUserData({ completionUsage: { ...store } });
 }
 
 function decayed(e: UsageEntry, now: number) {
@@ -70,5 +69,5 @@ export function frecencyTracker() {
 /** test seam: wipe the in-memory store so cases start clean. */
 export function resetUsageForTests() {
 	usage = null;
-	updateUsers({ completionUsage: {} });
+	updateUserData({ completionUsage: {} });
 }

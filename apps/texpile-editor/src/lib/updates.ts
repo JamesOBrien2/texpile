@@ -1,7 +1,7 @@
 // In-app update state over the window.texpileUpdates bridge (electron/src/updates.ts).
 // One store drives the modal, the Help-menu badge, and the background-download toasts.
 import { browser } from '$lib/runtime';
-import { writable, get } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 import { toaster } from '$lib/modals/toaster-svelte';
 import { route } from '$lib/router.svelte';
 import { m } from '$lib/paraglide/messages';
@@ -23,8 +23,8 @@ export type UpdateState = {
 
 const IDLE: UpdateState = { phase: 'idle', version: null, percent: 0, transferred: 0, total: 0, installMode: 'restart', error: null };
 
-export const updateState = writable<UpdateState>({ ...IDLE });
-export const updateModalOpen = writable(false);
+export const updateState = box<UpdateState>({ ...IDLE });
+export const updateModalOpen = box(false);
 
 type CheckResult =
 	| { status: 'update'; version: string; notes: string | null; installMode: 'restart' | 'package-manager' }
@@ -59,9 +59,9 @@ function splitNotes(notes: string | null): string[] | undefined {
 // with the modal hidden, the workspace has the Help menu (badge + toast); the start screen has
 // no menu bar, so reopening the modal is the only reachable surface there
 function surfaceInBackground(kind: 'downloaded' | 'error', version: string | null, message?: string): void {
-	if (get(updateModalOpen)) return;
+	if (updateModalOpen.current) return;
 	if (route.path !== '/workspace') {
-		updateModalOpen.set(true);
+		updateModalOpen.current = true;
 		return;
 	}
 	if (kind === 'downloaded') {
@@ -82,14 +82,14 @@ function wireEvents(b: UpdatesBridge): void {
 	if (wired) return;
 	wired = true;
 	b.onProgress((p) => {
-		updateState.update((s) => ({ ...s, phase: 'downloading', percent: p.percent, transferred: p.transferred, total: p.total }));
+		updateState.current = { ...updateState.current, phase: 'downloading', percent: p.percent, transferred: p.transferred, total: p.total };
 	});
 	b.onDownloaded(({ version }) => {
-		updateState.update((s) => ({ ...s, phase: 'downloaded', version }));
+		updateState.current = { ...updateState.current, phase: 'downloaded', version };
 		surfaceInBackground('downloaded', version);
 	});
 	b.onError(({ message }) => {
-		updateState.update((s) => ({ ...s, phase: 'error', error: message }));
+		updateState.current = { ...updateState.current, phase: 'error', error: message };
 		surfaceInBackground('error', null, message);
 	});
 }
@@ -101,7 +101,7 @@ export async function checkForUpdate(manual = false): Promise<CheckStatus> {
 	const res = await b.check(manual).catch((e): CheckResult => ({ status: 'error', message: String(e) }));
 	if (res.status !== 'update') return res.status;
 	wireEvents(b);
-	updateState.set({ ...IDLE, phase: 'available', version: res.version, notes: splitNotes(res.notes), installMode: res.installMode });
+	updateState.current = { ...IDLE, phase: 'available', version: res.version, notes: splitNotes(res.notes), installMode: res.installMode };
 	return 'update';
 }
 
@@ -109,7 +109,7 @@ export async function startDownload(): Promise<void> {
 	const b = bridge();
 	if (!b) return;
 	wireEvents(b);
-	updateState.update((s) => ({ ...s, phase: 'downloading', percent: 0, transferred: 0, total: 0, error: null }));
+	updateState.current = { ...updateState.current, phase: 'downloading', percent: 0, transferred: 0, total: 0, error: null };
 	// completion/failure arrive via onDownloaded/onError; the invoke rejection carries the same error
 	await b.download().catch(() => {});
 }

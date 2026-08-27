@@ -2,7 +2,6 @@
 // unsaved-edit gate, on-disk change detection, tab activation/closing, and the load-the-
 // active-file effect that ties them together.
 import { untrack } from 'svelte';
-import { fromStore, get } from 'svelte/store';
 import { SavePipeline } from '$lib/workspace/savePipeline.svelte';
 import { ExternalChangeWatcher } from '$lib/workspace/externalChange.svelte';
 import { UnsavedGuard } from '$lib/workspace/unsavedGuard.svelte';
@@ -37,9 +36,6 @@ export class WorkspaceEditFlow {
 	// reverts to it meanwhile), so the removal is deferred to the held-switch resolution.
 	private pendingTabClose: string | null = null;
 
-	#active = fromStore(activeFilePath);
-	#dirty = fromStore(isDirty);
-
 	constructor(private d: EditFlowDeps) {
 		const { doc, modes } = d.wsdoc;
 		// debounced autosave + serial write chain live in lib/workspace/savePipeline.svelte.ts
@@ -52,7 +48,9 @@ export class WorkspaceEditFlow {
 			getLoadedPath: () => doc.path,
 			getLiveContent: () => (hasVisualMode(doc.kind) ? doc.texSource : doc.rawContent),
 			setDiskBaseline: (content) => (doc.diskBaseline = content),
-			setDirty: (dirty) => isDirty.set(dirty),
+			setDirty: (dirty) => {
+				isDirty.current = dirty;
+			},
 			diskChanged: diskChangedSince,
 			recordDiskStamp,
 			// the aborted save's content is still the live buffer, so check() sees dirty-and-different
@@ -93,36 +91,41 @@ export class WorkspaceEditFlow {
 
 		// every file that opens gains a tab (file tree, SyncTeX jumps, include links, restores)
 		$effect(() => {
-			const p = this.#active.current;
+			const p = activeFilePath.current;
 			if (p) tabs.noteOpened(p);
 		});
 		// the first edit promotes the preview tab: from here on it is a file you are working on, not
 		// one you glanced at, so the next file opened gets a tab of its own instead of taking this slot
 		$effect(() => {
-			const p = this.#active.current;
-			if (this.#dirty.current && p) tabs.keep(p);
+			const p = activeFilePath.current;
+			if (isDirty.current && p) tabs.keep(p);
 		});
-		// Leaving a file in visual mode: record the caret before the switch tears the editor down. A plain
-		// store subscription fires synchronously on set, ahead of any rendering, so the view is still
-		// mounted - and doc.path is still the file we are LEAVING, since the load effect has not run yet.
+		// Leaving a file in visual mode: record the caret before the switch tears the editor down.
+		// A SYNCHRONOUS write hook, not an effect: it must run inside the path assignment itself,
+		// because several writers mutate more state right after the write (folder switch rebinds
+		// docPositions, delete forget()s the entry, openDiff flips the mode) and a save deferred to
+		// the effect flush would read that mutated world. Untracked so a write from inside another
+		// effect does not adopt this body's reads as dependencies.
 		// (Nothing to do for source mode; SourceEditor keeps its own position.)
 		$effect(() =>
-			activeFilePath.subscribe(() => {
-				const v = get(editorViewStore);
-				if (!v || modes.mode !== 'visual' || !doc.path || d.session().collabFor(doc.path)) return;
-				saveVisualPosition(v, doc.path, doc.texSource, doc.docMeta ? bodyOffsetOf(doc.docMeta) : 0);
-			})
+			activeFilePath.onWrite(() =>
+				untrack(() => {
+					const v = editorViewStore.current;
+					if (!v || modes.mode !== 'visual' || !doc.path || d.session().collabFor(doc.path)) return;
+					saveVisualPosition(v, doc.path, doc.texSource, doc.docMeta ? bodyOffsetOf(doc.docMeta) : 0);
+				})
+			)
 		);
 		// load the active file whenever it changes. Everything but the store read is untracked, so
 		// this runs exactly once per path change (doc.path updating mid-load must not re-fire it).
 		$effect(() => {
-			const path = this.#active.current;
+			const path = activeFilePath.current;
 			untrack(() => {
 				// a workspace-level prompt (folder switch / close / window close) detached the pending
 				// edit, so the guard below can't see it: park ALL file switches until it resolves, or a
 				// Ctrl+Tab under the modal reattaches the edit against the wrong file
 				if (this.unsaved.parksAllSwitches) {
-					if (path !== doc.path) activeFilePath.set(doc.path);
+					if (path !== doc.path) activeFilePath.current = doc.path;
 					return;
 				}
 				// while the dialog is up, keep the UI parked on the outgoing file; remember the newest
@@ -130,7 +133,7 @@ export class WorkspaceEditFlow {
 				if (this.unsaved.held) {
 					if (path !== doc.path) {
 						this.unsaved.held.target = path;
-						activeFilePath.set(doc.path);
+						activeFilePath.current = doc.path;
 					}
 					return;
 				}
@@ -155,8 +158,8 @@ export class WorkspaceEditFlow {
 	// forced effectively on in both, WITHOUT changing the user's setting (it reverts on exit).
 	// The Preferences toggle shows this as forced+disabled.
 	autosaveActive(): boolean {
-		const s = get(settings);
-		return s.autosave !== false || get(compileConfig).latex.liveMode || (this.d.session().active && !this.d.guest());
+		const s = settings.current;
+		return s.autosave !== false || compileConfig.current.latex.liveMode || (this.d.session().active && !this.d.guest());
 	}
 
 	confirmLeaveUnsaved() {
@@ -164,14 +167,14 @@ export class WorkspaceEditFlow {
 	}
 
 	activateTab(path: string): void {
-		activeFilePath.set(path);
+		activeFilePath.current = path;
 	}
 
 	closeTab(path: string): void {
-		const active = get(activeFilePath);
+		const active = activeFilePath.current;
 		if (active && samePath(active, path)) {
 			if (!this.autosaveActive() && this.saver.pending && samePath(this.saver.pending.path, path)) this.pendingTabClose = path;
-			activeFilePath.set(tabs.neighborOf(path));
+			activeFilePath.current = tabs.neighborOf(path);
 			if (this.pendingTabClose) return;
 		}
 		tabs.close(path);

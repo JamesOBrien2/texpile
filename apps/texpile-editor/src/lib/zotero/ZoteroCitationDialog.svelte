@@ -65,7 +65,7 @@
 		return s.replace(/[{}]/g, '');
 	}
 	const projectHits = $derived(
-		$references.slice(0, 200).map((r): Hit => ({
+		references.current.slice(0, 200).map((r): Hit => ({
 			citekey: r.key,
 			title: display(r.title ?? ''),
 			author: display((r.author ?? '').split(' and ')[0] ?? ''),

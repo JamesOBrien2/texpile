@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { get } from 'svelte/store';
 import { FileOpener, type FileOpenerDeps } from '$lib/workspace/fileOpener';
 import { DocumentBuffer } from '$lib/workspace/documentBuffer.svelte';
 import { activeFilePath } from '$lib/workspace/workspaceStore';
@@ -54,16 +53,16 @@ describe('FileOpener parse format', () => {
 		});
 
 		// previous file is markdown...
-		activeFilePath.set('C:/ws/notes.md');
+		activeFilePath.current = 'C:/ws/notes.md';
 		await opener.open('C:/ws/notes.md');
 		expect(calls[0].format).toBe('md');
 		expect(doc.kind).toBe('md');
 
 		// ...and the incoming .tex must still parse as tex (doc.kind is 'md' until openTex runs)
-		activeFilePath.set('C:/ws/paper.tex');
+		activeFilePath.current = 'C:/ws/paper.tex';
 		await opener.open('C:/ws/paper.tex');
 		expect(calls[1].format).toBe('tex');
 		expect(doc.kind).toBe('tex');
-		expect(get(activeFilePath)).toBe('C:/ws/paper.tex');
+		expect(activeFilePath.current).toBe('C:/ws/paper.tex');
 	});
 });

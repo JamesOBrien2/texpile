@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // The full-compile lifecycle: cancel-on-supersede compiles, the daemon warm-up, and the
 // one-live-preview engine ownership (engine-busy pause + takeover).
-import { native } from '$lib/workspace/fileSystem';
+import { nativeBridge } from '$lib/workspace/fileSystem';
 import { m } from '$lib/paraglide/messages';
 
 type CompilerHooks = {
@@ -35,7 +35,7 @@ export class DraftCompiler {
 	warmDaemon(): void {
 		if (this.warmed) return;
 		this.warmed = true;
-		if (!native()) return;
+		if (!nativeBridge()) return;
 		const t = performance.now();
 		// hsize 0 = the daemon falls back to its OWN engine-announced \columnwidth
 		this.daemonTypeset({ text: 'warm', hsize: this.hooks.paperColW() })
@@ -52,7 +52,7 @@ export class DraftCompiler {
 	// all daemon typesets funnel through here so an 'engine-busy' from ANY path (another
 	// window holds the warm engine) pauses this preview instead of surfacing a raw error
 	async daemonTypeset(body: { text: string; hsize?: number }): Promise<any> {
-		const r = await native()!.draftTypeset({ root: this.hooks.root(), mainFile: this.hooks.mainFile(), ...body });
+		const r = await nativeBridge()!.draftTypeset({ root: this.hooks.root(), mainFile: this.hooks.mainFile(), ...body });
 		// cast, not narrow: svelte-check doesn't reliably narrow this cross-module union
 		if (!r.ok && (r as { error?: string }).error === 'engine-busy') this.busyElsewhere = true;
 		return r;
@@ -60,7 +60,7 @@ export class DraftCompiler {
 
 	// explicit user action from the paused banner: steal the engine and start fresh here
 	async takeoverEngine(): Promise<void> {
-		const n = native();
+		const n = nativeBridge();
 		if (!n?.draftTakeover) return;
 		try {
 			await n.draftTakeover({ root: this.hooks.root() });
@@ -74,7 +74,7 @@ export class DraftCompiler {
 	// the losing side of a takeover: main pushes this so we pause immediately instead of
 	// showing a stale "ready" state until the next keystroke discovers engine-busy
 	attachPreempt(): (() => void) | undefined {
-		const n = native();
+		const n = nativeBridge();
 		if (!n?.onDraftPreempted) return undefined;
 		return n.onDraftPreempted(() => {
 			this.busyElsewhere = true;
@@ -84,7 +84,7 @@ export class DraftCompiler {
 	}
 
 	async compile(reason = 'trigger'): Promise<void> {
-		const n = native();
+		const n = nativeBridge();
 		if (!n || !this.hooks.root() || !this.hooks.mainFile()) return;
 		if (this.busyElsewhere) return; // paused: don't fight the owning window on every trigger
 		// cancel-on-supersede: don't queue behind an in-flight compile -- fire a fresh one. The

@@ -136,7 +136,7 @@
 		// on close), so this is both indicator and off switch
 		if (typstLive && pdfPaneOpen)
 			return { tone: 'success', dot: true, label: m.wsview_live_label(), title: m.wsview_typst_preview_live_title(), onclick: onTogglePdf };
-		if ($compileConfig.latex.liveMode && pdfPaneOpen) {
+		if (compileConfig.current.latex.liveMode && pdfPaneOpen) {
 			if (draftPaused)
 				return {
 					tone: 'warning',
@@ -153,7 +153,7 @@
 				onclick: onPauseDraft
 			};
 		}
-		const live = typstLive || $compileConfig.latex.liveMode;
+		const live = typstLive || compileConfig.current.latex.liveMode;
 		return {
 			tone: 'primary',
 			icon: Play,
@@ -238,17 +238,17 @@
 				</button>
 			</div>
 		{/if}
-		{#if $compileLog && ($compileLog.errors.length > 0 || $compileLog.warnings.length > 0)}
+		{#if compileLog.current && (compileLog.current.errors.length > 0 || compileLog.current.warnings.length > 0)}
 			<button
-				class="btn btn-xs gap-1 {$compileLog.errors.length > 0 ? 'preset-tonal-error' : 'preset-tonal-warning'}"
+				class="btn btn-xs gap-1 {compileLog.current.errors.length > 0 ? 'preset-tonal-error' : 'preset-tonal-warning'}"
 				onclick={onShowProblems}
 				title={m.wsview_show_problems_title()}
 			>
-				{#if $compileLog.errors.length > 0}
-					<CircleAlert class="size-3.5" /> {$compileLog.errors.length}
+				{#if compileLog.current.errors.length > 0}
+					<CircleAlert class="size-3.5" /> {compileLog.current.errors.length}
 				{/if}
-				{#if $compileLog.warnings.length > 0}
-					<TriangleAlert class="size-3.5" /> {$compileLog.warnings.length}
+				{#if compileLog.current.warnings.length > 0}
+					<TriangleAlert class="size-3.5" /> {compileLog.current.warnings.length}
 				{/if}
 			</button>
 		{/if}
@@ -305,7 +305,7 @@
 		{/if}
 		{#if !guest}
 			<!-- guests have nothing to save: their edits sync live through the shared doc -->
-			<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={onSave} disabled={!loadedPath || saving || !$isDirty}>
+			<button class="btn btn-xs preset-filled-primary-500 gap-1.5" onclick={onSave} disabled={!loadedPath || saving || !isDirty.current}>
 				{#if saving}<Loader2 class="size-4 animate-spin" />{:else}<Save class="size-4" />{/if}
 				{m.wsview_save_label()}
 			</button>

@@ -2,7 +2,6 @@
 // and exposes the reactive bits WorkspaceView needs. One shared session per window, host role.
 
 import * as Y from 'yjs';
-import { get } from 'svelte/store';
 import { generateShareCode } from './e2e/shareCode';
 import { deriveSessionKeys, sha256Hex } from './e2e/keys';
 import { CollabSession, manifestOf, locksOf, metaOf, textOf, type PeerInfo } from './session';
@@ -22,7 +21,7 @@ import {
 	joinPath
 } from '$lib/workspace/fileSystem';
 import { settings } from '$lib/settings';
-import { users } from '$lib/storage/users';
+import { userData } from '$lib/storage/userData';
 import { flattenShareManifest } from './shareManifest';
 
 class HostCollabController {
@@ -89,7 +88,7 @@ class HostCollabController {
 			const code = generateShareCode();
 			const keys = await deriveSessionKeys(code);
 			const hostKey = generateShareCode(); // second random secret; the relay only ever stores its hash
-			const relayUrl = get(settings).collabRelayUrl.trim();
+			const relayUrl = settings.current.collabRelayUrl.trim();
 			await createRelaySession(relayUrl, {
 				room: keys.roomId,
 				proofHash: await sha256Hex(keys.joinProof),
@@ -103,7 +102,7 @@ class HostCollabController {
 				transport,
 				key: keys.contentKey,
 				role: 'host',
-				user: { name: get(users).collabName || 'Host', color: '#2563eb' },
+				user: { name: userData.current.collabName || 'Host', color: '#2563eb' },
 				events: {
 					onPeersChange: (peers) => {
 						this.peers = [...peers.values()];

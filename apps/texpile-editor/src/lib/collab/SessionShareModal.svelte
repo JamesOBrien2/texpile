@@ -13,12 +13,12 @@
 		onBeforeStart
 	}: { open?: boolean; root: string | null; onBeforeStart?: () => Promise<void> } = $props();
 
-	let relayDraft = $state($settings.collabRelayUrl);
+	let relayDraft = $state(settings.current.collabRelayUrl);
 	let relayTouched = $state(false);
 	let copied = $state(false);
 	let advancedOpen = $state(false);
 	$effect(() => {
-		const url = $settings.collabRelayUrl;
+		const url = settings.current.collabRelayUrl;
 		// reveal the relay field unprompted only when it isn't the default one
 		if (!relayTouched) {
 			relayDraft = url;
@@ -29,7 +29,7 @@
 	async function start() {
 		if (!root) return;
 		const trimmed = relayDraft.trim();
-		if (trimmed && trimmed !== $settings.collabRelayUrl) updateSettings({ collabRelayUrl: trimmed });
+		if (trimmed && trimmed !== settings.current.collabRelayUrl) updateSettings({ collabRelayUrl: trimmed });
 		try {
 			// flush the open file's unsaved edits to disk first, so the session seeds current content
 			await onBeforeStart?.();

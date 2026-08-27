@@ -41,12 +41,12 @@
 	}: Props = $props();
 
 	// the same call the pipeline makes, so what this dialog shows and what Compile runs cannot drift
-	const isTypst = $derived(effectiveCompileFormat($mainFile) === 'typst');
+	const isTypst = $derived(effectiveCompileFormat(mainFile.current) === 'typst');
 
 	// The lane's built-in mode is running instead of the shell command: LaTeX's live mode (the
 	// pipeline ignores the setting for Typst) or Typst's preview. The command is still the folder's
 	// and is kept - it just is not what Compile runs, so showing it as editable would lie.
-	const superseded = $derived(isTypst ? $compileConfig.typst.preview : $compileConfig.latex.liveMode);
+	const superseded = $derived(isTypst ? compileConfig.current.typst.preview : compileConfig.current.latex.liveMode);
 
 	// the segmented-control classes Preferences' theme picker uses, so an exclusive choice looks the
 	// same wherever it appears. Still needed for the LaTeX engine chips inside LatexCompileSettings.
@@ -89,14 +89,14 @@
 			spellcheck="false"
 			autofocus
 			onkeydown={(e) => {
-				if (e.key === 'Enter' && !(command.includes('{main}') && !$mainFile)) onSave(true);
+				if (e.key === 'Enter' && !(command.includes('{main}') && !mainFile.current)) onSave(true);
 			}}
 		/>
 		<div class="mt-4 flex items-center justify-between gap-4">
 			<span class="text-sm">{m.wsview_completion_marker_label()}</span>
 			<Switch
-				checked={$compileConfig.completionMarker}
-				onCheckedChange={(d) => projectConfigSync.setCompletionMarker($workspaceRoot, d.checked)}
+				checked={compileConfig.current.completionMarker}
+				onCheckedChange={(d) => projectConfigSync.setCompletionMarker(workspaceRoot.current, d.checked)}
 			>
 				<Switch.Control><Switch.Thumb /></Switch.Control>
 				<Switch.HiddenInput />
@@ -111,7 +111,7 @@
 
 	<div class="mt-4 flex items-center justify-between gap-3">
 		<span class="text-surface-500 text-xs">
-			{#if !$mainFile}{m.wsview_pick_main_file_to_run()}{/if}
+			{#if !mainFile.current}{m.wsview_pick_main_file_to_run()}{/if}
 		</span>
 		<div class="flex gap-2">
 			<button class="btn btn-xs hover:preset-tonal" onclick={() => (open = false)}>{m.wsview_cancel_label()}</button>
@@ -124,7 +124,7 @@
 						open = false;
 						onRun();
 					}}
-					disabled={!$mainFile}
+					disabled={!mainFile.current}
 				>
 					<Play class="size-4" />
 					{m.wsview_run_preview()}
@@ -134,7 +134,7 @@
 				<button
 					class="btn btn-xs preset-tonal-primary gap-1.5"
 					onclick={onUseDefault}
-					disabled={DEFAULT_COMPILE_COMMAND.includes('{main}') && !$mainFile}
+					disabled={DEFAULT_COMPILE_COMMAND.includes('{main}') && !mainFile.current}
 					title={m.wsview_use_default_title()}
 				>
 					<Play class="size-4" />
@@ -143,7 +143,7 @@
 				<button
 					class="btn btn-xs preset-filled-primary-500 gap-1.5"
 					onclick={() => onSave(true)}
-					disabled={command.includes('{main}') && !$mainFile}
+					disabled={command.includes('{main}') && !mainFile.current}
 				>
 					<Play class="size-4" />
 					{m.wsview_save_and_run()}

@@ -12,7 +12,6 @@
 	// lifetime - WorkspaceMain mounts it while layout.pdfPopout holds, and tearing it down (popping
 	// back in, leaving the workspace) is what closes the window.
 	import { mount, unmount, onMount } from 'svelte';
-	import { get } from 'svelte/store';
 	import PreviewBody from './PreviewBody.svelte';
 	import type { DraftController } from '$lib/draft/draftController.svelte';
 	import { workspaceRoot } from '$lib/workspace/workspaceStore';
@@ -91,7 +90,7 @@
 		}
 		const doc = w.document;
 		// "<Texpile Preview> - <folder>", mirroring the main window's own "<folder> - Texpile"
-		const root = get(workspaceRoot);
+		const root = workspaceRoot.current;
 		const name = root ? basename(root) : '';
 		doc.title = name ? `${m.wsview_popout_window_title()} - ${name}` : m.wsview_popout_window_title();
 		// about:blank resolves relative URLs against nothing; fonts and stylesheets cloned from the

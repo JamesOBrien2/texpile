@@ -57,8 +57,8 @@ let warn: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
 	vi.useFakeTimers();
 	localStorage.clear();
-	workspaceRoot.set(ROOT);
-	mainFile.set(`${ROOT}/FOO/book.typ`);
+	workspaceRoot.current = ROOT;
+	mainFile.current = `${ROOT}/FOO/book.typ`;
 	projectConfigSync.reset();
 	projectConfigSync.setTypstPreview(ROOT, false); // route Compile to the terminal
 	warn = vi.spyOn(toaster, 'warning').mockImplementation(() => '');

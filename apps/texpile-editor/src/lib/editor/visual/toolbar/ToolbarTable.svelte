@@ -11,7 +11,7 @@
 	let open = $state(false);
 	let hoveredCells = $state({ rows: 1, cols: 1 });
 
-	const tableCaptionEnabled = $derived($templateFeaturesStore?.tableCaption ?? true);
+	const tableCaptionEnabled = $derived(templateFeaturesStore.current?.tableCaption ?? true);
 
 	let numberedState = $state(true); // user's preference while enabled
 	let numbered = $derived(tableCaptionEnabled ? numberedState : false);
@@ -41,7 +41,7 @@
 	}
 
 	function insertTable() {
-		const view = $editorViewStore;
+		const view = editorViewStore.current;
 		if (!view) {
 			console.error('Editor view is not available');
 			return;

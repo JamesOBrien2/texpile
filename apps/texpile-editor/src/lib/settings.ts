@@ -8,7 +8,7 @@
 // texpile:layout, personal data to texpile:users, per-folder state to texpile:workspaces, and the
 // whole compile surface (command, outputs, toggles) to each folder's .texpile/config.json.
 import { browser } from '$lib/runtime';
-import { writable, get } from 'svelte/store';
+import { box } from '$lib/runes/box.svelte';
 import { setLocale as setParaglideLocale } from '$lib/paraglide/runtime';
 import { trailingDebounce } from '$lib/trailingDebounce';
 import { migrateSettingsObject } from '$lib/migration/settings';
@@ -121,13 +121,13 @@ type NativeSettings = {
 	setSettings?: (partial: Partial<AppSettings>) => Promise<AppSettings>;
 	replaceSettings?: (full: Record<string, unknown>) => Promise<void>;
 };
-function native(): NativeSettings | undefined {
+function nativeBridge(): NativeSettings | undefined {
 	if (!browser) return undefined;
 	return (window as unknown as { texpileNative?: NativeSettings }).texpileNative;
 }
 
 /** reactive global settings; defaults until loadSettings() hydrates it. */
-export const settings = writable<AppSettings>({ ...DEFAULTS });
+export const settings = box<AppSettings>({ ...DEFAULTS });
 
 // memoize the load promise, not a boolean: every caller awaits the same hydration.
 // a flag flipped before the await let early callers read stale defaults.
@@ -138,7 +138,7 @@ export function loadSettings(): Promise<AppSettings> {
 	if (loadPromise) return loadPromise;
 	loadPromise = (async () => {
 		let raw: Record<string, unknown> = {};
-		const n = native();
+		const n = nativeBridge();
 		if (n?.getSettings) {
 			try {
 				raw = (await n.getSettings()) as Record<string, unknown>;
@@ -168,7 +168,7 @@ export function loadSettings(): Promise<AppSettings> {
 			}
 		}
 		const merged = { ...DEFAULTS, ...(raw as Partial<AppSettings>), v: 1 as const };
-		settings.set(merged);
+		settings.current = merged;
 		// reload:false: this runs before main.ts mounts the app, so nothing has rendered
 		// the base locale yet and there's nothing to correct with a reload.
 		applyUiLocale(merged.uiLocale, { reload: false });
@@ -193,14 +193,14 @@ export async function getSettings(): Promise<AppSettings> {
 // send ONLY the changed fields: the main process merges them into settings.json, so two
 // windows writing different settings can't clobber each other's fields with stale copies
 function persist(patch: Partial<AppSettings>): void {
-	const n = native();
+	const n = nativeBridge();
 	if (n?.setSettings) {
 		n.setSettings(patch).catch(() => {});
 		return;
 	}
 	if (browser) {
 		try {
-			localStorage.setItem(LS_KEY, JSON.stringify(get(settings)));
+			localStorage.setItem(LS_KEY, JSON.stringify(settings.current));
 		} catch {
 			/* ignore */
 		}
@@ -209,8 +209,7 @@ function persist(patch: Partial<AppSettings>): void {
 
 /** merges a partial update into the global settings and persists it immediately. */
 export function updateSettings(partial: Partial<AppSettings>): void {
-	const next = { ...get(settings), ...partial };
-	settings.set(next);
+	settings.current = { ...settings.current, ...partial };
 	persist(partial);
 }
 
@@ -221,7 +220,7 @@ const persistSoon = trailingDebounce<Partial<AppSettings>>(250, persist);
 
 /** updateSettings for a continuous control: applies at once, writes to disk once it settles. */
 export function updateSettingsLive(partial: Partial<AppSettings>): void {
-	settings.set({ ...get(settings), ...partial });
+	settings.current = { ...settings.current, ...partial };
 	persistSoon(partial);
 }
 
@@ -234,13 +233,13 @@ export function updateSettingsLive(partial: Partial<AppSettings>): void {
  */
 export async function setMcpEnabled(enabled: boolean): Promise<void> {
 	const api = (window as unknown as { texpileNative?: { mcpSetEnabled?: (v: boolean) => Promise<unknown> } }).texpileNative;
-	const before = get(settings).mcpEnabled;
-	settings.update((s) => ({ ...s, mcpEnabled: enabled }));
+	const before = settings.current.mcpEnabled;
+	settings.current = { ...settings.current, mcpEnabled: enabled };
 	try {
 		await api?.mcpSetEnabled?.(enabled);
 	} catch (e) {
 		console.error('Failed to change AI assistant access:', e);
-		settings.update((s) => ({ ...s, mcpEnabled: before }));
+		settings.current = { ...settings.current, mcpEnabled: before };
 	}
 }
 

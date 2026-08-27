@@ -2,7 +2,6 @@
 // (AST-based in every dialect, not textual) and repoint them. The scan is offered to the user
 // first; nothing is rewritten until they accept. Covers .tex, .typ and .md referrers alike - an
 // image dragged to another folder is just as broken for the markdown file that links it.
-import { get } from 'svelte/store';
 import { workspaceRoot, texFiles } from '$lib/workspace/workspaceStore';
 import { countFileRefs, replaceFileRefs, refDialectOf, REF_SCAN_EXTS, type RefDialect } from '$lib/workspace/fileRefs';
 import { relFromRoot } from '$lib/workspace/compilePipeline.svelte';
@@ -29,13 +28,13 @@ async function referrers(deps: RefUpdateDeps): Promise<string[]> {
 	try {
 		return await deps.scanFiles(REF_SCAN_EXTS);
 	} catch {
-		return get(texFiles).map((f) => f.path);
+		return texFiles.current.map((f) => f.path);
 	}
 }
 
 /** scan for references to the renamed file; null when nothing points at it */
 export async function scanRenamedRefs(oldPath: string, newPath: string, deps: RefUpdateDeps): Promise<RefUpdate | null> {
-	const root = get(workspaceRoot);
+	const root = workspaceRoot.current;
 	if (!root) return null;
 	const oldRel = relFromRoot(oldPath, root);
 	const newRel = relFromRoot(newPath, root);

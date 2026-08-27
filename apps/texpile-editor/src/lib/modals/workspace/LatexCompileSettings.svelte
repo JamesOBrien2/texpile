@@ -34,8 +34,8 @@
 	// nothing to explain - and as a readout, not a control: the flag lives in the command box, and a
 	// second switch for the same bit is a second thing to drift.
 	const runsIn = $derived.by(() => {
-		const root = $workspaceRoot;
-		const main = $mainFile;
+		const root = workspaceRoot.current;
+		const main = mainFile.current;
 		if (!root || !main || !cc.usesLatexmk(command) || !cc.usesCd(command)) return null;
 		const dir = dirname(main);
 		if (samePath(dir, root)) return null;
@@ -57,9 +57,9 @@
 <div class="mb-1 flex items-center justify-between gap-4">
 	<span class="text-sm">{m.wsview_live_mode_label()} <span class="text-surface-500">{m.wsview_experimental_label()}</span></span>
 	<Switch
-		checked={$compileConfig.latex.liveMode}
+		checked={compileConfig.current.latex.liveMode}
 		disabled={sessionActive}
-		onCheckedChange={(d) => projectConfigSync.setLiveMode($workspaceRoot, d.checked)}
+		onCheckedChange={(d) => projectConfigSync.setLiveMode(workspaceRoot.current, d.checked)}
 	>
 		<Switch.Control><Switch.Thumb /></Switch.Control>
 		<Switch.HiddenInput />

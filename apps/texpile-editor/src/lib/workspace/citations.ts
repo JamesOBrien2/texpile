@@ -1,26 +1,27 @@
-// parses the folder's .bib files into the shared references store; read-only
-import { writable } from 'svelte/store';
-import { parseBibtex, type BiblatexReference } from '$lib/languages/bib/biblatex';
+// parses the folder's .bib and .bbl files into the shared references list; read-only
+import { box } from '$lib/runes/box.svelte';
+import { parseBibtex, parseBblEntries, sliceBblBibitems, type BiblatexReference } from '$lib/languages/bib/biblatex';
 import { extractDocRefs, type BibItemSlice } from '$lib/languages/latex/parser/labels';
 import { scanFiles, readTextFile, type TexFile } from './fileSystem';
 
 export type { BiblatexReference };
 
-/** references from the folder's .bib files, also fed to the editor for @-cites. */
-export const references = writable<BiblatexReference[]>([]);
+/** references from the folder's .bib and .bbl files, also fed to the editor for @-cites. */
+export const references = box<BiblatexReference[]>([]);
 
-/** parses several .bib texts into one list, de-duplicated by key (first occurrence wins). */
-export function mergeReferences(texts: string[]): BiblatexReference[] {
+function parseBibSafe(text: string): BiblatexReference[] {
+	try {
+		return parseBibtex(text);
+	} catch {
+		return []; // skip an unparseable file rather than failing the whole load
+	}
+}
+
+function dedupeByKey(lists: BiblatexReference[][]): BiblatexReference[] {
 	const all: BiblatexReference[] = [];
 	const seen = new Set<string>();
-	for (const text of texts) {
-		let parsed: BiblatexReference[];
-		try {
-			parsed = parseBibtex(text);
-		} catch {
-			continue; // skip an unparseable file rather than failing the whole load
-		}
-		for (const ref of parsed) {
+	for (const list of lists) {
+		for (const ref of list) {
 			if (ref.key && !seen.has(ref.key)) {
 				seen.add(ref.key);
 				all.push(ref);
@@ -28,6 +29,18 @@ export function mergeReferences(texts: string[]): BiblatexReference[] {
 		}
 	}
 	return all;
+}
+
+/** parses several .bib texts into one list, de-duplicated by key (first occurrence wins). */
+export function mergeReferences(texts: string[]): BiblatexReference[] {
+	return dedupeByKey(texts.map(parseBibSafe));
+}
+
+/** references from a .bbl, whichever dialect wrote it: biber emits \entry blocks, classic
+ *  bibtex a thebibliography of \bibitem entries (same display heuristics as an embedded one). */
+export function bblToReferences(text: string): BiblatexReference[] {
+	if (/\\entry\{/.test(text)) return parseBblEntries(text);
+	return bibItemsToReferences(sliceBblBibitems(text));
 }
 
 /**
@@ -87,35 +100,43 @@ const nativeFs: ReferencesFs = { scan: (r, e) => scanFiles(r, e).then((x) => x.f
 // after a newer one would publish stale entries
 let loadSeq = 0;
 
-/** parses all .bib files in the folder, merged; references.bib wins on key clashes.
+function isBblFile(f: TexFile): boolean {
+	return /\.bbl$/i.test(f.name);
+}
+/** de-dupe order: references.bib, the other .bib files, then .bbl (generated, so it yields) */
+function precedence(f: TexFile): number {
+	return f.name.toLowerCase() === 'references.bib' ? 0 : isBblFile(f) ? 2 : 1;
+}
+
+/** parses all .bib and .bbl files in the folder, merged; on key clashes references.bib wins,
+ *  then the other .bib files, then .bbl (a .bbl is generated FROM the .bib, so when both hold a
+ *  key the editable source is the truth - .bbl-only keys, arXiv-style, still resolve).
  *  The store is NOT cleared up front: it used to be, and the empty window while the folder
  *  rescanned made every citation chip downgrade to its raw key and snap back - a visible flash
  *  on each save. The old list stays up until the fresh one replaces it in a single set. */
 export async function loadReferences(root: string, fs: ReferencesFs = nativeFs): Promise<void> {
 	const my = ++loadSeq;
 	try {
-		const files = await fs.scan(root, ['bib']);
+		const files = await fs.scan(root, ['bib', 'bbl']);
 		if (my !== loadSeq) return;
 		if (!files.length) {
-			references.set([]);
+			references.current = [];
 			return;
 		}
-		// read references.bib first so its entries take precedence in the de-dupe
-		const ordered = [...files].sort(
-			(a, b) => Number(b.name.toLowerCase() === 'references.bib') - Number(a.name.toLowerCase() === 'references.bib')
-		);
-		const texts: string[] = [];
+		const ordered = [...files].sort((a, b) => precedence(a) - precedence(b));
+		const lists: BiblatexReference[][] = [];
 		for (const f of ordered) {
 			try {
-				texts.push(await fs.read(f.path));
+				const text = await fs.read(f.path);
+				lists.push(isBblFile(f) ? bblToReferences(text) : parseBibSafe(text));
 			} catch {
 				/* skip unreadable file */
 			}
 		}
 		if (my !== loadSeq) return;
-		references.set(mergeReferences(texts));
+		references.current = dedupeByKey(lists);
 	} catch (e) {
 		console.error('Failed to load references:', e);
-		if (my === loadSeq) references.set([]);
+		if (my === loadSeq) references.current = [];
 	}
 }

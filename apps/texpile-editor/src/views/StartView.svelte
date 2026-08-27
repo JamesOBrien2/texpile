@@ -36,7 +36,7 @@
 	// lives in a popup instead of inline
 	const RECENT_COLLAPSED_COUNT = 5;
 	let recentModalOpen = $state(false);
-	const visibleRecents = $derived($recentFolders.slice(0, RECENT_COLLAPSED_COUNT));
+	const visibleRecents = $derived(recentFolders.current.slice(0, RECENT_COLLAPSED_COUNT));
 	let tutorialModalOpen = $state(false);
 	let prefsOpen = $state(false); // the menu bar isn't on this screen, so settings need a way in from here
 	const appVersion = __APP_VERSION__; // injected by Vite from package.json
@@ -72,9 +72,9 @@
 		// belt & braces: template/tutorial roots are freshly created, but claiming is cheap
 		if (!(await claimWorkspace(root)).ok) return;
 		const { files } = await scanTexFiles(root);
-		workspaceRoot.set(root);
-		texFiles.set(files);
-		activeFilePath.set(active ?? files[0]?.path ?? null);
+		workspaceRoot.current = root;
+		texFiles.current = files;
+		activeFilePath.current = active ?? files[0]?.path ?? null;
 		addRecentFolder(root);
 		navigate('/workspace');
 	}
@@ -112,9 +112,9 @@
 			// already open in another window: that window was focused, stay on the start screen
 			if (!(await claimWorkspace(root)).ok) return;
 			const { files } = await scanTexFiles(root);
-			workspaceRoot.set(root);
-			texFiles.set(files);
-			activeFilePath.set(await initialFile(root, files));
+			workspaceRoot.current = root;
+			texFiles.current = files;
+			activeFilePath.current = await initialFile(root, files);
 			addRecentFolder(root);
 			navigate('/workspace');
 		} catch (e) {
@@ -180,7 +180,7 @@
 				<p class="text-error-500 mt-2 px-2 text-sm">{error}</p>
 			{/if}
 
-			{#if $recentFolders.length > 0}
+			{#if recentFolders.current.length > 0}
 				<div class="mt-7 mb-1 flex items-center gap-3">
 					<span class="text-surface-500 shrink-0 text-xs font-semibold tracking-wider uppercase">{m.start_recent_heading()}</span>
 					<span class="border-surface-200-800 h-px flex-1 border-t"></span>
@@ -198,9 +198,9 @@
 						</span>
 					</button>
 				{/each}
-				{#if $recentFolders.length > RECENT_COLLAPSED_COUNT}
+				{#if recentFolders.current.length > RECENT_COLLAPSED_COUNT}
 					<button class="text-surface-500 hover:text-surface-950-50 mt-1 px-2 text-xs" onclick={() => (recentModalOpen = true)}>
-						{m.start_recent_show_all({ count: $recentFolders.length })}
+						{m.start_recent_show_all({ count: recentFolders.current.length })}
 					</button>
 				{/if}
 			{/if}
@@ -208,16 +208,16 @@
 			<!-- release notes belong next to the version, not competing with the actions above -->
 			<div class="border-surface-200-800 text-surface-500 mt-8 flex items-center justify-between gap-2 border-t px-2 pt-3 text-xs">
 				<span>{m.menubar_version_footer({ version: appVersion })}</span>
-				<button class="hover:text-surface-950-50 inline-flex items-center gap-1.5" onclick={() => whatsNewOpen.set(true)}>
+				<button class="hover:text-surface-950-50 inline-flex items-center gap-1.5" onclick={() => (whatsNewOpen.current = true)}>
 					{m.whatsnew_menu_label()}
-					{#if $hasUnseenWhatsNew}<span class="bg-primary-500 size-1.5 shrink-0 rounded-full"></span>{/if}
+					{#if hasUnseenWhatsNew.current}<span class="bg-primary-500 size-1.5 shrink-0 rounded-full"></span>{/if}
 				</button>
 			</div>
 		</div>
 	</div>
 </AppFrame>
 
-<RecentFoldersModal bind:open={recentModalOpen} folders={$recentFolders} onPick={(folder) => openFolder(folder)} />
+<RecentFoldersModal bind:open={recentModalOpen} folders={recentFolders.current} onPick={(folder) => openFolder(folder)} />
 
 {#if TutorialModal}
 	<TutorialModal bind:open={tutorialModalOpen} onConfirm={openTutorial} />

@@ -51,7 +51,7 @@
 					title={m.imageoverlay_settings_title()}
 					type="button"
 					aria-label={m.imageoverlay_settings_aria()}
-					disabled={$isReadOnly}
+					disabled={isReadOnly.current}
 				>
 					<Settings class="h-4 w-4" />
 				</button>
